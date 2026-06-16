@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String?
+  firstName      String
+  lastName       String
+  arabicFullName String?
+  phone          String?
+  role           UserRole  @default(RUNNER)
+  gender         Gender?
+  dateOfBirth    DateTime?
+  nationalId     String?   @unique
+  avatarUrl      String?
+  wilaya         String?
+  city           String?
+  commune        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organizations OrganizationMember[]
+  registrations RaceRegistration[]
+}
+
+enum UserRole {
+  RUNNER
+  ORGANIZER
+  ADMIN
+  SUPERADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Organization {
+  id           String             @id @default(cuid())
+  name         String
+  slug         String             @unique
+  description  String?
+  email        String?
+  phone        String?
+  website      String?
+  facebookUrl  String?
+  instagramUrl String?
+  wilaya       String?
+  city         String?
+  commune      String?
+  status       OrganizationStatus @default(PENDING)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  members OrganizationMember[]
+  races   RaceEvent[]
+}
+
+enum OrganizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model OrganizationMember {
+  id             String        @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrganizerRole @default(MEMBER)
+  createdAt      DateTime      @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+enum OrganizerRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model RaceEvent {
+  id                  String                  @id @default(cuid())
+  organizationId      String?
+  source              RaceSource              @default(ORGANIZATION)
+  title               String
+  slug                String                  @unique
+  description         String
+  raceType            RaceType
+  status              RaceStatus              @default(DRAFT)
+  registrationStatus  EventRegistrationStatus @default(NOT_OPEN)
+  startDate           DateTime
+  endDate             DateTime?
+  registrationOpenAt  DateTime?
+  registrationCloseAt DateTime?
+  wilaya              String
+  city                String
+  commune             String?
+  address             String?
+  latitude            Float?
+  longitude           Float?
+  mainImageUrl        String?
+  organizerName       String?
+  organizerUrl        String?
+  rules               String?
+  requiredDocuments   String?
+  contactEmail        String?
+  contactPhone        String?
+  maxParticipants     Int?
+  availablePlaces     Int?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  organization  Organization?      @relation(fields: [organizationId], references: [id])
+  categories    RaceCategory[]
+  registrations RaceRegistration[]
+}
+
+enum RaceSource {
+  ORGANIZATION
+  PLATFORM
+}
+
+enum RaceType {
+  ROAD
+  TRAIL
+  ULTRA_TRAIL
+  MARATHON
+  HALF_MARATHON
+  TEN_K
+  FIVE_K
+  KIDS
+  CHARITY
+  OTHER
+}
+
+enum RaceStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+  REJECTED
+}
+
+enum EventRegistrationStatus {
+  NOT_OPEN
+  OPEN
+  CLOSED
+  FULL
+  CANCELLED
+}
+
+model RaceCategory {
+  id              String    @id @default(cuid())
+  raceEventId     String
+  name            String
+  distanceKm      Float
+  elevationGainM  Int?
+  priceDzd        Int?
+  maxParticipants Int?
+  minAge          Int?
+  maxAge          Int?
+  startTime       DateTime?
+  cutoffTimeMin   Int?
+  gpxFileUrl      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  raceEvent     RaceEvent          @relation(fields: [raceEventId], references: [id])
+  registrations RaceRegistration[]
+}
+
+model RaceRegistration {
+  id                    String             @id @default(cuid())
+  userId                String
+  raceEventId           String
+  raceCategoryId        String
+  bibNumber             String?
+  status                RegistrationStatus @default(PENDING)
+  paymentStatus         PaymentStatus      @default(PENDING)
+  paymentMethod         PaymentMethod?
+  paymentProofUrl       String?
+  emergencyContactName  String
+  emergencyContactPhone String
+  clubName              String?
+  tshirtSize            String?
+  medicalCertificateUrl String?
+  notes                 String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id])
+  raceEvent    RaceEvent    @relation(fields: [raceEventId], references: [id])
+  raceCategory RaceCategory @relation(fields: [raceCategoryId], references: [id])
+
+  @@unique([userId, raceCategoryId])
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REJECTED
+  WAITING_LIST
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  MANUAL_REVIEW
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  BARIDIMOB
+  ONLINE_CARD
+  OTHER
+}

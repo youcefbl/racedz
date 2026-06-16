@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: racedz_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: racedz
+      POSTGRES_USER: racedz
+      POSTGRES_PASSWORD: racedz
+    ports:
+      - "5432:5432"
+    volumes:
+      - racedz_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U racedz -d racedz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  racedz_postgres_data:
