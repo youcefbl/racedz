@@ -64,15 +64,24 @@ The first useful version must let:
 
 ## Current Priority
 
-1. Build organizer onboarding:
+1. Fix known UX bug:
+   - Account/profile dropdown must close when the user clicks outside it.
+   - Account/profile dropdown must close after selecting a menu item.
+   - Keep keyboard accessibility intact.
+
+2. Build organizer onboarding:
    - Add an organization request form for regular users.
    - Save organization requests as `PENDING` organizations in PostgreSQL.
    - Attach the requester as organization owner/member.
    - Let admins approve or reject organizations.
    - Upgrade approved owners to `ORGANIZER` role.
    - Keep rejected organizations visible to admins with reason/status.
+   - Support organizations with multiple admin users.
+   - The organization creator becomes the owner/admin.
+   - Organization owner/admin can invite other users to the organization.
+   - Invited organization users should have explicit roles and permissions.
 
-2. Build organizer race management:
+3. Build organizer race management:
    - Approved organizers can create races.
    - Organization-created races start as `PENDING_REVIEW`.
    - Pending races must not appear on the public website.
@@ -82,7 +91,7 @@ The first useful version must let:
    - Organizers can export participant CSV files.
    - Organizers can open/close registration when permitted.
 
-3. Admin and superadmin follow-up:
+4. Admin and superadmin follow-up:
    - Add superadmin-created platform race form.
    - Add admin edit/unpublish controls for races.
    - Add admin user role management.
@@ -145,6 +154,12 @@ Rules:
 - Approved organizations can create races.
 - Organization-created races require admin approval before publication.
 - Organization-created races may later require a paid publishing plan.
+- Organizations can have many users.
+- Organization users must have explicit roles such as owner, admin, or member.
+- The user who creates the organization becomes the initial owner/admin.
+- Organization owner/admin users can invite other users to the organization.
+- Invited users should not gain access until the invite is accepted.
+- Organization role checks must happen on the server for every organization-owned action.
 
 ## Race Requirements
 
@@ -199,10 +214,13 @@ Rules:
 - Security headers.
 - Audit logs for admin actions.
 - Deployment documentation.
+- Registration resale marketplace.
 
 ## Deferred Bib Transfer Notes
 
-Do not build this in the MVP. Before implementing, define:
+Do not build this in the MVP. This covers selling/transferring a race registration, bib, or registration package before race day.
+
+Before implementing, define:
 
 - Whether each organizer must allow transfers.
 - Whether RaceDZ handles payment or only connects users.
@@ -210,8 +228,35 @@ Do not build this in the MVP. Before implementing, define:
 - ID verification rules.
 - Refund and fraud policy.
 - Whether the new runner must meet age/document requirements.
+- Whether the seller can post a public marketplace listing.
+- Whether the organizer must approve each sale or transfer before it becomes valid.
 
-Recommended first version later: controlled bib transfer request, organizer approval, and full audit record for old participant, new participant, and approval time.
+Recommended first version later: controlled registration transfer request, organizer approval, and full audit record for old participant, new participant, and approval time. Avoid an open marketplace until fraud, moderation, and payment rules are clear.
+
+## Security And Performance Requirements
+
+- Treat API security as part of every feature, not a final cleanup task.
+- Follow OWASP Top 10 practices:
+  - Server-side authorization on every protected route and action.
+  - Zod validation for all request bodies and form submissions.
+  - Avoid exposing sensitive user, payment, or admin data.
+  - Use secure Auth.js sessions and keep `AUTH_SECRET` private.
+  - Keep `.env`, uploads, and secrets out of Git.
+  - Avoid unsafe redirects; only allow safe internal callback URLs.
+  - Use CSRF-safe server actions or protected route handlers for mutations.
+  - Add rate limiting before production for auth and write-heavy endpoints.
+- Optimize database access:
+  - Use pagination for admin and public lists.
+  - Use `count` and aggregate queries for dashboard stats.
+  - Select only fields needed by each page/API.
+  - Avoid loading full tables for dashboards.
+  - Add indexes/migrations when filters become hot paths.
+  - Consider caching public race discovery after write flows are stable.
+- Keep quality gates:
+  - Run `npm run lint`.
+  - Run `npm run typecheck`.
+  - Run `npm run build` for meaningful app changes.
+  - Add focused tests when shared domain logic or critical flows become complex.
 
 ## Two-PC Development Workflow
 
