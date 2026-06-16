@@ -65,3 +65,5 @@ All use password `racedz-demo-password`.
 Use Git as the source of truth for code. Commit and push before switching PCs, then pull on the other PC.
 
 Keep `.env` local on each machine. Recreate local data with Docker, Prisma migrations, and seed data unless you explicitly need to export/import the exact same PostgreSQL data.
+
+Detailed setup guide: `NEW_PC_SETUP.md`
