@@ -17,6 +17,7 @@ The first useful version must let:
 - Stack is Next.js 15 App Router, React 19, TypeScript, Tailwind CSS, Prisma, PostgreSQL, Zod, and Auth.js credentials auth.
 - Public homepage, race listing, race details, login, signup, profile, registration, and account registrations exist.
 - PostgreSQL schema exists for users, organizations, races, categories, and registrations.
+- PostgreSQL schema now includes pending organization invitations.
 - Race discovery reads from Prisma when `DATABASE_URL` is configured, with mock fallback otherwise.
 - Login redirects by role:
   - Runner -> `/account`
@@ -61,39 +62,43 @@ The first useful version must let:
   - Registration list is searchable/filterable.
   - Organization approval/rejection is implemented.
   - Race approval/rejection is implemented.
+- Account/profile dropdown:
+  - Closes on outside click.
+  - Closes on menu item selection.
+  - Closes with Escape.
+  - Closes after route changes.
+- Organizer onboarding:
+  - Authenticated runners can access `/organizer/request`.
+  - Organization request form saves pending organizations to PostgreSQL.
+  - The requester is attached as organization owner.
+  - Admin approval flow can upgrade owners to organizer access.
+  - Organization owners/admins can create pending invitations with explicit organization roles.
+- Organizer race management:
+  - Approved organizers can create races from `/organizer/events/new`.
+  - Organization-created races start as `PENDING_REVIEW`.
+  - Organizer event list/detail pages read organization-owned races from PostgreSQL.
+  - Organizer participant list and participant CSV export use organization ownership checks.
+  - Organizers can open/close registration for their own published races.
+- Admin race management:
+  - Admins can approve, reject, and unpublish races.
 
 ## Current Priority
 
-1. Fix known UX bug:
-   - Account/profile dropdown must close when the user clicks outside it.
-   - Account/profile dropdown must close after selecting a menu item.
-   - Keep keyboard accessibility intact.
+1. Build organizer onboarding:
+   - Add invitation acceptance flow so invited users join the organization only after accepting.
+   - Add email delivery or copyable invite links.
+   - Add rejection reason fields for organizations and show the reason in admin views.
+   - Add organization member removal and role-change controls.
 
-2. Build organizer onboarding:
-   - Add an organization request form for regular users.
-   - Save organization requests as `PENDING` organizations in PostgreSQL.
-   - Attach the requester as organization owner/member.
-   - Let admins approve or reject organizations.
-   - Upgrade approved owners to `ORGANIZER` role.
-   - Keep rejected organizations visible to admins with reason/status.
-   - Support organizations with multiple admin users.
-   - The organization creator becomes the owner/admin.
-   - Organization owner/admin can invite other users to the organization.
-   - Invited organization users should have explicit roles and permissions.
-
-3. Build organizer race management:
-   - Approved organizers can create races.
-   - Organization-created races start as `PENDING_REVIEW`.
-   - Pending races must not appear on the public website.
+2. Build organizer race management:
    - Organizers can edit their own draft/pending races.
    - Organizers can add/edit race categories.
-   - Organizers can view participant lists.
-   - Organizers can export participant CSV files.
-   - Organizers can open/close registration when permitted.
+   - Add safer status rules for cancelling/full races and registration deadlines.
+   - Add race image fields after upload storage is decided.
 
-4. Admin and superadmin follow-up:
+3. Admin and superadmin follow-up:
    - Add superadmin-created platform race form.
-   - Add admin edit/unpublish controls for races.
+   - Add admin race edit controls.
    - Add admin user role management.
    - Add audit logs for approval and rejection actions.
 

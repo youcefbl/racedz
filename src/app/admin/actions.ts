@@ -93,6 +93,24 @@ export async function rejectRaceAction(formData: FormData) {
   revalidateAdmin();
 }
 
+export async function unpublishRaceAction(formData: FormData) {
+  await requireAdmin();
+  const raceId = getFormId(formData);
+
+  await getPrisma().raceEvent.update({
+    where: {
+      id: raceId
+    },
+    data: {
+      status: "DRAFT",
+      registrationStatus: "CLOSED"
+    }
+  });
+
+  revalidateAdmin();
+  revalidatePath("/races");
+}
+
 function getFormId(formData: FormData) {
   const id = formData.get("id");
 

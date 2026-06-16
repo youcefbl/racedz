@@ -1,24 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sampleRaces } from "@/lib/races";
-import { createRaceSchema } from "@/lib/validations";
+import { createOrganizerRace, OrganizerError, getOrganizerRaces, requireApprovedOrganizer } from "@/lib/organizer";
 
 export async function GET() {
+  const { organization } = await requireApprovedOrganizer();
+  const races = await getOrganizerRaces(organization.id);
+
   return NextResponse.json({
-    data: sampleRaces,
+    data: races,
     meta: {
-      authRequired: true,
-      role: "ORGANIZER"
+      count: races.length
     }
   });
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const parsed = createRaceSchema.safeParse(body);
+  const { organization } = await requireApprovedOrganizer();
 
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid event payload", details: parsed.error.flatten() }, { status: 422 });
+  try {
+    const race = await createOrganizerRace({
+      organizationId: organization.id,
+      input: await request.json()
+    });
+
+    return NextResponse.json({ data: race }, { status: 201 });
+  } catch (error) {
+    if (error instanceof OrganizerError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
+    throw error;
   }
-
-  return NextResponse.json({ data: { ...parsed.data, id: "pending-database-write", status: "DRAFT" } }, { status: 201 });
 }

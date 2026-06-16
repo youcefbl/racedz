@@ -19,8 +19,12 @@ export default auth((request) => {
     return NextResponse.redirect(new URL("/account", nextUrl));
   }
 
+  if (nextUrl.pathname === "/organizer/request") {
+    return NextResponse.next();
+  }
+
   if (nextUrl.pathname.startsWith("/organizer") && (!role || !organizerRoles.includes(role))) {
-    return NextResponse.redirect(new URL("/account", nextUrl));
+    return NextResponse.redirect(new URL("/organizer/request", nextUrl));
   }
 
   return NextResponse.next();

@@ -1,4 +1,12 @@
-import { SectionPage } from "@/components/layout/section-page";
+import { notFound } from "next/navigation";
+import { CalendarDays, MapPin, Route, UsersRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { formatDateTime, formatDzd } from "@/lib/format";
+import { getOrganizerRaceById, requireApprovedOrganizer } from "@/lib/organizer";
+import { updateRegistrationStatusAction } from "./actions";
+
+export const dynamic = "force-dynamic";
 
 type OrganizerEventPageProps = {
   params: Promise<{ id: string }>;
@@ -6,10 +14,115 @@ type OrganizerEventPageProps = {
 
 export default async function OrganizerEventPage({ params }: OrganizerEventPageProps) {
   const { id } = await params;
+  const { organization } = await requireApprovedOrganizer();
+  const race = await getOrganizerRaceById(organization.id, id);
+
+  if (!race) {
+    notFound();
+  }
 
   return (
-    <SectionPage eyebrow="Organizer event" title={id}>
-      Event overview, registration status, categories, and participant totals.
-    </SectionPage>
+    <div className="bg-gray-50">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Organizer event</p>
+            <h1 className="mt-2 text-3xl font-black text-gray-950">{race.title}</h1>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge variant={race.status === "PUBLISHED" ? "green" : race.status === "REJECTED" ? "red" : "orange"}>
+                {formatEnumLabel(race.status)}
+              </Badge>
+              <Badge variant="blue">{formatEnumLabel(race.registrationStatus)}</Badge>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href={`/organizer/events/${race.id}/registrations`} variant="secondary">
+              Registrations
+            </ButtonLink>
+            <ButtonLink href={`/organizer/events/${race.id}/edit`} variant="outline">
+              Edit
+            </ButtonLink>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          <section className="space-y-5">
+            <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-black text-gray-950">Overview</h2>
+              <p className="mt-3 text-sm leading-6 text-gray-600">{race.description}</p>
+              <div className="mt-5 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
+                <p className="flex items-center gap-2">
+                  <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
+                  {formatDateTime(race.startDate)}
+                </p>
+                <p className="flex items-center gap-2">
+                  <MapPin className="size-4 text-brand-teal" aria-hidden="true" />
+                  {race.city}, {race.wilaya}
+                </p>
+                <p className="flex items-center gap-2">
+                  <UsersRound className="size-4 text-brand-teal" aria-hidden="true" />
+                  {race._count.registrations} registrations
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-black text-gray-950">Categories</h2>
+              <div className="mt-4 grid gap-3">
+                {race.categories.map((category) => (
+                  <div key={category.id} className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4">
+                    <div>
+                      <p className="font-bold text-gray-950">{category.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {category.distanceKm}K{category.maxParticipants ? ` · ${category.maxParticipants} places` : ""}
+                      </p>
+                    </div>
+                    <p className="font-bold text-gray-950">{formatDzd(category.priceDzd ?? undefined)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <aside className="h-fit rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <Route className="mb-3 size-5 text-brand-orange" aria-hidden="true" />
+            <h2 className="text-xl font-black text-gray-950">Publication</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Organization-created races stay hidden from public pages until an admin publishes them.
+            </p>
+            {race.status === "PUBLISHED" ? (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                <form action={updateRegistrationStatusAction}>
+                  <input type="hidden" name="raceId" value={race.id} />
+                  <input type="hidden" name="registrationStatus" value="OPEN" />
+                  <Button type="submit" size="sm" className="w-full" disabled={race.registrationStatus === "OPEN"}>
+                    Open registration
+                  </Button>
+                </form>
+                <form action={updateRegistrationStatusAction}>
+                  <input type="hidden" name="raceId" value={race.id} />
+                  <input type="hidden" name="registrationStatus" value="CLOSED" />
+                  <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "CLOSED"}>
+                    Close registration
+                  </Button>
+                </form>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">
+                Registration controls unlock after publication.
+              </p>
+            )}
+          </aside>
+        </div>
+      </div>
+    </div>
   );
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

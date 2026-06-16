@@ -27,6 +27,7 @@ model User {
   updatedAt      DateTime  @updatedAt
 
   organizations OrganizationMember[]
+  organizationInvitationsSent OrganizationInvitation[]
   registrations RaceRegistration[]
 }
 
@@ -61,6 +62,7 @@ model Organization {
   updatedAt    DateTime           @updatedAt
 
   members OrganizationMember[]
+  invitations OrganizationInvitation[]
   races   RaceEvent[]
 }
 
@@ -88,6 +90,30 @@ enum OrganizerRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  email          String
+  role           OrganizerRole    @default(MEMBER)
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  token          String           @unique
+  createdAt      DateTime         @default(now())
+  acceptedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  invitedBy    User         @relation(fields: [invitedById], references: [id])
+
+  @@unique([organizationId, email])
+  @@index([email])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
 }
 
 model RaceEvent {

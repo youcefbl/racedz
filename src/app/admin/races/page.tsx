@@ -3,7 +3,7 @@ import { Building2, CalendarDays, MapPin, Route, Trophy, UsersRound } from "luci
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminRaces, requireAdmin } from "@/lib/admin";
-import { approveRaceAction, rejectRaceAction } from "../actions";
+import { approveRaceAction, rejectRaceAction, unpublishRaceAction } from "../actions";
 import { AdminShell, EmptyState, FilterBar, SelectFilter, StatusBadge } from "../_components/admin-ui";
 
 export const dynamic = "force-dynamic";
@@ -138,6 +138,14 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                         </Button>
                       </form>
                     </>
+                  ) : null}
+                  {race.status === "PUBLISHED" ? (
+                    <form action={unpublishRaceAction}>
+                      <input type="hidden" name="id" value={race.id} />
+                      <Button type="submit" variant="outline" size="sm" className="w-full">
+                        Unpublish
+                      </Button>
+                    </form>
                   ) : null}
                 </div>
               </div>

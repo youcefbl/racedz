@@ -38,6 +38,60 @@ export const updateProfileSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
+export const organizationRequestSchema = z.object({
+  name: z.string().min(3),
+  description: z.string().min(20),
+  email: z.string().email().transform((value) => value.toLowerCase()),
+  phone: z.string().min(6),
+  wilaya: z.string().min(2),
+  city: z.string().min(2),
+  commune: z.string().optional(),
+  website: z.string().url().optional(),
+  facebookUrl: z.string().url().optional(),
+  instagramUrl: z.string().url().optional()
+});
+
+export type OrganizationRequestInput = z.infer<typeof organizationRequestSchema>;
+
+export const organizationInviteSchema = z.object({
+  email: z.string().email().transform((value) => value.toLowerCase()),
+  role: z.enum(["ADMIN", "MEMBER"]).default("MEMBER")
+});
+
+export type OrganizationInviteInput = z.infer<typeof organizationInviteSchema>;
+
+export const organizerRaceSchema = z.object({
+  title: z.string().min(3),
+  description: z.string().min(20),
+  raceType: z.enum([
+    "ROAD",
+    "TRAIL",
+    "ULTRA_TRAIL",
+    "MARATHON",
+    "HALF_MARATHON",
+    "TEN_K",
+    "FIVE_K",
+    "KIDS",
+    "CHARITY",
+    "OTHER"
+  ]),
+  startDate: z.string().min(10),
+  registrationCloseAt: z.string().optional(),
+  wilaya: z.string().min(2),
+  city: z.string().min(2),
+  commune: z.string().optional(),
+  address: z.string().optional(),
+  contactEmail: z.string().email().optional(),
+  contactPhone: z.string().optional(),
+  maxParticipants: z.coerce.number().int().positive().optional(),
+  categoryName: z.string().min(2),
+  distanceKm: z.coerce.number().positive(),
+  priceDzd: z.coerce.number().int().nonnegative().optional(),
+  categoryMaxParticipants: z.coerce.number().int().positive().optional()
+});
+
+export type OrganizerRaceInput = z.infer<typeof organizerRaceSchema>;
+
 export const createRaceSchema = z.object({
   source: z.enum(["ORGANIZATION", "PLATFORM"]).default("ORGANIZATION"),
   title: z.string().min(3),

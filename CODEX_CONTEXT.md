@@ -33,6 +33,7 @@ Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product 
 - Algeria constants are in `src/lib/algeria.ts`.
 - Authorization helpers start in `src/lib/permissions.ts`.
 - Local PostgreSQL can run with `docker compose up -d postgres`.
+- `OrganizationInvitation` exists in `prisma/schema.prisma` and its migration. The current app code uses typed raw SQL for that table in `src/lib/organizer.ts` because local `prisma generate` was not refreshing the generated client during this session.
 
 ## MVP Priorities
 
