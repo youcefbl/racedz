@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
-import { signOutAction } from "@/components/layout/auth-actions";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
 
@@ -18,6 +18,7 @@ export type HeaderUser = {
 
 export function AccountMenu({ user }: { user: HeaderUser }) {
   const [open, setOpen] = useState(false);
+  const [signingOut, startSignOut] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const initials = getInitials(user.name);
@@ -92,16 +93,23 @@ export function AccountMenu({ user }: { user: HeaderUser }) {
               <MenuLink href="/admin" icon={ShieldCheck} label="Admin dashboard" onSelect={() => setOpen(false)} />
             ) : null}
           </div>
-          <form action={signOutAction} className="border-t border-gray-200 pt-2">
+          <div className="border-t border-gray-200 pt-2">
             <button
-              type="submit"
+              type="button"
               role="menuitem"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+              disabled={signingOut}
+              onClick={() => {
+                setOpen(false);
+                startSignOut(() => {
+                  void signOut({ callbackUrl: "/login" });
+                });
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <LogOut className="size-4 text-brand-orange" aria-hidden="true" />
-              Sign out
+              {signingOut ? "Signing out..." : "Sign out"}
             </button>
-          </form>
+          </div>
         </div>
       ) : null}
     </div>

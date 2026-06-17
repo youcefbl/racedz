@@ -102,7 +102,7 @@ export async function getAdminOrganizations(filters: { q?: string; status?: stri
   const prisma = getPrisma();
   const q = filters.q?.trim();
 
-  return prisma.organization.findMany({
+  const organizations = await prisma.organization.findMany({
     where: {
       status: isOrganizationStatus(filters.status) ? filters.status : undefined,
       OR: q
@@ -143,6 +143,12 @@ export async function getAdminOrganizations(filters: { q?: string; status?: stri
     },
     take: 50
   });
+  const rejectionReasons = await getOrganizationRejectionReasons(organizations.map((organization) => organization.id));
+
+  return organizations.map((organization) => ({
+    ...organization,
+    rejectionReason: rejectionReasons.get(organization.id) ?? null
+  }));
 }
 
 export async function getAdminRaces(filters: {
@@ -246,6 +252,44 @@ export async function getAdminRegistrations(filters: { q?: string; status?: stri
   });
 }
 
+export type RaceEditHistoryRow = {
+  id: string;
+  raceEventId: string;
+  raceTitle: string;
+  editorId: string;
+  editorName: string;
+  editorEmail: string;
+  action: string;
+  summary: string | null;
+  changes: Array<{
+    field: string;
+    before: unknown;
+    after: unknown;
+  }>;
+  createdAt: Date;
+};
+
+export async function getAdminRaceEditHistory(raceEventId: string) {
+  return getPrisma().$queryRaw<RaceEditHistoryRow[]>`
+    SELECT
+      history."id",
+      history."raceEventId",
+      race."title" AS "raceTitle",
+      history."editorId",
+      CONCAT(editor."firstName", ' ', editor."lastName") AS "editorName",
+      editor."email" AS "editorEmail",
+      history."action",
+      history."summary",
+      history."changes",
+      history."createdAt"
+    FROM "RaceEditHistory" history
+    INNER JOIN "RaceEvent" race ON race."id" = history."raceEventId"
+    INNER JOIN "User" editor ON editor."id" = history."editorId"
+    WHERE history."raceEventId" = ${raceEventId}
+    ORDER BY history."createdAt" DESC
+  `;
+}
+
 function isUserRole(value?: string) {
   return value === "RUNNER" || value === "ORGANIZER" || value === "ADMIN" || value === "SUPERADMIN";
 }
@@ -268,4 +312,18 @@ function isRegistrationStatus(value?: string) {
 
 function isPaymentStatus(value?: string) {
   return value === "NOT_REQUIRED" || value === "PENDING" || value === "PAID" || value === "FAILED" || value === "REFUNDED" || value === "MANUAL_REVIEW";
+}
+
+async function getOrganizationRejectionReasons(organizationIds: string[]) {
+  if (organizationIds.length === 0) {
+    return new Map<string, string | null>();
+  }
+
+  const rows = await getPrisma().$queryRaw<Array<{ id: string; rejectionReason: string | null }>>`
+    SELECT "id", "rejectionReason"
+    FROM "Organization"
+    WHERE "id" = ANY(${organizationIds})
+  `;
+
+  return new Map(rows.map((row) => [row.id, row.rejectionReason]));
 }

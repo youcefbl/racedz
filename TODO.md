@@ -73,33 +73,52 @@ The first useful version must let:
   - The requester is attached as organization owner.
   - Admin approval flow can upgrade owners to organizer access.
   - Organization owners/admins can create pending invitations with explicit organization roles.
+  - Pending invitations expose copyable invite links.
+  - Invited users can accept invitations from `/invite/[token]`.
+  - Invite acceptance validates login, invited email, pending status, and approved organization status.
+  - Accepted invitees become organization members and runners are upgraded to organizer access.
+  - Organization owners/admins can update member roles.
+  - Organization owners/admins can remove members with owner-lockout protections.
+  - Admins can reject organizations with a stored rejection reason.
+  - Admin organization list shows rejection reasons for rejected organizations.
 - Organizer race management:
   - Approved organizers can create races from `/organizer/events/new`.
   - Organization-created races start as `PENDING_REVIEW`.
   - Organizer event list/detail pages read organization-owned races from PostgreSQL.
   - Organizer participant list and participant CSV export use organization ownership checks.
   - Organizers can open/close registration for their own published races.
+  - Organizers can edit their own draft, pending, or rejected races.
+  - Organizers can add and edit race categories before publication.
+  - Organizers can set a main image URL before file uploads are implemented.
+  - Organizer race/category edits are recorded with timestamped history.
+  - Race categories can have their own start time for multi-race event scheduling.
 - Admin race management:
   - Admins can approve, reject, and unpublish races.
+  - Admins can manage user roles, with superadmin safeguards.
+  - Superadmins can view organizer race edit history.
+- Dashboard navigation:
+  - Admin panel has persistent mobile top tabs and desktop left navigation.
+  - Organizer panel has persistent mobile top tabs and desktop left navigation.
+- Backlog UI fixes:
+  - Removed duplicated Create item from organizer panel navigation.
+  - Made dashboard left navigation flush with the left edge on desktop.
+  - Fixed Invite organization user form overflow in the organizer members panel.
+  - Switched sign-out to client-side Auth.js redirect to avoid stale authenticated UI after logout.
 
 ## Current Priority
 
 1. Build organizer onboarding:
-   - Add invitation acceptance flow so invited users join the organization only after accepting.
-   - Add email delivery or copyable invite links.
-   - Add rejection reason fields for organizations and show the reason in admin views.
-   - Add organization member removal and role-change controls.
+   - Add email delivery later if manual copy links are not enough.
+   - Add avatar/logo image support for users and organizations.
 
 2. Build organizer race management:
-   - Organizers can edit their own draft/pending races.
-   - Organizers can add/edit race categories.
    - Add safer status rules for cancelling/full races and registration deadlines.
-   - Add race image fields after upload storage is decided.
+   - Add file uploads for race images after storage is decided.
+   - Support one event containing multiple races/categories with different race types.
 
 3. Admin and superadmin follow-up:
    - Add superadmin-created platform race form.
    - Add admin race edit controls.
-   - Add admin user role management.
    - Add audit logs for approval and rejection actions.
 
 ## Public Website
@@ -133,6 +152,7 @@ The first useful version must let:
 ## Auth And Account Follow-Up
 
 - Improve signup UX and validation messages.
+- Add user avatar upload/display.
 - Add profile completion prompts before race registration when important fields are missing.
 - Add registration cancellation or change-request actions.
 - Add password reset later.
@@ -144,6 +164,7 @@ The first useful version must let:
 Organization fields:
 
 - Name
+- Logo/avatar image
 - Contact email
 - Contact phone
 - Wilaya
@@ -172,6 +193,7 @@ Race fields:
 
 - Race name
 - Date and time
+- Optional race-specific date and time when an event has multiple race starts
 - Wilaya
 - City/commune
 - Full location/address
@@ -185,6 +207,7 @@ Race fields:
 - Price
 - Registration deadline
 - Race type: road, trail, marathon, half marathon, 10K, 5K, kids, charity, other
+- Edit history: changed fields, previous values, new values, editor, and timestamp
 
 Rules:
 
@@ -193,6 +216,8 @@ Rules:
 - Race details show full event information and registration CTA.
 - Registration is blocked when the race is closed, full, cancelled, unpublished, or past deadline.
 - Organization-created races stay hidden from public pages until admin approval.
+- One event can contain multiple races/categories with different distances, race types, prices, capacities, and start dates.
+- Organizer edits to race details should be recorded in a timestamped history visible to superadmins.
 
 ## Admin And Superadmin Rules
 
@@ -218,6 +243,7 @@ Rules:
 - Rate limiting for auth endpoints.
 - Security headers.
 - Audit logs for admin actions.
+- Race edit history for organizer changes.
 - Deployment documentation.
 - Registration resale marketplace.
 

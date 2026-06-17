@@ -7,11 +7,12 @@ import { registerAction, type RegisterActionState } from "./actions";
 
 const initialState: RegisterActionState = {};
 
-export function RegisterForm() {
+export function RegisterForm({ callbackUrl }: { callbackUrl?: string }) {
   const [state, formAction, pending] = useActionState(registerAction, initialState);
 
   return (
     <form action={formAction} className="grid gap-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
       {state.error ? (
         <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{state.error}</p>
       ) : null}

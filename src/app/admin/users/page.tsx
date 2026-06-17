@@ -1,7 +1,9 @@
 import { Mail, MapPin, Phone, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { getAdminUsers, requireAdmin } from "@/lib/admin";
 import { AdminShell, EmptyState, FilterBar, SelectFilter, StatusBadge } from "../_components/admin-ui";
+import { updateUserRoleAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,7 @@ type AdminUsersPageProps = {
 };
 
 export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const filters = await searchParams;
   const users = await getAdminUsers({
     q: filters?.q,
@@ -46,6 +48,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                 <tr>
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Manage role</th>
                   <th className="px-4 py-3">Contact</th>
                   <th className="px-4 py-3">Location</th>
                   <th className="px-4 py-3">Activity</th>
@@ -70,6 +73,33 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     </td>
                     <td className="px-4 py-4">
                       <StatusBadge value={user.role} />
+                    </td>
+                    <td className="px-4 py-4">
+                      <form action={updateUserRoleAction} className="grid min-w-44 gap-2">
+                        <input type="hidden" name="id" value={user.id} />
+                        <label>
+                          <span className="sr-only">Role for {user.email}</span>
+                          <select
+                            name="role"
+                            defaultValue={user.role}
+                            disabled={user.id === session.user.id || (user.role === "SUPERADMIN" && session.user.role !== "SUPERADMIN")}
+                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <option value="RUNNER">Runner</option>
+                            <option value="ORGANIZER">Organizer</option>
+                            <option value="ADMIN">Admin</option>
+                            {session.user.role === "SUPERADMIN" || user.role === "SUPERADMIN" ? <option value="SUPERADMIN">Superadmin</option> : null}
+                          </select>
+                        </label>
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          size="sm"
+                          disabled={user.id === session.user.id || (user.role === "SUPERADMIN" && session.user.role !== "SUPERADMIN")}
+                        >
+                          Save role
+                        </Button>
+                      </form>
                     </td>
                     <td className="px-4 py-4 text-gray-600">
                       <p className="flex items-center gap-2">

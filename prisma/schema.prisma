@@ -29,6 +29,7 @@ model User {
   organizations OrganizationMember[]
   organizationInvitationsSent OrganizationInvitation[]
   registrations RaceRegistration[]
+  raceEditHistory RaceEditHistory[]
 }
 
 enum UserRole {
@@ -58,6 +59,7 @@ model Organization {
   city         String?
   commune      String?
   status       OrganizationStatus @default(PENDING)
+  rejectionReason String?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -151,6 +153,7 @@ model RaceEvent {
   organization  Organization?      @relation(fields: [organizationId], references: [id])
   categories    RaceCategory[]
   registrations RaceRegistration[]
+  editHistory   RaceEditHistory[]
 }
 
 enum RaceSource {
@@ -232,6 +235,22 @@ model RaceRegistration {
   raceCategory RaceCategory @relation(fields: [raceCategoryId], references: [id])
 
   @@unique([userId, raceCategoryId])
+}
+
+model RaceEditHistory {
+  id          String   @id @default(cuid())
+  raceEventId String
+  editorId    String
+  action      String
+  summary     String?
+  changes     Json
+  createdAt   DateTime @default(now())
+
+  raceEvent RaceEvent @relation(fields: [raceEventId], references: [id])
+  editor    User      @relation(fields: [editorId], references: [id])
+
+  @@index([raceEventId, createdAt])
+  @@index([editorId])
 }
 
 enum RegistrationStatus {

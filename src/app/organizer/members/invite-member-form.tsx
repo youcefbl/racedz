@@ -28,7 +28,7 @@ export function InviteMemberForm({ canInvite }: { canInvite: boolean }) {
           {state.success}
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
+      <div className="grid gap-3">
         <label className="grid gap-2 text-sm font-semibold text-gray-800">
           Email
           <input
@@ -51,7 +51,7 @@ export function InviteMemberForm({ canInvite }: { canInvite: boolean }) {
             <option value="ADMIN">Admin</option>
           </select>
         </label>
-        <Button type="submit" className="self-end" disabled={!canInvite || pending}>
+        <Button type="submit" disabled={!canInvite || pending}>
           {pending ? "Inviting..." : "Invite"}
         </Button>
       </div>

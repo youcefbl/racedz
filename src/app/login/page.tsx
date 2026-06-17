@@ -61,7 +61,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
           <div className="mt-5 flex items-center justify-between gap-3 text-sm">
             <span className="text-gray-500">New runner?</span>
-            <ButtonLink href="/register" variant="outline" size="sm">
+            <ButtonLink href={params?.callbackUrl ? `/register?callbackUrl=${encodeURIComponent(params.callbackUrl)}` : "/register"} variant="outline" size="sm">
               Create account
             </ButtonLink>
           </div>

@@ -1,17 +1,8 @@
-import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { Building2, ClipboardList, LayoutDashboard, Search, ShieldCheck, Trophy, UsersRound } from "lucide-react";
+import { Search, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Users", icon: UsersRound },
-  { href: "/admin/organizations", label: "Organizations", icon: Building2 },
-  { href: "/admin/races", label: "Races", icon: Trophy },
-  { href: "/admin/registrations", label: "Registrations", icon: ClipboardList }
-];
 
 type AdminShellProps = {
   eyebrow?: string;
@@ -33,27 +24,9 @@ export function AdminShell({ eyebrow = "Admin", title, description, action, chil
           </div>
           {action}
         </div>
-        <AdminNav />
-        <div className="mt-6">{children}</div>
+        {children}
       </div>
     </div>
-  );
-}
-
-export function AdminNav() {
-  return (
-    <nav className="flex gap-2 overflow-x-auto rounded-lg border border-gray-200 bg-white p-2 shadow-sm" aria-label="Admin navigation">
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 hover:text-brand-teal"
-        >
-          <item.icon className="size-4" aria-hidden="true" />
-          {item.label}
-        </Link>
-      ))}
-    </nav>
   );
 }
 

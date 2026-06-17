@@ -86,18 +86,33 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
                       <span>{organization._count.members} members</span>
                       <span>{organization._count.races} races</span>
                     </div>
+                    {organization.rejectionReason ? (
+                      <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                        <p className="font-bold">Rejection reason</p>
+                        <p className="mt-1 leading-6">{organization.rejectionReason}</p>
+                      </div>
+                    ) : null}
                   </div>
 
                   {organization.status === "PENDING" ? (
-                    <div className="grid gap-2 sm:grid-cols-2 lg:w-40 lg:grid-cols-1">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-1">
                       <form action={approveOrganizationAction}>
                         <input type="hidden" name="id" value={organization.id} />
                         <Button type="submit" variant="secondary" size="sm" className="w-full">
                           Approve
                         </Button>
                       </form>
-                      <form action={rejectOrganizationAction}>
+                      <form action={rejectOrganizationAction} className="grid gap-2">
                         <input type="hidden" name="id" value={organization.id} />
+                        <label className="grid gap-1 text-xs font-bold text-gray-700">
+                          Rejection reason
+                          <textarea
+                            name="reason"
+                            rows={3}
+                            placeholder="Missing documents, invalid contact, duplicate organization..."
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+                          />
+                        </label>
                         <Button type="submit" variant="outline" size="sm" className="w-full">
                           Reject
                         </Button>

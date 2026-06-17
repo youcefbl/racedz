@@ -1,9 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { inviteOrganizationUser, OrganizerError, requireApprovedOrganizer } from "@/lib/organizer";
+import {
+  inviteOrganizationUser,
+  OrganizerError,
+  removeOrganizationMember,
+  requireApprovedOrganizer,
+  updateOrganizationMemberRole
+} from "@/lib/organizer";
 
 export type InviteMemberActionState = {
+  error?: string;
+  success?: string;
+};
+
+export type ManageMemberActionState = {
   error?: string;
   success?: string;
 };
@@ -37,7 +48,65 @@ export async function inviteMemberAction(
 
   revalidatePath("/organizer/members");
 
-  return { success: "Invitation created. Email delivery will be wired later." };
+  return { success: "Invitation created. Copy the pending invite link and send it to the teammate." };
+}
+
+export async function updateMemberRoleAction(
+  _previousState: ManageMemberActionState,
+  formData: FormData
+): Promise<ManageMemberActionState> {
+  const { membership, organization } = await requireApprovedOrganizer();
+  const role = getString(formData, "role");
+
+  if (role !== "OWNER" && role !== "ADMIN" && role !== "MEMBER") {
+    return { error: "Choose a valid member role." };
+  }
+
+  try {
+    await updateOrganizationMemberRole({
+      organizationId: organization.id,
+      actorMemberId: membership.id,
+      actorRole: membership.role,
+      targetMemberId: getString(formData, "memberId"),
+      role
+    });
+  } catch (error) {
+    if (error instanceof OrganizerError) {
+      return { error: error.message };
+    }
+
+    throw error;
+  }
+
+  revalidatePath("/organizer/members");
+
+  return { success: "Member role updated." };
+}
+
+export async function removeMemberAction(
+  _previousState: ManageMemberActionState,
+  formData: FormData
+): Promise<ManageMemberActionState> {
+  const { membership, organization } = await requireApprovedOrganizer();
+
+  try {
+    await removeOrganizationMember({
+      organizationId: organization.id,
+      actorMemberId: membership.id,
+      actorRole: membership.role,
+      targetMemberId: getString(formData, "memberId")
+    });
+  } catch (error) {
+    if (error instanceof OrganizerError) {
+      return { error: error.message };
+    }
+
+    throw error;
+  }
+
+  revalidatePath("/organizer/members");
+
+  return { success: "Member removed." };
 }
 
 function getString(formData: FormData, key: string) {

@@ -18,7 +18,7 @@ type AdminRacesPageProps = {
 };
 
 export default async function AdminRacesPage({ searchParams }: AdminRacesPageProps) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const filters = await searchParams;
   const races = await getAdminRaces({
     q: filters?.q,
@@ -123,6 +123,14 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                     <Route className="size-4" aria-hidden="true" />
                     View
                   </Link>
+                  {session.user.role === "SUPERADMIN" ? (
+                    <Link
+                      href={`/admin/races/${race.id}/history`}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 transition hover:border-brand-teal hover:text-brand-teal"
+                    >
+                      History
+                    </Link>
+                  ) : null}
                   {race.status === "PENDING_REVIEW" ? (
                     <>
                       <form action={approveRaceAction}>

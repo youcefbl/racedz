@@ -13,6 +13,7 @@ export async function registerAction(
   _previousState: RegisterActionState,
   formData: FormData
 ): Promise<RegisterActionState> {
+  const callbackUrl = getSafeCallbackUrl(formData.get("callbackUrl"));
   const parsed = registerUserSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -59,5 +60,13 @@ export async function registerAction(
     }
   });
 
-  redirect("/login");
+  redirect(callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login");
+}
+
+function getSafeCallbackUrl(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return null;
+  }
+
+  return value;
 }

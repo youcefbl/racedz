@@ -92,6 +92,46 @@ export const organizerRaceSchema = z.object({
 
 export type OrganizerRaceInput = z.infer<typeof organizerRaceSchema>;
 
+export const organizerRaceUpdateSchema = z.object({
+  title: z.string().min(3),
+  description: z.string().min(20),
+  raceType: z.enum([
+    "ROAD",
+    "TRAIL",
+    "ULTRA_TRAIL",
+    "MARATHON",
+    "HALF_MARATHON",
+    "TEN_K",
+    "FIVE_K",
+    "KIDS",
+    "CHARITY",
+    "OTHER"
+  ]),
+  startDate: z.string().min(10),
+  registrationCloseAt: z.string().optional(),
+  wilaya: z.string().min(2),
+  city: z.string().min(2),
+  commune: z.string().optional(),
+  address: z.string().optional(),
+  contactEmail: z.string().email().optional(),
+  contactPhone: z.string().optional(),
+  maxParticipants: z.coerce.number().int().positive().optional(),
+  mainImageUrl: z.string().url().optional()
+});
+
+export type OrganizerRaceUpdateInput = z.infer<typeof organizerRaceUpdateSchema>;
+
+export const organizerCategorySchema = z.object({
+  categoryId: z.string().optional(),
+  name: z.string().min(2),
+  distanceKm: z.coerce.number().positive(),
+  priceDzd: z.coerce.number().int().nonnegative().optional(),
+  maxParticipants: z.coerce.number().int().positive().optional(),
+  startTime: z.string().optional()
+});
+
+export type OrganizerCategoryInput = z.infer<typeof organizerCategorySchema>;
+
 export const createRaceSchema = z.object({
   source: z.enum(["ORGANIZATION", "PLATFORM"]).default("ORGANIZATION"),
   title: z.string().min(3),
