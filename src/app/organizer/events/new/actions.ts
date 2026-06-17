@@ -28,11 +28,14 @@ export async function createOrganizerRaceAction(
         address: getOptionalString(formData, "address"),
         contactEmail: getOptionalString(formData, "contactEmail"),
         contactPhone: getOptionalString(formData, "contactPhone"),
+        mainImageUrl: getOptionalString(formData, "mainImageUrl"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),
         categoryName: getString(formData, "categoryName"),
         distanceKm: getString(formData, "distanceKm"),
         priceDzd: getOptionalString(formData, "priceDzd"),
-        categoryMaxParticipants: getOptionalString(formData, "categoryMaxParticipants")
+        categoryMaxParticipants: getOptionalString(formData, "categoryMaxParticipants"),
+        startTime: getOptionalString(formData, "categoryStartTime"),
+        categories: getCategoryRows(formData)
       }
     });
   } catch (error) {
@@ -56,4 +59,28 @@ function getOptionalString(formData: FormData, key: string) {
   const value = getString(formData, key);
 
   return value || undefined;
+}
+
+function getCategoryRows(formData: FormData) {
+  const names = getStrings(formData, "categoryName");
+  const raceTypes = getStrings(formData, "categoryRaceType");
+  const distances = getStrings(formData, "distanceKm");
+  const prices = getStrings(formData, "priceDzd");
+  const capacities = getStrings(formData, "categoryMaxParticipants");
+  const startTimes = getStrings(formData, "categoryStartTime");
+
+  return names
+    .map((name, index) => ({
+      name,
+      raceType: raceTypes[index] || getString(formData, "raceType"),
+      distanceKm: distances[index],
+      priceDzd: prices[index] || undefined,
+      maxParticipants: capacities[index] || undefined,
+      startTime: startTimes[index] || undefined
+    }))
+    .filter((category) => category.name.length > 0 || category.distanceKm.length > 0);
+}
+
+function getStrings(formData: FormData, key: string) {
+  return formData.getAll(key).map((value) => (typeof value === "string" ? value.trim() : ""));
 }

@@ -252,15 +252,19 @@ a {
 
 [data-theme="dark"] input,
 [data-theme="dark"] select,
+[data-theme="dark"] textarea,
 [data-theme="race"] input,
-[data-theme="race"] select {
+[data-theme="race"] select,
+[data-theme="race"] textarea {
   background-color: var(--surface) !important;
   border-color: var(--border) !important;
   color: var(--text-strong) !important;
 }
 
 [data-theme="dark"] input::placeholder,
-[data-theme="race"] input::placeholder {
+[data-theme="dark"] textarea::placeholder,
+[data-theme="race"] input::placeholder,
+[data-theme="race"] textarea::placeholder {
   color: var(--text-muted) !important;
 }
 

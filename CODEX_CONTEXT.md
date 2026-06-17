@@ -32,6 +32,8 @@ Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product 
 - Reusable labels, mock fallback race data, and filters are in `src/lib/races.ts`.
 - Algeria constants are in `src/lib/algeria.ts`.
 - Authorization helpers start in `src/lib/permissions.ts`.
+- Local image uploads go through `src/lib/storage.ts` and write to `public/uploads` for the MVP. Uploaded files are gitignored except `public/uploads/.gitkeep`. Keep the storage helper as the boundary for a later S3-compatible backend.
+- Local development uses one fixed app URL: `http://127.0.0.1:3003`. Do not rotate ports; Auth.js redirects are configured for this origin.
 - Local PostgreSQL can run with `docker compose up -d postgres`.
 - `OrganizationInvitation` exists in `prisma/schema.prisma` and its migration. The current app code uses typed raw SQL for that table in `src/lib/organizer.ts` because local `prisma generate` was not refreshing the generated client during this session.
 - `RaceEditHistory` stores organizer race/category changes. History writes use raw SQL in `src/lib/organizer.ts`, and superadmin reads use raw SQL in `src/lib/admin.ts`.

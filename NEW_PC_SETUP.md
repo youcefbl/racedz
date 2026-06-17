@@ -149,10 +149,10 @@ npm run dev
 Open the URL printed by Next.js, usually:
 
 ```text
-http://localhost:3000
+http://127.0.0.1:3003
 ```
 
-If port `3000` is busy, Next.js will use another port, such as `3003`.
+RaceDZ intentionally uses fixed local port `3003` because Auth.js redirects are configured for that origin. If port `3003` is busy, stop the other process instead of switching ports.
 
 ## Daily Workflow Between Two PCs
 

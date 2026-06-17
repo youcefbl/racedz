@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin";
+import { recordAdminAuditLog, requireAdmin } from "@/lib/admin";
 
 export async function approveOrganizationAction(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const organizationId = getFormId(formData);
   const prisma = getPrisma();
 
@@ -47,11 +47,19 @@ export async function approveOrganizationAction(formData: FormData) {
     });
   });
 
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "organization.approved",
+    targetType: "Organization",
+    targetId: organizationId,
+    summary: "Approved organization"
+  });
+
   revalidateAdmin();
 }
 
 export async function rejectOrganizationAction(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const organizationId = getFormId(formData);
   const reason = getOptionalFormString(formData, "reason");
 
@@ -64,11 +72,22 @@ export async function rejectOrganizationAction(formData: FormData) {
     WHERE "id" = ${organizationId}
   `;
 
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "organization.rejected",
+    targetType: "Organization",
+    targetId: organizationId,
+    summary: "Rejected organization",
+    metadata: {
+      reason
+    }
+  });
+
   revalidateAdmin();
 }
 
 export async function approveRaceAction(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const raceId = getFormId(formData);
 
   await getPrisma().raceEvent.update({
@@ -80,12 +99,20 @@ export async function approveRaceAction(formData: FormData) {
     }
   });
 
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "race.approved",
+    targetType: "RaceEvent",
+    targetId: raceId,
+    summary: "Published race"
+  });
+
   revalidateAdmin();
   revalidatePath("/races");
 }
 
 export async function rejectRaceAction(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const raceId = getFormId(formData);
 
   await getPrisma().raceEvent.update({
@@ -97,11 +124,19 @@ export async function rejectRaceAction(formData: FormData) {
     }
   });
 
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "race.rejected",
+    targetType: "RaceEvent",
+    targetId: raceId,
+    summary: "Rejected race"
+  });
+
   revalidateAdmin();
 }
 
 export async function unpublishRaceAction(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const raceId = getFormId(formData);
 
   await getPrisma().raceEvent.update({
@@ -112,6 +147,14 @@ export async function unpublishRaceAction(formData: FormData) {
       status: "DRAFT",
       registrationStatus: "CLOSED"
     }
+  });
+
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "race.unpublished",
+    targetType: "RaceEvent",
+    targetId: raceId,
+    summary: "Unpublished race"
   });
 
   revalidateAdmin();
@@ -170,6 +213,18 @@ export async function updateUserRoleAction(formData: FormData) {
     }
   });
 
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "user.role_updated",
+    targetType: "User",
+    targetId: userId,
+    summary: `Changed user role to ${role}`,
+    metadata: {
+      previousRole: target.role,
+      nextRole: role
+    }
+  });
+
   revalidateAdmin();
 }
 
@@ -205,4 +260,5 @@ function revalidateAdmin() {
   revalidatePath("/admin/races");
   revalidatePath("/admin/users");
   revalidatePath("/admin/registrations");
+  revalidatePath("/admin/audit");
 }

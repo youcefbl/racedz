@@ -69,6 +69,7 @@ export async function upsertOrganizerCategoryAction(
       input: {
         categoryId: getOptionalString(formData, "categoryId"),
         name: getString(formData, "name"),
+        raceType: getString(formData, "raceType"),
         distanceKm: getString(formData, "distanceKm"),
         priceDzd: getOptionalString(formData, "priceDzd"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),

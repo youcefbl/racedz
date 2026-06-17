@@ -1,13 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { AlertCircle, CalendarDays, MapPin, Plus, Route, Trash2, Trophy } from "lucide-react";
+import { AlertCircle, CalendarDays, Image, MapPin, Plus, Route, ShieldCheck, Trash2, Trophy } from "lucide-react";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
-import { createOrganizerRaceAction, type OrganizerRaceActionState } from "./actions";
+import { createPlatformRaceAction, type PlatformRaceActionState } from "./actions";
 
-const initialState: OrganizerRaceActionState = {};
+const initialState: PlatformRaceActionState = {};
 const raceTypeOptions = [
   { value: "ROAD", label: "Road race" },
   { value: "TRAIL", label: "Trail" },
@@ -21,14 +21,8 @@ const raceTypeOptions = [
   { value: "OTHER", label: "Other" }
 ];
 
-export function OrganizerEventForm({
-  organization,
-  defaults
-}: {
-  organization: { email?: string | null; phone?: string | null; wilaya?: string | null; city?: string | null; commune?: string | null };
-  defaults?: { title?: string };
-}) {
-  const [state, formAction, pending] = useActionState(createOrganizerRaceAction, initialState);
+export function PlatformRaceForm() {
+  const [state, formAction, pending] = useActionState(createPlatformRaceAction, initialState);
   const [categoryRows, setCategoryRows] = useState(() => [{ id: crypto.randomUUID() }]);
 
   function addCategory() {
@@ -49,12 +43,9 @@ export function OrganizerEventForm({
       ) : null}
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Trophy className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Race details</h2>
-        </div>
+        <SectionTitle icon={Trophy} title="Race details" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Race name" name="title" defaultValue={defaults?.title ?? ""} />
+          <Field label="Race name" name="title" />
           <label className="grid gap-2 text-sm font-semibold text-gray-800">
             Race type
             <select name="raceType" className={controlClassName}>
@@ -67,40 +58,33 @@ export function OrganizerEventForm({
           </label>
           <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
             Description
-            <textarea
-              name="description"
-              required
-              rows={5}
-              className={`${controlClassName} h-auto py-2`}
-            />
+            <textarea name="description" required rows={5} className={`${controlClassName} h-auto py-2`} />
           </label>
         </div>
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Schedule</h2>
-        </div>
+        <SectionTitle icon={CalendarDays} title="Schedule and registration" />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Start date and time" name="startDate" type="datetime-local" />
           <Field label="Registration deadline" name="registrationCloseAt" type="datetime-local" required={false} />
+          <label className="grid gap-2 text-sm font-semibold text-gray-800">
+            Registration state
+            <select name="registrationStatus" defaultValue="NOT_OPEN" className={controlClassName}>
+              <option value="NOT_OPEN">Not open yet</option>
+              <option value="OPEN">Open now</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </label>
         </div>
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <MapPin className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Location</h2>
-        </div>
+        <SectionTitle icon={MapPin} title="Location" />
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-semibold text-gray-800">
             Wilaya
-            <select
-              name="wilaya"
-              defaultValue={organization.wilaya ?? "Alger"}
-              className={controlClassName}
-            >
+            <select name="wilaya" defaultValue="Alger" className={controlClassName}>
               {ALGERIA_WILAYAS.map((wilaya) => (
                 <option key={wilaya} value={wilaya}>
                   {wilaya}
@@ -108,17 +92,14 @@ export function OrganizerEventForm({
               ))}
             </select>
           </label>
-          <Field label="City" name="city" defaultValue={organization.city ?? ""} />
-          <Field label="Commune" name="commune" defaultValue={organization.commune ?? ""} required={false} />
+          <Field label="City" name="city" />
+          <Field label="Commune" name="commune" required={false} />
           <Field label="Address" name="address" required={false} />
         </div>
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Route className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Race categories</h2>
-        </div>
+        <SectionTitle icon={Route} title="Race categories" />
         <div className="grid gap-3">
           {categoryRows.map((row, index) => (
             <div key={row.id} className="grid gap-4 rounded-lg border border-gray-200 p-4 sm:p-5">
@@ -148,7 +129,7 @@ export function OrganizerEventForm({
                 </label>
               </div>
               <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(220px,1.15fr)]">
-                <Field label="Distance in KM" name="distanceKm" type="number" step="0.1" />
+                <Field label="Distance KM" name="distanceKm" type="number" step="0.1" />
                 <Field label="Price DZD" name="priceDzd" type="number" required={false} />
                 <Field label="Capacity" name="categoryMaxParticipants" type="number" required={false} />
                 <Field label="Start time" name="categoryStartTime" type="datetime-local" required={false} />
@@ -166,22 +147,42 @@ export function OrganizerEventForm({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-black text-gray-950">Contact</h2>
+        <SectionTitle icon={ShieldCheck} title="Organizer contact" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Contact email" name="contactEmail" type="email" defaultValue={organization.email ?? ""} required={false} />
-          <Field label="Contact phone" name="contactPhone" type="tel" defaultValue={organization.phone ?? ""} required={false} />
+          <Field label="Organizer name" name="organizerName" defaultValue="RaceDZ Community Desk" />
+          <Field label="Organizer URL" name="organizerUrl" type="url" required={false} placeholder="https://racedz.dz" />
+          <Field label="Contact email" name="contactEmail" type="email" required={false} />
+          <Field label="Contact phone" name="contactPhone" type="tel" required={false} />
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-black text-gray-950">Race image</h2>
+        <SectionTitle icon={Image} title="Media" />
         <ImageUploadField label="Main race image" name="mainImageUrl" scope="race" />
       </section>
 
       <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Submitting for review..." : "Create and submit for review"}
+        {pending ? "Creating platform race..." : "Create platform race"}
       </Button>
     </form>
+  );
+}
+
+const controlClassName =
+  "h-11 w-full min-w-0 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100";
+
+function SectionTitle({
+  icon: Icon,
+  title
+}: {
+  icon: typeof Trophy;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="size-5 text-brand-teal" aria-hidden="true" />
+      <h2 className="text-lg font-black text-gray-950">{title}</h2>
+    </div>
   );
 }
 
@@ -217,6 +218,3 @@ function Field({
     </label>
   );
 }
-
-const controlClassName =
-  "h-11 w-full min-w-0 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100";

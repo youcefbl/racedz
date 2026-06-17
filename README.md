@@ -45,6 +45,12 @@ RaceDZ is an MVP web platform for discovering, registering for, and managing run
    npm run dev
    ```
 
+   Use the fixed local URL:
+
+   ```text
+   http://127.0.0.1:3003
+   ```
+
 Demo accounts seeded by `npm run prisma:seed`:
 
 - `admin@racedz.dz`

@@ -26,6 +26,7 @@ The first useful version must let:
 - Header hides login for authenticated users and shows an avatar/settings menu.
 - Main website supports English, French, and Arabic entry points.
 - UI supports light, dark, and race modes. Race mode uses flashy runner colors: lime green, pink, and purple.
+- MVP image uploads use local filesystem storage under `public/uploads`; later S3 migration should happen behind the existing storage helper.
 
 ## Completed MVP Work
 
@@ -42,6 +43,7 @@ The first useful version must let:
   - Date of birth
   - ID number
   - Avatar URL
+  - Local avatar image upload
   - Wilaya
   - City
   - Commune
@@ -79,23 +81,37 @@ The first useful version must let:
   - Accepted invitees become organization members and runners are upgraded to organizer access.
   - Organization owners/admins can update member roles.
   - Organization owners/admins can remove members with owner-lockout protections.
+  - Organization requests and settings support local logo image upload.
+  - Organization owners/admins can update organization profile details from `/organizer/settings`.
   - Admins can reject organizations with a stored rejection reason.
   - Admin organization list shows rejection reasons for rejected organizations.
+  - Admin organization list shows organization logos when available.
 - Organizer race management:
   - Approved organizers can create races from `/organizer/events/new`.
   - Organization-created races start as `PENDING_REVIEW`.
   - Organizer event list/detail pages read organization-owned races from PostgreSQL.
   - Organizer participant list and participant CSV export use organization ownership checks.
   - Organizers can open/close registration for their own published races.
+  - Organizer registration controls now block reopening after race start, after registration deadline, with no categories, or when capacity is full.
+  - Organizers can mark registration as full or cancelled for published races.
   - Organizers can edit their own draft, pending, or rejected races.
   - Organizers can add and edit race categories before publication.
-  - Organizers can set a main image URL before file uploads are implemented.
+  - Organizers can create multiple categories with different race types, distances, prices, and capacities during initial race creation.
+  - Organizers can set category-specific race types for multi-race events.
+  - Organizers can store a main race image path on race records.
+  - Organizers can upload local main race images for new and editable races.
+  - Image upload UI handles empty or invalid server responses without crashing.
   - Organizer race/category edits are recorded with timestamped history.
   - Race categories can have their own start time for multi-race event scheduling.
 - Admin race management:
   - Admins can approve, reject, and unpublish races.
+  - Admins can edit race details, publication status, registration status, organizer contact, and race image from `/admin/races/[id]/edit`.
   - Admins can manage user roles, with superadmin safeguards.
+  - Admin approval, rejection, unpublish, race edit, and role-change actions are recorded in an admin audit log.
+  - Admins can view recent audit entries from `/admin/audit`.
   - Superadmins can view organizer race edit history.
+  - Superadmins can create platform races directly from `/admin/races/new`.
+  - Superadmins can upload local main race images while creating platform races.
 - Dashboard navigation:
   - Admin panel has persistent mobile top tabs and desktop left navigation.
   - Organizer panel has persistent mobile top tabs and desktop left navigation.
@@ -104,22 +120,24 @@ The first useful version must let:
   - Made dashboard left navigation flush with the left edge on desktop.
   - Fixed Invite organization user form overflow in the organizer members panel.
   - Switched sign-out to client-side Auth.js redirect to avoid stale authenticated UI after logout.
+  - Fixed local development to one canonical app URL, `http://127.0.0.1:3003`, so Auth.js redirects do not drift between ports.
+  - Fixed dark/race-mode textarea styling so description fields match the active theme.
+  - Aligned admin and organizer race creation category forms with repeatable categories, separated distance/price/capacity/start-time fields, and required race descriptions without a long minimum.
 
 ## Current Priority
 
 1. Build organizer onboarding:
    - Add email delivery later if manual copy links are not enough.
-   - Add avatar/logo image support for users and organizations.
 
 2. Build organizer race management:
-   - Add safer status rules for cancelling/full races and registration deadlines.
-   - Add file uploads for race images after storage is decided.
-   - Support one event containing multiple races/categories with different race types.
+   - Add public race-detail polish for showing category-specific race types more prominently.
 
 3. Admin and superadmin follow-up:
-   - Add superadmin-created platform race form.
-   - Add admin race edit controls.
-   - Add audit logs for approval and rejection actions.
+   - Add audit log filters by actor, target type, and action.
+
+4. Quality and dev experience:
+   - Add a documented QA test flow that covers public browsing, auth, runner registration, organizer onboarding, race management, admin approvals, uploads, and role redirects.
+   - Add automated smoke/e2e tests for the main user journeys after the flows are documented.
 
 ## Public Website
 
@@ -148,6 +166,41 @@ The first useful version must let:
 - Improve theme support:
   - Check contrast and focus states in light, dark, and race modes.
   - Ensure account/admin/organizer pages look correct in all three modes.
+
+## Marketplace Requirements
+
+Do not build this before the core race/registration/admin flows are stable.
+
+Marketplace goal:
+
+- Let normal users post running-related goods for sale.
+- Admins review and approve listings before they appear publicly.
+- Public users can browse approved marketplace listings.
+
+Marketplace listing fields:
+
+- Item name
+- Images
+- Description
+- Condition: new or used
+- Price
+- Category
+- Seller
+- Approval status: pending, approved, rejected, sold, archived
+
+Initial marketplace categories:
+
+- Race consumables such as gels and hydration products
+- Race clothes
+- Running accessories
+- Race registration or bib transfer listings, only after transfer, fraud, organizer approval, and payment rules are specified
+
+Marketplace rules:
+
+- Listings stay hidden until admin approval.
+- Server-side authorization is required for create, edit, approval, rejection, and archive actions.
+- Use the local upload adapter for MVP listing images, then move to S3-compatible storage later.
+- Race registration resale must follow the deferred bib transfer policy before becoming public.
 
 ## Auth And Account Follow-Up
 
@@ -235,7 +288,8 @@ Rules:
 - AI chat support.
 - Organizer demo/onboarding guide explaining how to use the platform.
 - Notifications.
-- File uploads for race images, avatars, and participant documents.
+- Move uploads from local filesystem storage to S3-compatible object storage.
+- File uploads for organization logos and participant documents.
 - Payment workflow.
 - Paid organizer subscriptions or paid race publishing.
 - Bib transfer flow.
@@ -246,6 +300,28 @@ Rules:
 - Race edit history for organizer changes.
 - Deployment documentation.
 - Registration resale marketplace.
+- Admin-approved marketplace for running goods.
+
+## QA And Testing Requirements
+
+Add a full QA flow that behaves like a product tester checklist before release.
+
+Core flows to cover:
+
+- Public visitor browses races, filters races, changes language, and changes theme.
+- Runner signs up, logs in, edits profile, uploads avatar, registers for a race, and sees the saved registration.
+- Organizer requests organization access, receives approval, invites members, creates a race, uploads race image, edits categories, and manages participants.
+- Admin approves/rejects organizations, approves/rejects/unpublishes races, manages users, and reviews registrations.
+- Superadmin creates a platform race and views race edit history.
+- Auth redirects keep the current local host/port and never redirect to stale localhost ports.
+- Uploads reject invalid file types and files larger than the configured limit.
+
+Testing implementation:
+
+- Start with a manual QA checklist in the repo.
+- Add automated smoke/e2e tests for the highest-value paths.
+- Keep test data isolated from real user data.
+- Prefer deterministic fixtures for users, organizations, races, categories, and registrations.
 
 ## Deferred Bib Transfer Notes
 

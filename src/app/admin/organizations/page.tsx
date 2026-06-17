@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Building2, Mail, MapPin, Phone, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
@@ -54,8 +55,12 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
                       <span className="text-xs font-semibold text-gray-500">Created {formatDate(organization.createdAt)}</span>
                     </div>
                     <div className="flex gap-3">
-                      <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
-                        <Building2 className="size-5" aria-hidden="true" />
+                      <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-teal-50 text-brand-teal">
+                        {organization.logoUrl ? (
+                          <Image src={organization.logoUrl} alt="" fill sizes="44px" className="object-cover" />
+                        ) : (
+                          <Building2 className="size-5" aria-hidden="true" />
+                        )}
                       </div>
                       <div>
                         <h2 className="text-lg font-black text-gray-950">{organization.name}</h2>

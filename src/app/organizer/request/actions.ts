@@ -24,6 +24,7 @@ export async function requestOrganizationAction(
       description: getString(formData, "description"),
       email: getString(formData, "email"),
       phone: getString(formData, "phone"),
+      logoUrl: getOptionalString(formData, "logoUrl"),
       wilaya: getString(formData, "wilaya"),
       city: getString(formData, "city"),
       commune: getOptionalString(formData, "commune"),

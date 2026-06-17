@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
 import { updateOrganizerRaceAction, type OrganizerEditActionState } from "./actions";
@@ -64,7 +65,6 @@ export function EventEditForm({ race }: { race: EditableRace }) {
           <textarea
             name="description"
             required
-            minLength={20}
             rows={5}
             defaultValue={race.description}
             className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
@@ -98,7 +98,9 @@ export function EventEditForm({ race }: { race: EditableRace }) {
         <Field label="Contact email" name="contactEmail" type="email" defaultValue={race.contactEmail ?? ""} required={false} />
         <Field label="Contact phone" name="contactPhone" type="tel" defaultValue={race.contactPhone ?? ""} required={false} />
         <Field label="Total race capacity" name="maxParticipants" type="number" defaultValue={race.maxParticipants?.toString() ?? ""} required={false} />
-        <Field label="Main image URL" name="mainImageUrl" type="url" defaultValue={race.mainImageUrl ?? ""} required={false} />
+        <div className="sm:col-span-2">
+          <ImageUploadField label="Main race image" name="mainImageUrl" scope="race" defaultValue={race.mainImageUrl} />
+        </div>
       </div>
 
       <Button type="submit" size="lg" disabled={pending}>

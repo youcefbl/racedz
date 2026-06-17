@@ -21,6 +21,18 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
     notFound();
   }
 
+  const now = new Date();
+  const openBlockReason =
+    race.startDate <= now
+      ? "Race start date has passed."
+      : race.registrationCloseAt && race.registrationCloseAt <= now
+        ? "Registration deadline has passed."
+        : race._count.categories === 0
+          ? "Add at least one category first."
+          : race.availablePlaces != null && race.availablePlaces <= 0
+            ? "Race capacity is full."
+            : null;
+
   return (
     <div className="bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -74,7 +86,8 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                     <div>
                       <p className="font-bold text-gray-950">{category.name}</p>
                       <p className="text-sm text-gray-500">
-                        {category.distanceKm}K{category.maxParticipants ? ` · ${category.maxParticipants} places` : ""}
+                        {formatEnumLabel(category.raceType ?? race.raceType)} · {category.distanceKm}K
+                        {category.maxParticipants ? ` · ${category.maxParticipants} places` : ""}
                       </p>
                     </div>
                     <p className="font-bold text-gray-950">{formatDzd(category.priceDzd ?? undefined)}</p>
@@ -95,7 +108,7 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                 <form action={updateRegistrationStatusAction}>
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="OPEN" />
-                  <Button type="submit" size="sm" className="w-full" disabled={race.registrationStatus === "OPEN"}>
+                  <Button type="submit" size="sm" className="w-full" disabled={race.registrationStatus === "OPEN" || Boolean(openBlockReason)}>
                     Open registration
                   </Button>
                 </form>
@@ -106,6 +119,25 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                     Close registration
                   </Button>
                 </form>
+                <form action={updateRegistrationStatusAction}>
+                  <input type="hidden" name="raceId" value={race.id} />
+                  <input type="hidden" name="registrationStatus" value="FULL" />
+                  <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "FULL"}>
+                    Mark full
+                  </Button>
+                </form>
+                <form action={updateRegistrationStatusAction}>
+                  <input type="hidden" name="raceId" value={race.id} />
+                  <input type="hidden" name="registrationStatus" value="CANCELLED" />
+                  <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "CANCELLED"}>
+                    Cancel registration
+                  </Button>
+                </form>
+                {openBlockReason ? (
+                  <p className="rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700 sm:col-span-2 lg:col-span-1">
+                    {openBlockReason}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="mt-4 rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2, ImageIcon, MapPin, UserRound } from "lucide-react";
+import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
 import { type ProfileActionState, updateProfileAction } from "./actions";
@@ -109,7 +110,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
           <ImageIcon className="size-5 text-brand-teal" aria-hidden="true" />
           <h2 className="text-lg font-black text-gray-950">Avatar</h2>
         </div>
-        <Field label="Avatar image URL" name="avatarUrl" type="url" defaultValue={user.avatarUrl ?? ""} required={false} />
+        <ImageUploadField label="Avatar image" name="avatarUrl" scope="avatar" defaultValue={user.avatarUrl} />
       </section>
 
       <Button type="submit" size="lg" disabled={pending}>

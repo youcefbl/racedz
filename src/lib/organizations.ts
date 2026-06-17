@@ -36,7 +36,7 @@ export async function createOrganizationRequestForUser(userId: string, input: un
 
   const slug = await createUniqueOrganizationSlug(parsed.data.name);
 
-  return prisma.organization.create({
+  const organization = await prisma.organization.create({
     data: {
       name: parsed.data.name,
       slug,
@@ -58,6 +58,16 @@ export async function createOrganizationRequestForUser(userId: string, input: un
       }
     }
   });
+
+  if (parsed.data.logoUrl) {
+    await prisma.$executeRaw`
+      UPDATE "Organization"
+      SET "logoUrl" = ${parsed.data.logoUrl}
+      WHERE "id" = ${organization.id}
+    `;
+  }
+
+  return organization;
 }
 
 export async function getUserOrganizationSummary(userId: string) {

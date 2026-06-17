@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { AlertCircle, Building2, LinkIcon, MapPin } from "lucide-react";
+import { AlertCircle, Building2, ImageIcon, LinkIcon, MapPin } from "lucide-react";
+import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
 import { requestOrganizationAction, type OrganizationRequestActionState } from "./actions";
@@ -77,6 +78,14 @@ export function OrganizationRequestForm({ user }: OrganizationRequestFormProps) 
           <Field label="City" name="city" defaultValue={user.city ?? ""} />
           <Field label="Commune" name="commune" defaultValue={user.commune ?? ""} required={false} />
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <ImageIcon className="size-5 text-brand-teal" aria-hidden="true" />
+          <h2 className="text-lg font-black text-gray-950">Organization logo</h2>
+        </div>
+        <ImageUploadField label="Logo image" name="logoUrl" scope="organization" />
       </section>
 
       <section className="space-y-3">

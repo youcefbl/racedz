@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
+  Settings,
   ClipboardList,
+  History,
   LayoutDashboard,
   ShieldCheck,
   Trophy,
@@ -27,13 +29,15 @@ const adminNavItems: DashboardNavItem[] = [
   { href: "/admin/users", label: "Users", description: "Accounts and roles", icon: UsersRound },
   { href: "/admin/organizations", label: "Organizations", description: "Organizer approvals", icon: Building2 },
   { href: "/admin/races", label: "Races", description: "Review and publish", icon: Trophy },
-  { href: "/admin/registrations", label: "Registrations", description: "Runner entries", icon: ClipboardList }
+  { href: "/admin/registrations", label: "Registrations", description: "Runner entries", icon: ClipboardList },
+  { href: "/admin/audit", label: "Audit", description: "Admin action log", icon: History }
 ];
 
 const organizerNavItems: DashboardNavItem[] = [
   { href: "/organizer", label: "Overview", description: "Organization status", icon: LayoutDashboard },
   { href: "/organizer/events", label: "Events", description: "Race management", icon: Trophy },
-  { href: "/organizer/members", label: "Members", description: "Team access", icon: UsersRound }
+  { href: "/organizer/members", label: "Members", description: "Team access", icon: UsersRound },
+  { href: "/organizer/settings", label: "Settings", description: "Profile and logo", icon: Settings }
 ];
 
 export function DashboardShell({ section, children }: { section: DashboardSection; children: ReactNode }) {

@@ -8,7 +8,12 @@ export async function updateRegistrationStatusAction(formData: FormData) {
   const raceId = getString(formData, "raceId");
   const registrationStatus = getString(formData, "registrationStatus");
 
-  if (registrationStatus !== "OPEN" && registrationStatus !== "CLOSED") {
+  if (
+    registrationStatus !== "OPEN" &&
+    registrationStatus !== "CLOSED" &&
+    registrationStatus !== "FULL" &&
+    registrationStatus !== "CANCELLED"
+  ) {
     throw new Error("Invalid registration status");
   }
 

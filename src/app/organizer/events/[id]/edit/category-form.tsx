@@ -10,6 +10,7 @@ const initialState: OrganizerEditActionState = {};
 type Category = {
   id?: string;
   name?: string;
+  raceType?: string | null;
   distanceKm?: number;
   priceDzd?: number | null;
   maxParticipants?: number | null;
@@ -24,8 +25,27 @@ export function CategoryForm({ raceId, category }: { raceId: string; category?: 
     <form action={formAction} className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4">
       <input type="hidden" name="raceId" value={raceId} />
       {category?.id ? <input type="hidden" name="categoryId" value={category.id} /> : null}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Field label="Name" name="name" defaultValue={category?.name ?? ""} placeholder="10K Open" />
+        <label className="grid gap-2 text-sm font-semibold text-gray-800">
+          Race type
+          <select
+            name="raceType"
+            defaultValue={category?.raceType ?? "ROAD"}
+            className="h-10 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+          >
+            <option value="ROAD">Road</option>
+            <option value="TRAIL">Trail</option>
+            <option value="ULTRA_TRAIL">Ultra trail</option>
+            <option value="MARATHON">Marathon</option>
+            <option value="HALF_MARATHON">Half marathon</option>
+            <option value="TEN_K">10K</option>
+            <option value="FIVE_K">5K</option>
+            <option value="KIDS">Kids</option>
+            <option value="CHARITY">Charity</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </label>
         <Field label="Distance KM" name="distanceKm" type="number" step="0.1" defaultValue={category?.distanceKm?.toString() ?? ""} />
         <Field label="Price DZD" name="priceDzd" type="number" defaultValue={category?.priceDzd?.toString() ?? ""} required={false} />
         <Field label="Capacity" name="maxParticipants" type="number" defaultValue={category?.maxParticipants?.toString() ?? ""} required={false} />

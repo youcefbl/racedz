@@ -30,6 +30,7 @@ model User {
   organizationInvitationsSent OrganizationInvitation[]
   registrations RaceRegistration[]
   raceEditHistory RaceEditHistory[]
+  adminAuditLogs AdminAuditLog[]
 }
 
 enum UserRole {
@@ -55,6 +56,7 @@ model Organization {
   website      String?
   facebookUrl  String?
   instagramUrl String?
+  logoUrl      String?
   wilaya       String?
   city         String?
   commune      String?
@@ -195,6 +197,7 @@ model RaceCategory {
   id              String    @id @default(cuid())
   raceEventId     String
   name            String
+  raceType        RaceType?
   distanceKm      Float
   elevationGainM  Int?
   priceDzd        Int?
@@ -209,6 +212,22 @@ model RaceCategory {
 
   raceEvent     RaceEvent          @relation(fields: [raceEventId], references: [id])
   registrations RaceRegistration[]
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  summary    String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
 }
 
 model RaceRegistration {

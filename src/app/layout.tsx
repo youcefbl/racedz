@@ -10,7 +10,14 @@ export const metadata: Metadata = {
     template: "%s | RaceDZ"
   },
   description: "Find, register, and manage races across Algeria.",
-  metadataBase: new URL("https://racedz.dz")
+  metadataBase: new URL("https://racedz.dz"),
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/racedz-logo.png", type: "image/png" }
+    ],
+    apple: [{ url: "/racedz-logo.png", type: "image/png" }]
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

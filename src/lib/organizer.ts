@@ -2,8 +2,10 @@ import { randomUUID } from "crypto";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { createUniqueRaceSlug } from "@/lib/race-slugs";
 import {
   organizationInviteSchema,
+  organizationProfileSchema,
   organizerCategorySchema,
   organizerRaceSchema,
   organizerRaceUpdateSchema
@@ -167,7 +169,7 @@ export async function getOrganizerRaces(organizationId: string) {
 }
 
 export async function getOrganizerRaceById(organizationId: string, raceEventId: string) {
-  return getPrisma().raceEvent.findFirst({
+  const race = await getPrisma().raceEvent.findFirst({
     where: {
       id: raceEventId,
       organizationId
@@ -180,11 +182,26 @@ export async function getOrganizerRaceById(organizationId: string, raceEventId: 
       },
       _count: {
         select: {
+          categories: true,
           registrations: true
         }
       }
     }
   });
+
+  if (!race) {
+    return null;
+  }
+
+  const raceTypeByCategoryId = await getCategoryRaceTypes(race.categories.map((category) => category.id));
+
+  return {
+    ...race,
+    categories: race.categories.map((category) => ({
+      ...category,
+      raceType: raceTypeByCategoryId.get(category.id) ?? race.raceType
+    }))
+  };
 }
 
 export async function getOrganizerRaceRegistrations(organizationId: string, raceEventId: string) {
@@ -252,6 +269,104 @@ export async function getOrganizerMembers(organizationId: string) {
     ...organization,
     invitations
   };
+}
+
+export type OrganizationProfile = {
+  id: string;
+  name: string;
+  description: string | null;
+  email: string | null;
+  phone: string | null;
+  logoUrl: string | null;
+  website: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  wilaya: string | null;
+  city: string | null;
+  commune: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+};
+
+export async function getOrganizationProfile(organizationId: string) {
+  const rows = await getPrisma().$queryRaw<OrganizationProfile[]>`
+    SELECT
+      "id",
+      "name",
+      "description",
+      "email",
+      "phone",
+      "logoUrl",
+      "website",
+      "facebookUrl",
+      "instagramUrl",
+      "wilaya",
+      "city",
+      "commune",
+      "status"
+    FROM "Organization"
+    WHERE "id" = ${organizationId}
+    LIMIT 1
+  `;
+
+  return rows[0] ?? null;
+}
+
+export async function updateOrganizationProfile({
+  organizationId,
+  actorRole,
+  input
+}: {
+  organizationId: string;
+  actorRole: "OWNER" | "ADMIN" | "MEMBER";
+  input: unknown;
+}) {
+  if (actorRole !== "OWNER" && actorRole !== "ADMIN") {
+    throw new OrganizerError("Only organization owners and admins can update organization settings.");
+  }
+
+  const parsed = organizationProfileSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new OrganizerError("Check the organization profile fields and try again.");
+  }
+
+  const rows = await getPrisma().$queryRaw<OrganizationProfile[]>`
+    UPDATE "Organization"
+    SET
+      "name" = ${parsed.data.name},
+      "description" = ${parsed.data.description},
+      "email" = ${parsed.data.email},
+      "phone" = ${parsed.data.phone},
+      "logoUrl" = ${parsed.data.logoUrl ?? null},
+      "website" = ${parsed.data.website ?? null},
+      "facebookUrl" = ${parsed.data.facebookUrl ?? null},
+      "instagramUrl" = ${parsed.data.instagramUrl ?? null},
+      "wilaya" = ${parsed.data.wilaya},
+      "city" = ${parsed.data.city},
+      "commune" = ${parsed.data.commune ?? null},
+      "updatedAt" = NOW()
+    WHERE "id" = ${organizationId}
+    RETURNING
+      "id",
+      "name",
+      "description",
+      "email",
+      "phone",
+      "logoUrl",
+      "website",
+      "facebookUrl",
+      "instagramUrl",
+      "wilaya",
+      "city",
+      "commune",
+      "status"
+  `;
+
+  if (!rows[0]) {
+    throw new OrganizerError("Organization not found.");
+  }
+
+  return rows[0];
 }
 
 export async function inviteOrganizationUser({
@@ -446,39 +561,68 @@ export async function createOrganizerRace({
     }
   });
   const slug = await createUniqueRaceSlug(parsed.data.title);
-  const maxParticipants = parsed.data.maxParticipants ?? parsed.data.categoryMaxParticipants;
-
-  return getPrisma().raceEvent.create({
-    data: {
-      organizationId,
-      source: "ORGANIZATION",
-      status: "PENDING_REVIEW",
-      registrationStatus: "NOT_OPEN",
-      title: parsed.data.title,
-      slug,
-      description: parsed.data.description,
+  const categories = parsed.data.categories ?? [
+    {
+      name: parsed.data.categoryName,
       raceType: parsed.data.raceType,
-      startDate: new Date(parsed.data.startDate),
-      registrationCloseAt: parsed.data.registrationCloseAt ? new Date(parsed.data.registrationCloseAt) : undefined,
-      wilaya: parsed.data.wilaya,
-      city: parsed.data.city,
-      commune: parsed.data.commune,
-      address: parsed.data.address,
-      organizerName: organization.name,
-      organizerUrl: `/organizations/${organization.slug}`,
-      contactEmail: parsed.data.contactEmail,
-      contactPhone: parsed.data.contactPhone,
-      maxParticipants,
-      availablePlaces: maxParticipants,
-      categories: {
-        create: {
-          name: parsed.data.categoryName,
-          distanceKm: parsed.data.distanceKm,
-          priceDzd: parsed.data.priceDzd,
-          maxParticipants: parsed.data.categoryMaxParticipants
-        }
-      }
+      distanceKm: parsed.data.distanceKm,
+      priceDzd: parsed.data.priceDzd,
+      maxParticipants: parsed.data.categoryMaxParticipants,
+      startTime: parsed.data.startTime
     }
+  ];
+  const inferredMaxParticipants = categories.every((category) => typeof category.maxParticipants === "number")
+    ? categories.reduce((total, category) => total + (category.maxParticipants ?? 0), 0)
+    : undefined;
+  const maxParticipants = parsed.data.maxParticipants ?? inferredMaxParticipants;
+
+  return getPrisma().$transaction(async (tx) => {
+    const race = await tx.raceEvent.create({
+      data: {
+        organizationId,
+        source: "ORGANIZATION",
+        status: "PENDING_REVIEW",
+        registrationStatus: "NOT_OPEN",
+        title: parsed.data.title,
+        slug,
+        description: parsed.data.description,
+        raceType: parsed.data.raceType,
+        startDate: new Date(parsed.data.startDate),
+        registrationCloseAt: parsed.data.registrationCloseAt ? new Date(parsed.data.registrationCloseAt) : undefined,
+        wilaya: parsed.data.wilaya,
+        city: parsed.data.city,
+        commune: parsed.data.commune,
+        address: parsed.data.address,
+        organizerName: organization.name,
+        organizerUrl: `/organizations/${organization.slug}`,
+        contactEmail: parsed.data.contactEmail,
+        contactPhone: parsed.data.contactPhone,
+        mainImageUrl: parsed.data.mainImageUrl,
+        maxParticipants,
+        availablePlaces: maxParticipants
+      }
+    });
+
+    for (const category of categories) {
+      const created = await tx.raceCategory.create({
+        data: {
+          raceEventId: race.id,
+          name: category.name,
+          distanceKm: category.distanceKm,
+          priceDzd: category.priceDzd,
+          maxParticipants: category.maxParticipants,
+          startTime: category.startTime ? new Date(category.startTime) : undefined
+        }
+      });
+
+      await tx.$executeRaw`
+        UPDATE "RaceCategory"
+        SET "raceType" = ${category.raceType}::"RaceType"
+        WHERE "id" = ${created.id}
+      `;
+    }
+
+    return race;
   });
 }
 
@@ -489,7 +633,7 @@ export async function updateOrganizerRaceRegistrationStatus({
 }: {
   organizationId: string;
   raceEventId: string;
-  registrationStatus: "OPEN" | "CLOSED";
+  registrationStatus: "OPEN" | "CLOSED" | "FULL" | "CANCELLED";
 }) {
   const race = await getPrisma().raceEvent.findFirst({
     where: {
@@ -498,7 +642,16 @@ export async function updateOrganizerRaceRegistrationStatus({
     },
     select: {
       id: true,
-      status: true
+      status: true,
+      startDate: true,
+      registrationCloseAt: true,
+      availablePlaces: true,
+      maxParticipants: true,
+      _count: {
+        select: {
+          categories: true
+        }
+      }
     }
   });
 
@@ -508,6 +661,41 @@ export async function updateOrganizerRaceRegistrationStatus({
 
   if (race.status !== "PUBLISHED") {
     throw new OrganizerError("Registration can only be opened or closed after admin publication.");
+  }
+
+  if (registrationStatus === "OPEN") {
+    const now = new Date();
+
+    if (race.startDate <= now) {
+      throw new OrganizerError("Registration cannot be opened after the race start date.");
+    }
+
+    if (race.registrationCloseAt && race.registrationCloseAt <= now) {
+      throw new OrganizerError("Registration cannot be opened after the registration deadline.");
+    }
+
+    if (race._count.categories === 0) {
+      throw new OrganizerError("Add at least one race category before opening registration.");
+    }
+
+    if (race.availablePlaces != null && race.availablePlaces <= 0) {
+      throw new OrganizerError("Registration cannot be opened because this race is full.");
+    }
+
+    if (race.maxParticipants != null) {
+      const activeRegistrations = await getPrisma().raceRegistration.count({
+        where: {
+          raceEventId: race.id,
+          status: {
+            notIn: ["CANCELLED", "REJECTED"]
+          }
+        }
+      });
+
+      if (activeRegistrations >= race.maxParticipants) {
+        throw new OrganizerError("Registration cannot be opened because the race capacity is already full.");
+      }
+    }
   }
 
   return getPrisma().raceEvent.update({
@@ -641,6 +829,7 @@ export async function upsertOrganizerRaceCategory({
         throw new OrganizerError("Category not found for this race.");
       }
 
+      const currentRaceType = await getCategoryRaceType(category.id, tx);
       const updates = {
         name: parsed.data.name,
         distanceKm: parsed.data.distanceKm,
@@ -648,13 +837,18 @@ export async function upsertOrganizerRaceCategory({
         maxParticipants: parsed.data.maxParticipants ?? null,
         startTime: parsed.data.startTime ? new Date(parsed.data.startTime) : null
       };
-      const changes = buildChangeList(category, updates);
+      const changes = buildChangeList({ ...category, raceType: currentRaceType ?? race.raceType }, { ...updates, raceType: parsed.data.raceType });
       const updated = await tx.raceCategory.update({
         where: {
           id: category.id
         },
         data: updates
       });
+      await tx.$executeRaw`
+        UPDATE "RaceCategory"
+        SET "raceType" = ${parsed.data.raceType}::"RaceType"
+        WHERE "id" = ${category.id}
+      `;
 
       if (changes.length > 0) {
         await recordRaceEditHistory(tx, {
@@ -684,6 +878,11 @@ export async function upsertOrganizerRaceCategory({
         startTime: parsed.data.startTime ? new Date(parsed.data.startTime) : undefined
       }
     });
+    await tx.$executeRaw`
+      UPDATE "RaceCategory"
+      SET "raceType" = ${parsed.data.raceType}::"RaceType"
+      WHERE "id" = ${created.id}
+    `;
 
     await recordRaceEditHistory(tx, {
       raceEventId: race.id,
@@ -696,6 +895,7 @@ export async function upsertOrganizerRaceCategory({
           before: null,
           after: {
             name: created.name,
+            raceType: parsed.data.raceType,
             distanceKm: created.distanceKm,
             priceDzd: created.priceDzd,
             maxParticipants: created.maxParticipants,
@@ -707,6 +907,31 @@ export async function upsertOrganizerRaceCategory({
 
     return created;
   });
+}
+
+async function getCategoryRaceTypes(categoryIds: string[]) {
+  if (categoryIds.length === 0) {
+    return new Map<string, string | null>();
+  }
+
+  const rows = await getPrisma().$queryRaw<Array<{ id: string; raceType: string | null }>>`
+    SELECT "id", "raceType"
+    FROM "RaceCategory"
+    WHERE "id" = ANY(${categoryIds})
+  `;
+
+  return new Map(rows.map((row) => [row.id, row.raceType]));
+}
+
+async function getCategoryRaceType(categoryId: string, tx: Pick<ReturnType<typeof getPrisma>, "$queryRaw"> = getPrisma()) {
+  const rows = await tx.$queryRaw<Array<{ raceType: string | null }>>`
+    SELECT "raceType"
+    FROM "RaceCategory"
+    WHERE "id" = ${categoryId}
+    LIMIT 1
+  `;
+
+  return rows[0]?.raceType ?? null;
 }
 
 export async function updateOrganizationMemberRole({
@@ -807,19 +1032,6 @@ export async function removeOrganizationMember({
   });
 }
 
-async function createUniqueRaceSlug(title: string) {
-  const baseSlug = slugify(title);
-  let slug = baseSlug;
-  let suffix = 2;
-
-  while (await getPrisma().raceEvent.findUnique({ where: { slug }, select: { id: true } })) {
-    slug = `${baseSlug}-${suffix}`;
-    suffix += 1;
-  }
-
-  return slug;
-}
-
 async function getEditableOrganizerRace(organizationId: string, raceEventId: string) {
   const race = await getPrisma().raceEvent.findFirst({
     where: {
@@ -828,6 +1040,7 @@ async function getEditableOrganizerRace(organizationId: string, raceEventId: str
     },
     select: {
       id: true,
+      raceType: true,
       status: true
     }
   });
@@ -1047,14 +1260,4 @@ async function upsertOrganizationInvitation({
   `;
 
   return rows[0];
-}
-
-function slugify(value: string) {
-  const slug = value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return slug || "race";
 }

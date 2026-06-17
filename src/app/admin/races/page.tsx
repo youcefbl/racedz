@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2, CalendarDays, MapPin, Route, Trophy, UsersRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminRaces, requireAdmin } from "@/lib/admin";
 import { approveRaceAction, rejectRaceAction, unpublishRaceAction } from "../actions";
@@ -28,7 +28,17 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
   });
 
   return (
-    <AdminShell title="Races" description="Search races, review organization-created events, and control public publication.">
+    <AdminShell
+      title="Races"
+      description="Search races, review organization-created events, and control public publication."
+      action={
+        session.user.role === "SUPERADMIN" ? (
+          <ButtonLink href="/admin/races/new" variant="secondary">
+            Create platform race
+          </ButtonLink>
+        ) : null
+      }
+    >
       <FilterBar action="/admin/races" searchPlaceholder="Search race, organizer, city, wilaya">
         <SelectFilter
           name="status"
@@ -122,6 +132,12 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                   >
                     <Route className="size-4" aria-hidden="true" />
                     View
+                  </Link>
+                  <Link
+                    href={`/admin/races/${race.id}/edit`}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 transition hover:border-brand-teal hover:text-brand-teal"
+                  >
+                    Edit
                   </Link>
                   {session.user.role === "SUPERADMIN" ? (
                     <Link
