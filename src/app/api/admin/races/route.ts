@@ -9,12 +9,12 @@ export async function GET() {
     return NextResponse.json({ error: "Admin access is required" }, { status: 403 });
   }
 
-  const races = await getAdminRaces({});
+  const { items, total } = await getAdminRaces({});
 
   return NextResponse.json({
-    data: races,
+    data: items,
     meta: {
-      count: races.length
+      count: total
     }
   });
 }

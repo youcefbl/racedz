@@ -9,6 +9,7 @@ Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product 
 - Planning and implementation roadmap: `TODO.md`
 - Historical full brief: `algeria-races-codex-brief.md`
 - Brand asset: `public/racedz-logo.png`
+- AWS deployment plan and cost estimate: `docs/AWS_DEPLOYMENT_PLAN.md`
 - Prisma schema: `prisma/schema.prisma`
 - Seed data: `prisma/seed.ts`
 
@@ -33,6 +34,13 @@ Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product 
 - Algeria constants are in `src/lib/algeria.ts`.
 - Authorization helpers start in `src/lib/permissions.ts`.
 - Local image uploads go through `src/lib/storage.ts` and write to `public/uploads` for the MVP. Uploaded files are gitignored except `public/uploads/.gitkeep`. Keep the storage helper as the boundary for a later S3-compatible backend.
+- Notification records go through `src/lib/notifications.ts`. The MVP stores in-app notifications in PostgreSQL, shows recent notifications from the header bell dropdown, marks them read on dropdown open, sends transactional email through Resend using `RESEND_API_KEY` and `EMAIL_FROM`, and has Firebase FCM server delivery plus browser token registration via `PushNotificationControl`. The notification settings page can reconnect the FCM token and send a test push with delivery feedback. Local push testing requires Firebase public web config and `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
+- Branded email HTML/text lives in `src/lib/notifications/email-template.ts`; use it for every RaceDZ email instead of ad hoc HTML.
+- New accounts require email verification. Verification tokens use raw SQL helpers in `src/lib/email-verification.ts`; Auth.js blocks unverified accounts.
+- Organization invites are still copyable in `/organizer/members`, but the invite action also attempts branded email delivery with the invite link.
+- Race announcements use `RaceAnnouncement` and `src/lib/announcements.ts`. Organizer/admin announcements notify active registrants and appear on public race detail pages.
+- Admin audit logs support actor, target type, and action filters in `/admin/audit`.
+- Manual QA checklist lives in `docs/QA_CHECKLIST.md`. `npm run smoke` runs dependency-free local smoke checks against `RACEDZ_BASE_URL` or `http://127.0.0.1:3003`; keep `npm run dev` running first.
 - Local development uses one fixed app URL: `http://127.0.0.1:3003`. Do not rotate ports; Auth.js redirects are configured for this origin.
 - Local PostgreSQL can run with `docker compose up -d postgres`.
 - `OrganizationInvitation` exists in `prisma/schema.prisma` and its migration. The current app code uses typed raw SQL for that table in `src/lib/organizer.ts` because local `prisma generate` was not refreshing the generated client during this session.

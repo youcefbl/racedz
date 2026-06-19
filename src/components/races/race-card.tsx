@@ -15,25 +15,45 @@ type RaceCardProps = {
 
 export function RaceCard({ race, viewLabel = "View", locale = "en" }: RaceCardProps) {
   const lowestPrice = Math.min(...race.categories.map((category) => category.priceDzd ?? 0));
-  const distances = race.categories.map((category) => `${category.distanceKm}K`).join(" / ");
+  const distances = race.categories.map((category) => category.distanceKm);
+  const uniqueDistances = Array.from(new Set(distances)).sort((a, b) => a - b);
 
   return (
     <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-soft">
       <div className="relative h-44 bg-gray-100">
         {race.mainImageUrl ? (
-          <Image src={race.mainImageUrl} alt="" fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover" />
+          <Image
+            src={race.mainImageUrl}
+            alt={`${race.title} race image`}
+            fill
+            sizes="(min-width: 768px) 33vw, 100vw"
+            className="object-cover"
+          />
         ) : null}
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           <Badge variant="teal">{RACE_TYPE_LABELS[race.raceType]}</Badge>
-          <Badge variant="orange">{distances}</Badge>
+          <Badge variant={getRegistrationBadgeVariant(race.registrationStatus)}>
+            {EVENT_REGISTRATION_STATUS_LABELS[race.registrationStatus]}
+          </Badge>
         </div>
       </div>
       <div className="space-y-4 p-4">
         <div className="space-y-2">
-          <Badge variant={getRegistrationBadgeVariant(race.registrationStatus)}>
-            {EVENT_REGISTRATION_STATUS_LABELS[race.registrationStatus]}
-          </Badge>
-          {race.source === "PLATFORM" ? <Badge variant="blue">RaceDZ</Badge> : null}
+          <div className="flex flex-wrap gap-1.5">
+            {uniqueDistances.map((distance) => (
+              <span
+                key={distance}
+                className="inline-flex items-center rounded-md bg-orange-50 px-2 py-1 text-xs font-semibold text-brand-orangeDark"
+              >
+                {distance}K
+              </span>
+            ))}
+            {race.source === "PLATFORM" ? (
+              <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                RaceDZ
+              </span>
+            ) : null}
+          </div>
           <h2 className="text-lg font-black text-gray-950">{race.title}</h2>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />

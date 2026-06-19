@@ -1,8 +1,10 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { isEmailVerified } from "@/lib/email-verification";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
 
@@ -24,14 +26,24 @@ export async function loginAction(_previousState: LoginActionState, formData: Fo
     where: { email: parsed.data.email },
     select: { role: true }
   });
+
+  if (user && !(await isEmailVerified(parsed.data.email))) {
+    return { error: "Check your email and activate your account before logging in." };
+  }
+
   const redirectTo = getPostLoginUrl(user?.role as UserRole | undefined, formData.get("callbackUrl"));
 
   try {
-    await signIn("credentials", {
+    const result = await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
+      redirect: false,
       redirectTo
     });
+
+    if (typeof result === "string" && new URL(result, "http://127.0.0.1:3003").searchParams.has("error")) {
+      return { error: "Invalid email or password." };
+    }
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Invalid email or password." };
@@ -39,11 +51,16 @@ export async function loginAction(_previousState: LoginActionState, formData: Fo
 
     throw error;
   }
-  return {};
+
+  redirect(redirectTo);
 }
 
 function getPostLoginUrl(role: UserRole | undefined, callbackUrl: FormDataEntryValue | null) {
   const safeCallbackUrl = getSafeCallbackUrl(callbackUrl);
+
+  if (role === "RUNNER" && safeCallbackUrl === "/account") {
+    return "/account/registrations";
+  }
 
   if (safeCallbackUrl && canUseCallbackForRole(role, safeCallbackUrl)) {
     return safeCallbackUrl;
@@ -57,7 +74,7 @@ function getPostLoginUrl(role: UserRole | undefined, callbackUrl: FormDataEntryV
       return "/organizer";
     case "RUNNER":
     default:
-      return "/account";
+      return "/account/registrations";
   }
 }
 

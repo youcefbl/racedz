@@ -42,6 +42,7 @@ export type PaymentStatus =
 export type RaceCategory = {
   id: string;
   name: string;
+  raceType?: RaceType;
   distanceKm: number;
   elevationGainM?: number;
   priceDzd?: number;
@@ -49,6 +50,14 @@ export type RaceCategory = {
   startTime?: string;
   cutoffTimeMin?: number;
   gpxFileUrl?: string;
+};
+
+export type RaceAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  authorName: string;
+  publishedAt: string;
 };
 
 export type RaceEvent = {
@@ -82,4 +91,5 @@ export type RaceEvent = {
   maxParticipants?: number;
   availablePlaces?: number;
   categories: RaceCategory[];
+  announcements?: RaceAnnouncement[];
 };

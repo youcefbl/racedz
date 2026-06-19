@@ -28,6 +28,12 @@ export function InviteMemberForm({ canInvite }: { canInvite: boolean }) {
           {state.success}
         </p>
       ) : null}
+      {state.warning ? (
+        <p className="flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {state.warning}
+        </p>
+      ) : null}
       <div className="grid gap-3">
         <label className="grid gap-2 text-sm font-semibold text-gray-800">
           Email

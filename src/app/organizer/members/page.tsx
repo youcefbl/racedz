@@ -3,6 +3,7 @@ import { formatDate } from "@/lib/format";
 import { getOrganizerMembers, requireApprovedOrganizer } from "@/lib/organizer";
 import { CopyInviteLink } from "./copy-invite-link";
 import { InviteMemberForm } from "./invite-member-form";
+import { InvitationControls } from "./invitation-controls";
 import { MemberControls } from "./member-controls";
 
 export const dynamic = "force-dynamic";
@@ -63,26 +64,34 @@ export default async function OrganizerMembersPage() {
 
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-200 p-4">
-                <h2 className="font-black text-gray-950">Pending invitations</h2>
+                <h2 className="font-black text-gray-950">Invitations</h2>
               </div>
               {data?.invitations.length ? (
                 <div className="divide-y divide-gray-200">
-                  {data.invitations.map((invitation) => (
-                    <div key={invitation.id} className="grid gap-4 p-4 lg:grid-cols-[1fr_auto]">
-                      <div className="min-w-0">
-                        <p className="font-bold text-gray-950">{invitation.email}</p>
-                        <p className="text-sm text-gray-500">
-                          Invited {formatDate(invitation.createdAt)}
-                          {invitation.acceptedAt ? ` · accepted ${formatDate(invitation.acceptedAt)}` : ""}
-                        </p>
-                        {invitation.status === "PENDING" ? <CopyInviteLink path={`/invite/${invitation.token}`} /> : null}
+                  {data.invitations.map((invitation) => {
+                    const isPending = invitation.status === "PENDING";
+                    const statusVariant = invitation.status === "ACCEPTED" ? "green" : invitation.status === "REVOKED" ? "red" : "orange";
+
+                    return (
+                      <div key={invitation.id} className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-950">{invitation.email}</p>
+                          <p className="text-sm text-gray-500">
+                            Invited {formatDate(invitation.createdAt)}
+                            {invitation.acceptedAt ? ` · accepted ${formatDate(invitation.acceptedAt)}` : ""}
+                          </p>
+                          {isPending ? <CopyInviteLink path={`/invite/${invitation.token}`} /> : null}
+                        </div>
+                        <div className="grid content-start gap-3">
+                          <div className="flex flex-wrap gap-2 lg:justify-end">
+                            <Badge variant="teal">{invitation.role}</Badge>
+                            <Badge variant={statusVariant}>{invitation.status}</Badge>
+                          </div>
+                          {isPending ? <InvitationControls invitationId={invitation.id} canManage={canInvite} /> : null}
+                        </div>
                       </div>
-                      <div className="flex gap-2 lg:justify-end">
-                        <Badge variant="teal">{invitation.role}</Badge>
-                        <Badge variant={invitation.status === "PENDING" ? "orange" : "green"}>{invitation.status}</Badge>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="p-4 text-sm text-gray-500">No invitations yet.</p>

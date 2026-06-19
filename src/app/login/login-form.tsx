@@ -12,7 +12,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 
   return (
     <form action={formAction} className="grid gap-4">
-      <input type="hidden" name="callbackUrl" value={callbackUrl ?? "/account"} />
+      <input type="hidden" name="callbackUrl" value={callbackUrl ?? "/account/registrations"} />
       {state.error ? (
         <p className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{state.error}</p>
       ) : null}

@@ -7,15 +7,16 @@ type ExportContext = {
 export async function GET(_request: Request, context: ExportContext) {
   const { id } = await context.params;
   const { organization } = await requireApprovedOrganizer();
-  const [race, registrations] = await Promise.all([
+  const [race, registrationResult] = await Promise.all([
     getOrganizerRaceById(organization.id, id),
-    getOrganizerRaceRegistrations(organization.id, id)
+    getOrganizerRaceRegistrations(organization.id, id, {}, { page: 1, limit: 10000, skip: 0 })
   ]);
 
   if (!race) {
     return new Response("Race not found", { status: 404 });
   }
 
+  const registrations = registrationResult.items;
   const rows = [
     ["raceTitle", "firstName", "lastName", "email", "phone", "category", "distanceKm", "status", "paymentStatus", "createdAt"],
     ...registrations.map((registration) => [

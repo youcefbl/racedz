@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25)
+});
+
+export type PaginationInput = z.infer<typeof paginationSchema>;
+
 const localUploadPathSchema = z.string().regex(/^\/uploads\/[a-z-]+\/[0-9]{4}-[0-9]{2}\/[a-f0-9-]+\.(jpg|png|webp|gif)$/);
 const imageUrlSchema = z.union([z.string().url(), localUploadPathSchema]);
 
@@ -9,17 +16,25 @@ export const loginSchema = z.object({
 });
 
 export const registerUserSchema = z.object({
-  firstName: z.string().min(2),
-  lastName: z.string().min(2),
-  arabicFullName: z.string().optional(),
-  email: z.string().email().transform((value) => value.toLowerCase()),
-  phone: z.string().min(6),
-  password: z.string().min(8),
-  wilaya: z.string().min(2),
-  city: z.string().min(2),
-  commune: z.string().optional(),
+  firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
+  lastName: z.string().trim().min(2, "Last name must be at least 2 characters."),
+  arabicFullName: z.string().trim().optional(),
+  email: z.string().trim().email("Enter a valid email address.").transform((value) => value.toLowerCase()),
+  phone: z.string().trim().min(6, "Enter a valid phone number."),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters.")
+    .regex(/[A-Za-z]/, "Password must include at least one letter.")
+    .regex(/[0-9]/, "Password must include at least one number."),
+  confirmPassword: z.string(),
+  wilaya: z.string().trim().min(2, "Choose a wilaya."),
+  city: z.string().trim().optional(),
+  commune: z.string().trim().optional(),
   dateOfBirth: z.string().optional(),
-  nationalId: z.string().optional()
+  nationalId: z.string().trim().optional()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"]
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -235,3 +250,11 @@ export const raceRegistrationSchema = z.object({
 });
 
 export type RaceRegistrationInput = z.infer<typeof raceRegistrationSchema>;
+
+export const raceAnnouncementSchema = z.object({
+  raceId: z.string().min(1),
+  title: z.string().min(3).max(120),
+  body: z.string().min(10).max(2000)
+});
+
+export type RaceAnnouncementInput = z.infer<typeof raceAnnouncementSchema>;

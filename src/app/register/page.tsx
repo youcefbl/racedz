@@ -1,4 +1,5 @@
 import { RegisterForm } from "./register-form";
+import { BadgeCheck, CalendarDays, MailCheck } from "lucide-react";
 
 type RegisterAccountPageProps = {
   searchParams?: Promise<{
@@ -10,12 +11,49 @@ export default async function RegisterAccountPage({ searchParams }: RegisterAcco
   const params = await searchParams;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <p className="text-sm font-bold text-brand-teal">Account</p>
-        <h1 className="text-3xl font-black text-gray-950">Create account</h1>
+    <div className="bg-gray-50">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_460px] lg:px-8">
+        <section className="space-y-6">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Runner account</p>
+            <h1 className="mt-2 max-w-2xl text-4xl font-black leading-tight text-gray-950 sm:text-5xl">
+              Create your RaceDZ profile once, then register faster.
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-gray-600">
+              Your profile pre-fills race forms, keeps registration history in one place, and helps organizers verify participant details.
+            </p>
+          </div>
+          <div className="grid gap-3">
+            <SignupPoint icon={BadgeCheck} title="Verified email" text="Activate your account before login." />
+            <SignupPoint icon={CalendarDays} title="Race-ready profile" text="Save the core details organizers need." />
+            <SignupPoint icon={MailCheck} title="Registration updates" text="Receive race confirmations and changes." />
+          </div>
+        </section>
+
+        <section>
+          <RegisterForm callbackUrl={params?.callbackUrl} />
+        </section>
       </div>
-      <RegisterForm callbackUrl={params?.callbackUrl} />
+    </div>
+  );
+}
+
+function SignupPoint({
+  icon: Icon,
+  title,
+  text
+}: {
+  icon: typeof BadgeCheck;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <Icon className="mt-0.5 size-5 shrink-0 text-brand-orange" aria-hidden="true" />
+      <div>
+        <h2 className="text-sm font-black text-gray-950">{title}</h2>
+        <p className="mt-1 text-sm leading-5 text-gray-600">{text}</p>
+      </div>
     </div>
   );
 }

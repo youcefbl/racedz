@@ -44,7 +44,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 {dictionary.home.findRace}
                 <ArrowRight className="size-5" aria-hidden="true" />
               </ButtonLink>
-              <ButtonLink href="/organizer" variant="primary" size="lg">
+              <ButtonLink href={withLocale("/organizers", locale)} variant="primary" size="lg">
                 {dictionary.home.createEvent}
               </ButtonLink>
             </div>
@@ -101,7 +101,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <h2 className="text-2xl font-black">{dictionary.home.organizerTitle}</h2>
             <p className="mt-2 text-teal-50">{dictionary.home.organizerText}</p>
           </div>
-          <ButtonLink href="/organizer" variant="primary" size="lg">
+          <ButtonLink href={withLocale("/organizers", locale)} variant="primary" size="lg">
             {dictionary.home.createEvent}
           </ButtonLink>
         </div>

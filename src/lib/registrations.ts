@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
+import { notifyRaceRegistrationCreated } from "@/lib/notifications";
 import { raceRegistrationSchema, type RaceRegistrationInput } from "@/lib/validations";
 
 export class RegistrationError extends Error {
@@ -28,7 +29,28 @@ export async function createRaceRegistrationForUser({
   }
 
   try {
-    return await createRegistration(userId, raceEventId, parsed.data);
+    const registration = await createRegistration(userId, raceEventId, parsed.data);
+    const user = await getPrisma().user.findUnique({
+      where: {
+        id: userId
+      },
+      select: {
+        email: true
+      }
+    });
+
+    if (user) {
+      await notifyRaceRegistrationCreated({
+        userId,
+        email: user.email,
+        raceId: registration.raceEvent.id,
+        raceSlug: registration.raceEvent.slug,
+        raceTitle: registration.raceEvent.title,
+        categoryName: registration.raceCategory.name
+      });
+    }
+
+    return registration;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       throw new RegistrationError("You are already registered for this distance.", 409);

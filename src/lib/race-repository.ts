@@ -1,6 +1,6 @@
 import { getPrisma } from "@/lib/db";
 import { filterRaces, getRaceById as getMockRaceById, getRaceBySlug as getMockRaceBySlug, getUpcomingRaces as getMockUpcomingRaces, type RaceFilters } from "@/lib/races";
-import type { RaceCategory, RaceEvent } from "@/types/race";
+import type { RaceAnnouncement, RaceCategory, RaceEvent } from "@/types/race";
 
 type PrismaRaceEvent = {
   id: string;
@@ -36,6 +36,7 @@ type PrismaRaceEvent = {
   categories: Array<{
     id: string;
     name: string;
+    raceType: string | null;
     distanceKm: number;
     elevationGainM: number | null;
     priceDzd: number | null;
@@ -97,7 +98,7 @@ export async function getRaceEventBySlug(slug: string) {
       include: raceInclude
     })) as PrismaRaceEvent | null;
 
-    return race ? mapRaceEvent(race) : undefined;
+    return race ? { ...mapRaceEvent(race), announcements: await getPublicRaceAnnouncements(race.id) } : undefined;
   } catch {
     return getMockRaceBySlug(slug);
   }
@@ -115,7 +116,7 @@ export async function getRaceEventById(id: string) {
       include: raceInclude
     })) as PrismaRaceEvent | null;
 
-    return race ? mapRaceEvent(race) : undefined;
+    return race ? { ...mapRaceEvent(race), announcements: await getPublicRaceAnnouncements(race.id) } : undefined;
   } catch {
     return getMockRaceById(id);
   }
@@ -202,6 +203,7 @@ function mapRaceCategory(category: PrismaRaceEvent["categories"][number]): RaceC
   return {
     id: category.id,
     name: category.name,
+    raceType: (category.raceType as RaceCategory["raceType"]) ?? undefined,
     distanceKm: category.distanceKm,
     elevationGainM: category.elevationGainM ?? undefined,
     priceDzd: category.priceDzd ?? undefined,
@@ -210,6 +212,34 @@ function mapRaceCategory(category: PrismaRaceEvent["categories"][number]): RaceC
     cutoffTimeMin: category.cutoffTimeMin ?? undefined,
     gpxFileUrl: category.gpxFileUrl ?? undefined
   };
+}
+
+async function getPublicRaceAnnouncements(raceEventId: string): Promise<RaceAnnouncement[]> {
+  const rows = await getPrisma().$queryRaw<
+    Array<{
+      id: string;
+      title: string;
+      body: string;
+      authorName: string;
+      publishedAt: Date;
+    }>
+  >`
+    SELECT
+      announcement."id",
+      announcement."title",
+      announcement."body",
+      CONCAT(author."firstName", ' ', author."lastName") AS "authorName",
+      announcement."publishedAt"
+    FROM "RaceAnnouncement" announcement
+    INNER JOIN "User" author ON author."id" = announcement."authorId"
+    WHERE announcement."raceEventId" = ${raceEventId}
+    ORDER BY announcement."publishedAt" DESC
+  `;
+
+  return rows.map((row) => ({
+    ...row,
+    publishedAt: row.publishedAt.toISOString()
+  }));
 }
 
 function canUseDatabase() {

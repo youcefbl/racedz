@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AnnouncementError, createAdminRaceAnnouncement } from "@/lib/announcements";
 import { AdminError, requireAdmin, updateAdminRace } from "@/lib/admin";
 
 export type AdminRaceEditActionState = {
@@ -53,6 +54,32 @@ export async function updateAdminRaceAction(
   revalidatePath("/races");
 
   return { success: "Race updated." };
+}
+
+export async function createAdminAnnouncementAction(formData: FormData) {
+  const session = await requireAdmin();
+  const raceId = getString(formData, "raceId");
+
+  try {
+    await createAdminRaceAnnouncement({
+      authorId: session.user.id,
+      input: {
+        raceId,
+        title: getString(formData, "title"),
+        body: getString(formData, "body")
+      }
+    });
+  } catch (error) {
+    if (error instanceof AnnouncementError) {
+      throw new Error(error.message);
+    }
+
+    throw error;
+  }
+
+  revalidatePath("/admin/races");
+  revalidatePath(`/admin/races/${raceId}/edit`);
+  revalidatePath("/races");
 }
 
 function getString(formData: FormData, key: string) {

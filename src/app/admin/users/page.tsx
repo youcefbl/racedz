@@ -1,7 +1,11 @@
+import Image from "next/image";
+import Link from "next/link";
 import { Mail, MapPin, Phone, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDate } from "@/lib/format";
 import { getAdminUsers, requireAdmin } from "@/lib/admin";
+import { parsePagination } from "@/lib/pagination";
 import { AdminShell, EmptyState, FilterBar, SelectFilter, StatusBadge } from "../_components/admin-ui";
 import { updateUserRoleAction } from "../actions";
 
@@ -11,16 +15,21 @@ type AdminUsersPageProps = {
   searchParams?: Promise<{
     q?: string;
     role?: string;
+    page?: string;
   }>;
 };
 
 export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
   const session = await requireAdmin();
   const filters = await searchParams;
-  const users = await getAdminUsers({
-    q: filters?.q,
-    role: filters?.role
-  });
+  const pagination = parsePagination({ page: filters?.page });
+  const { items: users, page, totalPages } = await getAdminUsers(
+    {
+      q: filters?.q,
+      role: filters?.role
+    },
+    pagination
+  );
 
   return (
     <AdminShell title="Users" description="Search users, inspect role assignments, and see account activity at a glance.">
@@ -59,17 +68,27 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                 {users.map((user) => (
                   <tr key={user.id}>
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
-                          <UserRound className="size-5" aria-hidden="true" />
+                      <Link href={`/admin/users/${user.id}`} className="group flex items-center gap-3">
+                        <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-teal-50 text-brand-teal">
+                          {user.avatarUrl ? (
+                            <Image
+                              src={user.avatarUrl}
+                              alt={`${user.firstName} ${user.lastName}`}
+                              fill
+                              sizes="40px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <UserRound className="size-5" aria-hidden="true" />
+                          )}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-950">
+                          <p className="font-bold text-gray-950 group-hover:text-brand-teal">
                             {user.firstName} {user.lastName}
                           </p>
                           {user.arabicFullName ? <p className="text-xs text-gray-500">{user.arabicFullName}</p> : null}
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-4">
                       <StatusBadge value={user.role} />
@@ -131,6 +150,8 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
           </div>
         </div>
       )}
+
+      <Pagination basePath="/admin/users" searchParams={filters} page={page} totalPages={totalPages} />
     </AdminShell>
   );
 }

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { X } from "lucide-react";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
-import { getDictionary, getLocale, type Locale } from "@/lib/i18n";
+import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { findRaceEvents } from "@/lib/race-repository";
 import type { EventRegistrationStatus, RaceType } from "@/types/race";
 
@@ -26,6 +28,7 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
   const locale = getLocale(filters.lang);
   const dictionary = getDictionary(locale);
   const races = await findRaceEvents(filters);
+  const hasActiveFilters = Boolean(filters.q || filters.wilaya || filters.type || filters.distance || filters.registrationStatus);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -42,7 +45,21 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
         lang={locale}
         labels={dictionary.search}
       />
-      <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">
+          {dictionary.races.resultCount.replace("{count}", String(races.length))}
+        </p>
+        {hasActiveFilters ? (
+          <Link
+            href={withLocale("/races", locale)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+            {dictionary.races.clearFilters}
+          </Link>
+        ) : null}
+      </div>
+      <div className="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {races.map((race) => (
           <RaceCard key={race.id} race={race} viewLabel={dictionary.common.view} locale={locale} />
         ))}

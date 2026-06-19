@@ -1,8 +1,12 @@
 import Link from "next/link";
-import { CalendarDays, Mail, Phone, ReceiptText, Route, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, Mail, Phone, ReceiptText, Route, UserRound, XCircle } from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminRegistrations, requireAdmin } from "@/lib/admin";
+import { parsePagination } from "@/lib/pagination";
 import { AdminShell, EmptyState, FilterBar, SelectFilter, StatusBadge } from "../_components/admin-ui";
+import { cancelRegistrationAction, confirmRegistrationPaymentAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -11,21 +15,28 @@ type AdminRegistrationsPageProps = {
     q?: string;
     status?: string;
     paymentStatus?: string;
+    paymentState?: string;
+    page?: string;
   }>;
 };
 
 export default async function AdminRegistrationsPage({ searchParams }: AdminRegistrationsPageProps) {
   await requireAdmin();
   const filters = await searchParams;
-  const registrations = await getAdminRegistrations({
-    q: filters?.q,
-    status: filters?.status,
-    paymentStatus: filters?.paymentStatus
-  });
+  const pagination = parsePagination({ page: filters?.page });
+  const { items: registrations, page, totalPages } = await getAdminRegistrations(
+    {
+      q: filters?.q,
+      status: filters?.status,
+      paymentStatus: filters?.paymentStatus,
+      paymentState: filters?.paymentState
+    },
+    pagination
+  );
 
   return (
     <AdminShell title="Registrations" description="Review participant registrations, payment state, and race entry details.">
-      <FilterBar action="/admin/registrations" searchPlaceholder="Search runner, email, race, distance">
+      <FilterBar action="/admin/registrations" searchPlaceholder="Search runner, email, race, distance" defaultSearch={filters?.q}>
         <SelectFilter
           name="status"
           label="All registration statuses"
@@ -39,16 +50,12 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
           ]}
         />
         <SelectFilter
-          name="paymentStatus"
+          name="paymentState"
           label="All payment states"
-          defaultValue={filters?.paymentStatus}
+          defaultValue={filters?.paymentState}
           options={[
-            { value: "NOT_REQUIRED", label: "Not required" },
-            { value: "PENDING", label: "Pending" },
-            { value: "PAID", label: "Paid" },
-            { value: "FAILED", label: "Failed" },
-            { value: "REFUNDED", label: "Refunded" },
-            { value: "MANUAL_REVIEW", label: "Manual review" }
+            { value: "CONFIRMED", label: "Payment confirmed" },
+            { value: "NOT_CONFIRMED", label: "Payment not confirmed" }
           ]}
         />
       </FilterBar>
@@ -56,9 +63,10 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
       {registrations.length === 0 ? (
         <EmptyState title="No registrations found" description="There are no registrations matching the current filters." />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-normal text-gray-500">
                 <tr>
                   <th className="px-4 py-3">Runner</th>
@@ -67,11 +75,16 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3">Submitted</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {registrations.map((registration) => (
-                  <tr key={registration.id}>
+                {registrations.map((registration) => {
+                  const canConfirmPayment = registration.paymentStatus !== "PAID" && registration.paymentStatus !== "NOT_REQUIRED" && registration.status !== "CANCELLED" && registration.status !== "REJECTED";
+                  const canCancel = registration.status !== "CANCELLED" && registration.status !== "REJECTED";
+
+                  return (
+                    <tr key={registration.id}>
                     <td className="px-4 py-4">
                       <div className="flex gap-3">
                         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
@@ -120,11 +133,32 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
                       <StatusBadge value={registration.paymentStatus} />
                     </td>
                     <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex min-w-44 flex-wrap gap-2">
+                        <form action={confirmRegistrationPaymentAction}>
+                          <input type="hidden" name="id" value={registration.id} />
+                          <Button type="submit" variant="outline" size="sm" disabled={!canConfirmPayment}>
+                            <CheckCircle2 className="size-4" aria-hidden="true" />
+                            Confirm payment
+                          </Button>
+                        </form>
+                        <form action={cancelRegistrationAction}>
+                          <input type="hidden" name="id" value={registration.id} />
+                          <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="text-red-700 hover:bg-red-50">
+                            <XCircle className="size-4" aria-hidden="true" />
+                            Cancel
+                          </Button>
+                        </form>
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          <Pagination basePath="/admin/registrations" searchParams={filters} page={page} totalPages={totalPages} />
+        </div>
         </div>
       )}
     </AdminShell>

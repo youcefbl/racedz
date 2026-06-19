@@ -1,9 +1,99 @@
 import { randomUUID } from "crypto";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { notifyRaceRegistrantsRaceChanged } from "@/lib/notifications";
+import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
 import { adminRaceUpdateSchema, platformRaceSchema } from "@/lib/validations";
+
+type AdminUserRow = Prisma.UserGetPayload<{
+  include: {
+    _count: {
+      select: {
+        registrations: true;
+        organizations: true;
+      };
+    };
+  };
+}>;
+
+type AdminOrganizationRow = Prisma.OrganizationGetPayload<{
+  include: {
+    members: {
+      include: {
+        user: {
+          select: {
+            firstName: true;
+            lastName: true;
+            email: true;
+          };
+        };
+      };
+    };
+    _count: {
+      select: {
+        members: true;
+        races: true;
+      };
+    };
+  };
+}> & {
+  rejectionReason: string | null;
+  logoUrl: string | null;
+};
+
+type AdminRaceRow = Prisma.RaceEventGetPayload<{
+  include: {
+    organization: {
+      select: {
+        name: true;
+        slug: true;
+      };
+    };
+    categories: {
+      select: {
+        priceDzd: true;
+      };
+    };
+    _count: {
+      select: {
+        categories: true;
+        registrations: true;
+      };
+    };
+  };
+}>;
+
+type AdminRegistrationRow = Prisma.RaceRegistrationGetPayload<{
+  include: {
+    user: {
+      select: {
+        firstName: true;
+        lastName: true;
+        email: true;
+        phone: true;
+      };
+    };
+    raceEvent: {
+      select: {
+        title: true;
+        slug: true;
+        startDate: true;
+        wilaya: true;
+        city: true;
+      };
+    };
+    raceCategory: {
+      select: {
+        name: true;
+        distanceKm: true;
+        priceDzd: true;
+      };
+    };
+  };
+}>;
 
 export class AdminError extends Error {
   constructor(message: string) {
@@ -286,6 +376,14 @@ export async function updateAdminRace({
         changes
       }
     });
+
+    await notifyRaceRegistrantsRaceChanged({
+      raceId: updated.id,
+      raceSlug: updated.slug,
+      raceTitle: updated.title,
+      summary: `"${updated.title}" has updated race details. Review the latest date, location, registration status, and race information before race day.`,
+      changes: changes.map((change) => formatChangeField(change.field))
+    });
   }
 
   return updated;
@@ -304,24 +402,58 @@ export type AdminAuditLogRow = {
   createdAt: Date;
 };
 
-export async function getAdminAuditLogs() {
-  return getPrisma().$queryRaw<AdminAuditLogRow[]>`
-    SELECT
-      audit."id",
-      audit."actorId",
-      CONCAT(actor."firstName", ' ', actor."lastName") AS "actorName",
-      actor."email" AS "actorEmail",
-      audit."action",
-      audit."targetType",
-      audit."targetId",
-      audit."summary",
-      audit."metadata",
-      audit."createdAt"
-    FROM "AdminAuditLog" audit
-    INNER JOIN "User" actor ON actor."id" = audit."actorId"
-    ORDER BY audit."createdAt" DESC
-    LIMIT 100
-  `;
+export async function getAdminAuditLogs(
+  filters: {
+    actor?: string;
+    targetType?: string;
+    action?: string;
+  } = {},
+  pagination?: PaginationParams
+): Promise<PaginatedResult<AdminAuditLogRow>> {
+  const { page, limit, skip } = pagination ?? parsePagination();
+  const prisma = getPrisma();
+  const actor = filters.actor?.trim() ?? "";
+  const actorLike = `%${actor}%`;
+  const targetType = filters.targetType?.trim() ?? "";
+  const action = filters.action?.trim() ?? "";
+
+  const [rows, countResult] = await Promise.all([
+    prisma.$queryRaw<AdminAuditLogRow[]>`
+      SELECT
+        audit."id",
+        audit."actorId",
+        CONCAT(actor."firstName", ' ', actor."lastName") AS "actorName",
+        actor."email" AS "actorEmail",
+        audit."action",
+        audit."targetType",
+        audit."targetId",
+        audit."summary",
+        audit."metadata",
+        audit."createdAt"
+      FROM "AdminAuditLog" audit
+      INNER JOIN "User" actor ON actor."id" = audit."actorId"
+      WHERE (${actor} = '' OR actor."email" ILIKE ${actorLike} OR CONCAT(actor."firstName", ' ', actor."lastName") ILIKE ${actorLike})
+        AND (${targetType} = '' OR audit."targetType" = ${targetType})
+        AND (${action} = '' OR audit."action" = ${action})
+      ORDER BY audit."createdAt" DESC
+      LIMIT ${limit} OFFSET ${skip}
+    `,
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count
+      FROM "AdminAuditLog" audit
+      INNER JOIN "User" actor ON actor."id" = audit."actorId"
+      WHERE (${actor} = '' OR actor."email" ILIKE ${actorLike} OR CONCAT(actor."firstName", ' ', actor."lastName") ILIKE ${actorLike})
+        AND (${targetType} = '' OR audit."targetType" = ${targetType})
+        AND (${action} = '' OR audit."action" = ${action})
+    `
+  ]);
+
+  const total = Number(countResult[0]?.count ?? 0);
+
+  return {
+    items: rows,
+    ...buildPaginationMeta(total, page, limit)
+  };
 }
 
 export async function recordAdminAuditLog({
@@ -361,191 +493,444 @@ export async function recordAdminAuditLog({
   `;
 }
 
-export async function getAdminUsers(filters: { q?: string; role?: string }) {
+export async function getAdminUsers(
+  filters: { q?: string; role?: string },
+  pagination?: PaginationParams
+): Promise<PaginatedResult<AdminUserRow>> {
   const prisma = getPrisma();
   const q = filters.q?.trim();
+  const { page, limit, skip } = pagination ?? parsePagination();
 
-  return prisma.user.findMany({
-    where: {
-      role: isUserRole(filters.role) ? filters.role : undefined,
-      OR: q
-        ? [
-            { email: { contains: q, mode: "insensitive" } },
-            { firstName: { contains: q, mode: "insensitive" } },
-            { lastName: { contains: q, mode: "insensitive" } },
-            { phone: { contains: q, mode: "insensitive" } },
-            { wilaya: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } }
-          ]
-        : undefined
-    },
+  const where: Prisma.UserWhereInput = {
+    role: isUserRole(filters.role) ? filters.role : undefined,
+    OR: q
+      ? [
+          { email: { contains: q, mode: "insensitive" } },
+          { firstName: { contains: q, mode: "insensitive" } },
+          { lastName: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
+          { wilaya: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } }
+        ]
+      : undefined
+  };
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      include: {
+        _count: {
+          select: {
+            registrations: true,
+            organizations: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip,
+      take: limit
+    }),
+    prisma.user.count({ where })
+  ]);
+
+  return {
+    items: users,
+    ...buildPaginationMeta(total, page, limit)
+  };
+}
+
+export async function getAdminUserById(userId: string) {
+  const prisma = getPrisma();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
     include: {
+      registrations: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          raceEvent: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              startDate: true,
+              wilaya: true,
+              city: true,
+              status: true,
+              registrationStatus: true
+            }
+          },
+          raceCategory: {
+            select: {
+              id: true,
+              name: true,
+              distanceKm: true,
+              priceDzd: true
+            }
+          }
+        }
+      },
+      organizations: {
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true
+            }
+          }
+        }
+      },
       _count: {
         select: {
           registrations: true,
           organizations: true
         }
       }
-    },
-    orderBy: {
-      createdAt: "desc"
-    },
-    take: 50
+    }
   });
+
+  return user;
 }
 
-export async function getAdminOrganizations(filters: { q?: string; status?: string }) {
+export async function getAdminOrganizations(
+  filters: { q?: string; status?: string },
+  pagination?: PaginationParams
+): Promise<PaginatedResult<AdminOrganizationRow>> {
   const prisma = getPrisma();
   const q = filters.q?.trim();
+  const { page, limit, skip } = pagination ?? parsePagination();
 
-  const organizations = await prisma.organization.findMany({
-    where: {
-      status: isOrganizationStatus(filters.status) ? filters.status : undefined,
-      OR: q
-        ? [
-            { name: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-            { phone: { contains: q, mode: "insensitive" } },
-            { wilaya: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } }
-          ]
-        : undefined
-    },
-    include: {
-      members: {
-        include: {
-          user: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true
+  const where: Prisma.OrganizationWhereInput = {
+    status: isOrganizationStatus(filters.status) ? filters.status : undefined,
+    OR: q
+      ? [
+          { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
+          { wilaya: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } }
+        ]
+      : undefined
+  };
+
+  const [organizations, total] = await Promise.all([
+    prisma.organization.findMany({
+      where,
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true
+              }
             }
+          },
+          orderBy: {
+            createdAt: "asc"
+          },
+          take: 1
+        },
+        _count: {
+          select: {
+            members: true,
+            races: true
           }
-        },
-        orderBy: {
-          createdAt: "asc"
-        },
-        take: 1
-      },
-      _count: {
-        select: {
-          members: true,
-          races: true
         }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    },
-    take: 50
-  });
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip,
+      take: limit
+    }),
+    prisma.organization.count({ where })
+  ]);
+
   const organizationMeta = await getOrganizationAdminMeta(organizations.map((organization) => organization.id));
 
-  return organizations.map((organization) => ({
+  const items = organizations.map((organization) => ({
     ...organization,
     rejectionReason: organizationMeta.get(organization.id)?.rejectionReason ?? null,
     logoUrl: organizationMeta.get(organization.id)?.logoUrl ?? null
   }));
+
+  return {
+    items,
+    ...buildPaginationMeta(total, page, limit)
+  };
 }
 
-export async function getAdminRaces(filters: {
-  q?: string;
-  status?: string;
-  registrationStatus?: string;
-  source?: string;
-}) {
+export async function getAdminRaces(
+  filters: {
+    q?: string;
+    status?: string;
+    registrationStatus?: string;
+    source?: string;
+  },
+  pagination?: PaginationParams
+): Promise<PaginatedResult<AdminRaceRow>> {
   const prisma = getPrisma();
   const q = filters.q?.trim();
+  const { page, limit, skip } = pagination ?? parsePagination();
 
-  return prisma.raceEvent.findMany({
+  const where: Prisma.RaceEventWhereInput = {
+    status: isRaceStatus(filters.status) ? filters.status : undefined,
+    registrationStatus: isEventRegistrationStatus(filters.registrationStatus) ? filters.registrationStatus : undefined,
+    source: filters.source === "ORGANIZATION" || filters.source === "PLATFORM" ? filters.source : undefined,
+    OR: q
+      ? [
+          { title: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } },
+          { wilaya: { contains: q, mode: "insensitive" } },
+          { organizerName: { contains: q, mode: "insensitive" } },
+          { organization: { name: { contains: q, mode: "insensitive" } } }
+        ]
+      : undefined
+  };
+
+  const [races, total] = await Promise.all([
+    prisma.raceEvent.findMany({
+      where,
+      include: {
+        organization: {
+          select: {
+            name: true,
+            slug: true
+          }
+        },
+        categories: {
+          select: {
+            priceDzd: true
+          }
+        },
+        _count: {
+          select: {
+            categories: true,
+            registrations: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip,
+      take: limit
+    }),
+    prisma.raceEvent.count({ where })
+  ]);
+
+  return {
+    items: races,
+    ...buildPaginationMeta(total, page, limit)
+  };
+}
+
+export async function getAdminRegistrations(
+  filters: { q?: string; status?: string; paymentStatus?: string; paymentState?: string },
+  pagination?: PaginationParams
+): Promise<PaginatedResult<AdminRegistrationRow>> {
+  const prisma = getPrisma();
+  const q = filters.q?.trim();
+  const { page, limit, skip } = pagination ?? parsePagination();
+
+  const where: Prisma.RaceRegistrationWhereInput = {
+    status: isRegistrationStatus(filters.status) ? filters.status : undefined,
+    OR: q
+      ? [
+          { user: { email: { contains: q, mode: "insensitive" } } },
+          { user: { firstName: { contains: q, mode: "insensitive" } } },
+          { user: { lastName: { contains: q, mode: "insensitive" } } },
+          { raceEvent: { title: { contains: q, mode: "insensitive" } } },
+          { raceCategory: { name: { contains: q, mode: "insensitive" } } }
+        ]
+      : undefined
+  };
+
+  applyPaymentFilter(where, filters);
+
+  const [registrations, total] = await Promise.all([
+    prisma.raceRegistration.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true
+          }
+        },
+        raceEvent: {
+          select: {
+            title: true,
+            slug: true,
+            startDate: true,
+            wilaya: true,
+            city: true
+          }
+        },
+        raceCategory: {
+          select: {
+            name: true,
+            distanceKm: true,
+            priceDzd: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip,
+      take: limit
+    }),
+    prisma.raceRegistration.count({ where })
+  ]);
+
+  return {
+    items: registrations,
+    ...buildPaginationMeta(total, page, limit)
+  };
+}
+
+export async function confirmAdminRegistrationPayment({
+  actorId,
+  registrationId
+}: {
+  actorId: string;
+  registrationId: string;
+}) {
+  const registration = await getPrisma().raceRegistration.findUnique({
     where: {
-      status: isRaceStatus(filters.status) ? filters.status : undefined,
-      registrationStatus: isEventRegistrationStatus(filters.registrationStatus) ? filters.registrationStatus : undefined,
-      source: filters.source === "ORGANIZATION" || filters.source === "PLATFORM" ? filters.source : undefined,
-      OR: q
-        ? [
-            { title: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } },
-            { wilaya: { contains: q, mode: "insensitive" } },
-            { organizerName: { contains: q, mode: "insensitive" } },
-            { organization: { name: { contains: q, mode: "insensitive" } } }
-          ]
-        : undefined
+      id: registrationId
     },
-    include: {
-      organization: {
+    select: {
+      id: true,
+      status: true,
+      paymentStatus: true,
+      raceEvent: {
         select: {
-          name: true,
-          slug: true
+          title: true
         }
       },
-      categories: {
+      user: {
         select: {
-          priceDzd: true
-        }
-      },
-      _count: {
-        select: {
-          categories: true,
-          registrations: true
+          email: true
         }
       }
+    }
+  });
+
+  if (!registration) {
+    throw new AdminError("Registration not found.");
+  }
+
+  if (registration.status === "CANCELLED" || registration.status === "REJECTED") {
+    throw new AdminError("Payment cannot be confirmed for a cancelled or rejected registration.");
+  }
+
+  await getPrisma().raceRegistration.update({
+    where: {
+      id: registration.id
     },
-    orderBy: {
-      createdAt: "desc"
-    },
-    take: 50
+    data: {
+      paymentStatus: "PAID"
+    }
+  });
+
+  await recordAdminAuditLog({
+    actorId,
+    action: "registration.payment_confirmed",
+    targetType: "RaceRegistration",
+    targetId: registration.id,
+    summary: `Confirmed payment for ${registration.user.email} on ${registration.raceEvent.title}`,
+    metadata: {
+      previousPaymentStatus: registration.paymentStatus,
+      nextPaymentStatus: "PAID"
+    }
   });
 }
 
-export async function getAdminRegistrations(filters: { q?: string; status?: string; paymentStatus?: string }) {
+export async function cancelAdminRaceRegistration({
+  actorId,
+  registrationId
+}: {
+  actorId: string;
+  registrationId: string;
+}) {
   const prisma = getPrisma();
-  const q = filters.q?.trim();
 
-  return prisma.raceRegistration.findMany({
-    where: {
-      status: isRegistrationStatus(filters.status) ? filters.status : undefined,
-      paymentStatus: isPaymentStatus(filters.paymentStatus) ? filters.paymentStatus : undefined,
-      OR: q
-        ? [
-            { user: { email: { contains: q, mode: "insensitive" } } },
-            { user: { firstName: { contains: q, mode: "insensitive" } } },
-            { user: { lastName: { contains: q, mode: "insensitive" } } },
-            { raceEvent: { title: { contains: q, mode: "insensitive" } } },
-            { raceCategory: { name: { contains: q, mode: "insensitive" } } }
-          ]
-        : undefined
-    },
-    include: {
-      user: {
-        select: {
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true
-        }
+  const registration = await prisma.$transaction(async (tx) => {
+    const existing = await tx.raceRegistration.findUnique({
+      where: {
+        id: registrationId
       },
-      raceEvent: {
-        select: {
-          title: true,
-          slug: true,
-          startDate: true,
-          wilaya: true,
-          city: true
-        }
-      },
-      raceCategory: {
-        select: {
-          name: true,
-          distanceKm: true,
-          priceDzd: true
+      select: {
+        id: true,
+        status: true,
+        raceEventId: true,
+        raceEvent: {
+          select: {
+            title: true,
+            availablePlaces: true
+          }
+        },
+        user: {
+          select: {
+            email: true
+          }
         }
       }
-    },
-    orderBy: {
-      createdAt: "desc"
-    },
-    take: 50
+    });
+
+    if (!existing) {
+      throw new AdminError("Registration not found.");
+    }
+
+    if (existing.status === "CANCELLED") {
+      return existing;
+    }
+
+    await tx.raceRegistration.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        status: "CANCELLED"
+      }
+    });
+
+    if (existing.status !== "REJECTED" && existing.raceEvent.availablePlaces != null) {
+      await tx.raceEvent.update({
+        where: {
+          id: existing.raceEventId
+        },
+        data: {
+          availablePlaces: {
+            increment: 1
+          }
+        }
+      });
+    }
+
+    return existing;
+  });
+
+  await recordAdminAuditLog({
+    actorId,
+    action: "registration.cancelled",
+    targetType: "RaceRegistration",
+    targetId: registration.id,
+    summary: `Cancelled registration for ${registration.user.email} on ${registration.raceEvent.title}`,
+    metadata: {
+      previousStatus: registration.status,
+      nextStatus: "CANCELLED"
+    }
   });
 }
 
@@ -611,6 +996,29 @@ function isPaymentStatus(value?: string) {
   return value === "NOT_REQUIRED" || value === "PENDING" || value === "PAID" || value === "FAILED" || value === "REFUNDED" || value === "MANUAL_REVIEW";
 }
 
+function applyPaymentFilter(
+  where: Prisma.RaceRegistrationWhereInput,
+  filters: { paymentStatus?: string; paymentState?: string }
+) {
+  if (isPaymentStatus(filters.paymentStatus)) {
+    where.paymentStatus = filters.paymentStatus;
+    return;
+  }
+
+  if (filters.paymentState === "CONFIRMED") {
+    where.paymentStatus = {
+      in: ["PAID", "NOT_REQUIRED"]
+    };
+    return;
+  }
+
+  if (filters.paymentState === "NOT_CONFIRMED") {
+    where.paymentStatus = {
+      notIn: ["PAID", "NOT_REQUIRED"]
+    };
+  }
+}
+
 async function getOrganizationAdminMeta(organizationIds: string[]) {
   if (organizationIds.length === 0) {
     return new Map<string, { rejectionReason: string | null; logoUrl: string | null }>();
@@ -641,6 +1049,30 @@ function buildChangeList(previous: Record<string, unknown>, next: Record<string,
       }
     ];
   });
+}
+
+function formatChangeField(field: string) {
+  const labels: Record<string, string> = {
+    title: "Title",
+    description: "Description",
+    raceType: "Race type",
+    status: "Publication status",
+    registrationStatus: "Registration status",
+    startDate: "Start date",
+    registrationCloseAt: "Registration deadline",
+    wilaya: "Wilaya",
+    city: "City",
+    commune: "Commune",
+    address: "Address",
+    organizerName: "Organizer",
+    organizerUrl: "Organizer link",
+    contactEmail: "Contact email",
+    contactPhone: "Contact phone",
+    maxParticipants: "Capacity",
+    mainImageUrl: "Race image"
+  };
+
+  return labels[field] ?? field;
 }
 
 function normalizeHistoryValue(value: unknown) {

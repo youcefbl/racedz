@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Building2, CalendarDays, MapPin, Route, Trophy, UsersRound } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminRaces, requireAdmin } from "@/lib/admin";
-import { approveRaceAction, rejectRaceAction, unpublishRaceAction } from "../actions";
+import { parsePagination } from "@/lib/pagination";
+import { approveRaceAction, publishRaceAction, rejectRaceAction, unpublishRaceAction } from "../actions";
 import { AdminShell, EmptyState, FilterBar, SelectFilter, StatusBadge } from "../_components/admin-ui";
 
 export const dynamic = "force-dynamic";
@@ -14,18 +16,23 @@ type AdminRacesPageProps = {
     status?: string;
     registrationStatus?: string;
     source?: string;
+    page?: string;
   }>;
 };
 
 export default async function AdminRacesPage({ searchParams }: AdminRacesPageProps) {
   const session = await requireAdmin();
   const filters = await searchParams;
-  const races = await getAdminRaces({
-    q: filters?.q,
-    status: filters?.status,
-    registrationStatus: filters?.registrationStatus,
-    source: filters?.source
-  });
+  const pagination = parsePagination({ page: filters?.page });
+  const { items: races, page, totalPages } = await getAdminRaces(
+    {
+      q: filters?.q,
+      status: filters?.status,
+      registrationStatus: filters?.registrationStatus,
+      source: filters?.source
+    },
+    pagination
+  );
 
   return (
     <AdminShell
@@ -79,8 +86,9 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
       {races.length === 0 ? (
         <EmptyState title="No races found" description="There are no races matching the current filters." />
       ) : (
-        <div className="grid gap-4">
-          {races.map((race) => (
+        <div className="space-y-4">
+          <div className="grid gap-4">
+            {races.map((race) => (
             <article key={race.id} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
               <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
                 <div className="space-y-4">
@@ -121,7 +129,7 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                   <div className="flex flex-wrap gap-3 text-xs font-semibold text-gray-500">
                     <span>{race._count.categories} categories</span>
                     <span>{race.availablePlaces ?? "No"} places available</span>
-                    <span>From {formatLowestPrice(race.categories.map((category) => category.priceDzd))}</span>
+                    <span>From {formatLowestPrice(race.categories.map((category: { priceDzd: number | null }) => category.priceDzd))}</span>
                   </div>
                 </div>
 
@@ -163,6 +171,14 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                       </form>
                     </>
                   ) : null}
+                  {race.status === "DRAFT" ? (
+                    <form action={publishRaceAction}>
+                      <input type="hidden" name="id" value={race.id} />
+                      <Button type="submit" variant="secondary" size="sm" className="w-full">
+                        Publish again
+                      </Button>
+                    </form>
+                  ) : null}
                   {race.status === "PUBLISHED" ? (
                     <form action={unpublishRaceAction}>
                       <input type="hidden" name="id" value={race.id} />
@@ -174,7 +190,9 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                 </div>
               </div>
             </article>
-          ))}
+            ))}
+          </div>
+          <Pagination basePath="/admin/races" searchParams={filters} page={page} totalPages={totalPages} />
         </div>
       )}
     </AdminShell>

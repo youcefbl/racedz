@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/db";
+import { isEmailVerified } from "@/lib/email-verification";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
 
@@ -52,6 +53,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })) as DatabaseUser | null;
 
         if (!user?.passwordHash) {
+          return null;
+        }
+
+        if (!(await isEmailVerified(user.email))) {
           return null;
         }
 

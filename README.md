@@ -65,6 +65,25 @@ All use password `racedz-demo-password`.
 - Historical product brief: `algeria-races-codex-brief.md`
 - Quick Codex context: `CODEX_CONTEXT.md`
 - Agent instructions: `AGENTS.md`
+- Manual QA flow: `docs/QA_CHECKLIST.md`
+- Browser e2e test strategy: `docs/E2E_TEST_STRATEGY.md`
+- AWS deployment plan and cost estimate: `docs/AWS_DEPLOYMENT_PLAN.md`
+
+## Quality Checks
+
+Run these after meaningful code changes:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+For a quick local route check, keep `npm run dev` running on `http://127.0.0.1:3003`, then run:
+
+```bash
+npm run smoke
+```
 
 ## Two-PC Development
 

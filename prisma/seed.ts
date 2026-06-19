@@ -1,7 +1,64 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma, type RaceType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+const WILAYAS = [
+  "Alger",
+  "Oran",
+  "Constantine",
+  "Annaba",
+  "Blida",
+  "Tizi Ouzou",
+  "Setif",
+  "Batna",
+  "Djelfa",
+  "Bejaia",
+  "Biskra",
+  "Tiaret",
+  "Tlemcen",
+  "Ouargla",
+  "Bechar",
+  "Skikda",
+  "Mostaganem",
+  "M'Sila",
+  "Chlef",
+  "El Oued"
+];
+
+const RACE_TYPES: RaceType[] = [
+  "ROAD",
+  "TRAIL",
+  "ULTRA_TRAIL",
+  "MARATHON",
+  "HALF_MARATHON",
+  "TEN_K",
+  "FIVE_K",
+  "KIDS",
+  "CHARITY",
+  "OTHER"
+];
+
+function pickOne<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function pickSome<T>(items: T[], max: number): T[] {
+  const count = Math.floor(Math.random() * max) + 1;
+  const shuffled = [...items].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 async function main() {
   const passwordHash = await bcrypt.hash("racedz-demo-password", 10);
@@ -55,6 +112,12 @@ async function main() {
     }
   });
 
+  await prisma.$executeRaw`
+    UPDATE "User"
+    SET "emailVerifiedAt" = COALESCE("emailVerifiedAt", NOW())
+    WHERE "id" IN (${admin.id}, ${organizerUser.id}, ${runner.id})
+  `;
+
   const algerClub = await prisma.organization.upsert({
     where: { slug: "alger-running-club" },
     update: {},
@@ -106,7 +169,9 @@ async function main() {
     }
   });
 
-  const alger10k = await prisma.raceEvent.upsert({
+  const organizations = [algerClub, oranTeam, kabylieRunners];
+
+  await prisma.raceEvent.upsert({
     where: { slug: "alger-10k" },
     update: {},
     create: {
@@ -238,9 +303,9 @@ async function main() {
     }
   });
 
-  const category = await prisma.raceCategory.findFirstOrThrow({
+  const demoCategory = await prisma.raceCategory.findFirstOrThrow({
     where: {
-      raceEventId: alger10k.id,
+      raceEvent: { slug: "alger-10k" },
       name: "10K Open"
     }
   });
@@ -249,14 +314,14 @@ async function main() {
     where: {
       userId_raceCategoryId: {
         userId: runner.id,
-        raceCategoryId: category.id
+        raceCategoryId: demoCategory.id
       }
     },
     update: {},
     create: {
       userId: runner.id,
-      raceEventId: alger10k.id,
-      raceCategoryId: category.id,
+      raceEventId: demoCategory.raceEventId,
+      raceCategoryId: demoCategory.id,
       status: "PENDING",
       paymentStatus: "PENDING",
       paymentMethod: "BARIDIMOB",
@@ -266,7 +331,195 @@ async function main() {
     }
   });
 
+  await seedBulkUsers(passwordHash);
+  await seedBulkRaces(organizations);
+
   console.info(`Seeded RaceDZ with admin ${admin.email}`);
+}
+
+async function seedBulkUsers(passwordHash: string) {
+  const BATCH_SIZE = 1000;
+  const TOTAL_USERS = 10_000;
+
+  const existing = await prisma.user.count({
+    where: { email: { startsWith: "seeded-user-" } }
+  });
+
+  if (existing >= TOTAL_USERS) {
+    console.info(`Skipping bulk users: ${existing} already seeded.`);
+    return;
+  }
+
+  const remaining = TOTAL_USERS - existing;
+  const firstNames = ["Karim", "Amina", "Youssef", "Fatima", "Omar", "Sara", "Hassan", "Nadia", "Mehdi", "Lina"];
+  const lastNames = ["Belaid", "Mansouri", "Boudiaf", "Cherif", "Hamdi", "Kaci", "Medelci", "Sahnoun", "Taleb", "Zeroual"];
+
+  for (let batch = 0; batch < Math.ceil(remaining / BATCH_SIZE); batch++) {
+    const users: Prisma.UserCreateManyInput[] = [];
+    const offset = existing + batch * BATCH_SIZE;
+    const limit = Math.min(BATCH_SIZE, remaining - batch * BATCH_SIZE);
+
+    for (let i = 0; i < limit; i++) {
+      const index = offset + i;
+      const firstName = pickOne(firstNames);
+      const lastName = pickOne(lastNames);
+      const wilaya = pickOne(WILAYAS);
+      users.push({
+        email: `seeded-user-${index}@example.com`,
+        passwordHash,
+        firstName,
+        lastName,
+        role: "RUNNER",
+        nationalId: `SEED-${String(index).padStart(6, "0")}`,
+        wilaya,
+        city: wilaya,
+        commune: wilaya
+      });
+    }
+
+    await prisma.user.createMany({ data: users, skipDuplicates: true });
+    await prisma.$executeRaw`
+      UPDATE "User"
+      SET "emailVerifiedAt" = COALESCE("emailVerifiedAt", NOW())
+      WHERE "email" LIKE 'seeded-user-%@example.com'
+    `;
+    console.info(`Seeded ${Math.min(offset + limit, TOTAL_USERS)} / ${TOTAL_USERS} users`);
+  }
+}
+
+async function seedBulkRaces(organizations: Array<{ id: string }>) {
+  const TOTAL_RACES = 100;
+  const OPEN_RACES = 50;
+
+  const existing = await prisma.raceEvent.count({
+    where: { slug: { startsWith: "seeded-race-" } }
+  });
+
+  const racesToCreate = TOTAL_RACES - 4 - existing;
+
+  if (racesToCreate > 0) {
+    const raceData: Prisma.RaceEventCreateManyInput[] = [];
+
+    for (let i = 0; i < racesToCreate; i++) {
+      const index = existing + i;
+      const wilaya = pickOne(WILAYAS);
+      const isOpen = index < OPEN_RACES - 4;
+      const organization = Math.random() > 0.3 ? pickOne(organizations) : null;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() + randomInt(14, 365));
+
+      raceData.push({
+        organizationId: organization?.id ?? null,
+        source: organization ? "ORGANIZATION" : "PLATFORM",
+        title: `Seeded Race ${index + 1}`,
+        slug: `seeded-race-${index + 1}`,
+        description: `Auto-generated race ${index + 1} in ${wilaya}.`,
+        raceType: pickOne(RACE_TYPES),
+        status: isOpen ? "PUBLISHED" : pickOne(["PENDING_REVIEW", "PUBLISHED", "CANCELLED", "REJECTED"]),
+        registrationStatus: isOpen ? "OPEN" : pickOne(["NOT_OPEN", "CLOSED", "FULL", "CANCELLED"]),
+        startDate,
+        registrationOpenAt: new Date(),
+        registrationCloseAt: new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000),
+        wilaya,
+        city: wilaya,
+        commune: wilaya,
+        address: `${wilaya} city center`,
+        mainImageUrl: "/racedz-logo.png",
+        organizerName: organization ? "Seeded Organizer" : "RaceDZ Community Desk",
+        maxParticipants: randomInt(200, 3000),
+        availablePlaces: randomInt(50, 3000)
+      });
+    }
+
+    await prisma.raceEvent.createMany({ data: raceData, skipDuplicates: true });
+    console.info(`Seeded ${raceData.length} bulk races`);
+  } else {
+    console.info(`Skipping bulk race creation: ${existing} already seeded.`);
+  }
+
+  const allOpenRaces = await prisma.raceEvent.findMany({
+    where: { registrationStatus: "OPEN", status: "PUBLISHED" },
+    select: { id: true, maxParticipants: true, availablePlaces: true }
+  });
+
+  for (const race of allOpenRaces.slice(0, OPEN_RACES)) {
+    await seedCategoriesForRace(race.id);
+  }
+
+  await seedRandomRegistrations();
+}
+
+async function seedCategoriesForRace(raceEventId: string) {
+  const existing = await prisma.raceCategory.count({ where: { raceEventId } });
+  if (existing > 0) {
+    return;
+  }
+
+  const categoryCount = randomInt(1, 3);
+  const categories: Prisma.RaceCategoryCreateManyInput[] = [];
+  const distances = [5, 10, 21.1, 25, 42.195, 50];
+
+  for (let i = 0; i < categoryCount; i++) {
+    const distance = pickOne(distances);
+    categories.push({
+      raceEventId,
+      name: `${distance}K Category`,
+      raceType: pickOne(RACE_TYPES),
+      distanceKm: distance,
+      priceDzd: randomInt(500, 5000),
+      maxParticipants: randomInt(100, 1500)
+    });
+  }
+
+  await prisma.raceCategory.createMany({ data: categories });
+}
+
+async function seedRandomRegistrations() {
+  const openCategories = await prisma.raceCategory.findMany({
+    where: { raceEvent: { registrationStatus: "OPEN", status: "PUBLISHED" } },
+    select: { id: true, raceEventId: true }
+  });
+
+  if (openCategories.length === 0) {
+    return;
+  }
+
+  const seededUsers = await prisma.user.findMany({
+    where: { email: { startsWith: "seeded-user-" } },
+    select: { id: true }
+  });
+
+  const registrations: Prisma.RaceRegistrationCreateManyInput[] = [];
+  const seen = new Set<string>();
+
+  for (const category of openCategories) {
+    const registrationCount = randomInt(0, 200);
+    const selectedUsers = pickSome(seededUsers, Math.min(registrationCount, seededUsers.length));
+
+    for (const user of selectedUsers) {
+      const key = `${user.id}:${category.id}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+
+      registrations.push({
+        userId: user.id,
+        raceEventId: category.raceEventId,
+        raceCategoryId: category.id,
+        status: pickOne(["PENDING", "CONFIRMED", "WAITING_LIST"]),
+        paymentStatus: pickOne(["NOT_REQUIRED", "PENDING", "PAID", "MANUAL_REVIEW"]),
+        paymentMethod: "BARIDIMOB",
+        emergencyContactName: "Emergency Contact",
+        emergencyContactPhone: "+213555000000"
+      });
+    }
+  }
+
+  if (registrations.length > 0) {
+    await prisma.raceRegistration.createMany({ data: registrations, skipDuplicates: true });
+    console.info(`Seeded ${registrations.length} registrations`);
+  }
 }
 
 main()

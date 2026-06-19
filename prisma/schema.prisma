@@ -23,14 +23,20 @@ model User {
   wilaya         String?
   city           String?
   commune        String?
+  emailVerifiedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   organizations OrganizationMember[]
   organizationInvitationsSent OrganizationInvitation[]
+  emailVerificationTokens EmailVerificationToken[]
   registrations RaceRegistration[]
   raceEditHistory RaceEditHistory[]
   adminAuditLogs AdminAuditLog[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
+  pushSubscriptions PushSubscription[]
+  raceAnnouncements RaceAnnouncement[]
 }
 
 enum UserRole {
@@ -156,6 +162,7 @@ model RaceEvent {
   categories    RaceCategory[]
   registrations RaceRegistration[]
   editHistory   RaceEditHistory[]
+  announcements RaceAnnouncement[]
 }
 
 enum RaceSource {
@@ -270,6 +277,99 @@ model RaceEditHistory {
 
   @@index([raceEventId, createdAt])
   @@index([editorId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+}
+
+model RaceAnnouncement {
+  id          String   @id @default(cuid())
+  raceEventId String
+  authorId    String
+  title       String
+  body        String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  raceEvent RaceEvent @relation(fields: [raceEventId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@index([raceEventId, publishedAt])
+  @@index([authorId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  href      String?
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user       User                   @relation(fields: [userId], references: [id])
+  deliveries NotificationDelivery[]
+
+  @@index([userId, readAt, createdAt])
+  @@index([type, createdAt])
+}
+
+model NotificationDelivery {
+  id                String    @id @default(cuid())
+  notificationId    String
+  channel           String
+  status            String    @default("PENDING")
+  provider          String
+  providerMessageId String?
+  error             String?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+
+  @@index([notificationId])
+  @@index([channel, status, createdAt])
+}
+
+model PushSubscription {
+  id          String    @id @default(cuid())
+  userId      String
+  provider    String    @default("firebase")
+  token       String    @unique
+  deviceLabel String?
+  lastSeenAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt])
+}
+
+model NotificationPreference {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String
+  inAppEnabled Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
+  emailEnabled Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, type])
 }
 
 enum RegistrationStatus {

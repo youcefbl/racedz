@@ -1,27 +1,49 @@
 import { notFound } from "next/navigation";
-import { Mail, Phone, Route, UserRound } from "lucide-react";
+import { CheckCircle2, Mail, Phone, Route, Search, UserRound, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaceById, getOrganizerRaceRegistrations, requireApprovedOrganizer } from "@/lib/organizer";
+import { parsePagination } from "@/lib/pagination";
+import { cancelOrganizerRegistrationAction, confirmOrganizerRegistrationPaymentAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 type EventRegistrationsPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    q?: string;
+    status?: string;
+    paymentState?: string;
+    page?: string;
+  }>;
 };
 
-export default async function EventRegistrationsPage({ params }: EventRegistrationsPageProps) {
+export default async function EventRegistrationsPage({ params, searchParams }: EventRegistrationsPageProps) {
   const { id } = await params;
+  const filters = await searchParams;
+  const pagination = parsePagination({ page: filters?.page });
   const { organization } = await requireApprovedOrganizer();
-  const [race, registrations] = await Promise.all([
+  const [race, registrationResult] = await Promise.all([
     getOrganizerRaceById(organization.id, id),
-    getOrganizerRaceRegistrations(organization.id, id)
+    getOrganizerRaceRegistrations(
+      organization.id,
+      id,
+      {
+        q: filters?.q,
+        status: filters?.status,
+        paymentState: filters?.paymentState
+      },
+      pagination
+    )
   ]);
 
   if (!race) {
     notFound();
   }
+
+  const registrations = registrationResult.items;
 
   return (
     <div className="bg-gray-50">
@@ -36,77 +58,202 @@ export default async function EventRegistrationsPage({ params }: EventRegistrati
           </ButtonLink>
         </div>
 
+        <form
+          action={`/organizer/events/${race.id}/registrations`}
+          className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_auto]"
+        >
+          <label className="relative">
+            <span className="sr-only">Search registrations</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <input
+              name="q"
+              defaultValue={filters?.q ?? ""}
+              placeholder="Search runner, email, distance"
+              className="h-10 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <SelectFilter
+              name="status"
+              label="All registration statuses"
+              defaultValue={filters?.status}
+              options={[
+                { value: "PENDING", label: "Pending" },
+                { value: "CONFIRMED", label: "Confirmed" },
+                { value: "CANCELLED", label: "Cancelled" },
+                { value: "REJECTED", label: "Rejected" },
+                { value: "WAITING_LIST", label: "Waiting list" }
+              ]}
+            />
+            <SelectFilter
+              name="paymentState"
+              label="All payment states"
+              defaultValue={filters?.paymentState}
+              options={[
+                { value: "CONFIRMED", label: "Payment confirmed" },
+                { value: "NOT_CONFIRMED", label: "Payment not confirmed" }
+              ]}
+            />
+            <Button type="submit" size="sm" variant="secondary">
+              Filter
+            </Button>
+            <ButtonLink href={`/organizer/events/${race.id}/registrations`} size="sm" variant="outline">
+              Reset
+            </ButtonLink>
+          </div>
+        </form>
+
         {registrations.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-black text-gray-950">No participants yet</h2>
+            <h2 className="text-xl font-black text-gray-950">No participants found</h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">
-              Registrations will appear here after runners sign up for this race.
+              Registrations will appear here after runners sign up, or when the current filters match existing participants.
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-normal text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3">Runner</th>
-                    <th className="px-4 py-3">Distance</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Payment</th>
-                    <th className="px-4 py-3">Registered</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {registrations.map((registration) => (
-                    <tr key={registration.id}>
-                      <td className="px-4 py-4">
-                        <div className="flex gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
-                            <UserRound className="size-5" aria-hidden="true" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-950">
-                              {registration.user.firstName} {registration.user.lastName}
-                            </p>
-                            <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                              <Mail className="size-3.5" aria-hidden="true" />
-                              {registration.user.email}
-                            </p>
-                            {registration.user.phone ? (
-                              <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                                <Phone className="size-3.5" aria-hidden="true" />
-                                {registration.user.phone}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-gray-600">
-                        <p className="flex items-center gap-2">
-                          <Route className="size-4 text-brand-teal" aria-hidden="true" />
-                          {registration.raceCategory.name}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {registration.raceCategory.distanceKm}K · {formatDzd(registration.raceCategory.priceDzd ?? undefined)}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <Badge variant="orange">{formatEnumLabel(registration.status)}</Badge>
-                      </td>
-                      <td className="px-4 py-4">
-                        <Badge variant="blue">{formatEnumLabel(registration.paymentStatus)}</Badge>
-                      </td>
-                      <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-normal text-gray-500">
+                    <tr>
+                      <th className="px-4 py-3">Runner</th>
+                      <th className="px-4 py-3">Distance</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Payment</th>
+                      <th className="px-4 py-3">Registered</th>
+                      <th className="px-4 py-3">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {registrations.map((registration) => {
+                      const canConfirmPayment = registration.paymentStatus !== "PAID" && registration.paymentStatus !== "NOT_REQUIRED" && registration.status !== "CANCELLED" && registration.status !== "REJECTED";
+                      const canCancel = registration.status !== "CANCELLED" && registration.status !== "REJECTED";
+
+                      return (
+                        <tr key={registration.id}>
+                          <td className="px-4 py-4">
+                            <div className="flex gap-3">
+                              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
+                                <UserRound className="size-5" aria-hidden="true" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-950">
+                                  {registration.user.firstName} {registration.user.lastName}
+                                </p>
+                                <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                  <Mail className="size-3.5" aria-hidden="true" />
+                                  {registration.user.email}
+                                </p>
+                                {registration.user.phone ? (
+                                  <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                    <Phone className="size-3.5" aria-hidden="true" />
+                                    {registration.user.phone}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-gray-600">
+                            <p className="flex items-center gap-2">
+                              <Route className="size-4 text-brand-teal" aria-hidden="true" />
+                              {registration.raceCategory.name}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {registration.raceCategory.distanceKm}K · {formatDzd(registration.raceCategory.priceDzd ?? undefined)}
+                            </p>
+                          </td>
+                          <td className="px-4 py-4">
+                            <Badge variant={getStatusVariant(registration.status)}>{formatEnumLabel(registration.status)}</Badge>
+                          </td>
+                          <td className="px-4 py-4">
+                            <Badge variant={getStatusVariant(registration.paymentStatus)}>{formatEnumLabel(registration.paymentStatus)}</Badge>
+                          </td>
+                          <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
+                          <td className="px-4 py-4">
+                            <div className="flex min-w-44 flex-wrap gap-2">
+                              <form action={confirmOrganizerRegistrationPaymentAction}>
+                                <input type="hidden" name="id" value={registration.id} />
+                                <input type="hidden" name="raceId" value={race.id} />
+                                <Button type="submit" variant="outline" size="sm" disabled={!canConfirmPayment}>
+                                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                                  Confirm payment
+                                </Button>
+                              </form>
+                              <form action={cancelOrganizerRegistrationAction}>
+                                <input type="hidden" name="id" value={registration.id} />
+                                <input type="hidden" name="raceId" value={race.id} />
+                                <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="text-red-700 hover:bg-red-50">
+                                  <XCircle className="size-4" aria-hidden="true" />
+                                  Cancel
+                                </Button>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+            <Pagination
+              basePath={`/organizer/events/${race.id}/registrations`}
+              searchParams={filters}
+              page={registrationResult.page}
+              totalPages={registrationResult.totalPages}
+            />
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function SelectFilter({
+  name,
+  label,
+  defaultValue,
+  options
+}: {
+  name: string;
+  label: string;
+  defaultValue?: string;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label>
+      <span className="sr-only">{label}</span>
+      <select
+        name={name}
+        defaultValue={defaultValue ?? ""}
+        className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+      >
+        <option value="">{label}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function getStatusVariant(value: string) {
+  if (value === "CONFIRMED" || value === "PAID" || value === "NOT_REQUIRED") {
+    return "green";
+  }
+
+  if (value === "PENDING" || value === "MANUAL_REVIEW" || value === "WAITING_LIST") {
+    return "orange";
+  }
+
+  if (value === "CANCELLED" || value === "REJECTED" || value === "FAILED" || value === "REFUNDED") {
+    return "red";
+  }
+
+  return "blue";
 }
 
 function formatEnumLabel(value: string) {

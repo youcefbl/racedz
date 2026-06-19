@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { notifyAdminsRacePendingReview } from "@/lib/notifications";
 import { createOrganizerRace, OrganizerError, requireApprovedOrganizer } from "@/lib/organizer";
 
 export type OrganizerRaceActionState = {
@@ -12,9 +13,11 @@ export async function createOrganizerRaceAction(
   formData: FormData
 ): Promise<OrganizerRaceActionState> {
   const { organization } = await requireApprovedOrganizer();
+  let raceId = "";
+  let raceTitle = "";
 
   try {
-    await createOrganizerRace({
+    const race = await createOrganizerRace({
       organizationId: organization.id,
       input: {
         title: getString(formData, "title"),
@@ -38,12 +41,23 @@ export async function createOrganizerRaceAction(
         categories: getCategoryRows(formData)
       }
     });
+
+    raceId = race.id;
+    raceTitle = race.title;
   } catch (error) {
     if (error instanceof OrganizerError) {
       return { error: error.message };
     }
 
     throw error;
+  }
+
+  if (raceId && raceTitle) {
+    await notifyAdminsRacePendingReview({
+      raceId,
+      raceTitle,
+      organizationName: organization.name
+    });
   }
 
   redirect("/organizer/events?created=1");

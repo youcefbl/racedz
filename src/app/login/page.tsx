@@ -8,6 +8,8 @@ import { LoginForm } from "./login-form";
 type LoginPageProps = {
   searchParams?: Promise<{
     callbackUrl?: string;
+    registered?: string;
+    emailDelivery?: string;
   }>;
 };
 
@@ -43,6 +45,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </section>
 
         <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          {params?.registered === "1" ? (
+            <div className="mb-5 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-brand-teal">
+              {params.emailDelivery === "failed"
+                ? "Account created, but the activation email could not be delivered. Contact support to activate or resend verification."
+                : "Account created. Check your email and activate your account before logging in."}
+            </div>
+          ) : null}
           <div className="mb-5">
             <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Welcome back</p>
             <h2 className="mt-2 text-2xl font-black text-gray-950">Sign in</h2>

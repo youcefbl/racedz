@@ -11,10 +11,12 @@ export async function GET(_request: Request, context: OrganizerRegistrationsCont
   const registrations = await getOrganizerRaceRegistrations(organization.id, id);
 
   return NextResponse.json({
-    data: registrations,
+    data: registrations.items,
     meta: {
       raceEventId: id,
-      count: registrations.length
+      count: registrations.total,
+      page: registrations.page,
+      totalPages: registrations.totalPages
     }
   });
 }

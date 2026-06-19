@@ -60,11 +60,13 @@ export function StatCard({
 export function FilterBar({
   action,
   children,
-  searchPlaceholder = "Search"
+  searchPlaceholder = "Search",
+  defaultSearch
 }: {
   action: string;
   children?: ReactNode;
   searchPlaceholder?: string;
+  defaultSearch?: string;
 }) {
   return (
     <form action={action} className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto]">
@@ -73,6 +75,7 @@ export function FilterBar({
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
         <input
           name="q"
+          defaultValue={defaultSearch ?? ""}
           placeholder={searchPlaceholder}
           className="h-10 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
         />

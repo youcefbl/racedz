@@ -1,8 +1,10 @@
 import Image from "next/image";
 import { Building2, Mail, MapPin, Phone, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDate } from "@/lib/format";
 import { getAdminOrganizations, requireAdmin } from "@/lib/admin";
+import { parsePagination } from "@/lib/pagination";
 import { approveOrganizationAction, rejectOrganizationAction } from "../actions";
 import { AdminShell, EmptyState, FilterBar, SelectFilter, StatusBadge } from "../_components/admin-ui";
 
@@ -12,16 +14,21 @@ type AdminOrganizationsPageProps = {
   searchParams?: Promise<{
     q?: string;
     status?: string;
+    page?: string;
   }>;
 };
 
 export default async function AdminOrganizationsPage({ searchParams }: AdminOrganizationsPageProps) {
   await requireAdmin();
   const filters = await searchParams;
-  const organizations = await getAdminOrganizations({
-    q: filters?.q,
-    status: filters?.status
-  });
+  const pagination = parsePagination({ page: filters?.page });
+  const { items: organizations, page, totalPages } = await getAdminOrganizations(
+    {
+      q: filters?.q,
+      status: filters?.status
+    },
+    pagination
+  );
 
   return (
     <AdminShell title="Organizations" description="Review organizer requests and manage organization approval status.">
@@ -42,7 +49,8 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
       {organizations.length === 0 ? (
         <EmptyState title="No organizations found" description="There are no organizations matching the current filters." />
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-4">
+          <div className="grid gap-4">
           {organizations.map((organization) => {
             const owner = organization.members[0]?.user;
 
@@ -128,6 +136,8 @@ export default async function AdminOrganizationsPage({ searchParams }: AdminOrga
               </article>
             );
           })}
+          <Pagination basePath="/admin/organizations" searchParams={filters} page={page} totalPages={totalPages} />
+        </div>
         </div>
       )}
     </AdminShell>

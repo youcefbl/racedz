@@ -3,10 +3,25 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { getPrisma } from "@/lib/db";
+import { createEmailVerificationToken, sendAccountVerificationEmail } from "@/lib/email-verification";
 import { registerUserSchema } from "@/lib/validations";
+
+type RegisterFormValues = {
+  firstName: string;
+  lastName: string;
+  arabicFullName: string;
+  email: string;
+  phone: string;
+  wilaya: string;
+  commune: string;
+  dateOfBirth: string;
+  nationalId: string;
+};
 
 export type RegisterActionState = {
   error?: string;
+  fieldErrors?: Partial<Record<keyof RegisterFormValues | "password" | "confirmPassword", string>>;
+  values?: RegisterFormValues;
 };
 
 export async function registerAction(
@@ -14,22 +29,34 @@ export async function registerAction(
   formData: FormData
 ): Promise<RegisterActionState> {
   const callbackUrl = getSafeCallbackUrl(formData.get("callbackUrl"));
+  const values = {
+    firstName: getString(formData, "firstName"),
+    lastName: getString(formData, "lastName"),
+    arabicFullName: getString(formData, "arabicFullName"),
+    email: getString(formData, "email"),
+    phone: getString(formData, "phone"),
+    wilaya: getString(formData, "wilaya"),
+    commune: getString(formData, "commune"),
+    dateOfBirth: getString(formData, "dateOfBirth"),
+    nationalId: getString(formData, "nationalId")
+  };
   const parsed = registerUserSchema.safeParse({
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    arabicFullName: formData.get("arabicFullName") || undefined,
-    email: formData.get("email"),
-    phone: formData.get("phone"),
-    password: formData.get("password"),
-    wilaya: formData.get("wilaya"),
-    city: formData.get("city"),
-    commune: formData.get("commune") || undefined,
-    dateOfBirth: formData.get("dateOfBirth") || undefined,
-    nationalId: formData.get("nationalId") || undefined
+    ...values,
+    arabicFullName: values.arabicFullName || undefined,
+    city: undefined,
+    commune: values.commune || undefined,
+    dateOfBirth: values.dateOfBirth || undefined,
+    nationalId: values.nationalId || undefined,
+    password: getString(formData, "password"),
+    confirmPassword: getString(formData, "confirmPassword")
   });
 
   if (!parsed.success) {
-    return { error: "Check the required account fields and try again." };
+    return {
+      error: "Check the highlighted fields and try again.",
+      fieldErrors: getFieldErrors(parsed.error.flatten().fieldErrors),
+      values
+    };
   }
 
   const prisma = getPrisma();
@@ -38,12 +65,35 @@ export async function registerAction(
   });
 
   if (existingUser) {
-    return { error: "An account with this email already exists." };
+    return {
+      error: "An account with this email already exists.",
+      fieldErrors: {
+        email: "Use a different email or sign in."
+      },
+      values
+    };
+  }
+
+  if (parsed.data.nationalId) {
+    const existingNationalId = await prisma.user.findUnique({
+      where: { nationalId: parsed.data.nationalId },
+      select: { id: true }
+    });
+
+    if (existingNationalId) {
+      return {
+        error: "This ID number is already linked to another account.",
+        fieldErrors: {
+          nationalId: "Use a different ID number or contact support."
+        },
+        values
+      };
+    }
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       email: parsed.data.email,
       passwordHash,
@@ -55,12 +105,20 @@ export async function registerAction(
       dateOfBirth: parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : undefined,
       nationalId: parsed.data.nationalId,
       wilaya: parsed.data.wilaya,
-      city: parsed.data.city,
+      city: undefined,
       commune: parsed.data.commune
     }
   });
+  const token = await createEmailVerificationToken(user.id);
+  const emailResult = await sendAccountVerificationEmail({
+    to: user.email,
+    firstName: user.firstName,
+    token
+  });
 
-  redirect(callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login");
+  const emailDeliveryParam = emailResult.ok ? "" : "&emailDelivery=failed";
+
+  redirect(callbackUrl ? `/login?registered=1${emailDeliveryParam}&callbackUrl=${encodeURIComponent(callbackUrl)}` : `/login?registered=1${emailDeliveryParam}`);
 }
 
 function getSafeCallbackUrl(value: FormDataEntryValue | null) {
@@ -69,4 +127,16 @@ function getSafeCallbackUrl(value: FormDataEntryValue | null) {
   }
 
   return value;
+}
+
+function getString(formData: FormData, key: string) {
+  const value = formData.get(key);
+
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getFieldErrors(errors: Record<string, string[] | undefined>) {
+  return Object.fromEntries(
+    Object.entries(errors).flatMap(([field, messages]) => (messages?.[0] ? [[field, messages[0]]] : []))
+  ) as RegisterActionState["fieldErrors"];
 }

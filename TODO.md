@@ -16,22 +16,28 @@ The first useful version must let:
 
 - Stack is Next.js 15 App Router, React 19, TypeScript, Tailwind CSS, Prisma, PostgreSQL, Zod, and Auth.js credentials auth.
 - Public homepage, race listing, race details, login, signup, profile, registration, and account registrations exist.
+- Public organizer information page exists at `/organizers`; the protected organizer dashboard remains `/organizer`.
 - PostgreSQL schema exists for users, organizations, races, categories, and registrations.
 - PostgreSQL schema now includes pending organization invitations.
 - Race discovery reads from Prisma when `DATABASE_URL` is configured, with mock fallback otherwise.
 - Login redirects by role:
-  - Runner -> `/account`
+  - Runner -> `/account/registrations`
   - Organizer -> `/organizer`
   - Admin/Superadmin -> `/admin`
 - Header hides login for authenticated users and shows an avatar/settings menu.
 - Main website supports English, French, and Arabic entry points.
 - UI supports light, dark, and race modes. Race mode uses flashy runner colors: lime green, pink, and purple.
 - MVP image uploads use local filesystem storage under `public/uploads`; later S3 migration should happen behind the existing storage helper.
+- Notification MVP has started with database-backed in-app notifications and Resend email delivery tracking.
+- Email verification is required for newly registered accounts.
+- AWS staging/production deployment planning exists in `docs/AWS_DEPLOYMENT_PLAN.md`, including cost estimates and production security controls.
 
 ## Completed MVP Work
 
 - Email/password account creation.
 - Email/password login with Auth.js.
+- Login redirects after the first successful attempt instead of requiring a second submit.
+- Sign out clears session UI in one attempt.
 - Role-aware login redirect.
 - Protected account, organizer, and admin routes.
 - Runner profile edit form:
@@ -55,6 +61,7 @@ The first useful version must let:
   - Stores registration status and payment status.
   - Shows success and errors.
   - Shows saved registrations in `/account/registrations`.
+- Runner login should land on `/account/registrations` by default so runners see their race entries first.
 - Admin and superadmin dashboard:
   - Summary cards use aggregate/count queries.
   - Dashboard navigation covers users, organizations, races, and registrations.
@@ -62,6 +69,7 @@ The first useful version must let:
   - Organization list is searchable/filterable.
   - Race list is searchable/filterable.
   - Registration list is searchable/filterable.
+  - Registration list supports payment confirmed/not-confirmed filters, payment confirmation, and registration cancellation.
   - Organization approval/rejection is implemented.
   - Race approval/rejection is implemented.
 - Account/profile dropdown:
@@ -76,6 +84,9 @@ The first useful version must let:
   - Admin approval flow can upgrade owners to organizer access.
   - Organization owners/admins can create pending invitations with explicit organization roles.
   - Pending invitations expose copyable invite links.
+  - Organization invitations send branded email invite links while keeping copy-link fallback.
+  - Organizer invite actions show clear email delivery diagnostics when Resend/config rejects an invite email.
+  - Organization owners/admins can resend pending invitations with fresh links and revoke pending invitations.
   - Invited users can accept invitations from `/invite/[token]`.
   - Invite acceptance validates login, invited email, pending status, and approved organization status.
   - Accepted invitees become organization members and runners are upgraded to organizer access.
@@ -91,6 +102,7 @@ The first useful version must let:
   - Organization-created races start as `PENDING_REVIEW`.
   - Organizer event list/detail pages read organization-owned races from PostgreSQL.
   - Organizer participant list and participant CSV export use organization ownership checks.
+  - Organizer participant list supports search, pagination, registration-status filters, payment confirmed/not-confirmed filters, payment confirmation, and registration cancellation.
   - Organizers can open/close registration for their own published races.
   - Organizer registration controls now block reopening after race start, after registration deadline, with no categories, or when capacity is full.
   - Organizers can mark registration as full or cancelled for published races.
@@ -103,18 +115,44 @@ The first useful version must let:
   - Image upload UI handles empty or invalid server responses without crashing.
   - Organizer race/category edits are recorded with timestamped history.
   - Race categories can have their own start time for multi-race event scheduling.
+  - Public race detail pages show category-specific race types for multi-race events.
 - Admin race management:
   - Admins can approve, reject, and unpublish races.
   - Admins can edit race details, publication status, registration status, organizer contact, and race image from `/admin/races/[id]/edit`.
   - Admins can manage user roles, with superadmin safeguards.
   - Admin approval, rejection, unpublish, race edit, and role-change actions are recorded in an admin audit log.
   - Admins can view recent audit entries from `/admin/audit`.
+  - Admin audit log can be filtered by actor, target type, and action.
+  - Admin audit log shows readable metadata for changed fields, role changes, and rejection reasons.
   - Superadmins can view organizer race edit history.
   - Superadmins can create platform races directly from `/admin/races/new`.
   - Superadmins can upload local main race images while creating platform races.
 - Dashboard navigation:
   - Admin panel has persistent mobile top tabs and desktop left navigation.
   - Organizer panel has persistent mobile top tabs and desktop left navigation.
+- Quality and dev experience:
+  - Manual QA checklist exists in `docs/QA_CHECKLIST.md`.
+  - `npm run smoke` checks core public routes, protected redirects, public API JSON, upload auth rejection, Firebase service worker, and versioned CSS asset serving against the local dev server.
+  - Browser e2e test strategy exists in `docs/E2E_TEST_STRATEGY.md`.
+  - AWS deployment planning exists in `docs/AWS_DEPLOYMENT_PLAN.md`.
+- Notifications:
+  - Shared branded RaceDZ email template is used by notification emails and account activation.
+  - New account registration sends an activation email; login is blocked until email verification.
+  - Notification, delivery, push subscription, and preference tables exist.
+  - Header shows a notification bell with unread count and recent-notification dropdown.
+  - Opening the notification dropdown marks unread notifications as read.
+  - The fallback `/account/notifications` page also marks notifications read when opened.
+  - Users can update notification email/push preferences from `/account/notification-settings`.
+  - Firebase FCM server-side delivery and push-token registration API exist.
+  - Notification settings can request browser notification permission and register an FCM token when Firebase public config is present.
+  - Notification settings include reconnect and test-push controls with visible Firebase delivery feedback.
+  - Organizer race submission notifies admins in-app and by email.
+  - Admin race approval/rejection notifies organization members in-app and by email.
+  - Admin race unpublish and publish-again actions notify organization members in-app, by email, and by push when configured.
+  - Runner race registration creates in-app, email, and push notification attempts.
+  - Admin race edits notify active race registrants in-app, by email, and by push when configured.
+  - Organizer/admin race announcements notify active registrants and are visible on public race detail pages.
+  - Resend email delivery status is recorded without blocking the core action on provider failure.
 - Backlog UI fixes:
   - Removed duplicated Create item from organizer panel navigation.
   - Made dashboard left navigation flush with the left edge on desktop.
@@ -123,21 +161,38 @@ The first useful version must let:
   - Fixed local development to one canonical app URL, `http://127.0.0.1:3003`, so Auth.js redirects do not drift between ports.
   - Fixed dark/race-mode textarea styling so description fields match the active theme.
   - Aligned admin and organizer race creation category forms with repeatable categories, separated distance/price/capacity/start-time fields, and required race descriptions without a long minimum.
+  - Added show/hide password controls to the signup password fields.
+  - Removed city from the signup form while keeping wilaya required.
+  - Refactored the public top bar to show only visitor-facing Races and Organizers links; admin access stays inside the authenticated account menu.
+  - Added `/organizers` as the public explanation page for organization teams before they request organizer access.
 
 ## Current Priority
 
-1. Build organizer onboarding:
-   - Add email delivery later if manual copy links are not enough.
+1. Build organizer race management:
+   - Add organizer-controlled unpaid registration auto-cancel setting on race create/edit:
+     - If enabled, pending unpaid registrations are automatically cancelled 48 hours after registration.
+     - Runners cannot cancel registrations themselves in the MVP.
+     - Refunds are not supported in the MVP.
 
-2. Build organizer race management:
-   - Add public race-detail polish for showing category-specific race types more prominently.
+2. Admin and superadmin follow-up:
+   - Keep admin audit records for one month for MVP.
+   - Add exportable admin audit reports later only if compliance/support needs justify it.
 
-3. Admin and superadmin follow-up:
-   - Add audit log filters by actor, target type, and action.
+3. Quality and dev experience:
+   - Add lightweight MVP usage analytics:
+     - Track first-week platform usage events without collecting sensitive form content.
+     - Track user sessions, visited major sections, key actions, approximate session duration, and last activity.
+     - Track where users leave the platform when possible.
+     - Add regression/error reporting for client and server errors.
+     - Keep analytics privacy-conscious and document retention before production.
+   - Expand smoke checks into Playwright browser e2e journeys with deterministic test data reset/seed.
+   - Add CI command that runs lint, typecheck, build, and smoke checks against a started test server.
 
-4. Quality and dev experience:
-   - Add a documented QA test flow that covers public browsing, auth, runner registration, organizer onboarding, race management, admin approvals, uploads, and role redirects.
-   - Add automated smoke/e2e tests for the main user journeys after the flows are documented.
+4. Notifications:
+   - Improve branded email template UI/UX across all RaceDZ emails.
+   - Add payment proof review notifications.
+   - Add race reminder jobs.
+   - Do not build wilaya race alerts for now.
 
 ## Public Website
 
@@ -162,6 +217,8 @@ The first useful version must let:
 - Improve language support:
   - Preserve selected language across public navigation.
   - Continue English, French, and Arabic copy coverage.
+  - Extend English, French, and Arabic coverage across public and organizer-facing pages.
+  - Keep admin-only pages in English for now.
   - Add RTL polish for Arabic screens.
 - Improve theme support:
   - Check contrast and focus states in light, dark, and race modes.
@@ -176,6 +233,8 @@ Marketplace goal:
 - Let normal users post running-related goods for sale.
 - Admins review and approve listings before they appear publicly.
 - Public users can browse approved marketplace listings.
+
+Marketplace is not part of the MVP.
 
 Marketplace listing fields:
 
@@ -208,6 +267,7 @@ Marketplace rules:
 - Add user avatar upload/display.
 - Add profile completion prompts before race registration when important fields are missing.
 - Add registration cancellation or change-request actions.
+- Do not allow runner self-cancellation or refunds in the MVP.
 - Add password reset later.
 - Add Google login later, after email/password auth and profile flow stay stable.
 - Defer Facebook/X/social login until policies and provider setup are clear.
@@ -291,6 +351,7 @@ Rules:
 - Move uploads from local filesystem storage to S3-compatible object storage.
 - File uploads for organization logos and participant documents.
 - Payment workflow.
+- Manual payment tracking only for MVP; do not integrate a payment gateway yet.
 - Paid organizer subscriptions or paid race publishing.
 - Bib transfer flow.
 - Social login beyond Google.
@@ -298,7 +359,7 @@ Rules:
 - Security headers.
 - Audit logs for admin actions.
 - Race edit history for organizer changes.
-- Deployment documentation.
+- Staging and production AWS deployment implementation from `docs/AWS_DEPLOYMENT_PLAN.md`.
 - Registration resale marketplace.
 - Admin-approved marketplace for running goods.
 
@@ -326,6 +387,8 @@ Testing implementation:
 ## Deferred Bib Transfer Notes
 
 Do not build this in the MVP. This covers selling/transferring a race registration, bib, or registration package before race day.
+
+Decision: bib transfer and registration resale are not part of the MVP.
 
 Before implementing, define:
 

@@ -34,7 +34,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <SiteHeader />
         </Suspense>
         <main>{children}</main>
-        <SiteFooter />
+        <Suspense fallback={null}>
+          <SiteFooter />
+        </Suspense>
       </body>
     </html>
   );

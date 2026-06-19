@@ -1,7 +1,9 @@
 import { randomUUID } from "crypto";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
 import {
   organizationInviteSchema,
@@ -22,6 +24,26 @@ type OrganizationInvitationRow = {
   createdAt: Date;
   acceptedAt: Date | null;
 };
+
+type OrganizerRegistrationRow = Prisma.RaceRegistrationGetPayload<{
+  include: {
+    user: {
+      select: {
+        firstName: true;
+        lastName: true;
+        email: true;
+        phone: true;
+      };
+    };
+    raceCategory: {
+      select: {
+        name: true;
+        distanceKm: true;
+        priceDzd: true;
+      };
+    };
+  };
+}>;
 
 export type OrganizationInvitationDetail = OrganizationInvitationRow & {
   organizationName: string;
@@ -204,34 +226,164 @@ export async function getOrganizerRaceById(organizationId: string, raceEventId: 
   };
 }
 
-export async function getOrganizerRaceRegistrations(organizationId: string, raceEventId: string) {
-  return getPrisma().raceRegistration.findMany({
+export async function getOrganizerRaceRegistrations(
+  organizationId: string,
+  raceEventId: string,
+  filters: { q?: string; status?: string; paymentState?: string } = {},
+  pagination?: PaginationParams
+): Promise<PaginatedResult<OrganizerRegistrationRow>> {
+  const prisma = getPrisma();
+  const q = filters.q?.trim();
+  const { page, limit, skip } = pagination ?? parsePagination();
+  const where: Prisma.RaceRegistrationWhereInput = {
+    raceEventId,
+    raceEvent: {
+      organizationId
+    },
+    status: isRegistrationStatus(filters.status) ? filters.status : undefined,
+    OR: q
+      ? [
+          { user: { email: { contains: q, mode: "insensitive" } } },
+          { user: { firstName: { contains: q, mode: "insensitive" } } },
+          { user: { lastName: { contains: q, mode: "insensitive" } } },
+          { raceCategory: { name: { contains: q, mode: "insensitive" } } }
+        ]
+      : undefined
+  };
+
+  applyPaymentStateFilter(where, filters.paymentState);
+
+  const [registrations, total] = await Promise.all([
+    prisma.raceRegistration.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true
+          }
+        },
+        raceCategory: {
+          select: {
+            name: true,
+            distanceKm: true,
+            priceDzd: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip,
+      take: limit
+    }),
+    prisma.raceRegistration.count({ where })
+  ]);
+
+  return {
+    items: registrations,
+    ...buildPaginationMeta(total, page, limit)
+  };
+}
+
+export async function confirmOrganizerRegistrationPayment({
+  organizationId,
+  registrationId
+}: {
+  organizationId: string;
+  registrationId: string;
+}) {
+  const registration = await getPrisma().raceRegistration.findFirst({
     where: {
-      raceEventId,
+      id: registrationId,
       raceEvent: {
         organizationId
       }
     },
-    include: {
-      user: {
-        select: {
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true
+    select: {
+      id: true,
+      status: true
+    }
+  });
+
+  if (!registration) {
+    throw new OrganizerError("Registration not found for this organization.");
+  }
+
+  if (registration.status === "CANCELLED" || registration.status === "REJECTED") {
+    throw new OrganizerError("Payment cannot be confirmed for a cancelled or rejected registration.");
+  }
+
+  return getPrisma().raceRegistration.update({
+    where: {
+      id: registration.id
+    },
+    data: {
+      paymentStatus: "PAID"
+    }
+  });
+}
+
+export async function cancelOrganizerRaceRegistration({
+  organizationId,
+  registrationId
+}: {
+  organizationId: string;
+  registrationId: string;
+}) {
+  return getPrisma().$transaction(async (tx) => {
+    const registration = await tx.raceRegistration.findFirst({
+      where: {
+        id: registrationId,
+        raceEvent: {
+          organizationId
         }
       },
-      raceCategory: {
-        select: {
-          name: true,
-          distanceKm: true,
-          priceDzd: true
+      select: {
+        id: true,
+        status: true,
+        raceEventId: true,
+        raceEvent: {
+          select: {
+            availablePlaces: true
+          }
         }
       }
-    },
-    orderBy: {
-      createdAt: "desc"
+    });
+
+    if (!registration) {
+      throw new OrganizerError("Registration not found for this organization.");
     }
+
+    if (registration.status === "CANCELLED") {
+      return registration;
+    }
+
+    await tx.raceRegistration.update({
+      where: {
+        id: registration.id
+      },
+      data: {
+        status: "CANCELLED"
+      }
+    });
+
+    if (registration.status !== "REJECTED" && registration.raceEvent.availablePlaces != null) {
+      await tx.raceEvent.update({
+        where: {
+          id: registration.raceEventId
+        },
+        data: {
+          availablePlaces: {
+            increment: 1
+          }
+        }
+      });
+    }
+
+    return registration;
   });
 }
 
@@ -414,6 +566,73 @@ export async function inviteOrganizationUser({
     role: parsed.data.role,
     invitedById
   });
+}
+
+export async function revokeOrganizationInvitation({
+  organizationId,
+  invitationId
+}: {
+  organizationId: string;
+  invitationId: string;
+}) {
+  const invitation = await getOrganizationInvitationForManagement({ organizationId, invitationId });
+
+  if (!invitation) {
+    throw new OrganizerError("Invitation not found.");
+  }
+
+  if (invitation.status !== "PENDING") {
+    throw new OrganizerError("Only pending invitations can be revoked.");
+  }
+
+  await getPrisma().$executeRaw`
+    UPDATE "OrganizationInvitation"
+    SET "status" = 'REVOKED'::"InvitationStatus"
+    WHERE "id" = ${invitationId}
+      AND "organizationId" = ${organizationId}
+  `;
+}
+
+export async function resendOrganizationInvitation({
+  organizationId,
+  invitationId,
+  invitedById
+}: {
+  organizationId: string;
+  invitationId: string;
+  invitedById: string;
+}) {
+  const invitation = await getOrganizationInvitationForManagement({ organizationId, invitationId });
+
+  if (!invitation) {
+    throw new OrganizerError("Invitation not found.");
+  }
+
+  if (invitation.status !== "PENDING") {
+    throw new OrganizerError("Only pending invitations can be resent.");
+  }
+
+  const rows = await getPrisma().$queryRaw<OrganizationInvitationRow[]>`
+    UPDATE "OrganizationInvitation"
+    SET
+      "token" = ${randomUUID()},
+      "invitedById" = ${invitedById},
+      "createdAt" = NOW()
+    WHERE "id" = ${invitationId}
+      AND "organizationId" = ${organizationId}
+    RETURNING
+      "id",
+      "organizationId",
+      "email",
+      "role",
+      "status",
+      "invitedById",
+      "token",
+      "createdAt",
+      "acceptedAt"
+  `;
+
+  return rows[0];
 }
 
 export async function getOrganizationInvitationByToken(token: string) {
@@ -1178,6 +1397,25 @@ async function assertOrganizationKeepsOwner(
   }
 }
 
+function isRegistrationStatus(value?: string) {
+  return value === "PENDING" || value === "CONFIRMED" || value === "CANCELLED" || value === "REJECTED" || value === "WAITING_LIST";
+}
+
+function applyPaymentStateFilter(where: Prisma.RaceRegistrationWhereInput, paymentState?: string) {
+  if (paymentState === "CONFIRMED") {
+    where.paymentStatus = {
+      in: ["PAID", "NOT_REQUIRED"]
+    };
+    return;
+  }
+
+  if (paymentState === "NOT_CONFIRMED") {
+    where.paymentStatus = {
+      notIn: ["PAID", "NOT_REQUIRED"]
+    };
+  }
+}
+
 async function countOrganizationInvitations(organizationId: string) {
   const rows = await getPrisma().$queryRaw<Array<{ count: number }>>`
     SELECT COUNT(*)::int AS count
@@ -1204,6 +1442,33 @@ async function getOrganizationInvitations(organizationId: string) {
     WHERE "organizationId" = ${organizationId}
     ORDER BY "createdAt" DESC
   `;
+}
+
+async function getOrganizationInvitationForManagement({
+  organizationId,
+  invitationId
+}: {
+  organizationId: string;
+  invitationId: string;
+}) {
+  const rows = await getPrisma().$queryRaw<OrganizationInvitationRow[]>`
+    SELECT
+      "id",
+      "organizationId",
+      "email",
+      "role",
+      "status",
+      "invitedById",
+      "token",
+      "createdAt",
+      "acceptedAt"
+    FROM "OrganizationInvitation"
+    WHERE "organizationId" = ${organizationId}
+      AND "id" = ${invitationId}
+    LIMIT 1
+  `;
+
+  return rows[0] ?? null;
 }
 
 async function upsertOrganizationInvitation({

@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/db";
-import { recordAdminAuditLog, requireAdmin } from "@/lib/admin";
+import { notifyOrganizerRaceStatusChanged } from "@/lib/notifications";
+import {
+  cancelAdminRaceRegistration,
+  confirmAdminRegistrationPayment,
+  recordAdminAuditLog,
+  requireAdmin
+} from "@/lib/admin";
 
 export async function approveOrganizationAction(formData: FormData) {
   const session = await requireAdmin();
@@ -90,12 +96,16 @@ export async function approveRaceAction(formData: FormData) {
   const session = await requireAdmin();
   const raceId = getFormId(formData);
 
-  await getPrisma().raceEvent.update({
+  const race = await getPrisma().raceEvent.update({
     where: {
       id: raceId
     },
     data: {
       status: "PUBLISHED"
+    },
+    select: {
+      id: true,
+      title: true
     }
   });
 
@@ -107,6 +117,47 @@ export async function approveRaceAction(formData: FormData) {
     summary: "Published race"
   });
 
+  await notifyOrganizerRaceStatusChanged({
+    raceId: race.id,
+    raceTitle: race.title,
+    status: "PUBLISHED"
+  });
+
+  revalidateAdmin();
+  revalidatePath("/races");
+}
+
+export async function publishRaceAction(formData: FormData) {
+  const session = await requireAdmin();
+  const raceId = getFormId(formData);
+
+  const race = await getPrisma().raceEvent.update({
+    where: {
+      id: raceId
+    },
+    data: {
+      status: "PUBLISHED"
+    },
+    select: {
+      id: true,
+      title: true
+    }
+  });
+
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "race.published",
+    targetType: "RaceEvent",
+    targetId: raceId,
+    summary: "Published race"
+  });
+
+  await notifyOrganizerRaceStatusChanged({
+    raceId: race.id,
+    raceTitle: race.title,
+    status: "PUBLISHED"
+  });
+
   revalidateAdmin();
   revalidatePath("/races");
 }
@@ -115,12 +166,16 @@ export async function rejectRaceAction(formData: FormData) {
   const session = await requireAdmin();
   const raceId = getFormId(formData);
 
-  await getPrisma().raceEvent.update({
+  const race = await getPrisma().raceEvent.update({
     where: {
       id: raceId
     },
     data: {
       status: "REJECTED"
+    },
+    select: {
+      id: true,
+      title: true
     }
   });
 
@@ -132,6 +187,12 @@ export async function rejectRaceAction(formData: FormData) {
     summary: "Rejected race"
   });
 
+  await notifyOrganizerRaceStatusChanged({
+    raceId: race.id,
+    raceTitle: race.title,
+    status: "REJECTED"
+  });
+
   revalidateAdmin();
 }
 
@@ -139,13 +200,17 @@ export async function unpublishRaceAction(formData: FormData) {
   const session = await requireAdmin();
   const raceId = getFormId(formData);
 
-  await getPrisma().raceEvent.update({
+  const race = await getPrisma().raceEvent.update({
     where: {
       id: raceId
     },
     data: {
       status: "DRAFT",
       registrationStatus: "CLOSED"
+    },
+    select: {
+      id: true,
+      title: true
     }
   });
 
@@ -155,6 +220,12 @@ export async function unpublishRaceAction(formData: FormData) {
     targetType: "RaceEvent",
     targetId: raceId,
     summary: "Unpublished race"
+  });
+
+  await notifyOrganizerRaceStatusChanged({
+    raceId: race.id,
+    raceTitle: race.title,
+    status: "UNPUBLISHED"
   });
 
   revalidateAdmin();
@@ -226,6 +297,31 @@ export async function updateUserRoleAction(formData: FormData) {
   });
 
   revalidateAdmin();
+}
+
+export async function confirmRegistrationPaymentAction(formData: FormData) {
+  const session = await requireAdmin();
+  const registrationId = getFormId(formData);
+
+  await confirmAdminRegistrationPayment({
+    actorId: session.user.id,
+    registrationId
+  });
+
+  revalidateAdmin();
+}
+
+export async function cancelRegistrationAction(formData: FormData) {
+  const session = await requireAdmin();
+  const registrationId = getFormId(formData);
+
+  await cancelAdminRaceRegistration({
+    actorId: session.user.id,
+    registrationId
+  });
+
+  revalidateAdmin();
+  revalidatePath("/races");
 }
 
 function getFormId(formData: FormData) {
