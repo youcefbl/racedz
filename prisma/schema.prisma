@@ -463,6 +463,7 @@ model RunnerRun {
   averageHeartRate        Int?
   calories                Int?
   route                   Json?
+  isPublic                Boolean         @default(false)
   perceivedEffort         Int
   fatigueLevel            Int             @default(0)
   painLevel               Int             @default(0)

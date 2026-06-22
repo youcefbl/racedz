@@ -26,8 +26,8 @@ export default async function RegisterAccountPage({ searchParams }: RegisterAcco
             </p>
           </div>
           <div className="grid gap-3">
-            <SignupPoint icon={BadgeCheck} title="Verified email" text="Activate your account before login." />
-            <SignupPoint icon={CalendarDays} title="Race-ready profile" text="Save the core details organizers need." />
+            <SignupPoint icon={BadgeCheck} title="Fast signup" text="Just your name and email to start — add race details later." />
+            <SignupPoint icon={CalendarDays} title="Race-ready when you are" text="Your details prefill race forms when you register." />
             <SignupPoint icon={MailCheck} title="Registration updates" text="Receive race confirmations and changes." />
           </div>
         </section>

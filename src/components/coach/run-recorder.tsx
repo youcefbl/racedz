@@ -40,6 +40,7 @@ export function RunRecorder({
   const [currentPace, setCurrentPace] = useState<number | null>(null);
   const [pointCount, setPointCount] = useState(0);
   const [effort, setEffort] = useState(5);
+  const [share, setShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -242,6 +243,7 @@ export function RunRecorder({
       elevationGainM: Math.round(elevationRef.current),
       perceivedEffort: effort,
       source: "GPS" as const,
+      isPublic: share,
       route: downsample(route.current, MAX_ROUTE_POINTS)
     };
     try {
@@ -349,6 +351,13 @@ export function RunRecorder({
                 <strong className="text-brand-teal">{effort}/10</strong>
               </span>
               <input type="range" min={1} max={10} step={1} value={effort} onChange={(event) => setEffort(Number(event.target.value))} className="w-full accent-brand-teal" />
+            </label>
+            <label className="flex items-start gap-3 rounded-md border border-gray-200 p-3 text-sm font-semibold text-gray-700">
+              <input type="checkbox" checked={share} onChange={(event) => setShare(event.target.checked)} className="mt-0.5 size-4 accent-brand-teal" />
+              <span>
+                {copy.shareRun}
+                <span className="mt-0.5 block text-xs font-medium text-gray-500">{copy.shareHint}</span>
+              </span>
             </label>
             <div className="flex gap-3">
               <Button type="button" variant="outline" size="lg" className="flex-1" onClick={discard}>

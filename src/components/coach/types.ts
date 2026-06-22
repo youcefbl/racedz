@@ -39,6 +39,7 @@ export type CoachRun = {
   averageHeartRate: number | null;
   calories: number | null;
   route: RunRoutePoint[] | null;
+  isPublic: boolean;
   perceivedEffort: number;
   fatigueLevel: number;
   painLevel: number;

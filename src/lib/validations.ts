@@ -15,23 +15,19 @@ export const loginSchema = z.object({
   password: z.string().min(8)
 });
 
+// Sign-up is intentionally minimal: name + email + password. The detailed participant
+// profile (phone, wilaya, ID, date of birth, ...) is collected later — in the profile page
+// and at race-registration time — so creating an account stays fast and easy.
 export const registerUserSchema = z.object({
   firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
   lastName: z.string().trim().min(2, "Last name must be at least 2 characters."),
-  arabicFullName: z.string().trim().optional(),
   email: z.string().trim().email("Enter a valid email address.").transform((value) => value.toLowerCase()),
-  phone: z.string().trim().min(6, "Enter a valid phone number."),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters.")
     .regex(/[A-Za-z]/, "Password must include at least one letter.")
     .regex(/[0-9]/, "Password must include at least one number."),
-  confirmPassword: z.string(),
-  wilaya: z.string().trim().min(2, "Choose a wilaya."),
-  city: z.string().trim().optional(),
-  commune: z.string().trim().optional(),
-  dateOfBirth: z.string().optional(),
-  nationalId: z.string().trim().optional()
+  confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",
   path: ["confirmPassword"]

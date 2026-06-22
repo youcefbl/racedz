@@ -67,6 +67,7 @@ type RunRow = {
   averageHeartRate: number | null;
   calories: number | null;
   route: unknown;
+  isPublic: boolean;
   perceivedEffort: number;
   fatigueLevel: number;
   painLevel: number;
@@ -207,12 +208,12 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     INSERT INTO "RunnerRun" (
       "id", "userId", "goalId", "workoutId", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate",
-      "calories", "route", "perceivedEffort",
+      "calories", "route", "isPublic", "perceivedEffort",
       "fatigueLevel", "painLevel", "symptoms", "notes", "source", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${input.workoutId ?? null}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${input.elevationGainM ?? null}, ${input.averageHeartRate ?? null},
-      ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.perceivedEffort},
+      ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.symptoms ?? null},
       ${input.notes ?? null}, ${input.source}::"RunnerRunSource", NOW()
     )
@@ -239,6 +240,16 @@ export async function getRunnerRuns(userId: string, limit = 50) {
     ORDER BY "startedAt" DESC
     LIMIT ${safeLimit}
   `;
+}
+
+export async function setRunVisibility(userId: string, runId: string, isPublic: boolean) {
+  const rows = await getPrisma().$queryRaw<RunRow[]>`
+    UPDATE "RunnerRun" SET "isPublic" = ${isPublic}, "updatedAt" = NOW()
+    WHERE "id" = ${runId} AND "userId" = ${userId}
+    RETURNING *
+  `;
+  if (!rows[0]) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+  return rows[0];
 }
 
 export async function getCoachDashboard(userId: string) {

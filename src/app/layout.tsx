@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { NativeChrome } from "@/components/layout/native-chrome";
+import { ServiceWorkerRegister } from "@/components/layout/service-worker-register";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import "./globals.css";
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#0F766E" },
     { media: "(prefers-color-scheme: dark)", color: "#080d18" }
@@ -49,6 +52,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <SiteFooter />
         </Suspense>
+        <Suspense fallback={null}>
+          <NativeChrome />
+        </Suspense>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

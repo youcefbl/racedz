@@ -280,6 +280,93 @@ a {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border)) !important;
 }
 
+/* ---- Native app shell (only active inside the Capacitor app via .native-app) ---- */
+.mobile-tab-bar {
+  display: none;
+}
+
+.native-app .mobile-tab-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.native-app .mobile-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 0 7px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.native-app .mobile-tab-active {
+  color: var(--primary);
+}
+
+/* Slim app-style top bar: drop the decorative stripe, lock to a compact title-bar height,
+   and hide the Find-a-Race CTA (the Races tab covers it). Nav lives in the bottom tabs. */
+.native-app .site-header-stripe {
+  display: none;
+}
+
+.native-app .site-header-row {
+  height: 3.5rem;
+}
+
+.native-app .site-header-cta {
+  display: none !important;
+}
+
+/* Make room for the status bar (top) and tab bar (bottom). */
+.native-app header {
+  padding-top: env(safe-area-inset-top);
+}
+
+.native-app main {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+
+/* The website footer is webby; hide it inside the app (links live in the account area). */
+.native-app footer {
+  display: none;
+}
+
+/* De-web the feel: no tap flash, no overscroll bounce/glow, no long-press callout/selection. */
+.native-app {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.native-app,
+.native-app body {
+  overscroll-behavior: none;
+}
+
+.native-app body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.native-app input,
+.native-app textarea,
+.native-app select,
+.native-app [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* ---- Brand motion (chevrons + hero entrances) ---- */
 @media (prefers-reduced-motion: no-preference) {
   /* Logo / foreground chevrons: brighten in sequence left -> right (forward flow). */

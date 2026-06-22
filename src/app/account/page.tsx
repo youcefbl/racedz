@@ -1,17 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { SectionPage } from "@/components/layout/section-page";
 
+// /account is just an entry point — send runners straight to their registrations.
 export default async function AccountPage() {
   const session = await auth();
 
   if (!session?.user?.id) {
-    redirect("/login?callbackUrl=/account");
+    redirect("/login?callbackUrl=/account/registrations");
   }
 
-  return (
-    <SectionPage eyebrow="Account" title="Profile">
-      Runner profile details and registration history.
-    </SectionPage>
-  );
+  redirect("/account/registrations");
 }

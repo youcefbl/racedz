@@ -9,13 +9,7 @@ import { registerUserSchema } from "@/lib/validations";
 type RegisterFormValues = {
   firstName: string;
   lastName: string;
-  arabicFullName: string;
   email: string;
-  phone: string;
-  wilaya: string;
-  commune: string;
-  dateOfBirth: string;
-  nationalId: string;
 };
 
 export type RegisterActionState = {
@@ -32,21 +26,10 @@ export async function registerAction(
   const values = {
     firstName: getString(formData, "firstName"),
     lastName: getString(formData, "lastName"),
-    arabicFullName: getString(formData, "arabicFullName"),
-    email: getString(formData, "email"),
-    phone: getString(formData, "phone"),
-    wilaya: getString(formData, "wilaya"),
-    commune: getString(formData, "commune"),
-    dateOfBirth: getString(formData, "dateOfBirth"),
-    nationalId: getString(formData, "nationalId")
+    email: getString(formData, "email")
   };
   const parsed = registerUserSchema.safeParse({
     ...values,
-    arabicFullName: values.arabicFullName || undefined,
-    city: undefined,
-    commune: values.commune || undefined,
-    dateOfBirth: values.dateOfBirth || undefined,
-    nationalId: values.nationalId || undefined,
     password: getString(formData, "password"),
     confirmPassword: getString(formData, "confirmPassword")
   });
@@ -74,23 +57,6 @@ export async function registerAction(
     };
   }
 
-  if (parsed.data.nationalId) {
-    const existingNationalId = await prisma.user.findUnique({
-      where: { nationalId: parsed.data.nationalId },
-      select: { id: true }
-    });
-
-    if (existingNationalId) {
-      return {
-        error: "This ID number is already linked to another account.",
-        fieldErrors: {
-          nationalId: "Use a different ID number or contact support."
-        },
-        values
-      };
-    }
-  }
-
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
   const user = await prisma.user.create({
@@ -99,14 +65,7 @@ export async function registerAction(
       passwordHash,
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
-      arabicFullName: parsed.data.arabicFullName,
-      phone: parsed.data.phone,
-      role: "RUNNER",
-      dateOfBirth: parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : undefined,
-      nationalId: parsed.data.nationalId,
-      wilaya: parsed.data.wilaya,
-      city: undefined,
-      commune: parsed.data.commune
+      role: "RUNNER"
     }
   });
   const token = await createEmailVerificationToken(user.id);

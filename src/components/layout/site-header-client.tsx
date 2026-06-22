@@ -13,6 +13,7 @@ import {
   LogIn,
   Menu,
   Search,
+  Trophy,
   UserPlus,
   UserRound,
   X
@@ -42,8 +43,10 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const desktopNavItems = [
     { href: "/races", label: dictionary.nav.races, icon: CalendarDays },
+    ...(isAdmin ? [{ href: "/rankings", label: dictionary.nav.rankings, icon: Trophy }] : []),
     { href: "/runners", label: dictionary.nav.forRunners, icon: Footprints },
     { href: "/organizers", label: dictionary.nav.organizers, icon: Building2 }
   ];
@@ -65,14 +68,14 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
     >
       <div
         className={cn(
-          "bg-[linear-gradient(90deg,var(--primary),var(--accent),#9b5cff)] transition-all duration-300",
+          "site-header-stripe bg-[linear-gradient(90deg,var(--primary),var(--accent),#9b5cff)] transition-all duration-300",
           scrolled ? "h-0.5 opacity-70" : "h-1 opacity-100"
         )}
         aria-hidden="true"
       />
       <div
         className={cn(
-          "flex items-center justify-between gap-4 px-4 transition-all duration-300 sm:px-6 lg:px-8",
+          "site-header-row flex items-center justify-between gap-4 px-4 transition-all duration-300 sm:px-6 lg:px-8",
           scrolled ? "h-14" : "h-[4.25rem]"
         )}
       >
@@ -119,7 +122,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
               </ButtonLink>
             </div>
           )}
-          <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="sm" className="hidden shadow-sm md:inline-flex">
+          <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="sm" className="site-header-cta hidden shadow-sm md:inline-flex">
             <Search className="size-4" aria-hidden="true" />
             {dictionary.nav.findRace}
           </ButtonLink>
@@ -139,7 +142,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
         <div className="border-t border-[var(--border)] bg-[var(--surface)] shadow-soft md:hidden">
           <div className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-6">
             <div className="grid gap-2">
-              <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="lg" onClick={() => setMobileOpen(false)}>
+              <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="lg" className="site-header-cta" onClick={() => setMobileOpen(false)}>
                 <Search className="size-5" aria-hidden="true" />
                 {dictionary.nav.findRace}
               </ButtonLink>

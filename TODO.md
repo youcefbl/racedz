@@ -504,6 +504,12 @@ commission an external review before public launch. Checklist:
 - Resolve `npm audit` findings; pin/lock deps; vet new mobile plugins' permissions and network behavior; upgrade Node off EOL 18.
 - Production secrets management + rotation; DB least-privilege + backups; no stack traces leaked to clients; error monitoring + basic incident response.
 
+### Open findings from review (2026-06-22) — fix before production
+- MEDIUM: Pre-registration account takeover via Google linking (`src/auth.ts` `getOrCreateGoogleUser`). Google sign-in marks an existing unverified credentials account verified without clearing a possibly attacker-set `passwordHash`. Fix: when linking Google to an account with a `passwordHash` and no prior `emailVerifiedAt`, null the `passwordHash` (force reset).
+- LOW/MED: No rate limiting on auth + write endpoints; off-topic chat writes a BLOCKED `CoachInteraction` row before the quota check (DB bloat). Add endpoint rate limiting; count/limit BLOCKED interactions.
+- LOW: Android `allowBackup="true"` lets `adb backup` extract app data incl. the offline GPS run queue (home/work coords). Set `android:allowBackup="false"` for release.
+- INFO: Add security headers (CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy) in `next.config`. Verify release mobile build uses the `https://` domain (cleartext is dev-only) and Auth.js `callbackUrl` stays same-origin.
+
 ## Two-PC Development Workflow
 
 Best workflow:

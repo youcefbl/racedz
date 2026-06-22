@@ -27,7 +27,10 @@
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.3",
     "@capacitor/core": "^6.2.1",
+    "@capacitor/splash-screen": "^6.0.4",
+    "@capacitor/status-bar": "^6.0.3",
     "@prisma/client": "^5.21.1",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",

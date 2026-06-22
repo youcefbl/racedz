@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, CalendarDays, Flame, Gauge, HeartPulse, Plus, Route, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, Flame, Gauge, Globe, HeartPulse, Lock, Plus, Route, Sparkles } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -9,6 +9,7 @@ import { RunRecorder } from "@/components/coach/run-recorder";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import type { CoachLocale, CoachPlan, CoachRun } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function CoachRunsPanel({
   runs,
@@ -33,6 +34,7 @@ export function CoachRunsPanel({
   const [pain, setPain] = useState(0);
   const [distance, setDistance] = useState(5);
   const [duration, setDuration] = useState(35);
+  const [share, setShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
@@ -56,6 +58,7 @@ export function CoachRunsPanel({
             perceivedEffort: effort,
             fatigueLevel: fatigue,
             painLevel: pain,
+            isPublic: share,
             symptoms: optionalString(formData, "symptoms"),
             notes: optionalString(formData, "notes")
           })
@@ -70,6 +73,18 @@ export function CoachRunsPanel({
         }
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Unable to save run.");
+      }
+    });
+  }
+
+  function toggleVisibility(runId: string, next: boolean) {
+    setError(null);
+    startSaving(async () => {
+      try {
+        await coachRequest(`/api/coach/runs/${runId}`, { method: "PATCH", body: JSON.stringify({ isPublic: next }) });
+        await onSaved("", false);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Unable to update run.");
       }
     });
   }
@@ -152,10 +167,16 @@ export function CoachRunsPanel({
             ) : null}
 
             <div className="mt-5 flex flex-col gap-4 border-t border-gray-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex items-start gap-3 text-sm font-semibold text-gray-700">
-                <input name="analyzeNow" type="checkbox" defaultChecked className="mt-0.5 size-4 accent-brand-teal" />
-                {copy.analyzeNow}
-              </label>
+              <div className="grid gap-2">
+                <label className="flex items-start gap-3 text-sm font-semibold text-gray-700">
+                  <input name="analyzeNow" type="checkbox" defaultChecked className="mt-0.5 size-4 accent-brand-teal" />
+                  {copy.analyzeNow}
+                </label>
+                <label className="flex items-start gap-3 text-sm font-semibold text-gray-700">
+                  <input type="checkbox" checked={share} onChange={(event) => setShare(event.target.checked)} className="mt-0.5 size-4 accent-brand-teal" />
+                  {copy.shareRun}
+                </label>
+              </div>
               <Button type="submit" disabled={saving}>
                 {saving ? copy.savingRun : copy.saveRun}
               </Button>
@@ -191,9 +212,27 @@ export function CoachRunsPanel({
                 <RunFact icon={CalendarDays} label={formatDuration(run.durationSeconds)} />
                 <RunFact icon={Flame} label={run.calories != null ? `${run.calories}` : "-"} />
                 <RunFact icon={HeartPulse} label={`${run.perceivedEffort}/10`} />
-                <Button type="button" variant="outline" size="sm" disabled={pendingAction === "POST_RUN"} onClick={() => void onAnalyze(run.id)}>
-                  <Sparkles className="size-4" aria-hidden="true" /> {copy.analyzeRun}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleVisibility(run.id, !run.isPublic)}
+                    disabled={saving}
+                    aria-pressed={run.isPublic}
+                    title={run.isPublic ? copy.publicLabel : copy.privateLabel}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-bold transition disabled:opacity-50",
+                      run.isPublic
+                        ? "border-brand-teal bg-teal-50 text-brand-teal"
+                        : "border-gray-200 text-gray-500 hover:border-brand-teal"
+                    )}
+                  >
+                    {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
+                    {run.isPublic ? copy.publicLabel : copy.privateLabel}
+                  </button>
+                  <Button type="button" variant="outline" size="sm" disabled={pendingAction === "POST_RUN"} onClick={() => void onAnalyze(run.id)}>
+                    <Sparkles className="size-4" aria-hidden="true" /> {copy.analyzeRun}
+                  </Button>
+                </div>
               </article>
             ))}
           </div>

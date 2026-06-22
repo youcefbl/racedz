@@ -2,9 +2,8 @@
 
 import { useActionState, useState } from "react";
 import type { ReactNode } from "react";
-import { AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, MapPin, UserRound } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ALGERIA_WILAYAS } from "@/lib/algeria";
 import { registerAction, type RegisterActionState } from "./actions";
 
 const initialState: RegisterActionState = {};
@@ -25,46 +24,14 @@ export function RegisterForm({ callbackUrl }: { callbackUrl?: string }) {
       ) : null}
       <Section
         icon={UserRound}
-        title="Personal details"
-        description="Use the same identity details you will use for race registrations."
+        title="Your name"
+        description="Just the basics to get started — you can add the rest later."
       >
         <Field label="First name" name="firstName" autoComplete="given-name" defaultValue={state.values?.firstName} error={state.fieldErrors?.firstName} />
         <Field label="Last name" name="lastName" autoComplete="family-name" defaultValue={state.values?.lastName} error={state.fieldErrors?.lastName} />
-        <Field
-          label="Arabic full name"
-          name="arabicFullName"
-          required={false}
-          defaultValue={state.values?.arabicFullName}
-          error={state.fieldErrors?.arabicFullName}
-        />
-        <Field label="Date of birth" name="dateOfBirth" type="date" required={false} defaultValue={state.values?.dateOfBirth} error={state.fieldErrors?.dateOfBirth} />
-        <Field label="ID number" name="nationalId" required={false} defaultValue={state.values?.nationalId} error={state.fieldErrors?.nationalId} />
-        <Field label="Phone" name="phone" type="tel" autoComplete="tel" defaultValue={state.values?.phone} error={state.fieldErrors?.phone} />
       </Section>
 
-      <Section icon={MapPin} title="Location" description="This helps RaceDZ show local races and prefill registration forms.">
-        <label className="grid gap-2 text-sm font-semibold text-gray-800">
-          Wilaya
-          <select
-            name="wilaya"
-            required
-            defaultValue={state.values?.wilaya}
-            aria-invalid={Boolean(state.fieldErrors?.wilaya)}
-            className="h-11 rounded-lg border border-gray-300 bg-white px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100 aria-[invalid=true]:border-red-400 aria-[invalid=true]:bg-red-50"
-          >
-            <option value="">Choose wilaya</option>
-            {ALGERIA_WILAYAS.map((wilaya) => (
-              <option key={wilaya} value={wilaya}>
-                {wilaya}
-              </option>
-            ))}
-          </select>
-          {state.fieldErrors?.wilaya ? <span className="text-xs font-semibold text-red-600">{state.fieldErrors.wilaya}</span> : null}
-        </label>
-        <Field label="Commune" name="commune" required={false} defaultValue={state.values?.commune} error={state.fieldErrors?.commune} />
-      </Section>
-
-      <Section icon={LockKeyhole} title="Login security" description="You will need to verify your email before logging in.">
+      <Section icon={LockKeyhole} title="Login security" description="You will need to verify your email before logging in." cols={1}>
         <Field label="Email" name="email" type="email" autoComplete="email" defaultValue={state.values?.email} error={state.fieldErrors?.email} />
         <Field
           label="Password"
@@ -101,7 +68,7 @@ export function RegisterForm({ callbackUrl }: { callbackUrl?: string }) {
 
       <p className="flex items-start gap-2 rounded-lg bg-teal-50 p-3 text-sm font-semibold text-brand-teal">
         <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        After signup, check your email for the activation link.
+        After signup, verify your email. You&apos;ll add race details (phone, wilaya, ID) when you register for your first race.
       </p>
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? "Creating account..." : "Create account"}
@@ -183,11 +150,13 @@ function Section({
   icon: Icon,
   title,
   description,
+  cols = 2,
   children
 }: {
   icon: typeof UserRound;
   title: string;
   description: string;
+  cols?: 1 | 2;
   children: ReactNode;
 }) {
   return (
@@ -201,7 +170,7 @@ function Section({
           <p className="mt-1 text-sm leading-6 text-gray-500">{description}</p>
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+      <div className={`grid gap-4 ${cols === 2 ? "sm:grid-cols-2" : ""}`}>{children}</div>
     </section>
   );
 }
