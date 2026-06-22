@@ -34,6 +34,16 @@ export function AdminRaceEditForm({ race }: { race: AdminRaceForEdit }) {
               className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
             />
           </label>
+          <Field label="Elevation gain" name="elevationGainText" defaultValue={race.elevationGainText ?? ""} required={false} />
+          <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
+            Conditions
+            <textarea
+              name="conditions"
+              rows={4}
+              defaultValue={race.conditions ?? ""}
+              className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            />
+          </label>
         </div>
       </section>
 
@@ -42,6 +52,7 @@ export function AdminRaceEditForm({ race }: { race: AdminRaceForEdit }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Select label="Publication status" name="status" defaultValue={race.status} options={statusOptions} />
           <Select label="Registration status" name="registrationStatus" defaultValue={race.registrationStatus} options={registrationStatusOptions} />
+          <AutoCancelToggle defaultChecked={race.autoCancelUnpaidAfterHours === 48} />
         </div>
       </section>
 
@@ -135,6 +146,26 @@ function SectionTitle({ icon: Icon, title }: { icon: typeof Trophy; title: strin
       <Icon className="size-5 text-brand-teal" aria-hidden="true" />
       <h2 className="text-lg font-black text-gray-950">{title}</h2>
     </div>
+  );
+}
+
+function AutoCancelToggle({ defaultChecked = false }: { defaultChecked?: boolean }) {
+  return (
+    <label className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4 text-sm text-[var(--text)] sm:col-span-2">
+      <input
+        type="checkbox"
+        name="autoCancelUnpaidAfterHours"
+        value="48"
+        defaultChecked={defaultChecked}
+        className="mt-1 size-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal"
+      />
+      <span>
+        <span className="block font-black text-[var(--text-strong)]">Auto-cancel unpaid registrations</span>
+        <span className="mt-1 block leading-6">
+          Cancel pending registrations automatically if payment is not confirmed within 48 hours.
+        </span>
+      </span>
+    </label>
   );
 }
 

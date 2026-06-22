@@ -39,12 +39,16 @@ Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product 
 - New accounts require email verification. Verification tokens use raw SQL helpers in `src/lib/email-verification.ts`; Auth.js blocks unverified accounts.
 - Organization invites are still copyable in `/organizer/members`, but the invite action also attempts branded email delivery with the invite link.
 - Race announcements use `RaceAnnouncement` and `src/lib/announcements.ts`. Organizer/admin announcements notify active registrants and appear on public race detail pages.
+- Runner AI coach backend lives under `src/lib/coach`. PostgreSQL owns coach memory; recent runs and aggregate metrics are assembled into compact context for the OpenAI Responses API. Deterministic planning and safety code controls dates, workout types, and distance limits before AI output is saved. Coach APIs live under `src/app/api/coach`.
+- Runner coach UI lives at `/account/coach` and in `src/components/coach`. `npm run test:e2e:coach` checks the authenticated workflow and provider-failure persistence; set `RACEDZ_REQUIRE_LIVE_AI=1` to require a successful paid OpenAI response.
+- Coach persistence currently uses typed parameterized raw SQL in `src/lib/coach/service.ts` because the local Prisma 5.21 generator exits successfully without refreshing its generated client. `prisma/schema.prisma` and migration `20260621013000_runner_ai_coach` remain authoritative; migrate the service to generated delegates when client generation is repaired.
 - Admin audit logs support actor, target type, and action filters in `/admin/audit`.
 - Manual QA checklist lives in `docs/QA_CHECKLIST.md`. `npm run smoke` runs dependency-free local smoke checks against `RACEDZ_BASE_URL` or `http://127.0.0.1:3003`; keep `npm run dev` running first.
 - Local development uses one fixed app URL: `http://127.0.0.1:3003`. Do not rotate ports; Auth.js redirects are configured for this origin.
 - Local PostgreSQL can run with `docker compose up -d postgres`.
 - `OrganizationInvitation` exists in `prisma/schema.prisma` and its migration. The current app code uses typed raw SQL for that table in `src/lib/organizer.ts` because local `prisma generate` was not refreshing the generated client during this session.
 - `RaceEditHistory` stores organizer race/category changes. History writes use raw SQL in `src/lib/organizer.ts`, and superadmin reads use raw SQL in `src/lib/admin.ts`.
+- AI coach server configuration uses `OPENAI_API_KEY`, optional `OPENAI_COACH_MODEL`, `COACH_DAILY_AI_LIMIT`, and `COACH_MONTHLY_AI_LIMIT`. Never expose the OpenAI key through a `NEXT_PUBLIC_` variable.
 
 ## MVP Priorities
 

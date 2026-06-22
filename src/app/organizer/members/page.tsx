@@ -5,10 +5,14 @@ import { CopyInviteLink } from "./copy-invite-link";
 import { InviteMemberForm } from "./invite-member-form";
 import { InvitationControls } from "./invitation-controls";
 import { MemberControls } from "./member-controls";
+import { getLocale } from "@/lib/i18n";
+import { translateOrganizer, translateOrganizerEnum } from "@/lib/organizer-i18n";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrganizerMembersPage() {
+export default async function OrganizerMembersPage({ searchParams }: { searchParams?: Promise<{ lang?: string }> }) {
+  const locale = getLocale((await searchParams)?.lang);
+  const t = (text: string) => translateOrganizer(locale, text);
   const { membership, organization } = await requireApprovedOrganizer();
   const data = await getOrganizerMembers(organization.id);
   const canInvite = membership.role === "OWNER" || membership.role === "ADMIN";
@@ -18,8 +22,8 @@ export default async function OrganizerMembersPage() {
     <div className="bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Organizer</p>
-          <h1 className="mt-2 text-3xl font-black text-gray-950">Organization members</h1>
+          <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer")}</p>
+          <h1 className="mt-2 text-3xl font-black text-gray-950">{t("Organization members")}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
             Manage users who can help operate {organization.name}. Send pending invite links to teammates so they can accept access.
           </p>
@@ -29,7 +33,7 @@ export default async function OrganizerMembersPage() {
           <section className="space-y-4">
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-200 p-4">
-                <h2 className="font-black text-gray-950">Active members</h2>
+                <h2 className="font-black text-gray-950">{t("Active members")}</h2>
               </div>
               <div className="divide-y divide-gray-200">
                 {data?.members.map((member) => {
@@ -45,10 +49,10 @@ export default async function OrganizerMembersPage() {
                           <p className="font-bold text-gray-950">
                             {member.user.firstName} {member.user.lastName}
                           </p>
-                          <Badge variant={member.role === "OWNER" ? "orange" : "teal"}>{member.role}</Badge>
+                          <Badge variant={member.role === "OWNER" ? "orange" : "teal"}>{translateOrganizerEnum(locale, member.role)}</Badge>
                         </div>
                         <p className="mt-1 text-sm text-gray-500">{member.user.email}</p>
-                        {member.id === membership.id ? <p className="mt-2 text-xs font-semibold text-gray-400">Your access</p> : null}
+                        {member.id === membership.id ? <p className="mt-2 text-xs font-semibold text-gray-400">{t("Your access")}</p> : null}
                       </div>
                       <MemberControls
                         memberId={member.id}
@@ -64,7 +68,7 @@ export default async function OrganizerMembersPage() {
 
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-200 p-4">
-                <h2 className="font-black text-gray-950">Invitations</h2>
+                <h2 className="font-black text-gray-950">{t("Invitations")}</h2>
               </div>
               {data?.invitations.length ? (
                 <div className="divide-y divide-gray-200">
@@ -84,8 +88,8 @@ export default async function OrganizerMembersPage() {
                         </div>
                         <div className="grid content-start gap-3">
                           <div className="flex flex-wrap gap-2 lg:justify-end">
-                            <Badge variant="teal">{invitation.role}</Badge>
-                            <Badge variant={statusVariant}>{invitation.status}</Badge>
+                            <Badge variant="teal">{translateOrganizerEnum(locale, invitation.role)}</Badge>
+                            <Badge variant={statusVariant}>{translateOrganizerEnum(locale, invitation.status)}</Badge>
                           </div>
                           {isPending ? <InvitationControls invitationId={invitation.id} canManage={canInvite} /> : null}
                         </div>
@@ -94,7 +98,7 @@ export default async function OrganizerMembersPage() {
                   })}
                 </div>
               ) : (
-                <p className="p-4 text-sm text-gray-500">No invitations yet.</p>
+                <p className="p-4 text-sm text-gray-500">{t("No invitations yet.")}</p>
               )}
             </div>
           </section>

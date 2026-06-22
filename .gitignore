@@ -3,6 +3,8 @@ node_modules
 out
 dist
 coverage
+playwright-report
+test-results
 .env
 .env*.local
 *.log
@@ -12,3 +14,14 @@ prisma/dev.db
 /uploads
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Capacitor / Android (generated build artifacts)
+/android/.gradle
+/android/build
+/android/app/build
+/android/capacitor-cordova-android-plugins
+/android/app/src/main/assets/public
+/android/app/src/main/assets/capacitor.config.json
+/android/local.properties
+
+/coursealgerie_export

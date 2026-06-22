@@ -5,6 +5,7 @@ import { AlertCircle, CalendarDays, MapPin, Plus, Route, Trash2, Trophy } from "
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
+import { useOrganizerTranslation } from "@/hooks/use-organizer-translation";
 import { createOrganizerRaceAction, type OrganizerRaceActionState } from "./actions";
 
 const initialState: OrganizerRaceActionState = {};
@@ -28,6 +29,7 @@ export function OrganizerEventForm({
   organization: { email?: string | null; phone?: string | null; wilaya?: string | null; city?: string | null; commune?: string | null };
   defaults?: { title?: string };
 }) {
+  const { t } = useOrganizerTranslation();
   const [state, formAction, pending] = useActionState(createOrganizerRaceAction, initialState);
   const [categoryRows, setCategoryRows] = useState(() => [{ id: crypto.randomUUID() }]);
 
@@ -51,27 +53,37 @@ export function OrganizerEventForm({
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Trophy className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Race details</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Race details")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Race name" name="title" defaultValue={defaults?.title ?? ""} />
+          <Field label={t("Race name")} name="title" defaultValue={defaults?.title ?? ""} />
           <label className="grid gap-2 text-sm font-semibold text-gray-800">
-            Race type
+            {t("Race type")}
             <select name="raceType" className={controlClassName}>
               {raceTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.label)}
                 </option>
               ))}
             </select>
           </label>
           <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
-            Description
+            {t("Description")}
             <textarea
               name="description"
               required
               rows={5}
               className={`${controlClassName} h-auto py-2`}
+            />
+          </label>
+          <Field label={t("Elevation gain")} name="elevationGainText" required={false} placeholder="Example: +850 m across the trail course" />
+          <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
+            {t("Conditions")}
+            <textarea
+              name="conditions"
+              rows={4}
+              className={`${controlClassName} h-auto py-2`}
+              placeholder="Optional terrain, weather, equipment, or participation conditions"
             />
           </label>
         </div>
@@ -80,22 +92,23 @@ export function OrganizerEventForm({
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Schedule</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Schedule")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Start date and time" name="startDate" type="datetime-local" />
-          <Field label="Registration deadline" name="registrationCloseAt" type="datetime-local" required={false} />
+          <Field label={t("Start date and time")} name="startDate" type="datetime-local" />
+          <Field label={t("Registration deadline")} name="registrationCloseAt" type="datetime-local" required={false} />
+          <AutoCancelToggle t={t} />
         </div>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <MapPin className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Location</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Location")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-semibold text-gray-800">
-            Wilaya
+            {t("Wilaya")}
             <select
               name="wilaya"
               defaultValue={organization.wilaya ?? "Alger"}
@@ -108,22 +121,22 @@ export function OrganizerEventForm({
               ))}
             </select>
           </label>
-          <Field label="City" name="city" defaultValue={organization.city ?? ""} />
-          <Field label="Commune" name="commune" defaultValue={organization.commune ?? ""} required={false} />
-          <Field label="Address" name="address" required={false} />
+          <Field label={t("City")} name="city" defaultValue={organization.city ?? ""} />
+          <Field label={t("Commune")} name="commune" defaultValue={organization.commune ?? ""} required={false} />
+          <Field label={t("Address")} name="address" required={false} />
         </div>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Route className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Race categories</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Race categories")}</h2>
         </div>
         <div className="grid gap-3">
           {categoryRows.map((row, index) => (
             <div key={row.id} className="grid gap-4 rounded-lg border border-gray-200 p-4 sm:p-5">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-black text-gray-950">Category {index + 1}</p>
+                <p className="text-sm font-black text-gray-950">{t("Category")} {index + 1}</p>
                 <button
                   type="button"
                   onClick={() => removeCategory(row.id)}
@@ -135,51 +148,51 @@ export function OrganizerEventForm({
                 </button>
               </div>
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.8fr)]">
-                <Field label="Category name" name="categoryName" placeholder="10K Open" />
+                <Field label={t("Category name")} name="categoryName" placeholder="10K Open" />
                 <label className="grid gap-2 text-sm font-semibold text-gray-800">
-                  Race type
+                  {t("Race type")}
                   <select name="categoryRaceType" defaultValue="ROAD" className={controlClassName}>
                     {raceTypeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(option.label)}
                       </option>
                     ))}
                   </select>
                 </label>
               </div>
               <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(220px,1.15fr)]">
-                <Field label="Distance in KM" name="distanceKm" type="number" step="0.1" />
-                <Field label="Price DZD" name="priceDzd" type="number" required={false} />
-                <Field label="Capacity" name="categoryMaxParticipants" type="number" required={false} />
-                <Field label="Start time" name="categoryStartTime" type="datetime-local" required={false} />
+                <Field label={t("Distance in KM")} name="distanceKm" type="number" step="0.1" />
+                <Field label={t("Price DZD")} name="priceDzd" type="number" required={false} />
+                <Field label={t("Capacity")} name="categoryMaxParticipants" type="number" required={false} />
+                <Field label={t("Start time")} name="categoryStartTime" type="datetime-local" required={false} />
               </div>
             </div>
           ))}
           <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={addCategory}>
             <Plus className="size-4" aria-hidden="true" />
-            Add category
+            {t("Add category")}
           </Button>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Total race capacity" name="maxParticipants" type="number" required={false} />
+          <Field label={t("Total race capacity")} name="maxParticipants" type="number" required={false} />
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-black text-gray-950">Contact</h2>
+        <h2 className="text-lg font-black text-gray-950">{t("Contact")}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Contact email" name="contactEmail" type="email" defaultValue={organization.email ?? ""} required={false} />
-          <Field label="Contact phone" name="contactPhone" type="tel" defaultValue={organization.phone ?? ""} required={false} />
+          <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={organization.email ?? ""} required={false} />
+          <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={organization.phone ?? ""} required={false} />
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-black text-gray-950">Race image</h2>
-        <ImageUploadField label="Main race image" name="mainImageUrl" scope="race" />
+        <h2 className="text-lg font-black text-gray-950">{t("Race image")}</h2>
+        <ImageUploadField label={t("Main race image")} name="mainImageUrl" scope="race" />
       </section>
 
       <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Submitting for review..." : "Create and submit for review"}
+        {pending ? t("Submitting for review...") : t("Create and submit for review")}
       </Button>
     </form>
   );
@@ -220,3 +233,23 @@ function Field({
 
 const controlClassName =
   "h-11 w-full min-w-0 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100";
+
+function AutoCancelToggle({ defaultChecked = false, t }: { defaultChecked?: boolean; t: (text: string) => string }) {
+  return (
+    <label className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4 text-sm text-[var(--text)] sm:col-span-2">
+      <input
+        type="checkbox"
+        name="autoCancelUnpaidAfterHours"
+        value="48"
+        defaultChecked={defaultChecked}
+        className="mt-1 size-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal"
+      />
+      <span>
+        <span className="block font-black text-[var(--text-strong)]">{t("Auto-cancel unpaid registrations")}</span>
+        <span className="mt-1 block leading-6">
+          {t("Cancel pending registrations automatically if payment is not confirmed within 48 hours.")}
+        </span>
+      </span>
+    </label>
+  );
+}

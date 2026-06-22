@@ -24,6 +24,8 @@ export async function createPlatformRaceAction(
     const race = await createPlatformRace({
       title: getString(formData, "title"),
       description: getString(formData, "description"),
+      elevationGainText: getOptionalString(formData, "elevationGainText"),
+      conditions: getOptionalString(formData, "conditions"),
       raceType: getString(formData, "raceType"),
       registrationStatus: getString(formData, "registrationStatus"),
       startDate: getString(formData, "startDate"),
@@ -35,6 +37,7 @@ export async function createPlatformRaceAction(
       contactEmail: getOptionalString(formData, "contactEmail"),
       contactPhone: getOptionalString(formData, "contactPhone"),
       maxParticipants: getOptionalString(formData, "maxParticipants"),
+      autoCancelUnpaidAfterHours: getAutoCancelUnpaidAfterHours(formData),
       categoryName: getString(formData, "categoryName"),
       distanceKm: getString(formData, "distanceKm"),
       priceDzd: getOptionalString(formData, "priceDzd"),
@@ -70,6 +73,10 @@ function getOptionalString(formData: FormData, key: string) {
   const value = getString(formData, key);
 
   return value || undefined;
+}
+
+function getAutoCancelUnpaidAfterHours(formData: FormData) {
+  return formData.get("autoCancelUnpaidAfterHours") === "48" ? "48" : undefined;
 }
 
 function getCategoryRows(formData: FormData) {

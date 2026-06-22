@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { CalendarCheck2, KeyRound, Sparkles, UserRound } from "lucide-react";
 import { auth } from "@/auth";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ButtonLink } from "@/components/ui/button";
 import type { UserRole } from "@/types/race";
 import { LoginForm } from "./login-form";
@@ -18,8 +19,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   if (session?.user) {
-    redirect(getPostLoginUrl(session.user.role));
+    redirect(getPostLoginUrl(session.user.role, params?.callbackUrl));
   }
+
+  const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
   return (
     <div className="bg-gray-50">
@@ -59,6 +62,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Use a demo account or your own RaceDZ credentials.
             </p>
           </div>
+          {googleEnabled ? (
+            <>
+              <GoogleSignInButton callbackUrl={params?.callbackUrl} />
+              <div className="my-4 flex items-center gap-3">
+                <span className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs font-bold uppercase tracking-normal text-gray-400">or</span>
+                <span className="h-px flex-1 bg-gray-200" />
+              </div>
+            </>
+          ) : null}
           <LoginForm callbackUrl={params?.callbackUrl} />
           <div className="mt-5 rounded-lg bg-gray-50 p-4">
             <p className="text-sm font-bold text-gray-950">Demo accounts</p>
@@ -107,7 +120,13 @@ function DemoAccount({ role, email }: { role: string; email: string }) {
   );
 }
 
-function getPostLoginUrl(role: UserRole | undefined) {
+function getPostLoginUrl(role: UserRole | undefined, callbackUrl?: string) {
+  const safeCallbackUrl = getSafeCallbackUrlForRole(role, callbackUrl);
+
+  if (safeCallbackUrl) {
+    return safeCallbackUrl;
+  }
+
   switch (role) {
     case "SUPERADMIN":
     case "ADMIN":
@@ -118,4 +137,20 @@ function getPostLoginUrl(role: UserRole | undefined) {
     default:
       return "/account";
   }
+}
+
+function getSafeCallbackUrlForRole(role: UserRole | undefined, callbackUrl?: string) {
+  if (!callbackUrl || !callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
+    return null;
+  }
+
+  if (callbackUrl.startsWith("/admin")) {
+    return role === "ADMIN" || role === "SUPERADMIN" ? callbackUrl : null;
+  }
+
+  if (callbackUrl.startsWith("/organizer")) {
+    return role === "ORGANIZER" || role === "ADMIN" || role === "SUPERADMIN" ? callbackUrl : null;
+  }
+
+  return callbackUrl;
 }

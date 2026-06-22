@@ -1,4 +1,5 @@
 import { getPrisma } from "@/lib/db";
+import { getRaceOptionalDetails } from "@/lib/race-optional-details";
 import { filterRaces, getRaceById as getMockRaceById, getRaceBySlug as getMockRaceBySlug, getUpcomingRaces as getMockUpcomingRaces, type RaceFilters } from "@/lib/races";
 import type { RaceAnnouncement, RaceCategory, RaceEvent } from "@/types/race";
 
@@ -98,7 +99,9 @@ export async function getRaceEventBySlug(slug: string) {
       include: raceInclude
     })) as PrismaRaceEvent | null;
 
-    return race ? { ...mapRaceEvent(race), announcements: await getPublicRaceAnnouncements(race.id) } : undefined;
+    if (!race) return undefined;
+    const optionalDetails = await getRaceOptionalDetails(prisma, race.id);
+    return { ...mapRaceEvent(race), ...mapOptionalDetails(optionalDetails), announcements: await getPublicRaceAnnouncements(race.id) };
   } catch {
     return getMockRaceBySlug(slug);
   }
@@ -116,7 +119,9 @@ export async function getRaceEventById(id: string) {
       include: raceInclude
     })) as PrismaRaceEvent | null;
 
-    return race ? { ...mapRaceEvent(race), announcements: await getPublicRaceAnnouncements(race.id) } : undefined;
+    if (!race) return undefined;
+    const optionalDetails = await getRaceOptionalDetails(prisma, race.id);
+    return { ...mapRaceEvent(race), ...mapOptionalDetails(optionalDetails), announcements: await getPublicRaceAnnouncements(race.id) };
   } catch {
     return getMockRaceById(id);
   }
@@ -196,6 +201,13 @@ function mapRaceEvent(race: PrismaRaceEvent): RaceEvent {
     maxParticipants: race.maxParticipants ?? undefined,
     availablePlaces: race.availablePlaces ?? undefined,
     categories: race.categories.map(mapRaceCategory)
+  };
+}
+
+function mapOptionalDetails(details: { elevationGainText: string | null; conditions: string | null }) {
+  return {
+    elevationGainText: details.elevationGainText ?? undefined,
+    conditions: details.conditions ?? undefined
   };
 }
 

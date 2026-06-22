@@ -5,6 +5,7 @@ import { AlertCircle, Building2, ImageIcon, LinkIcon, MapPin } from "lucide-reac
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
+import { useOrganizerTranslation } from "@/hooks/use-organizer-translation";
 import { requestOrganizationAction, type OrganizationRequestActionState } from "./actions";
 
 const initialState: OrganizationRequestActionState = {};
@@ -20,6 +21,7 @@ type OrganizationRequestFormProps = {
 };
 
 export function OrganizationRequestForm({ user }: OrganizationRequestFormProps) {
+  const { t } = useOrganizerTranslation();
   const [state, formAction, pending] = useActionState(requestOrganizationAction, initialState);
 
   return (
@@ -34,14 +36,14 @@ export function OrganizationRequestForm({ user }: OrganizationRequestFormProps) 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Building2 className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Organization details</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Organization details")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Organization name" name="name" autoComplete="organization" />
-          <Field label="Contact email" name="email" type="email" defaultValue={user.email} autoComplete="email" />
-          <Field label="Contact phone" name="phone" type="tel" defaultValue={user.phone ?? ""} autoComplete="tel" />
+          <Field label={t("Organization name")} name="name" autoComplete="organization" />
+          <Field label={t("Contact email")} name="email" type="email" defaultValue={user.email} autoComplete="email" />
+          <Field label={t("Contact phone")} name="phone" type="tel" defaultValue={user.phone ?? ""} autoComplete="tel" />
           <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
-            Description
+            {t("Description")}
             <textarea
               name="description"
               required
@@ -57,11 +59,11 @@ export function OrganizationRequestForm({ user }: OrganizationRequestFormProps) 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <MapPin className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Location</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Location")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="grid gap-2 text-sm font-semibold text-gray-800">
-            Wilaya
+            {t("Wilaya")}
             <select
               name="wilaya"
               required
@@ -75,33 +77,33 @@ export function OrganizationRequestForm({ user }: OrganizationRequestFormProps) 
               ))}
             </select>
           </label>
-          <Field label="City" name="city" defaultValue={user.city ?? ""} />
-          <Field label="Commune" name="commune" defaultValue={user.commune ?? ""} required={false} />
+          <Field label={t("City")} name="city" defaultValue={user.city ?? ""} />
+          <Field label={t("Commune")} name="commune" defaultValue={user.commune ?? ""} required={false} />
         </div>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <ImageIcon className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Organization logo</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Organization logo")}</h2>
         </div>
-        <ImageUploadField label="Logo image" name="logoUrl" scope="organization" />
+        <ImageUploadField label={t("Organization logo image")} name="logoUrl" scope="organization" />
       </section>
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <LinkIcon className="size-5 text-brand-teal" aria-hidden="true" />
-          <h2 className="text-lg font-black text-gray-950">Public links</h2>
+          <h2 className="text-lg font-black text-gray-950">{t("Public links")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Website" name="website" type="url" required={false} placeholder="https://example.com" />
+          <Field label={t("Website")} name="website" type="url" required={false} placeholder="https://example.com" />
           <Field label="Facebook" name="facebookUrl" type="url" required={false} placeholder="https://facebook.com/..." />
           <Field label="Instagram" name="instagramUrl" type="url" required={false} placeholder="https://instagram.com/..." />
         </div>
       </section>
 
       <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Submitting request..." : "Request organizer access"}
+        {pending ? t("Submitting request...") : t("Request organizer access")}
       </Button>
     </form>
   );

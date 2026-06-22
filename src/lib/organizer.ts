@@ -5,6 +5,12 @@ import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
+import { getRaceOptionalDetails, setRaceOptionalDetails } from "@/lib/race-optional-details";
+import {
+  cancelExpiredUnpaidRegistrations,
+  getRaceAutoCancelUnpaidAfterHours,
+  setRaceAutoCancelUnpaidAfterHours
+} from "@/lib/registration-auto-cancel";
 import {
   organizationInviteSchema,
   organizationProfileSchema,
@@ -216,9 +222,13 @@ export async function getOrganizerRaceById(organizationId: string, raceEventId: 
   }
 
   const raceTypeByCategoryId = await getCategoryRaceTypes(race.categories.map((category) => category.id));
+  const autoCancelUnpaidAfterHours = await getRaceAutoCancelUnpaidAfterHours(race.id);
+  const optionalDetails = await getRaceOptionalDetails(getPrisma(), race.id);
 
   return {
     ...race,
+    ...optionalDetails,
+    autoCancelUnpaidAfterHours,
     categories: race.categories.map((category) => ({
       ...category,
       raceType: raceTypeByCategoryId.get(category.id) ?? race.raceType
@@ -235,6 +245,9 @@ export async function getOrganizerRaceRegistrations(
   const prisma = getPrisma();
   const q = filters.q?.trim();
   const { page, limit, skip } = pagination ?? parsePagination();
+
+  await cancelExpiredUnpaidRegistrations(raceEventId);
+
   const where: Prisma.RaceRegistrationWhereInput = {
     raceEventId,
     raceEvent: {
@@ -822,6 +835,12 @@ export async function createOrganizerRace({
       }
     });
 
+    await setRaceAutoCancelUnpaidAfterHours(tx, race.id, parsed.data.autoCancelUnpaidAfterHours ?? null);
+    await setRaceOptionalDetails(tx, race.id, {
+      elevationGainText: parsed.data.elevationGainText ?? null,
+      conditions: parsed.data.conditions ?? null
+    });
+
     for (const category of categories) {
       const created = await tx.raceCategory.create({
         data: {
@@ -967,6 +986,8 @@ export async function updateOrganizerRace({
         mainImageUrl: true
       }
     });
+    const currentAutoCancelUnpaidAfterHours = await getRaceAutoCancelUnpaidAfterHours(race.id);
+    const currentOptionalDetails = await getRaceOptionalDetails(tx, race.id);
     const updates = {
       title: parsed.data.title,
       description: parsed.data.description,
@@ -982,7 +1003,16 @@ export async function updateOrganizerRace({
       maxParticipants: parsed.data.maxParticipants ?? null,
       mainImageUrl: parsed.data.mainImageUrl ?? null
     };
-    const changes = buildChangeList(current, updates);
+    const autoCancelUnpaidAfterHours = parsed.data.autoCancelUnpaidAfterHours ?? null;
+    const changes = buildChangeList(
+      { ...current, ...currentOptionalDetails, autoCancelUnpaidAfterHours: currentAutoCancelUnpaidAfterHours },
+      {
+        ...updates,
+        elevationGainText: parsed.data.elevationGainText ?? null,
+        conditions: parsed.data.conditions ?? null,
+        autoCancelUnpaidAfterHours
+      }
+    );
 
     const updated = await tx.raceEvent.update({
       where: {
@@ -992,6 +1022,12 @@ export async function updateOrganizerRace({
         ...updates,
         availablePlaces: parsed.data.maxParticipants ?? null
       }
+    });
+
+    await setRaceAutoCancelUnpaidAfterHours(tx, race.id, autoCancelUnpaidAfterHours);
+    await setRaceOptionalDetails(tx, race.id, {
+      elevationGainText: parsed.data.elevationGainText ?? null,
+      conditions: parsed.data.conditions ?? null
     });
 
     if (changes.length > 0) {

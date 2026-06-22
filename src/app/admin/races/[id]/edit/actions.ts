@@ -23,6 +23,8 @@ export async function updateAdminRaceAction(
       input: {
         title: getString(formData, "title"),
         description: getString(formData, "description"),
+        elevationGainText: getOptionalString(formData, "elevationGainText"),
+        conditions: getOptionalString(formData, "conditions"),
         raceType: getString(formData, "raceType"),
         status: getString(formData, "status"),
         registrationStatus: getString(formData, "registrationStatus"),
@@ -37,6 +39,7 @@ export async function updateAdminRaceAction(
         contactEmail: getOptionalString(formData, "contactEmail"),
         contactPhone: getOptionalString(formData, "contactPhone"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),
+        autoCancelUnpaidAfterHours: getAutoCancelUnpaidAfterHours(formData),
         mainImageUrl: getOptionalString(formData, "mainImageUrl")
       }
     });
@@ -92,4 +95,8 @@ function getOptionalString(formData: FormData, key: string) {
   const value = getString(formData, key);
 
   return value || undefined;
+}
+
+function getAutoCancelUnpaidAfterHours(formData: FormData) {
+  return formData.get("autoCancelUnpaidAfterHours") === "48" ? "48" : undefined;
 }

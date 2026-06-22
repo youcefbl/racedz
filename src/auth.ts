@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/db";
 import { isEmailVerified } from "@/lib/email-verification";
@@ -17,6 +18,16 @@ type DatabaseUser = {
     organizationId: string;
   }>;
 };
+
+type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  organizationIds: string[];
+};
+
+const googleProviderEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -74,13 +85,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           organizationIds: user.organizations?.map((member) => member.organizationId) ?? []
         };
       }
-    })
+    }),
+    ...(googleProviderEnabled ? [Google] : [])
   ],
   callbacks: {
-    jwt({ token, user }) {
+    signIn({ account, profile }) {
+      if (account?.provider === "google") {
+        return Boolean(getOAuthEmail(profile) && getGoogleEmailVerified(profile));
+      }
+
+      return true;
+    },
+    async jwt({ token, user, account, profile }) {
+      if (account?.provider === "google") {
+        const authUser = await getOrCreateGoogleUser({ profile, name: user?.name });
+
+        token.sub = authUser.id;
+        token.email = authUser.email;
+        token.name = authUser.name;
+        token.role = authUser.role;
+        token.organizationIds = authUser.organizationIds;
+
+        return token;
+      }
+
       if (user) {
         token.role = user.role;
         token.organizationIds = user.organizationIds;
+      }
+
+      if (!token.role && token.email) {
+        const authUser = await getAuthUserByEmail(token.email);
+
+        if (authUser) {
+          token.sub = authUser.id;
+          token.email = authUser.email;
+          token.name = authUser.name;
+          token.role = authUser.role;
+          token.organizationIds = authUser.organizationIds;
+        }
       }
 
       return token;
@@ -98,3 +141,155 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }
   }
 });
+
+async function getOrCreateGoogleUser({
+  profile,
+  name
+}: {
+  profile: unknown;
+  name?: string | null;
+}): Promise<AuthUser> {
+  const email = getOAuthEmail(profile);
+
+  if (!email) {
+    throw new Error("Google did not return an email address.");
+  }
+
+  const prisma = getPrisma();
+  const existing = await prisma.user.findUnique({
+    where: {
+      email
+    },
+    include: {
+      organizations: {
+        select: {
+          organizationId: true
+        }
+      }
+    }
+  });
+
+  if (existing) {
+    const picture = getOAuthPicture(profile);
+    const updateData: { emailVerifiedAt?: Date; avatarUrl?: string } = {};
+
+    if (!existing.emailVerifiedAt) {
+      updateData.emailVerifiedAt = new Date();
+    }
+
+    if (!existing.avatarUrl && picture) {
+      updateData.avatarUrl = picture;
+    }
+
+    const user = Object.keys(updateData).length
+      ? await prisma.user.update({
+          where: {
+            id: existing.id
+          },
+          data: updateData,
+          include: {
+            organizations: {
+              select: {
+                organizationId: true
+              }
+            }
+          }
+        })
+      : existing;
+
+    return mapDatabaseUserToAuthUser(user);
+  }
+
+  const names = getOAuthNames(profile, name ?? email);
+  const created = await prisma.user.create({
+    data: {
+      email,
+      firstName: names.firstName,
+      lastName: names.lastName,
+      avatarUrl: getOAuthPicture(profile),
+      emailVerifiedAt: new Date(),
+      role: "RUNNER"
+    },
+    include: {
+      organizations: {
+        select: {
+          organizationId: true
+        }
+      }
+    }
+  });
+
+  return mapDatabaseUserToAuthUser(created);
+}
+
+async function getAuthUserByEmail(email: string): Promise<AuthUser | null> {
+  const user = await getPrisma().user.findUnique({
+    where: {
+      email: email.toLowerCase()
+    },
+    include: {
+      organizations: {
+        select: {
+          organizationId: true
+        }
+      }
+    }
+  });
+
+  return user ? mapDatabaseUserToAuthUser(user) : null;
+}
+
+function mapDatabaseUserToAuthUser(user: {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  organizations?: Array<{ organizationId: string }>;
+}): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: `${user.firstName} ${user.lastName}`,
+    role: user.role,
+    organizationIds: user.organizations?.map((member) => member.organizationId) ?? []
+  };
+}
+
+function getOAuthEmail(profile: unknown) {
+  if (!isRecord(profile) || typeof profile.email !== "string") {
+    return null;
+  }
+
+  return profile.email.toLowerCase();
+}
+
+function getGoogleEmailVerified(profile: unknown) {
+  return isRecord(profile) && profile.email_verified === true;
+}
+
+function getOAuthPicture(profile: unknown) {
+  return isRecord(profile) && typeof profile.picture === "string" ? profile.picture : undefined;
+}
+
+function getOAuthNames(profile: unknown, fallbackName: string) {
+  if (isRecord(profile)) {
+    const firstName = typeof profile.given_name === "string" ? profile.given_name.trim() : "";
+    const lastName = typeof profile.family_name === "string" ? profile.family_name.trim() : "";
+
+    if (firstName && lastName) {
+      return { firstName, lastName };
+    }
+  }
+
+  const parts = fallbackName.trim().split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] ?? "RaceDZ",
+    lastName: parts.slice(1).join(" ") || "Runner"
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

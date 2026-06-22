@@ -8,35 +8,42 @@ datasource db {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  passwordHash   String?
-  firstName      String
-  lastName       String
-  arabicFullName String?
-  phone          String?
-  role           UserRole  @default(RUNNER)
-  gender         Gender?
-  dateOfBirth    DateTime?
-  nationalId     String?   @unique
-  avatarUrl      String?
-  wilaya         String?
-  city           String?
-  commune        String?
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String?
+  firstName       String
+  lastName        String
+  arabicFullName  String?
+  phone           String?
+  role            UserRole  @default(RUNNER)
+  gender          Gender?
+  dateOfBirth     DateTime?
+  nationalId      String?   @unique
+  avatarUrl       String?
+  wilaya          String?
+  city            String?
+  commune         String?
   emailVerifiedAt DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  organizations OrganizationMember[]
+  organizations               OrganizationMember[]
   organizationInvitationsSent OrganizationInvitation[]
-  emailVerificationTokens EmailVerificationToken[]
-  registrations RaceRegistration[]
-  raceEditHistory RaceEditHistory[]
-  adminAuditLogs AdminAuditLog[]
-  notifications Notification[]
-  notificationPreferences NotificationPreference[]
-  pushSubscriptions PushSubscription[]
-  raceAnnouncements RaceAnnouncement[]
+  emailVerificationTokens     EmailVerificationToken[]
+  registrations               RaceRegistration[]
+  raceEditHistory             RaceEditHistory[]
+  adminAuditLogs              AdminAuditLog[]
+  notifications               Notification[]
+  notificationPreferences     NotificationPreference[]
+  pushSubscriptions           PushSubscription[]
+  raceAnnouncements           RaceAnnouncement[]
+  runnerGoals                 RunnerGoal[]
+  runnerRuns                  RunnerRun[]
+  trainingPlans               TrainingPlan[]
+  coachSnapshots              CoachSnapshot[]
+  coachInteractions           CoachInteraction[]
+  aiUsageLogs                 AiUsageLog[]
+  coachSubscriptions          CoachSubscription[]
 }
 
 enum UserRole {
@@ -53,27 +60,27 @@ enum Gender {
 }
 
 model Organization {
-  id           String             @id @default(cuid())
-  name         String
-  slug         String             @unique
-  description  String?
-  email        String?
-  phone        String?
-  website      String?
-  facebookUrl  String?
-  instagramUrl String?
-  logoUrl      String?
-  wilaya       String?
-  city         String?
-  commune      String?
-  status       OrganizationStatus @default(PENDING)
+  id              String             @id @default(cuid())
+  name            String
+  slug            String             @unique
+  description     String?
+  email           String?
+  phone           String?
+  website         String?
+  facebookUrl     String?
+  instagramUrl    String?
+  logoUrl         String?
+  wilaya          String?
+  city            String?
+  commune         String?
+  status          OrganizationStatus @default(PENDING)
   rejectionReason String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  members OrganizationMember[]
+  members     OrganizationMember[]
   invitations OrganizationInvitation[]
-  races   RaceEvent[]
+  races       RaceEvent[]
 }
 
 enum OrganizationStatus {
@@ -127,42 +134,46 @@ enum InvitationStatus {
 }
 
 model RaceEvent {
-  id                  String                  @id @default(cuid())
-  organizationId      String?
-  source              RaceSource              @default(ORGANIZATION)
-  title               String
-  slug                String                  @unique
-  description         String
-  raceType            RaceType
-  status              RaceStatus              @default(DRAFT)
-  registrationStatus  EventRegistrationStatus @default(NOT_OPEN)
-  startDate           DateTime
-  endDate             DateTime?
-  registrationOpenAt  DateTime?
-  registrationCloseAt DateTime?
-  wilaya              String
-  city                String
-  commune             String?
-  address             String?
-  latitude            Float?
-  longitude           Float?
-  mainImageUrl        String?
-  organizerName       String?
-  organizerUrl        String?
-  rules               String?
-  requiredDocuments   String?
-  contactEmail        String?
-  contactPhone        String?
-  maxParticipants     Int?
-  availablePlaces     Int?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  id                         String                  @id @default(cuid())
+  organizationId             String?
+  source                     RaceSource              @default(ORGANIZATION)
+  title                      String
+  slug                       String                  @unique
+  description                String
+  elevationGainText          String?
+  conditions                 String?
+  raceType                   RaceType
+  status                     RaceStatus              @default(DRAFT)
+  registrationStatus         EventRegistrationStatus @default(NOT_OPEN)
+  startDate                  DateTime
+  endDate                    DateTime?
+  registrationOpenAt         DateTime?
+  registrationCloseAt        DateTime?
+  wilaya                     String
+  city                       String
+  commune                    String?
+  address                    String?
+  latitude                   Float?
+  longitude                  Float?
+  mainImageUrl               String?
+  organizerName              String?
+  organizerUrl               String?
+  rules                      String?
+  requiredDocuments          String?
+  contactEmail               String?
+  contactPhone               String?
+  maxParticipants            Int?
+  availablePlaces            Int?
+  autoCancelUnpaidAfterHours Int?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
 
   organization  Organization?      @relation(fields: [organizationId], references: [id])
   categories    RaceCategory[]
   registrations RaceRegistration[]
   editHistory   RaceEditHistory[]
   announcements RaceAnnouncement[]
+  coachGoals    RunnerGoal[]
 }
 
 enum RaceSource {
@@ -235,6 +246,7 @@ model AdminAuditLog {
 
   @@index([actorId, createdAt])
   @@index([targetType, targetId, createdAt])
+  @@index([createdAt])
 }
 
 model RaceRegistration {
@@ -395,4 +407,296 @@ enum PaymentMethod {
   BARIDIMOB
   ONLINE_CARD
   OTHER
+}
+
+model RunnerGoal {
+  id                      String           @id @default(cuid())
+  userId                  String
+  raceEventId             String?
+  goalType                CoachGoalType
+  customGoal              String?
+  targetDate              DateTime
+  targetDistanceKm        Float?
+  targetTimeSeconds       Int?
+  experienceLevel         RunnerExperience
+  currentWeeklyDistanceKm Float
+  yearsRunning            Int?
+  peakWeeklyDistanceKm    Float?
+  longestRecentRunKm      Float?
+  recentRaceResult        String?
+  restingHeartRate        Int?
+  weightKg                Float?
+  availableTrainingDays   Int[]
+  preferredLongRunDay     Int?
+  constraints             String?
+  injuryNotes             String?
+  injuryHistory           String?
+  chronicConditions       String[]         @default([])
+  healthNotes             String?
+  preferredLocale         String           @default("en")
+  status                  CoachGoalStatus  @default(ACTIVE)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  raceEvent    RaceEvent?         @relation(fields: [raceEventId], references: [id], onDelete: SetNull)
+  runs         RunnerRun[]
+  plans        TrainingPlan[]
+  snapshots    CoachSnapshot[]
+  interactions CoachInteraction[]
+
+  @@index([userId, status])
+  @@index([raceEventId])
+}
+
+model RunnerRun {
+  id                      String          @id @default(cuid())
+  userId                  String
+  goalId                  String?
+  workoutId               String?         @unique
+  startedAt               DateTime
+  distanceKm              Float
+  durationSeconds         Int
+  averagePaceSecondsPerKm Int
+  movingTimeSeconds       Int?
+  elevationGainM          Int?
+  averageHeartRate        Int?
+  calories                Int?
+  route                   Json?
+  perceivedEffort         Int
+  fatigueLevel            Int             @default(0)
+  painLevel               Int             @default(0)
+  symptoms                String?
+  notes                   String?
+  source                  RunnerRunSource @default(MANUAL)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal         RunnerGoal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  workout      TrainingWorkout?   @relation(fields: [workoutId], references: [id], onDelete: SetNull)
+  interactions CoachInteraction[]
+
+  @@index([userId, startedAt])
+  @@index([goalId, startedAt])
+}
+
+model TrainingPlan {
+  id        String             @id @default(cuid())
+  userId    String
+  goalId    String
+  version   Int
+  startsOn  DateTime
+  endsOn    DateTime
+  status    TrainingPlanStatus @default(DRAFT)
+  source    TrainingPlanSource @default(AI_ASSISTED)
+  summary   String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal     RunnerGoal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  workouts TrainingWorkout[]
+
+  @@unique([goalId, version])
+  @@index([userId, status, startsOn])
+}
+
+model TrainingWorkout {
+  id                String           @id @default(cuid())
+  trainingPlanId    String
+  scheduledFor      DateTime
+  workoutType       CoachWorkoutType
+  title             String
+  targetDistanceKm  Float?
+  targetDurationMin Int?
+  intensity         String
+  instructions      String
+  status            WorkoutStatus    @default(PLANNED)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  trainingPlan TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  completedRun RunnerRun?
+
+  @@index([trainingPlanId, scheduledFor])
+}
+
+model CoachSnapshot {
+  id          String   @id @default(cuid())
+  userId      String
+  goalId      String?
+  metrics     Json
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal RunnerGoal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@unique([userId])
+  @@index([goalId])
+}
+
+model CoachInteraction {
+  id            String                 @id @default(cuid())
+  userId        String
+  goalId        String?
+  runId         String?
+  type          CoachInteractionType
+  status        CoachInteractionStatus @default(PENDING)
+  userMessage   String?
+  response      Json?
+  safety        Json
+  model         String?
+  promptVersion String
+  errorCode     String?
+  acceptedAt    DateTime?
+  createdAt     DateTime               @default(now())
+  completedAt   DateTime?
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal      RunnerGoal?  @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  run       RunnerRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
+  usageLogs AiUsageLog[]
+
+  @@index([userId, createdAt])
+  @@index([goalId, type, createdAt])
+  @@index([runId])
+}
+
+model AiUsageLog {
+  id                    String          @id @default(cuid())
+  userId                String
+  interactionId         String?
+  provider              String          @default("openai")
+  providerResponseId    String?
+  model                 String
+  status                AiRequestStatus
+  inputTokens           Int             @default(0)
+  cachedInputTokens     Int             @default(0)
+  outputTokens          Int             @default(0)
+  reasoningTokens       Int             @default(0)
+  estimatedCostMicroUsd Int             @default(0)
+  errorCode             String?
+  createdAt             DateTime        @default(now())
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interaction CoachInteraction? @relation(fields: [interactionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([interactionId])
+  @@index([status, createdAt])
+}
+
+model CoachSubscription {
+  id              String                  @id @default(cuid())
+  userId          String
+  plan            CoachSubscriptionPlan
+  status          CoachSubscriptionStatus @default(ACTIVE)
+  months          Int
+  amountDa        Int?
+  note            String?
+  startedAt       DateTime                @default(now())
+  expiresAt       DateTime
+  createdByUserId String?
+  cancelledAt     DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+}
+
+enum CoachSubscriptionPlan {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum CoachSubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum CoachGoalType {
+  GENERAL_FITNESS
+  FIVE_K
+  TEN_K
+  HALF_MARATHON
+  MARATHON
+  TRAIL
+  OTHER
+}
+
+enum RunnerExperience {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum CoachGoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum RunnerRunSource {
+  MANUAL
+  IMPORTED
+  GPS
+}
+
+enum TrainingPlanStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+  COMPLETED
+  CANCELLED
+}
+
+enum TrainingPlanSource {
+  RULE_BASED
+  AI_ASSISTED
+  MANUAL
+}
+
+enum CoachWorkoutType {
+  EASY
+  LONG_RUN
+  TEMPO
+  INTERVAL
+  RECOVERY
+  REST
+  CROSS_TRAINING
+  RACE
+}
+
+enum WorkoutStatus {
+  PLANNED
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
+enum CoachInteractionType {
+  INITIAL_PLAN
+  POST_RUN
+  WEEKLY_REVIEW
+  CHAT
+}
+
+enum CoachInteractionStatus {
+  PENDING
+  COMPLETED
+  BLOCKED
+  FAILED
+}
+
+enum AiRequestStatus {
+  SUCCEEDED
+  FAILED
 }

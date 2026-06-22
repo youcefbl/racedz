@@ -6,7 +6,15 @@ import { getPrisma } from "@/lib/db";
 import { notifyRaceRegistrantsRaceChanged } from "@/lib/notifications";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
+import { getRaceOptionalDetails, setRaceOptionalDetails } from "@/lib/race-optional-details";
+import {
+  cancelExpiredUnpaidRegistrations,
+  getRaceAutoCancelUnpaidAfterHours,
+  setRaceAutoCancelUnpaidAfterHours
+} from "@/lib/registration-auto-cancel";
 import { adminRaceUpdateSchema, platformRaceSchema } from "@/lib/validations";
+
+export const ADMIN_AUDIT_RETENTION_DAYS = 31;
 
 type AdminUserRow = Prisma.UserGetPayload<{
   include: {
@@ -236,6 +244,12 @@ export async function createPlatformRace(input: unknown) {
       }
     });
 
+    await setRaceAutoCancelUnpaidAfterHours(tx, race.id, parsed.data.autoCancelUnpaidAfterHours ?? null);
+    await setRaceOptionalDetails(tx, race.id, {
+      elevationGainText: parsed.data.elevationGainText ?? null,
+      conditions: parsed.data.conditions ?? null
+    });
+
     for (const category of categories) {
       const created = await tx.raceCategory.create({
         data: {
@@ -263,6 +277,8 @@ export type AdminRaceForEdit = {
   id: string;
   title: string;
   description: string;
+  elevationGainText: string | null;
+  conditions: string | null;
   raceType: string;
   status: string;
   registrationStatus: string;
@@ -277,6 +293,7 @@ export type AdminRaceForEdit = {
   contactEmail: string | null;
   contactPhone: string | null;
   maxParticipants: number | null;
+  autoCancelUnpaidAfterHours: number | null;
   mainImageUrl: string | null;
   slug: string;
 };
@@ -309,7 +326,15 @@ export async function getAdminRaceForEdit(raceEventId: string) {
     }
   });
 
-  return race;
+  if (!race) {
+    return null;
+  }
+
+  return {
+    ...race,
+    ...(await getRaceOptionalDetails(getPrisma(), race.id)),
+    autoCancelUnpaidAfterHours: await getRaceAutoCancelUnpaidAfterHours(race.id)
+  };
 }
 
 export async function updateAdminRace({
@@ -352,17 +377,33 @@ export async function updateAdminRace({
     maxParticipants: parsed.data.maxParticipants ?? null,
     mainImageUrl: parsed.data.mainImageUrl ?? null
   };
+  const autoCancelUnpaidAfterHours = parsed.data.autoCancelUnpaidAfterHours ?? null;
 
-  const changes = buildChangeList(current, updates);
+  const changes = buildChangeList(current, {
+    ...updates,
+    elevationGainText: parsed.data.elevationGainText ?? null,
+    conditions: parsed.data.conditions ?? null,
+    autoCancelUnpaidAfterHours
+  });
 
-  const updated = await getPrisma().raceEvent.update({
-    where: {
-      id: raceEventId
-    },
-    data: {
-      ...updates,
-      availablePlaces: parsed.data.maxParticipants ?? null
-    }
+  const updated = await getPrisma().$transaction(async (tx) => {
+    const race = await tx.raceEvent.update({
+      where: {
+        id: raceEventId
+      },
+      data: {
+        ...updates,
+        availablePlaces: parsed.data.maxParticipants ?? null
+      }
+    });
+
+    await setRaceAutoCancelUnpaidAfterHours(tx, raceEventId, autoCancelUnpaidAfterHours);
+    await setRaceOptionalDetails(tx, raceEventId, {
+      elevationGainText: parsed.data.elevationGainText ?? null,
+      conditions: parsed.data.conditions ?? null
+    });
+
+    return race;
   });
 
   if (changes.length > 0) {
@@ -491,6 +532,41 @@ export async function recordAdminAuditLog({
       ${metadata ? JSON.stringify(metadata) : null}::jsonb
     )
   `;
+}
+
+export function getAdminAuditRetentionCutoff({
+  retentionDays = ADMIN_AUDIT_RETENTION_DAYS,
+  now = new Date()
+}: {
+  retentionDays?: number;
+  now?: Date;
+} = {}) {
+  const safeRetentionDays = Math.max(1, Math.floor(retentionDays));
+
+  return new Date(now.getTime() - safeRetentionDays * 24 * 60 * 60 * 1000);
+}
+
+export async function pruneExpiredAdminAuditLogs({
+  retentionDays = ADMIN_AUDIT_RETENTION_DAYS,
+  now = new Date()
+}: {
+  retentionDays?: number;
+  now?: Date;
+} = {}) {
+  const cutoff = getAdminAuditRetentionCutoff({ retentionDays, now });
+  const result = await getPrisma().adminAuditLog.deleteMany({
+    where: {
+      createdAt: {
+        lt: cutoff
+      }
+    }
+  });
+
+  return {
+    deleted: result.count,
+    cutoff,
+    retentionDays: Math.max(1, Math.floor(retentionDays))
+  };
 }
 
 export async function getAdminUsers(
@@ -738,6 +814,8 @@ export async function getAdminRegistrations(
   const prisma = getPrisma();
   const q = filters.q?.trim();
   const { page, limit, skip } = pagination ?? parsePagination();
+
+  await cancelExpiredUnpaidRegistrations();
 
   const where: Prisma.RaceRegistrationWhereInput = {
     status: isRegistrationStatus(filters.status) ? filters.status : undefined,

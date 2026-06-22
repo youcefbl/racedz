@@ -60,6 +60,16 @@ export function PlatformRaceForm() {
             Description
             <textarea name="description" required rows={5} className={`${controlClassName} h-auto py-2`} />
           </label>
+          <Field label="Elevation gain" name="elevationGainText" required={false} placeholder="Example: +850 m across the trail course" />
+          <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
+            Conditions
+            <textarea
+              name="conditions"
+              rows={4}
+              className={`${controlClassName} h-auto py-2`}
+              placeholder="Optional terrain, weather, equipment, or participation conditions"
+            />
+          </label>
         </div>
       </section>
 
@@ -76,6 +86,7 @@ export function PlatformRaceForm() {
               <option value="CLOSED">Closed</option>
             </select>
           </label>
+          <AutoCancelToggle />
         </div>
       </section>
 
@@ -183,6 +194,26 @@ function SectionTitle({
       <Icon className="size-5 text-brand-teal" aria-hidden="true" />
       <h2 className="text-lg font-black text-gray-950">{title}</h2>
     </div>
+  );
+}
+
+function AutoCancelToggle({ defaultChecked = false }: { defaultChecked?: boolean }) {
+  return (
+    <label className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4 text-sm text-[var(--text)] sm:col-span-2">
+      <input
+        type="checkbox"
+        name="autoCancelUnpaidAfterHours"
+        value="48"
+        defaultChecked={defaultChecked}
+        className="mt-1 size-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal"
+      />
+      <span>
+        <span className="block font-black text-[var(--text-strong)]">Auto-cancel unpaid registrations</span>
+        <span className="mt-1 block leading-6">
+          Cancel pending registrations automatically if payment is not confirmed within 48 hours.
+        </span>
+      </span>
+    </label>
   );
 }
 

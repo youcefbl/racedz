@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { notifyRaceRegistrationCreated } from "@/lib/notifications";
+import { cancelExpiredUnpaidRegistrations } from "@/lib/registration-auto-cancel";
 import { raceRegistrationSchema, type RaceRegistrationInput } from "@/lib/validations";
 
 export class RegistrationError extends Error {
@@ -80,6 +81,32 @@ export async function getUserRegistrations(userId: string) {
           status: true
         }
       },
+      raceCategory: {
+        select: {
+          id: true,
+          name: true,
+          distanceKm: true,
+          priceDzd: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+}
+
+export async function getUserRaceRegistration(userId: string, raceEventId: string) {
+  const prisma = getPrisma();
+
+  await cancelExpiredUnpaidRegistrations(raceEventId);
+
+  return prisma.raceRegistration.findFirst({
+    where: {
+      userId,
+      raceEventId
+    },
+    include: {
       raceCategory: {
         select: {
           id: true,

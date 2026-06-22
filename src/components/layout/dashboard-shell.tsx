@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
+  Bot,
   Building2,
   Settings,
   ClipboardList,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { getLocale, withLocale } from "@/lib/i18n";
+import { translateOrganizer } from "@/lib/organizer-i18n";
 
 type DashboardSection = "admin" | "organizer";
 
@@ -30,6 +33,7 @@ const adminNavItems: DashboardNavItem[] = [
   { href: "/admin/organizations", label: "Organizations", description: "Organizer approvals", icon: Building2 },
   { href: "/admin/races", label: "Races", description: "Review and publish", icon: Trophy },
   { href: "/admin/registrations", label: "Registrations", description: "Runner entries", icon: ClipboardList },
+  { href: "/admin/coach", label: "AI Coach", description: "Usage and subscriptions", icon: Bot },
   { href: "/admin/audit", label: "Audit", description: "Admin action log", icon: History }
 ];
 
@@ -42,17 +46,20 @@ const organizerNavItems: DashboardNavItem[] = [
 
 export function DashboardShell({ section, children }: { section: DashboardSection; children: ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const locale = getLocale(searchParams.get("lang"));
+  const t = (text: string) => (section === "organizer" ? translateOrganizer(locale, text) : text);
 
   if (section === "organizer" && pathname === "/organizer/request") {
-    return <>{children}</>;
+    return <div dir={locale === "ar" ? "rtl" : "ltr"}>{children}</div>;
   }
 
   const items = section === "admin" ? adminNavItems : organizerNavItems;
-  const title = section === "admin" ? "Admin panel" : "Organizer panel";
-  const description = section === "admin" ? "Approvals, users, races, and platform operations." : "Events, participants, and organization team access.";
+  const title = t(section === "admin" ? "Admin panel" : "Organizer panel");
+  const description = t(section === "admin" ? "Approvals, users, races, and platform operations." : "Events, participants, and organization team access.");
 
   return (
-    <div className="bg-gray-50 lg:bg-white">
+    <div className="bg-gray-50 lg:bg-white" dir={section === "organizer" && locale === "ar" ? "rtl" : "ltr"}>
       <div className="grid w-full lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-gray-200 bg-white lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:border-b-0 lg:border-r">
           <div className="px-4 py-4 sm:px-6 lg:px-5 lg:py-6">
@@ -70,7 +77,11 @@ export function DashboardShell({ section, children }: { section: DashboardSectio
 
             <nav className="mt-0 flex gap-2 overflow-x-auto lg:mt-6 lg:grid lg:gap-1" aria-label={`${title} navigation`}>
               {items.map((item) => (
-                <DashboardNavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+                <DashboardNavLink
+                  key={item.href}
+                  item={{ ...item, href: section === "organizer" ? withLocale(item.href, locale) : item.href, label: t(item.label), description: t(item.description) }}
+                  active={isActive(pathname, item.href)}
+                />
               ))}
             </nav>
           </div>

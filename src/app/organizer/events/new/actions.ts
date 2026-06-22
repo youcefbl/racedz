@@ -22,6 +22,8 @@ export async function createOrganizerRaceAction(
       input: {
         title: getString(formData, "title"),
         description: getString(formData, "description"),
+        elevationGainText: getOptionalString(formData, "elevationGainText"),
+        conditions: getOptionalString(formData, "conditions"),
         raceType: getString(formData, "raceType"),
         startDate: getString(formData, "startDate"),
         registrationCloseAt: getOptionalString(formData, "registrationCloseAt"),
@@ -33,6 +35,7 @@ export async function createOrganizerRaceAction(
         contactPhone: getOptionalString(formData, "contactPhone"),
         mainImageUrl: getOptionalString(formData, "mainImageUrl"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),
+        autoCancelUnpaidAfterHours: getAutoCancelUnpaidAfterHours(formData),
         categoryName: getString(formData, "categoryName"),
         distanceKm: getString(formData, "distanceKm"),
         priceDzd: getOptionalString(formData, "priceDzd"),
@@ -73,6 +76,10 @@ function getOptionalString(formData: FormData, key: string) {
   const value = getString(formData, key);
 
   return value || undefined;
+}
+
+function getAutoCancelUnpaidAfterHours(formData: FormData) {
+  return formData.get("autoCancelUnpaidAfterHours") === "48" ? "48" : undefined;
 }
 
 function getCategoryRows(formData: FormData) {

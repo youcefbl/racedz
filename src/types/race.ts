@@ -66,6 +66,8 @@ export type RaceEvent = {
   title: string;
   slug: string;
   description: string;
+  elevationGainText?: string;
+  conditions?: string;
   raceType: RaceType;
   status: RaceStatus;
   registrationStatus: EventRegistrationStatus;

@@ -58,8 +58,8 @@ export default async function AdminRaceHistoryPage({ params }: AdminRaceHistoryP
                 </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-[640px] divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-normal text-gray-500">
                     <tr>
                       <th className="px-3 py-2">Field</th>

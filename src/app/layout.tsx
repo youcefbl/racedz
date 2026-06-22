@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -13,17 +13,29 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://racedz.dz"),
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/racedz-logo.png", type: "image/png" }
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" }
     ],
-    apple: [{ url: "/racedz-logo.png", type: "image/png" }]
+    apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }]
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "RaceDZ"
   }
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0F766E" },
+    { media: "(prefers-color-scheme: dark)", color: "#080d18" }
+  ]
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className="flex min-h-screen flex-col">
         <script
           dangerouslySetInnerHTML={{
             __html:
@@ -33,7 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <SiteHeader />
         </Suspense>
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
         <Suspense fallback={null}>
           <SiteFooter />
         </Suspense>

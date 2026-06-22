@@ -6,6 +6,7 @@ import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
 import type { OrganizationProfile } from "@/lib/organizer";
+import { useOrganizerTranslation } from "@/hooks/use-organizer-translation";
 import { updateOrganizationSettingsAction, type OrganizationSettingsActionState } from "./actions";
 
 const initialState: OrganizationSettingsActionState = {};
@@ -17,22 +18,23 @@ export function OrganizationSettingsForm({
   organization: OrganizationProfile;
   canEdit: boolean;
 }) {
+  const { t } = useOrganizerTranslation();
   const [state, formAction, pending] = useActionState(updateOrganizationSettingsAction, initialState);
 
   return (
     <form action={formAction} className="grid gap-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       {state.error ? <Message tone="error" message={state.error} /> : null}
       {state.success ? <Message tone="success" message={state.success} /> : null}
-      {!canEdit ? <p className="rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">Only organization owners and admins can edit settings.</p> : null}
+      {!canEdit ? <p className="rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">{t("Only organization owners and admins can edit settings.")}</p> : null}
 
       <section className="space-y-3">
-        <SectionTitle icon={Building2} title="Organization details" />
+        <SectionTitle icon={Building2} title={t("Organization details")} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Organization name" name="name" defaultValue={organization.name} disabled={!canEdit} />
-          <Field label="Contact email" name="email" type="email" defaultValue={organization.email ?? ""} disabled={!canEdit} />
-          <Field label="Contact phone" name="phone" type="tel" defaultValue={organization.phone ?? ""} disabled={!canEdit} />
+          <Field label={t("Organization name")} name="name" defaultValue={organization.name} disabled={!canEdit} />
+          <Field label={t("Contact email")} name="email" type="email" defaultValue={organization.email ?? ""} disabled={!canEdit} />
+          <Field label={t("Contact phone")} name="phone" type="tel" defaultValue={organization.phone ?? ""} disabled={!canEdit} />
           <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
-            Description
+            {t("Description")}
             <textarea
               name="description"
               required
@@ -47,19 +49,19 @@ export function OrganizationSettingsForm({
       </section>
 
       <section className="space-y-3">
-        <SectionTitle icon={ImageIcon} title="Logo" />
+        <SectionTitle icon={ImageIcon} title={t("Logo")} />
         {canEdit ? (
-          <ImageUploadField label="Organization logo" name="logoUrl" scope="organization" defaultValue={organization.logoUrl} />
+          <ImageUploadField label={t("Organization logo")} name="logoUrl" scope="organization" defaultValue={organization.logoUrl} />
         ) : (
           <input type="hidden" name="logoUrl" value={organization.logoUrl ?? ""} readOnly />
         )}
       </section>
 
       <section className="space-y-3">
-        <SectionTitle icon={MapPin} title="Location" />
+        <SectionTitle icon={MapPin} title={t("Location")} />
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="grid gap-2 text-sm font-semibold text-gray-800">
-            Wilaya
+            {t("Wilaya")}
             <select
               name="wilaya"
               required
@@ -74,22 +76,22 @@ export function OrganizationSettingsForm({
               ))}
             </select>
           </label>
-          <Field label="City" name="city" defaultValue={organization.city ?? ""} disabled={!canEdit} />
-          <Field label="Commune" name="commune" defaultValue={organization.commune ?? ""} required={false} disabled={!canEdit} />
+          <Field label={t("City")} name="city" defaultValue={organization.city ?? ""} disabled={!canEdit} />
+          <Field label={t("Commune")} name="commune" defaultValue={organization.commune ?? ""} required={false} disabled={!canEdit} />
         </div>
       </section>
 
       <section className="space-y-3">
-        <SectionTitle icon={LinkIcon} title="Public links" />
+        <SectionTitle icon={LinkIcon} title={t("Public links")} />
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Website" name="website" type="url" defaultValue={organization.website ?? ""} required={false} disabled={!canEdit} />
+          <Field label={t("Website")} name="website" type="url" defaultValue={organization.website ?? ""} required={false} disabled={!canEdit} />
           <Field label="Facebook" name="facebookUrl" type="url" defaultValue={organization.facebookUrl ?? ""} required={false} disabled={!canEdit} />
           <Field label="Instagram" name="instagramUrl" type="url" defaultValue={organization.instagramUrl ?? ""} required={false} disabled={!canEdit} />
         </div>
       </section>
 
       <Button type="submit" size="lg" disabled={pending || !canEdit}>
-        {pending ? "Saving..." : "Save organization settings"}
+        {pending ? t("Saving...") : t("Save organization settings")}
       </Button>
     </form>
   );

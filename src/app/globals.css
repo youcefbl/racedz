@@ -279,3 +279,64 @@ a {
 [data-theme="race"] article {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border)) !important;
 }
+
+/* ---- Brand motion (chevrons + hero entrances) ---- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Logo / foreground chevrons: brighten in sequence left -> right (forward flow). */
+  .rz-chevrons > path {
+    animation: rz-chevron 1.9s ease-in-out infinite;
+  }
+  .rz-chevrons > path:nth-child(2) {
+    animation-delay: 0.22s;
+  }
+  .rz-chevrons > path:nth-child(3) {
+    animation-delay: 0.44s;
+  }
+
+  /* Large faint backdrop chevrons: a slow gentle drift, no bright flashing. */
+  .rz-chevrons-drift {
+    animation: rz-drift 7s ease-in-out infinite;
+  }
+
+  /* Subtle hero entrance. */
+  .rz-fade-up {
+    animation: rz-fade-up 0.6s ease-out both;
+  }
+  .rz-fade-up-2 {
+    animation: rz-fade-up 0.6s ease-out 0.1s both;
+  }
+  .rz-fade-up-3 {
+    animation: rz-fade-up 0.6s ease-out 0.2s both;
+  }
+}
+
+@keyframes rz-chevron {
+  0%,
+  100% {
+    opacity: var(--rz-o, 0.5);
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+@keyframes rz-drift {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+}
+
+@keyframes rz-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

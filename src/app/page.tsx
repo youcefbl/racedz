@@ -1,8 +1,8 @@
 import { ArrowRight, CalendarDays, MapPin, Route, Trophy, UsersRound } from "lucide-react";
-import Image from "next/image";
 import { ButtonLink } from "@/components/ui/button";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
+import { RaceDZMark } from "@/components/layout/racedz-logo";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { getUpcomingRaceEvents } from "@/lib/race-repository";
 
@@ -18,20 +18,24 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const dictionary = getDictionary(locale);
   const upcomingRaces = await getUpcomingRaceEvents(3);
   const raceTypes = [
-    { label: dictionary.home.roadRaces, icon: Route },
-    { label: dictionary.home.trailRaces, icon: MapPin },
-    { label: dictionary.home.marathons, icon: Trophy },
-    { label: dictionary.home.kidsRaces, icon: UsersRound }
+    { label: dictionary.home.roadRaces, icon: Route, type: "ROAD" },
+    { label: dictionary.home.trailRaces, icon: MapPin, type: "TRAIL" },
+    { label: dictionary.home.marathons, icon: Trophy, type: "MARATHON" },
+    { label: dictionary.home.kidsRaces, icon: UsersRound, type: "KIDS" }
   ];
 
   return (
     <div className="bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
+      {/* Hero */}
       <section className="border-b border-gray-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.1fr_0.9fr] md:items-center lg:px-8 lg:py-14">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:items-center lg:px-8 lg:py-16">
           <div className="space-y-7">
-            <div className="space-y-4">
-              <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{dictionary.home.eyebrow}</p>
-              <h1 className="max-w-3xl text-4xl font-black leading-tight text-gray-950 sm:text-5xl">
+            <div className="rz-fade-up inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-brand-teal">
+              <RaceDZMark className="size-4" animated />
+              {dictionary.home.eyebrow}
+            </div>
+            <div className="rz-fade-up-2 space-y-4">
+              <h1 className="max-w-3xl text-4xl font-black leading-[1.05] text-gray-950 sm:text-5xl lg:text-6xl">
                 {dictionary.home.title}
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-gray-600">
@@ -40,69 +44,119 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </div>
             <RaceSearchForm lang={locale} labels={dictionary.search} />
             <div className="flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="lg">
+              <ButtonLink href={withLocale("/races", locale)} variant="primary" size="lg">
                 {dictionary.home.findRace}
-                <ArrowRight className="size-5" aria-hidden="true" />
+                <ArrowRight className="size-5 rtl:rotate-180" aria-hidden="true" />
               </ButtonLink>
-              <ButtonLink href={withLocale("/organizers", locale)} variant="primary" size="lg">
+              <ButtonLink href={withLocale("/organizers", locale)} variant="outline" size="lg">
                 {dictionary.home.createEvent}
               </ButtonLink>
             </div>
           </div>
-          <div className="relative min-h-80 overflow-hidden rounded-lg border border-gray-200 bg-gray-950 shadow-soft">
-            <Image src="/racedz-logo.png" alt="RaceDZ route pin logo" fill priority sizes="(min-width: 768px) 40vw, 100vw" className="object-cover opacity-90" />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-gray-950 via-gray-950/70 to-transparent p-5 text-white">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <CalendarDays className="size-4 text-brand-orange" aria-hidden="true" />
-                {dictionary.home.heroNote}
+
+          {/* Branded velocity panel */}
+          <div className="relative min-h-[20rem] overflow-hidden rounded-2xl bg-gradient-to-br from-brand-teal via-[#0c5650] to-[#0a3a36] p-8 text-white shadow-soft">
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox="0 0 200 200"
+              preserveAspectRatio="xMidYMid slice"
+              fill="none"
+              strokeWidth="14"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <g className="rz-chevrons-drift">
+                <path d="M30 55 L80 105 L30 155" stroke="#ffffff" opacity="0.12" />
+                <path d="M85 55 L135 105 L85 155" stroke="#ffffff" opacity="0.18" />
+                <path d="M140 55 L190 105 L140 155" stroke="#F97316" opacity="0.85" />
+              </g>
+            </svg>
+            <div className="relative flex h-full min-h-[18rem] flex-col justify-between gap-8">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-black uppercase tracking-wide backdrop-blur">
+                <span className="size-2 animate-pulse rounded-full bg-brand-orange" aria-hidden="true" />
+                {dictionary.home.upcomingTitle}
+              </span>
+              <div>
+                <p className="text-2xl font-black leading-tight sm:text-3xl">{dictionary.home.title}</p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold backdrop-blur">
+                  <CalendarDays className="size-4 text-brand-orange" aria-hidden="true" />
+                  {dictionary.home.heroNote}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      {/* Upcoming races */}
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-bold text-brand-teal">{dictionary.home.upcomingEyebrow}</p>
-            <h2 className="text-2xl font-black text-gray-950">{dictionary.home.upcomingTitle}</h2>
+            <h2 className="text-2xl font-black text-gray-950 sm:text-3xl">{dictionary.home.upcomingTitle}</h2>
           </div>
           <ButtonLink href={withLocale("/races", locale)} variant="outline" size="sm">
             {dictionary.home.browseAll}
+            <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
           </ButtonLink>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {upcomingRaces.map((race) => (
-            <RaceCard key={race.id} race={race} viewLabel={dictionary.common.view} locale={locale} />
-          ))}
-        </div>
+        {upcomingRaces.length > 0 ? (
+          <div className="grid gap-5 md:grid-cols-3">
+            {upcomingRaces.map((race) => (
+              <RaceCard key={race.id} race={race} viewLabel={dictionary.common.view} locale={locale} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+            <h3 className="text-lg font-black text-gray-950">{dictionary.races.emptyTitle}</h3>
+            <p className="mt-2 text-sm text-gray-600">{dictionary.races.emptyText}</p>
+          </div>
+        )}
       </section>
 
+      {/* Race types */}
       <section className="border-y border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-6">
             <p className="text-sm font-bold text-brand-teal">{dictionary.home.raceTypesEyebrow}</p>
-            <h2 className="text-2xl font-black text-gray-950">{dictionary.home.raceTypesTitle}</h2>
+            <h2 className="text-2xl font-black text-gray-950 sm:text-3xl">{dictionary.home.raceTypesTitle}</h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {raceTypes.map((item) => (
-              <div key={item.label} className="rounded-lg border border-gray-200 bg-gray-50 p-5">
-                <item.icon className="mb-4 size-7 text-brand-orange" aria-hidden="true" />
-                <h3 className="font-bold text-gray-950">{item.label}</h3>
-              </div>
+              <a
+                key={item.label}
+                href={withLocale(`/races?type=${item.type}`, locale)}
+                className="group rounded-xl border border-gray-200 bg-gray-50 p-5 transition hover:-translate-y-0.5 hover:border-brand-teal hover:shadow-soft"
+              >
+                <div className="mb-4 flex size-11 items-center justify-center rounded-lg bg-orange-50 text-brand-orange transition group-hover:bg-brand-teal group-hover:text-white">
+                  <item.icon className="size-6" aria-hidden="true" />
+                </div>
+                <h3 className="flex items-center justify-between font-bold text-gray-950">
+                  {item.label}
+                  <ArrowRight className="size-4 text-gray-300 transition group-hover:text-brand-teal rtl:rotate-180" aria-hidden="true" />
+                </h3>
+              </a>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-5 rounded-lg bg-brand-teal p-6 text-white md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <h2 className="text-2xl font-black">{dictionary.home.organizerTitle}</h2>
-            <p className="mt-2 text-teal-50">{dictionary.home.organizerText}</p>
+      {/* Organizer CTA */}
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="relative grid gap-5 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-teal to-[#0a3a36] p-8 text-white shadow-soft md:grid-cols-[1fr_auto] md:items-center">
+          <svg aria-hidden="true" className="pointer-events-none absolute -right-8 -top-8 size-48 opacity-15" viewBox="0 0 40 40" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 11 L16 20 L7 29" stroke="#fff" />
+            <path d="M15 11 L24 20 L15 29" stroke="#fff" />
+            <path d="M23 11 L32 20 L23 29" stroke="#F97316" />
+          </svg>
+          <div className="relative">
+            <h2 className="text-2xl font-black sm:text-3xl">{dictionary.home.organizerTitle}</h2>
+            <p className="mt-2 max-w-xl text-teal-50">{dictionary.home.organizerText}</p>
           </div>
-          <ButtonLink href={withLocale("/organizers", locale)} variant="primary" size="lg">
+          <ButtonLink href={withLocale("/organizers", locale)} variant="primary" size="lg" className="relative">
             {dictionary.home.createEvent}
+            <ArrowRight className="size-5 rtl:rotate-180" aria-hidden="true" />
           </ButtonLink>
         </div>
       </section>

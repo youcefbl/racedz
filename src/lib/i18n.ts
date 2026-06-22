@@ -13,6 +13,7 @@ export const dictionaries = {
     nav: {
       races: "Races",
       organizers: "Organizers",
+      forRunners: "For Runners",
       admin: "Admin",
       about: "About",
       contact: "Contact",
@@ -20,6 +21,7 @@ export const dictionaries = {
       privacy: "Privacy",
       findRace: "Find a Race",
       login: "Login",
+      signUp: "Sign Up",
       openMenu: "Open menu",
       closeMenu: "Close menu"
     },
@@ -63,7 +65,9 @@ export const dictionaries = {
       documentsTitle: "Required documents",
       noDocuments: "No required documents listed yet.",
       contactTitle: "Contact",
-      organizerLabel: "Organizer"
+      organizerLabel: "Organizer",
+      eventElevationGain: "Elevation gain",
+      conditionsTitle: "Race conditions"
     },
     pages: {
       about: {
@@ -98,6 +102,31 @@ export const dictionaries = {
         teamText: "Add organization members, assign roles, resend invites, and revoke pending access when plans change.",
         updatesTitle: "Communicate changes",
         updatesText: "Publish announcements and notify registered runners when important race details change."
+      },
+      runners: {
+        eyebrow: "For runners",
+        title: "Find your race, register in minutes, and train with an AI coach.",
+        intro:
+          "RaceDZ brings every running event in Algeria into one place — discover races, register online, track your entries, and follow a personalized training plan.",
+        primaryCta: "Find a race",
+        secondaryCta: "Create your account",
+        dashboardCta: "My registrations",
+        workflowTitle: "Everything a runner needs",
+        discoverTitle: "Discover races",
+        discoverText: "Browse upcoming road, trail, and community races. Filter by wilaya, distance, date, and race type.",
+        registerTitle: "Register & track",
+        registerText: "Sign up online in minutes and keep all your registrations and their status in one dashboard.",
+        coachTitle: "Train with the AI coach",
+        coachText: "Set a goal, log your runs, and get a safe, personalized weekly plan and post-run feedback in your language.",
+        remindersTitle: "Stay updated",
+        remindersText: "Get race confirmations, schedule changes, and reminders by email and push notification.",
+        appEyebrow: "RaceDZ mobile",
+        appTitle: "Take RaceDZ with you on race day.",
+        appText: "The mobile app adds runner-only features on top of everything on the website.",
+        appFeature1: "Record runs with live GPS — distance, pace, elevation, and a route map.",
+        appFeature2: "Your training plan and next workout, always in your pocket.",
+        appFeature3: "Push reminders for registration deadlines and race starts.",
+        appBadge: "Android now · iOS coming soon"
       },
       contact: {
         title: "Contact us",
@@ -164,6 +193,7 @@ export const dictionaries = {
     nav: {
       races: "Courses",
       organizers: "Organisateurs",
+      forRunners: "Pour les coureurs",
       admin: "Admin",
       about: "A propos",
       contact: "Contact",
@@ -171,6 +201,7 @@ export const dictionaries = {
       privacy: "Confidentialite",
       findRace: "Trouver une course",
       login: "Connexion",
+      signUp: "S inscrire",
       openMenu: "Ouvrir le menu",
       closeMenu: "Fermer le menu"
     },
@@ -214,7 +245,9 @@ export const dictionaries = {
       documentsTitle: "Documents requis",
       noDocuments: "Aucun document requis pour le moment.",
       contactTitle: "Contact",
-      organizerLabel: "Organisateur"
+      organizerLabel: "Organisateur",
+      eventElevationGain: "Denivele positif",
+      conditionsTitle: "Conditions de course"
     },
     pages: {
       about: {
@@ -249,6 +282,31 @@ export const dictionaries = {
         teamText: "Ajoutez des membres, assignez des roles, renvoyez les invitations et revoquez les acces en attente.",
         updatesTitle: "Communiquer les changements",
         updatesText: "Publiez des annonces et notifiez les coureurs inscrits lorsque des details importants changent."
+      },
+      runners: {
+        eyebrow: "Pour les coureurs",
+        title: "Trouvez votre course, inscrivez-vous en minutes et entraînez-vous avec un coach IA.",
+        intro:
+          "RaceDZ rassemble tous les événements de course en Algérie au même endroit — découvrez des courses, inscrivez-vous en ligne, suivez vos inscriptions et un plan d'entraînement personnalisé.",
+        primaryCta: "Trouver une course",
+        secondaryCta: "Créer votre compte",
+        dashboardCta: "Mes inscriptions",
+        workflowTitle: "Tout ce qu'il faut au coureur",
+        discoverTitle: "Découvrir les courses",
+        discoverText: "Parcourez les courses sur route, trail et communautaires. Filtrez par wilaya, distance, date et type.",
+        registerTitle: "S'inscrire et suivre",
+        registerText: "Inscrivez-vous en ligne en quelques minutes et gardez toutes vos inscriptions et leur statut au même endroit.",
+        coachTitle: "S'entraîner avec le coach IA",
+        coachText: "Définissez un objectif, enregistrez vos sorties et recevez un plan hebdomadaire personnalisé et des retours, dans votre langue.",
+        remindersTitle: "Rester informé",
+        remindersText: "Recevez confirmations, changements d'horaire et rappels par e-mail et notification push.",
+        appEyebrow: "RaceDZ mobile",
+        appTitle: "Emportez RaceDZ le jour de la course.",
+        appText: "L'application mobile ajoute des fonctionnalités réservées aux coureurs en plus du site.",
+        appFeature1: "Enregistrez vos sorties en GPS — distance, allure, dénivelé et carte du parcours.",
+        appFeature2: "Votre plan d'entraînement et la prochaine séance, toujours dans la poche.",
+        appFeature3: "Rappels push pour les dates limites d'inscription et les départs.",
+        appBadge: "Android maintenant · iOS bientôt"
       },
       contact: {
         title: "Contactez-nous",
@@ -315,6 +373,7 @@ export const dictionaries = {
     nav: {
       races: "السباقات",
       organizers: "المنظمون",
+      forRunners: "للعدائين",
       admin: "الإدارة",
       about: "من نحن",
       contact: "اتصل بنا",
@@ -322,6 +381,7 @@ export const dictionaries = {
       privacy: "الخصوصية",
       findRace: "ابحث عن سباق",
       login: "تسجيل الدخول",
+      signUp: "إنشاء حساب",
       openMenu: "فتح القائمة",
       closeMenu: "إغلاق القائمة"
     },
@@ -365,7 +425,9 @@ export const dictionaries = {
       documentsTitle: "المستندات المطلوبة",
       noDocuments: "لا توجد مستندات مطلوبة حاليًا.",
       contactTitle: "تواصل",
-      organizerLabel: "المنظم"
+      organizerLabel: "المنظم",
+      eventElevationGain: "الارتفاع المكتسب",
+      conditionsTitle: "شروط السباق"
     },
     pages: {
       about: {
@@ -400,6 +462,31 @@ export const dictionaries = {
         teamText: "أضف أعضاء للمنظمة، عيّن الأدوار، أعد إرسال الدعوات، وألغ الوصول المعلق عند الحاجة.",
         updatesTitle: "إبلاغ التغييرات",
         updatesText: "انشر الإعلانات وأخبر العدائين المسجلين عند تغيير تفاصيل مهمة في السباق."
+      },
+      runners: {
+        eyebrow: "للعدائين",
+        title: "اعثر على سباقك، سجّل في دقائق، وتدرّب مع مدرب ذكاء اصطناعي.",
+        intro:
+          "يجمع RaceDZ كل فعاليات الجري في الجزائر في مكان واحد — اكتشف السباقات، سجّل عبر الإنترنت، تابع تسجيلاتك وخطة تدريب مخصصة.",
+        primaryCta: "ابحث عن سباق",
+        secondaryCta: "أنشئ حسابك",
+        dashboardCta: "تسجيلاتي",
+        workflowTitle: "كل ما يحتاجه العداء",
+        discoverTitle: "اكتشف السباقات",
+        discoverText: "تصفح سباقات الطريق والترايل والمجتمع. رشّح حسب الولاية والمسافة والتاريخ والنوع.",
+        registerTitle: "سجّل وتابع",
+        registerText: "سجّل عبر الإنترنت في دقائق واحتفظ بكل تسجيلاتك وحالتها في لوحة واحدة.",
+        coachTitle: "تدرّب مع المدرب الذكي",
+        coachText: "حدد هدفاً، سجّل جرياتك، واحصل على خطة أسبوعية مخصصة وملاحظات بعد الجري بلغتك.",
+        remindersTitle: "ابقَ على اطلاع",
+        remindersText: "احصل على التأكيدات وتغييرات المواعيد والتذكيرات عبر البريد والإشعارات.",
+        appEyebrow: "تطبيق RaceDZ",
+        appTitle: "خذ RaceDZ معك يوم السباق.",
+        appText: "يضيف التطبيق ميزات خاصة بالعدائين فوق كل ما في الموقع.",
+        appFeature1: "سجّل جرياتك عبر GPS — المسافة والوتيرة والارتفاع وخريطة المسار.",
+        appFeature2: "خطة تدريبك وحصتك القادمة دائماً في جيبك.",
+        appFeature3: "تذكيرات فورية لمواعيد التسجيل وبدء السباقات.",
+        appBadge: "أندرويد الآن · iOS قريباً"
       },
       contact: {
         title: "اتصل بنا",

@@ -1,7 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, CalendarDays, ExternalLink, FileText, HelpCircle, Menu, UserRound, X } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  ExternalLink,
+  FileText,
+  Footprints,
+  HelpCircle,
+  LogIn,
+  Menu,
+  Search,
+  UserPlus,
+  UserRound,
+  X
+} from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AccountMenu, type HeaderUser } from "@/components/layout/account-menu";
@@ -18,10 +33,19 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   const locale = getLocale(searchParams.get("lang"));
   const dictionary = getDictionary(locale);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const desktopNavItems = [
     { href: "/races", label: dictionary.nav.races, icon: CalendarDays },
-    { href: "/organizers", label: dictionary.nav.organizers, icon: UserRound }
+    { href: "/runners", label: dictionary.nav.forRunners, icon: Footprints },
+    { href: "/organizers", label: dictionary.nav.organizers, icon: Building2 }
   ];
 
   const mobileNavItems = [
@@ -33,21 +57,48 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   ];
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <RaceDZLogo />
-        <nav className="hidden items-center rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-1 md:flex" aria-label="Primary navigation">
-          {desktopNavItems.map((item) => (
-            <HeaderNavLink key={item.href} href={withLocale(item.href, locale)} active={isActivePath(pathname, item.href)}>
-              {item.label}
-            </HeaderNavLink>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <div className="hidden md:flex md:items-center md:gap-2">
+    <header
+      className={cn(
+        "sticky top-0 z-30 border-b border-[var(--border)] backdrop-blur-xl transition-shadow duration-300",
+        scrolled ? "bg-[var(--surface)]/95 shadow-sm" : "bg-[var(--surface)]/90"
+      )}
+    >
+      <div
+        className={cn(
+          "bg-[linear-gradient(90deg,var(--primary),var(--accent),#9b5cff)] transition-all duration-300",
+          scrolled ? "h-0.5 opacity-70" : "h-1 opacity-100"
+        )}
+        aria-hidden="true"
+      />
+      <div
+        className={cn(
+          "flex items-center justify-between gap-4 px-4 transition-all duration-300 sm:px-6 lg:px-8",
+          scrolled ? "h-14" : "h-[4.25rem]"
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2 lg:gap-4">
+          <RaceDZLogo animated />
+          <span className="hidden h-7 w-px bg-[var(--border)] lg:block" aria-hidden="true" />
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
+            {desktopNavItems.map((item) => (
+              <HeaderNavLink
+                key={item.href}
+                href={withLocale(item.href, locale)}
+                active={isActivePath(pathname, item.href)}
+                icon={item.icon}
+              >
+                {item.label}
+              </HeaderNavLink>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="hidden items-center gap-1.5 md:flex">
             <ThemeSwitcher />
             <LanguageSwitcher currentLocale={locale} />
           </div>
+          <span className="hidden h-7 w-px bg-[var(--border)] md:block" aria-hidden="true" />
           {user ? (
             <>
               <NotificationDropdown
@@ -57,11 +108,19 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
               <AccountMenu user={user} />
             </>
           ) : (
-            <ButtonLink href={withLocale("/login", locale)} variant="outline" size="sm" className="hidden sm:inline-flex">
-              {dictionary.nav.login}
-            </ButtonLink>
+            <div className="hidden items-center gap-1 md:flex">
+              <ButtonLink href={withLocale("/login", locale)} variant="ghost" size="sm">
+                <LogIn className="size-4" aria-hidden="true" />
+                {dictionary.nav.login}
+              </ButtonLink>
+              <ButtonLink href={withLocale("/register", locale)} variant="outline" size="sm">
+                <UserPlus className="size-4" aria-hidden="true" />
+                {dictionary.nav.signUp}
+              </ButtonLink>
+            </div>
           )}
-          <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="sm" className="hidden sm:inline-flex">
+          <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="sm" className="hidden shadow-sm md:inline-flex">
+            <Search className="size-4" aria-hidden="true" />
             {dictionary.nav.findRace}
           </ButtonLink>
           <button
@@ -69,7 +128,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
             aria-label={mobileOpen ? dictionary.nav.closeMenu : dictionary.nav.openMenu}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((value) => !value)}
-            className="inline-flex size-10 items-center justify-center rounded-lg text-[var(--text)] transition hover:bg-[var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange md:hidden"
+            className="inline-flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange md:hidden"
           >
             {mobileOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
           </button>
@@ -77,37 +136,44 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
       </div>
 
       {mobileOpen ? (
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] md:hidden">
-          <div className="mx-auto max-w-7xl space-y-3 px-4 py-4 sm:px-6">
-            <nav className="grid gap-1" aria-label="Mobile navigation">
+        <div className="border-t border-[var(--border)] bg-[var(--surface)] shadow-soft md:hidden">
+          <div className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-6">
+            <div className="grid gap-2">
+              <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="lg" onClick={() => setMobileOpen(false)}>
+                <Search className="size-5" aria-hidden="true" />
+                {dictionary.nav.findRace}
+              </ButtonLink>
+              {!user ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ButtonLink href={withLocale("/login", locale)} variant="outline" size="lg" onClick={() => setMobileOpen(false)}>
+                    <LogIn className="size-5" aria-hidden="true" />
+                    {dictionary.nav.login}
+                  </ButtonLink>
+                  <ButtonLink href={withLocale("/register", locale)} variant="outline" size="lg" onClick={() => setMobileOpen(false)}>
+                    <UserPlus className="size-5" aria-hidden="true" />
+                    {dictionary.nav.signUp}
+                  </ButtonLink>
+                </div>
+              ) : null}
+            </div>
+
+            <nav className="grid gap-2 border-t border-[var(--border)] pt-4" aria-label="Mobile navigation">
               {mobileNavItems.map((item) => (
-                <ButtonLink
+                <MobileNavLink
                   key={item.href}
                   href={withLocale(item.href, locale)}
-                  variant="ghost"
-                  size="md"
-                  className={cn("justify-start", isActivePath(pathname, item.href) ? "bg-[var(--surface-soft)] text-brand-teal" : "")}
+                  active={isActivePath(pathname, item.href)}
+                  icon={item.icon}
                   onClick={() => setMobileOpen(false)}
                 >
-                  <item.icon className="size-4" aria-hidden="true" />
                   {item.label}
-                </ButtonLink>
+                </MobileNavLink>
               ))}
             </nav>
-            <div className="flex items-center gap-2 border-t border-[var(--border)] pt-3">
+            <div className="flex items-center gap-2 border-t border-[var(--border)] pt-4">
               <ThemeSwitcher />
               <LanguageSwitcher currentLocale={locale} />
             </div>
-            {!user ? (
-              <div className="grid gap-2 border-t border-[var(--border)] pt-3 sm:hidden">
-                <ButtonLink href={withLocale("/login", locale)} variant="outline" size="md">
-                  {dictionary.nav.login}
-                </ButtonLink>
-                <ButtonLink href={withLocale("/races", locale)} variant="secondary" size="md">
-                  {dictionary.nav.findRace}
-                </ButtonLink>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}
@@ -118,10 +184,12 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
 function HeaderNavLink({
   href,
   active,
+  icon: Icon,
   children
 }: {
   href: string;
   active: boolean;
+  icon: typeof CalendarDays;
   children: string;
 }) {
   return (
@@ -129,13 +197,49 @@ function HeaderNavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
+        "relative inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
         active
-          ? "bg-[var(--surface)] text-brand-teal shadow-sm"
-          : "text-[var(--text)] hover:bg-[var(--surface)] hover:text-brand-teal"
+          ? "bg-[var(--surface-soft)] text-brand-teal"
+          : "text-[var(--text)] hover:bg-[var(--surface-soft)] hover:text-brand-teal"
       )}
     >
+      <Icon className="size-4" aria-hidden="true" />
       {children}
+      {active ? <span className="absolute inset-x-4 -bottom-3 h-0.5 rounded-full bg-brand-orange" aria-hidden="true" /> : null}
+    </Link>
+  );
+}
+
+function MobileNavLink({
+  href,
+  active,
+  icon: Icon,
+  onClick,
+  children
+}: {
+  href: string;
+  active: boolean;
+  icon: typeof CalendarDays;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex min-h-12 items-center justify-between rounded-lg border px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
+        active
+          ? "border-brand-teal bg-[var(--primary-soft)] text-brand-teal"
+          : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--text)] hover:border-brand-teal hover:text-brand-teal"
+      )}
+    >
+      <span className="flex items-center gap-3">
+        <Icon className="size-4" aria-hidden="true" />
+        {children}
+      </span>
+      <ChevronRight className="size-4 text-[var(--text-muted)]" aria-hidden="true" />
     </Link>
   );
 }
@@ -213,7 +317,7 @@ function NotificationDropdown({
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={openNotifications}
-        className="relative inline-flex size-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
+        className="relative inline-flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
       >
         <Bell className="size-5" aria-hidden="true" />
         {localCount > 0 ? (
@@ -228,7 +332,7 @@ function NotificationDropdown({
           className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-soft"
           role="menu"
         >
-          <div className="border-b border-gray-200 px-4 py-3">
+          <div className="border-b border-[var(--border)] px-4 py-3">
             <p className="text-sm font-black text-[var(--text-strong)]">Notifications</p>
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">{items.length > 0 ? "Latest RaceDZ updates" : "No updates yet"}</p>
           </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState, type ChangeEvent } from "react";
-import { ImageIcon, Loader2, Upload } from "lucide-react";
+import { ImageIcon, Loader2, Maximize2, Upload } from "lucide-react";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { cn } from "@/lib/utils";
 import type { UploadScope } from "@/lib/storage";
 
@@ -74,8 +75,16 @@ export function ImageUploadField({ label, name, scope, defaultValue, helpText }:
       <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[112px_1fr]">
         <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white">
           {previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={previewUrl} alt="" className="size-full object-cover" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt="" className="size-full object-contain" />
+              <ImageLightbox src={previewUrl} alt={`${label} preview`} triggerClassName="absolute inset-0">
+                <span className="sr-only">View full image</span>
+                <span className="absolute bottom-2 right-2 inline-flex size-8 items-center justify-center rounded-md bg-black/65 text-white">
+                  <Maximize2 className="size-4" aria-hidden="true" />
+                </span>
+              </ImageLightbox>
+            </>
           ) : (
             <ImageIcon className="size-8 text-gray-400" aria-hidden="true" />
           )}

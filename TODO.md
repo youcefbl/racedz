@@ -1,6 +1,6 @@
 # RaceDZ TODO
 
-This is the single source of truth for RaceDZ planning. Older planning notes in `backlog.md` and `requirment.md` are intentionally replaced by pointers to this file.
+This is the single source of truth for RaceDZ product/backend planning. Use `UI_TODO.md` for public website, design, layout, navigation, and UX polish. Older planning notes in `backlog.md` and `requirment.md` are intentionally replaced by pointers to this file.
 
 ## Product Goal
 
@@ -8,7 +8,7 @@ RaceDZ is an MVP platform for discovering, publishing, and registering for runni
 
 The first useful version must let:
 
-- Runners browse races, create accounts, register, and track registrations.
+- Runners browse races, create accounts, register, track registrations, record runs, and follow a goal-based AI coaching plan.
 - Organizations request organizer access, publish races, and manage participants.
 - Admins and superadmins manage users, organizations, races, approvals, and platform health.
 
@@ -31,11 +31,13 @@ The first useful version must let:
 - Notification MVP has started with database-backed in-app notifications and Resend email delivery tracking.
 - Email verification is required for newly registered accounts.
 - AWS staging/production deployment planning exists in `docs/AWS_DEPLOYMENT_PLAN.md`, including cost estimates and production security controls.
+- AI coach MVP scope, architecture, safety boundaries, delivery phases, and API cost estimates are defined in `docs/AI_COACH_MVP_PLAN.md`.
 
 ## Completed MVP Work
 
 - Email/password account creation.
 - Email/password login with Auth.js.
+- Google OAuth login/registration for verified Google emails.
 - Login redirects after the first successful attempt instead of requiring a second submit.
 - Sign out clears session UI in one attempt.
 - Role-aware login redirect.
@@ -116,6 +118,9 @@ The first useful version must let:
   - Organizer race/category edits are recorded with timestamped history.
   - Race categories can have their own start time for multi-race event scheduling.
   - Public race detail pages show category-specific race types for multi-race events.
+  - Organizer/admin race create and edit forms support a 48-hour auto-cancel policy for pending unpaid registrations.
+  - Organizer/admin race create and edit forms support optional event-level elevation text and long-form race conditions.
+  - Pending unpaid registrations are automatically cancelled after the configured 48-hour window when registration lists are opened.
 - Admin race management:
   - Admins can approve, reject, and unpublish races.
   - Admins can edit race details, publication status, registration status, organizer contact, and race image from `/admin/races/[id]/edit`.
@@ -124,6 +129,7 @@ The first useful version must let:
   - Admins can view recent audit entries from `/admin/audit`.
   - Admin audit log can be filtered by actor, target type, and action.
   - Admin audit log shows readable metadata for changed fields, role changes, and rejection reasons.
+  - Admin audit retention is bounded to 31 days for MVP maintenance.
   - Superadmins can view organizer race edit history.
   - Superadmins can create platform races directly from `/admin/races/new`.
   - Superadmins can upload local main race images while creating platform races.
@@ -153,6 +159,17 @@ The first useful version must let:
   - Admin race edits notify active race registrants in-app, by email, and by push when configured.
   - Organizer/admin race announcements notify active registrants and are visible on public race detail pages.
   - Resend email delivery status is recorded without blocking the core action on provider failure.
+- Runner AI coach MVP foundation:
+  - Coach goals, manually logged runs, versioned training plans/workouts, snapshots, interactions, and AI usage records have Prisma models and a migration.
+  - Authenticated runner-owned APIs support coach dashboard data, goals, runs, AI interactions, and plan activation/cancellation.
+  - Pace, training volume, trends, and weekly plan skeletons are calculated deterministically.
+  - Safety rules detect explicit danger signals in English, French, and Arabic; unsafe requests are blocked before an OpenAI call.
+  - AI-generated workouts are constrained to deterministic dates, workout types, and distance limits.
+  - OpenAI Responses API integration uses server-only configuration, Structured Outputs, Zod validation, provider failure handling, rate limits, and token/cost logging.
+  - Focused coach metrics, planning, and safety checks run with `npm run test:coach`.
+  - `/account/coach` provides mobile-first goal onboarding, progress metrics, manual run logging/history, weekly plan review/acceptance, post-run feedback, and coach conversation views.
+  - Coach UI copy supports English, French, and Arabic with RTL layout and the existing light/dark/race theme system.
+  - Playwright covers authenticated goal/run/provider-failure behavior; `RACEDZ_REQUIRE_LIVE_AI=1 npm run test:e2e:coach` enables the paid live OpenAI assertion.
 - Backlog UI fixes:
   - Removed duplicated Create item from organizer panel navigation.
   - Made dashboard left navigation flush with the left edge on desktop.
@@ -165,34 +182,39 @@ The first useful version must let:
   - Removed city from the signup form while keeping wilaya required.
   - Refactored the public top bar to show only visitor-facing Races and Organizers links; admin access stays inside the authenticated account menu.
   - Added `/organizers` as the public explanation page for organization teams before they request organizer access.
+  - Race detail pages show the runner's existing registration status/details instead of a register CTA when already registered.
 
 ## Current Priority
 
-1. Build organizer race management:
-   - Add organizer-controlled unpaid registration auto-cancel setting on race create/edit:
-     - If enabled, pending unpaid registrations are automatically cancelled 48 hours after registration.
-     - Runners cannot cancel registrations themselves in the MVP.
-     - Refunds are not supported in the MVP.
-
-2. Admin and superadmin follow-up:
-   - Keep admin audit records for one month for MVP.
-   - Add exportable admin audit reports later only if compliance/support needs justify it.
-
-3. Quality and dev experience:
+1. Quality and dev experience:
+   - Add CI command that runs lint, typecheck, build, and smoke checks against a started test server.
+   - Expand smoke checks into Playwright browser e2e journeys with deterministic test data reset/seed.
    - Add lightweight MVP usage analytics:
      - Track first-week platform usage events without collecting sensitive form content.
      - Track user sessions, visited major sections, key actions, approximate session duration, and last activity.
      - Track where users leave the platform when possible.
      - Add regression/error reporting for client and server errors.
      - Keep analytics privacy-conscious and document retention before production.
-   - Expand smoke checks into Playwright browser e2e journeys with deterministic test data reset/seed.
-   - Add CI command that runs lint, typecheck, build, and smoke checks against a started test server.
 
-4. Notifications:
+2. Notifications:
    - Improve branded email template UI/UX across all RaceDZ emails.
    - Add payment proof review notifications.
    - Add race reminder jobs.
    - Do not build wilaya race alerts for now.
+
+3. Admin and superadmin follow-up:
+   - Add admin/superadmin-only MFA before production admin access:
+     - Require a second factor only for `/admin/*`.
+     - Do not require MFA for organization/organizer dashboards in the MVP.
+     - Prefer TOTP authenticator apps for production; email OTP can be a temporary fallback.
+   - Add exportable admin audit reports later only if compliance/support needs justify it.
+
+4. Runner AI coach MVP ([detailed plan](docs/AI_COACH_MVP_PLAN.md)):
+   - Confirm coaching product rules and have initial safety rules reviewed by a qualified running coach or sports-health professional.
+   - Enable OpenAI project billing/quota and rerun the live provider test; the configured key currently returns `insufficient_quota`.
+   - Complete cross-theme and RTL visual QA for the coach workflow.
+   - Add API authorization integration tests, prompt/output evaluations, and data deletion/export rules.
+   - Release first to a closed beta of 50 to 100 runners; defer GPS, wearables, live voice, medical guidance, fine-tuning, and vector search.
 
 ## Public Website
 
@@ -269,8 +291,7 @@ Marketplace rules:
 - Add registration cancellation or change-request actions.
 - Do not allow runner self-cancellation or refunds in the MVP.
 - Add password reset later.
-- Add Google login later, after email/password auth and profile flow stay stable.
-- Defer Facebook/X/social login until policies and provider setup are clear.
+- Defer Facebook/X social login until missing-email and account-linking policies are clear.
 
 ## Organization Requirements
 
@@ -345,7 +366,6 @@ Rules:
 
 ## Later Features
 
-- AI chat support.
 - Organizer demo/onboarding guide explaining how to use the platform.
 - Notifications.
 - Move uploads from local filesystem storage to S3-compatible object storage.
@@ -427,6 +447,62 @@ Recommended first version later: controlled registration transfer request, organ
   - Run `npm run typecheck`.
   - Run `npm run build` for meaningful app changes.
   - Add focused tests when shared domain logic or critical flows become complex.
+
+## Security Review (do a full pass before production)
+
+A dedicated end-to-end security audit covering the API, route handlers, server actions, the
+mobile app, and data handling. Run the repo `/security-review` on the diff per feature, and
+commission an external review before public launch. Checklist:
+
+### Authentication and sessions
+- Re-verify every protected route handler AND server action calls `auth()`/`requireAdmin()` server-side; no client-only gating.
+- `AUTH_SECRET` strong and out of git; production session cookies `httpOnly` + `secure` + `sameSite`.
+- Email verification enforced on credentials login; Google sign-in limited to verified emails.
+- Admin/superadmin MFA before production (already tracked).
+- Rate-limit auth-sensitive endpoints: login, register, invite accept, future password reset.
+- No account enumeration in login/register/reset responses.
+
+### Authorization (IDOR / ownership)
+- Coach goals, runs, plans, interactions, subscriptions: every query scoped to `userId` (audit all `$queryRaw`/`$executeRaw`).
+- Organizer event/participant/member actions: server-side organization-role checks on every mutation.
+- Admin-only actions (race approval, role changes, coach subscription activate/deactivate) gated + audited.
+- Attempt cross-user/cross-org access in tests; expect 403/404.
+
+### Input validation and injection
+- Zod-validate every API body and server-action input; audit for any unvalidated path.
+- All raw SQL parameterized (template tags only); no string interpolation of user input; no `Prisma.raw` with user data.
+- Uploads: validate type/size/extension, sanitize filename, store non-executable, re-encode images; enforce limits.
+- Cap oversized payloads (GPS route array, long text fields).
+
+### Data exposure and privacy
+- API responses select only needed fields (never `passwordHash`, tokens, other users' PII).
+- Sensitive coach data (injuries, chronic conditions, weight) and GPS routes: access control + documented retention + export/delete + consent.
+- GPS routes reveal home/work — treat as sensitive; consider trimming route ends if ever shared/public.
+- No secrets/PII in logs; `OPENAI_API_KEY`, Resend, FCM server keys server-only; audit that no secret is exposed via `NEXT_PUBLIC_`.
+
+### Web headers, transport, CSRF, redirects
+- HTTPS + HSTS in production.
+- Security headers: CSP, `frame-ancestors`/X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+- Confirm custom POST route handlers are CSRF-safe (origin check or same-site cookie); server actions are already protected.
+- Validate `callbackUrl`/redirect params to internal paths only (no open redirect).
+- Lock down CORS on API route handlers.
+
+### Mobile app (Capacitor)
+- Release build loads remote HTTPS only; cleartext HTTP disabled (dev-only via `CAP_SERVER_URL`).
+- Review webview session/cookie handling; keep sensitive tokens out of `localStorage`.
+- Background location: explicit consent + Play Store data-safety disclosure; request minimal scope; transmit location only when saving a run; the offline run queue stores routes in `localStorage` — review retention/clearing.
+- Validate deep links / custom schemes; review Android `allowBackup` (currently true — can expose data via adb backup) and exported components.
+- Google OAuth fails in embedded webview (`disallowed_useragent`) — use native sign-in or system browser.
+- Sign release builds; never ship debug; run `npm audit` (Capacitor deps currently flag moderate/high).
+
+### Rate limiting, abuse, cost
+- AI coach per-user daily/monthly limits + off-topic guard enforced server-side and not bypassable.
+- Rate-limit write-heavy/public endpoints (registration, invites, uploads, run logging).
+- OpenAI spend cap + monthly budget alert.
+
+### Dependencies and operations
+- Resolve `npm audit` findings; pin/lock deps; vet new mobile plugins' permissions and network behavior; upgrade Node off EOL 18.
+- Production secrets management + rotation; DB least-privilege + backups; no stack traces leaked to clients; error monitoring + basic incident response.
 
 ## Two-PC Development Workflow
 

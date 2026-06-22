@@ -6,6 +6,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaceById, getOrganizerRaceRegistrations, requireApprovedOrganizer } from "@/lib/organizer";
 import { parsePagination } from "@/lib/pagination";
+import { getLocale, withLocale } from "@/lib/i18n";
+import { translateOrganizer, translateOrganizerEnum } from "@/lib/organizer-i18n";
 import { cancelOrganizerRegistrationAction, confirmOrganizerRegistrationPaymentAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +19,15 @@ type EventRegistrationsPageProps = {
     status?: string;
     paymentState?: string;
     page?: string;
+    lang?: string;
   }>;
 };
 
 export default async function EventRegistrationsPage({ params, searchParams }: EventRegistrationsPageProps) {
   const { id } = await params;
   const filters = await searchParams;
+  const locale = getLocale(filters?.lang);
+  const t = (text: string) => translateOrganizer(locale, text);
   const pagination = parsePagination({ page: filters?.page });
   const { organization } = await requireApprovedOrganizer();
   const [race, registrationResult] = await Promise.all([
@@ -50,11 +55,11 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Organizer</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950">{race.title} registrations</h1>
+            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer")}</p>
+            <h1 className="mt-2 text-3xl font-black text-gray-950">{race.title} · {t("Registrations")}</h1>
           </div>
           <ButtonLink href={`/api/organizer/events/${race.id}/registrations/export`} variant="outline">
-            Export CSV
+            {t("Export CSV")}
           </ButtonLink>
         </div>
 
@@ -62,52 +67,53 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
           action={`/organizer/events/${race.id}/registrations`}
           className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_auto]"
         >
+          <input type="hidden" name="lang" value={locale} />
           <label className="relative">
-            <span className="sr-only">Search registrations</span>
+            <span className="sr-only">{t("Search registrations")}</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
             <input
               name="q"
               defaultValue={filters?.q ?? ""}
-              placeholder="Search runner, email, distance"
+              placeholder={t("Search runner, email, distance")}
               className="h-10 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
             />
           </label>
           <div className="flex flex-wrap gap-2">
             <SelectFilter
               name="status"
-              label="All registration statuses"
+              label={t("All registration statuses")}
               defaultValue={filters?.status}
               options={[
-                { value: "PENDING", label: "Pending" },
-                { value: "CONFIRMED", label: "Confirmed" },
-                { value: "CANCELLED", label: "Cancelled" },
-                { value: "REJECTED", label: "Rejected" },
-                { value: "WAITING_LIST", label: "Waiting list" }
+                { value: "PENDING", label: t("Pending") },
+                { value: "CONFIRMED", label: t("Confirmed") },
+                { value: "CANCELLED", label: t("Cancelled") },
+                { value: "REJECTED", label: t("Rejected") },
+                { value: "WAITING_LIST", label: t("Waiting list") }
               ]}
             />
             <SelectFilter
               name="paymentState"
-              label="All payment states"
+              label={t("All payment states")}
               defaultValue={filters?.paymentState}
               options={[
-                { value: "CONFIRMED", label: "Payment confirmed" },
-                { value: "NOT_CONFIRMED", label: "Payment not confirmed" }
+                { value: "CONFIRMED", label: t("Payment confirmed") },
+                { value: "NOT_CONFIRMED", label: t("Payment not confirmed") }
               ]}
             />
             <Button type="submit" size="sm" variant="secondary">
-              Filter
+              {t("Filter")}
             </Button>
-            <ButtonLink href={`/organizer/events/${race.id}/registrations`} size="sm" variant="outline">
-              Reset
+            <ButtonLink href={withLocale(`/organizer/events/${race.id}/registrations`, locale)} size="sm" variant="outline">
+              {t("Reset")}
             </ButtonLink>
           </div>
         </form>
 
         {registrations.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-black text-gray-950">No participants found</h2>
+            <h2 className="text-xl font-black text-gray-950">{t("No participants found")}</h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">
-              Registrations will appear here after runners sign up, or when the current filters match existing participants.
+              {t("Registrations will appear here after runners sign up, or when the current filters match existing participants.")}
             </p>
           </div>
         ) : (
@@ -117,12 +123,12 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-normal text-gray-500">
                     <tr>
-                      <th className="px-4 py-3">Runner</th>
-                      <th className="px-4 py-3">Distance</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Payment</th>
-                      <th className="px-4 py-3">Registered</th>
-                      <th className="px-4 py-3">Actions</th>
+                      <th className="px-4 py-3">{t("Runner")}</th>
+                      <th className="px-4 py-3">{t("Distance")}</th>
+                      <th className="px-4 py-3">{t("Status")}</th>
+                      <th className="px-4 py-3">{t("Payment")}</th>
+                      <th className="px-4 py-3">{t("Registered")}</th>
+                      <th className="px-4 py-3">{t("Actions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -164,10 +170,10 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                             </p>
                           </td>
                           <td className="px-4 py-4">
-                            <Badge variant={getStatusVariant(registration.status)}>{formatEnumLabel(registration.status)}</Badge>
+                            <Badge variant={getStatusVariant(registration.status)}>{translateOrganizerEnum(locale, registration.status)}</Badge>
                           </td>
                           <td className="px-4 py-4">
-                            <Badge variant={getStatusVariant(registration.paymentStatus)}>{formatEnumLabel(registration.paymentStatus)}</Badge>
+                            <Badge variant={getStatusVariant(registration.paymentStatus)}>{translateOrganizerEnum(locale, registration.paymentStatus)}</Badge>
                           </td>
                           <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
                           <td className="px-4 py-4">
@@ -177,7 +183,7 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                                 <input type="hidden" name="raceId" value={race.id} />
                                 <Button type="submit" variant="outline" size="sm" disabled={!canConfirmPayment}>
                                   <CheckCircle2 className="size-4" aria-hidden="true" />
-                                  Confirm payment
+                                  {t("Confirm payment")}
                                 </Button>
                               </form>
                               <form action={cancelOrganizerRegistrationAction}>
@@ -185,7 +191,7 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                                 <input type="hidden" name="raceId" value={race.id} />
                                 <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="text-red-700 hover:bg-red-50">
                                   <XCircle className="size-4" aria-hidden="true" />
-                                  Cancel
+                                  {t("Cancel")}
                                 </Button>
                               </form>
                             </div>
@@ -254,12 +260,4 @@ function getStatusVariant(value: string) {
   }
 
   return "blue";
-}
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

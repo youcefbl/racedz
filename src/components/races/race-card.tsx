@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
+import { RaceMedia } from "@/components/races/race-media";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { formatDate, formatDzd } from "@/lib/format";
@@ -20,23 +20,19 @@ export function RaceCard({ race, viewLabel = "View", locale = "en" }: RaceCardPr
 
   return (
     <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-soft">
-      <div className="relative h-44 bg-gray-100">
-        {race.mainImageUrl ? (
-          <Image
-            src={race.mainImageUrl}
-            alt={`${race.title} race image`}
-            fill
-            sizes="(min-width: 768px) 33vw, 100vw"
-            className="object-cover"
-          />
-        ) : null}
+      <RaceMedia
+        src={race.mainImageUrl}
+        alt={`${race.title} race image`}
+        sizes="(min-width: 768px) 33vw, 100vw"
+        className="h-56"
+      >
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           <Badge variant="teal">{RACE_TYPE_LABELS[race.raceType]}</Badge>
           <Badge variant={getRegistrationBadgeVariant(race.registrationStatus)}>
             {EVENT_REGISTRATION_STATUS_LABELS[race.registrationStatus]}
           </Badge>
         </div>
-      </div>
+      </RaceMedia>
       <div className="space-y-4 p-4">
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">

@@ -112,6 +112,8 @@ const raceCategoryCreateSchema = z.object({
 export const organizerRaceSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(1),
+  elevationGainText: z.string().max(500).optional(),
+  conditions: z.string().max(5000).optional(),
   raceType: raceTypeSchema,
   startDate: z.string().min(10),
   registrationCloseAt: z.string().optional(),
@@ -122,6 +124,7 @@ export const organizerRaceSchema = z.object({
   contactEmail: z.string().email().optional(),
   contactPhone: z.string().optional(),
   maxParticipants: z.coerce.number().int().positive().optional(),
+  autoCancelUnpaidAfterHours: z.coerce.number().int().positive().optional(),
   mainImageUrl: imageUrlSchema.optional(),
   categoryName: z.string().min(2),
   distanceKm: z.coerce.number().positive(),
@@ -136,6 +139,8 @@ export type OrganizerRaceInput = z.infer<typeof organizerRaceSchema>;
 export const organizerRaceUpdateSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(1),
+  elevationGainText: z.string().max(500).optional(),
+  conditions: z.string().max(5000).optional(),
   raceType: z.enum([
     "ROAD",
     "TRAIL",
@@ -157,6 +162,7 @@ export const organizerRaceUpdateSchema = z.object({
   contactEmail: z.string().email().optional(),
   contactPhone: z.string().optional(),
   maxParticipants: z.coerce.number().int().positive().optional(),
+  autoCancelUnpaidAfterHours: z.coerce.number().int().positive().optional(),
   mainImageUrl: imageUrlSchema.optional()
 });
 

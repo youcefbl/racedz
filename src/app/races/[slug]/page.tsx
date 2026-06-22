@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Building2, CalendarDays, Mail, MapPin, Megaphone, Phone } from "lucide-react";
-import Image from "next/image";
+import { Building2, CalendarDays, Mail, MapPin, Megaphone, Phone, ReceiptText, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RaceMedia } from "@/components/races/race-media";
 import { ButtonLink } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import { getRaceEventBySlug } from "@/lib/race-repository";
 import { EVENT_REGISTRATION_STATUS_LABELS, RACE_TYPE_LABELS } from "@/lib/races";
+import { getUserRaceRegistration } from "@/lib/registrations";
+import type { PaymentStatus, RegistrationStatus } from "@/types/race";
+
+export const dynamic = "force-dynamic";
 
 type RaceDetailsPageProps = {
   params: Promise<{ slug: string }>;
@@ -39,24 +44,21 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
   const locale = getLocale((await searchParams)?.lang);
   const dictionary = getDictionary(locale);
   const canRegister = race.registrationStatus === "OPEN";
+  const currentUser = await getCurrentUser();
+  const currentRegistration = currentUser ? await getUserRaceRegistration(currentUser.id, race.id) : null;
 
   return (
     <div className="bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
       <section className="border-b border-gray-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-[1fr_380px] lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8">
           <div className="space-y-6">
-            <div className="relative min-h-72 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-              {race.mainImageUrl ? (
-                <Image
-                  src={race.mainImageUrl}
-                  alt={`${race.title} race image`}
-                  fill
-                  priority
-                  sizes="(min-width: 768px) 60vw, 100vw"
-                  className="object-cover"
-                />
-              ) : null}
-            </div>
+            <RaceMedia
+              src={race.mainImageUrl}
+              alt={`${race.title} race image`}
+              sizes="(min-width: 768px) 60vw, 100vw"
+              priority
+              className="min-h-96 rounded-lg border border-gray-200 sm:min-h-[30rem]"
+            />
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="teal">{RACE_TYPE_LABELS[race.raceType]}</Badge>
@@ -68,6 +70,11 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
               </div>
               <h1 className="text-3xl font-black text-gray-950 sm:text-4xl">{race.title}</h1>
               <p className="max-w-3xl text-base leading-7 text-gray-600">{race.description}</p>
+              {race.elevationGainText ? (
+                <p className="max-w-3xl text-sm font-semibold text-gray-700">
+                  {dictionary.raceDetail.eventElevationGain}: {race.elevationGainText}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -107,7 +114,43 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
                     .replace("{total}", String(race.maxParticipants ?? "—"))}
                 </p>
               ) : null}
-              {canRegister ? (
+              {currentRegistration ? (
+                <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={registrationBadgeVariant[currentRegistration.status as RegistrationStatus]}>
+                      {formatEnumLabel(currentRegistration.status)}
+                    </Badge>
+                    <Badge variant={paymentBadgeVariant[currentRegistration.paymentStatus as PaymentStatus]}>
+                      {formatEnumLabel(currentRegistration.paymentStatus)}
+                    </Badge>
+                  </div>
+                  <h2 className="mt-3 text-base font-black text-gray-950">Your registration</h2>
+                  <div className="mt-3 grid gap-2 text-sm text-gray-700">
+                    <p className="flex items-center gap-2">
+                      <Route className="size-4 text-brand-teal" aria-hidden="true" />
+                      {currentRegistration.raceCategory.name} · {currentRegistration.raceCategory.distanceKm}K
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <ReceiptText className="size-4 text-brand-teal" aria-hidden="true" />
+                      {formatDzd(currentRegistration.raceCategory.priceDzd ?? undefined)}
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
+                      Registered {formatDateTime(currentRegistration.createdAt)}
+                    </p>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    <ButtonLink href="/account/registrations" variant="secondary" size="sm">
+                      View registration details
+                    </ButtonLink>
+                    {canRegister ? (
+                      <ButtonLink href={withLocale(`/races/${race.slug}/register`, locale)} variant="outline" size="sm">
+                        Register another distance
+                      </ButtonLink>
+                    ) : null}
+                  </div>
+                </div>
+              ) : canRegister ? (
                 <ButtonLink href={withLocale(`/races/${race.slug}/register`, locale)} className="w-full" size="lg">
                   {dictionary.raceDetail.registerNow}
                 </ButtonLink>
@@ -124,7 +167,7 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 md:grid-cols-[1fr_340px] lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8">
         <section className="space-y-6">
           {race.announcements && race.announcements.length > 0 ? (
             <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -180,6 +223,13 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
             <p className="text-sm leading-6 text-gray-600">{race.rules ?? dictionary.raceDetail.noRules}</p>
           </div>
 
+          {race.conditions ? (
+            <div className="rounded-lg border border-gray-200 bg-white p-5">
+              <h2 className="mb-3 text-xl font-black text-gray-950">{dictionary.raceDetail.conditionsTitle}</h2>
+              <p className="whitespace-pre-line text-sm leading-6 text-gray-600">{race.conditions}</p>
+            </div>
+          ) : null}
+
           <div className="rounded-lg border border-gray-200 bg-white p-5">
             <h2 className="mb-3 text-xl font-black text-gray-950">{dictionary.raceDetail.documentsTitle}</h2>
             <p className="text-sm leading-6 text-gray-600">{race.requiredDocuments ?? dictionary.raceDetail.noDocuments}</p>
@@ -209,4 +259,29 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
       </div>
     </div>
   );
+}
+
+const registrationBadgeVariant: Record<RegistrationStatus, "blue" | "green" | "red" | "orange" | "default"> = {
+  PENDING: "orange",
+  CONFIRMED: "green",
+  CANCELLED: "default",
+  REJECTED: "red",
+  WAITING_LIST: "blue"
+};
+
+const paymentBadgeVariant: Record<PaymentStatus, "blue" | "green" | "red" | "orange" | "default"> = {
+  NOT_REQUIRED: "green",
+  PENDING: "orange",
+  PAID: "green",
+  FAILED: "red",
+  REFUNDED: "blue",
+  MANUAL_REVIEW: "blue"
+};
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

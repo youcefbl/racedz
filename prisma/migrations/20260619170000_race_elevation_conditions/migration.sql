@@ -1,0 +1,3 @@
+ALTER TABLE "RaceEvent"
+ADD COLUMN IF NOT EXISTS "elevationGainText" TEXT,
+ADD COLUMN IF NOT EXISTS "conditions" TEXT;

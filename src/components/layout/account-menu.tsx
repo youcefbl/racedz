@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building2 } from "lucide-react";
+import { Bell, LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building2, BrainCircuit } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -93,6 +93,7 @@ export function AccountMenu({ user }: { user: HeaderUser }) {
           </div>
           <div className="py-2">
             <MenuLink href="/account" icon={UserRound} label="Account overview" onSelect={() => setOpen(false)} />
+            <MenuLink href="/account/coach" icon={BrainCircuit} label="AI running coach" onSelect={() => setOpen(false)} />
             <MenuLink href="/account/profile" icon={Settings} label="Profile settings" onSelect={() => setOpen(false)} />
             <MenuLink href="/account/notification-settings" icon={Bell} label="Notification settings" onSelect={() => setOpen(false)} />
             <MenuLink href="/account/registrations" icon={ClipboardList} label="My registrations" onSelect={() => setOpen(false)} />

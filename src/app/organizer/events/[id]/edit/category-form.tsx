@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useOrganizerTranslation } from "@/hooks/use-organizer-translation";
 import { upsertOrganizerCategoryAction, type OrganizerEditActionState } from "./actions";
 
 const initialState: OrganizerEditActionState = {};
@@ -18,6 +19,7 @@ type Category = {
 };
 
 export function CategoryForm({ raceId, category }: { raceId: string; category?: Category }) {
+  const { t } = useOrganizerTranslation();
   const [state, formAction, pending] = useActionState(upsertOrganizerCategoryAction, initialState);
   const isNew = !category?.id;
 
@@ -26,31 +28,31 @@ export function CategoryForm({ raceId, category }: { raceId: string; category?: 
       <input type="hidden" name="raceId" value={raceId} />
       {category?.id ? <input type="hidden" name="categoryId" value={category.id} /> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <Field label="Name" name="name" defaultValue={category?.name ?? ""} placeholder="10K Open" />
+        <Field label={t("Name")} name="name" defaultValue={category?.name ?? ""} placeholder="10K Open" />
         <label className="grid gap-2 text-sm font-semibold text-gray-800">
-          Race type
+          {t("Race type")}
           <select
             name="raceType"
             defaultValue={category?.raceType ?? "ROAD"}
             className="h-10 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
           >
-            <option value="ROAD">Road</option>
-            <option value="TRAIL">Trail</option>
-            <option value="ULTRA_TRAIL">Ultra trail</option>
-            <option value="MARATHON">Marathon</option>
-            <option value="HALF_MARATHON">Half marathon</option>
+            <option value="ROAD">{t("Road race")}</option>
+            <option value="TRAIL">{t("Trail")}</option>
+            <option value="ULTRA_TRAIL">{t("Ultra trail")}</option>
+            <option value="MARATHON">{t("Marathon")}</option>
+            <option value="HALF_MARATHON">{t("Half marathon")}</option>
             <option value="TEN_K">10K</option>
             <option value="FIVE_K">5K</option>
-            <option value="KIDS">Kids</option>
-            <option value="CHARITY">Charity</option>
-            <option value="OTHER">Other</option>
+            <option value="KIDS">{t("Kids race")}</option>
+            <option value="CHARITY">{t("Charity race")}</option>
+            <option value="OTHER">{t("Other")}</option>
           </select>
         </label>
-        <Field label="Distance KM" name="distanceKm" type="number" step="0.1" defaultValue={category?.distanceKm?.toString() ?? ""} />
-        <Field label="Price DZD" name="priceDzd" type="number" defaultValue={category?.priceDzd?.toString() ?? ""} required={false} />
-        <Field label="Capacity" name="maxParticipants" type="number" defaultValue={category?.maxParticipants?.toString() ?? ""} required={false} />
+        <Field label={t("Distance KM")} name="distanceKm" type="number" step="0.1" defaultValue={category?.distanceKm?.toString() ?? ""} />
+        <Field label={t("Price DZD")} name="priceDzd" type="number" defaultValue={category?.priceDzd?.toString() ?? ""} required={false} />
+        <Field label={t("Capacity")} name="maxParticipants" type="number" defaultValue={category?.maxParticipants?.toString() ?? ""} required={false} />
         <Field
-          label="Start time"
+          label={t("Start time")}
           name="startTime"
           type="datetime-local"
           defaultValue={category?.startTime ? toDateTimeLocal(category.startTime) : ""}
@@ -61,7 +63,7 @@ export function CategoryForm({ raceId, category }: { raceId: string; category?: 
       {state.success ? <Message tone="success" message={state.success} /> : null}
       <Button type="submit" variant={isNew ? "secondary" : "outline"} size="sm" disabled={pending} className="justify-self-start">
         {isNew ? <Plus className="size-4" aria-hidden={true} /> : null}
-        {pending ? "Saving..." : isNew ? "Add category" : "Save category"}
+        {pending ? t("Saving...") : isNew ? t("Add category") : t("Save category")}
       </Button>
     </form>
   );

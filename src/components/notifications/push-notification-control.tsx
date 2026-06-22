@@ -304,7 +304,7 @@ function registerForegroundMessageHandler(messaging: FirebaseMessagingClient) {
 
     new Notification(title, {
       body,
-      icon: "/racedz-logo.png",
+      icon: "/icon-192.png",
       data: {
         href: payload.data?.href || "/"
       }

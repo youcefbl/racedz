@@ -28,6 +28,8 @@ export async function updateOrganizerRaceAction(
       input: {
         title: getString(formData, "title"),
         description: getString(formData, "description"),
+        elevationGainText: getOptionalString(formData, "elevationGainText"),
+        conditions: getOptionalString(formData, "conditions"),
         raceType: getString(formData, "raceType"),
         startDate: getString(formData, "startDate"),
         registrationCloseAt: getOptionalString(formData, "registrationCloseAt"),
@@ -38,6 +40,7 @@ export async function updateOrganizerRaceAction(
         contactEmail: getOptionalString(formData, "contactEmail"),
         contactPhone: getOptionalString(formData, "contactPhone"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),
+        autoCancelUnpaidAfterHours: getAutoCancelUnpaidAfterHours(formData),
         mainImageUrl: getOptionalString(formData, "mainImageUrl")
       }
     });
@@ -99,6 +102,10 @@ function getOptionalString(formData: FormData, key: string) {
   const value = getString(formData, key);
 
   return value || undefined;
+}
+
+function getAutoCancelUnpaidAfterHours(formData: FormData) {
+  return formData.get("autoCancelUnpaidAfterHours") === "48" ? "48" : undefined;
 }
 
 function revalidateOrganizerRace(raceId: string) {

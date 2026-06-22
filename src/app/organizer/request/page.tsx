@@ -5,25 +5,30 @@ import { ButtonLink } from "@/components/ui/button";
 import { getPrisma } from "@/lib/db";
 import { getUserOrganizationSummary } from "@/lib/organizations";
 import { OrganizationRequestForm } from "./request-form";
+import { getLocale, withLocale } from "@/lib/i18n";
+import { translateOrganizer } from "@/lib/organizer-i18n";
 
 export const dynamic = "force-dynamic";
 
 type OrganizerRequestPageProps = {
   searchParams?: Promise<{
     submitted?: string;
+    lang?: string;
   }>;
 };
 
 export default async function OrganizerRequestPage({ searchParams }: OrganizerRequestPageProps) {
   const session = await auth();
   const params = await searchParams;
+  const locale = getLocale(params?.lang);
+  const t = (text: string) => translateOrganizer(locale, text);
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/organizer/request");
   }
 
   if (session.user.role === "ORGANIZER" || session.user.role === "ADMIN" || session.user.role === "SUPERADMIN") {
-    redirect("/organizer");
+    redirect(withLocale("/organizer", locale));
   }
 
   const [user, membership] = await Promise.all([
@@ -54,8 +59,8 @@ export default async function OrganizerRequestPage({ searchParams }: OrganizerRe
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
         <section className="space-y-6">
           <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Organizer access</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950 sm:text-4xl">Request an organization account</h1>
+            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer access")}</p>
+            <h1 className="mt-2 text-3xl font-black text-gray-950 sm:text-4xl">{t("Request an organization account")}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600">
               Tell us who organizes the races. Once approved, your organization owner can create events and manage
               participant lists from the organizer dashboard.
@@ -83,8 +88,8 @@ export default async function OrganizerRequestPage({ searchParams }: OrganizerRe
               icon="success"
               title={`${organization.name} is approved`}
               description="Your organization is ready. Open the organizer dashboard to create and manage events."
-              actionHref="/organizer"
-              actionLabel="Open organizer dashboard"
+              actionHref={withLocale("/organizer", locale)}
+              actionLabel={t("Open organizer dashboard")}
             />
           ) : null}
 
@@ -100,11 +105,11 @@ export default async function OrganizerRequestPage({ searchParams }: OrganizerRe
         </section>
 
         <aside className="h-fit rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black text-gray-950">What approval unlocks</h2>
+          <h2 className="text-xl font-black text-gray-950">{t("What approval unlocks")}</h2>
           <div className="mt-4 grid gap-4 text-sm text-gray-600">
-            <p className="rounded-lg bg-teal-50 p-3 font-semibold text-brand-teal">Create races for admin review.</p>
-            <p className="rounded-lg bg-orange-50 p-3 font-semibold text-brand-orangeDark">Invite organization admins later.</p>
-            <p className="rounded-lg bg-gray-50 p-3 font-semibold text-gray-700">Manage participant lists and CSV exports.</p>
+            <p className="rounded-lg bg-teal-50 p-3 font-semibold text-brand-teal">{t("Create races for admin review.")}</p>
+            <p className="rounded-lg bg-orange-50 p-3 font-semibold text-brand-orangeDark">{t("Invite organization admins later.")}</p>
+            <p className="rounded-lg bg-gray-50 p-3 font-semibold text-gray-700">{t("Manage participant lists and CSV exports.")}</p>
           </div>
         </aside>
       </div>

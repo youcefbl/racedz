@@ -6,14 +6,19 @@ import { getRaceAnnouncements } from "@/lib/announcements";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaceById, requireApprovedOrganizer } from "@/lib/organizer";
 import { createOrganizerAnnouncementAction, updateRegistrationStatusAction } from "./actions";
+import { getLocale, withLocale } from "@/lib/i18n";
+import { translateOrganizer, translateOrganizerEnum } from "@/lib/organizer-i18n";
 
 export const dynamic = "force-dynamic";
 
 type OrganizerEventPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ lang?: string }>;
 };
 
-export default async function OrganizerEventPage({ params }: OrganizerEventPageProps) {
+export default async function OrganizerEventPage({ params, searchParams }: OrganizerEventPageProps) {
+  const locale = getLocale((await searchParams)?.lang);
+  const t = (text: string) => translateOrganizer(locale, text);
   const { id } = await params;
   const { organization } = await requireApprovedOrganizer();
   const race = await getOrganizerRaceById(organization.id, id);
@@ -40,21 +45,21 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Organizer event</p>
+            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer event")}</p>
             <h1 className="mt-2 text-3xl font-black text-gray-950">{race.title}</h1>
             <div className="mt-3 flex flex-wrap gap-2">
               <Badge variant={race.status === "PUBLISHED" ? "green" : race.status === "REJECTED" ? "red" : "orange"}>
-                {formatEnumLabel(race.status)}
+                {translateOrganizerEnum(locale, race.status)}
               </Badge>
-              <Badge variant="blue">{formatEnumLabel(race.registrationStatus)}</Badge>
+              <Badge variant="blue">{translateOrganizerEnum(locale, race.registrationStatus)}</Badge>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <ButtonLink href={`/organizer/events/${race.id}/registrations`} variant="secondary">
-              Registrations
+            <ButtonLink href={withLocale(`/organizer/events/${race.id}/registrations`, locale)} variant="secondary">
+              {t("Registrations")}
             </ButtonLink>
-            <ButtonLink href={`/organizer/events/${race.id}/edit`} variant="outline">
-              Edit
+            <ButtonLink href={withLocale(`/organizer/events/${race.id}/edit`, locale)} variant="outline">
+              {t("Edit event")}
             </ButtonLink>
           </div>
         </div>
@@ -62,8 +67,10 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <section className="space-y-5">
             <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-black text-gray-950">Overview</h2>
+              <h2 className="text-xl font-black text-gray-950">{t("Overview")}</h2>
               <p className="mt-3 text-sm leading-6 text-gray-600">{race.description}</p>
+              {race.elevationGainText ? <p className="mt-2 text-sm font-semibold text-gray-700">{t("Elevation gain")}: {race.elevationGainText}</p> : null}
+              {race.conditions ? <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600"><strong>{t("Conditions")}:</strong> {race.conditions}</p> : null}
               <div className="mt-5 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
                 <p className="flex items-center gap-2">
                   <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
@@ -75,20 +82,20 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                 </p>
                 <p className="flex items-center gap-2">
                   <UsersRound className="size-4 text-brand-teal" aria-hidden="true" />
-                  {race._count.registrations} registrations
+                  {race._count.registrations} {t("Registrations")}
                 </p>
               </div>
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-black text-gray-950">Categories</h2>
+              <h2 className="text-xl font-black text-gray-950">{t("Categories")}</h2>
               <div className="mt-4 grid gap-3">
                 {race.categories.map((category) => (
                   <div key={category.id} className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4">
                     <div>
                       <p className="font-bold text-gray-950">{category.name}</p>
                       <p className="text-sm text-gray-500">
-                        {formatEnumLabel(category.raceType ?? race.raceType)} · {category.distanceKm}K
+                        {translateOrganizerEnum(locale, category.raceType ?? race.raceType)} · {category.distanceKm}K
                         {category.maxParticipants ? ` · ${category.maxParticipants} places` : ""}
                       </p>
                     </div>
@@ -101,12 +108,12 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
             <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
                 <Megaphone className="size-5 text-brand-orange" aria-hidden="true" />
-                <h2 className="text-xl font-black text-gray-950">Announcements</h2>
+                <h2 className="text-xl font-black text-gray-950">{t("Announcements")}</h2>
               </div>
               <form action={createOrganizerAnnouncementAction} className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <input type="hidden" name="raceId" value={race.id} />
                 <label className="grid gap-1 text-sm font-semibold text-gray-700">
-                  Title
+                  {t("Title")}
                   <input
                     name="title"
                     required
@@ -116,7 +123,7 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                   />
                 </label>
                 <label className="grid gap-1 text-sm font-semibold text-gray-700">
-                  Message
+                  {t("Message")}
                   <textarea
                     name="body"
                     required
@@ -127,7 +134,7 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                   />
                 </label>
                 <Button type="submit" variant="secondary" size="sm" className="w-fit">
-                  Publish announcement
+                  {t("Publish announcement")}
                 </Button>
               </form>
               <div className="mt-4 grid gap-3">
@@ -140,7 +147,7 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                     </article>
                   ))
                 ) : (
-                  <p className="rounded-lg bg-gray-50 p-3 text-sm font-semibold text-gray-600">No announcements yet.</p>
+                  <p className="rounded-lg bg-gray-50 p-3 text-sm font-semibold text-gray-600">{t("No announcements yet.")}</p>
                 )}
               </div>
             </div>
@@ -148,9 +155,9 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
 
           <aside className="h-fit rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <Route className="mb-3 size-5 text-brand-orange" aria-hidden="true" />
-            <h2 className="text-xl font-black text-gray-950">Publication</h2>
+            <h2 className="text-xl font-black text-gray-950">{t("Publication")}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Organization-created races stay hidden from public pages until an admin publishes them.
+              {t("Organization-created races stay hidden from public pages until an admin publishes them.")}
             </p>
             {race.status === "PUBLISHED" ? (
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
@@ -158,39 +165,39 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="OPEN" />
                   <Button type="submit" size="sm" className="w-full" disabled={race.registrationStatus === "OPEN" || Boolean(openBlockReason)}>
-                    Open registration
+                    {t("Open registration")}
                   </Button>
                 </form>
                 <form action={updateRegistrationStatusAction}>
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="CLOSED" />
                   <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "CLOSED"}>
-                    Close registration
+                    {t("Close registration")}
                   </Button>
                 </form>
                 <form action={updateRegistrationStatusAction}>
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="FULL" />
                   <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "FULL"}>
-                    Mark full
+                    {t("Mark full")}
                   </Button>
                 </form>
                 <form action={updateRegistrationStatusAction}>
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="CANCELLED" />
                   <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "CANCELLED"}>
-                    Cancel registration
+                    {t("Cancel registration")}
                   </Button>
                 </form>
                 {openBlockReason ? (
                   <p className="rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700 sm:col-span-2 lg:col-span-1">
-                    {openBlockReason}
+                    {t(openBlockReason)}
                   </p>
                 ) : null}
               </div>
             ) : (
               <p className="mt-4 rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">
-                Registration controls unlock after publication.
+                {t("Registration controls unlock after publication.")}
               </p>
             )}
           </aside>
@@ -198,12 +205,4 @@ export default async function OrganizerEventPage({ params }: OrganizerEventPageP
       </div>
     </div>
   );
-}
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

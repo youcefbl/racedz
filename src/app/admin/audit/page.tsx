@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime } from "@/lib/format";
-import { getAdminAuditLogs, requireAdmin } from "@/lib/admin";
+import { ADMIN_AUDIT_RETENTION_DAYS, getAdminAuditLogs, requireAdmin } from "@/lib/admin";
 import { parsePagination } from "@/lib/pagination";
 import { AdminShell, EmptyState, SelectFilter } from "../_components/admin-ui";
 
@@ -33,6 +33,9 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
 
   return (
     <AdminShell title="Audit log" description="Review recent admin and superadmin actions across approvals, race edits, and role changes.">
+      <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
+        Audit entries are retained for {ADMIN_AUDIT_RETENTION_DAYS} days during the MVP period.
+      </div>
       <form action="/admin/audit" className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_auto]">
         <label className="relative">
           <span className="sr-only">Filter by actor</span>

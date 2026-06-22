@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useOrganizerTranslation } from "@/hooks/use-organizer-translation";
 import {
   resendInvitationAction,
   revokeInvitationAction,
@@ -19,6 +20,7 @@ type InvitationControlsProps = {
 };
 
 export function InvitationControls({ invitationId, canManage }: InvitationControlsProps) {
+  const { t } = useOrganizerTranslation();
   const [resendState, resendAction, resendPending] = useActionState(resendInvitationAction, resendInitialState);
   const [revokeState, revokeAction, revokePending] = useActionState(revokeInvitationAction, revokeInitialState);
   const error = resendState.error ?? revokeState.error;
@@ -35,7 +37,7 @@ export function InvitationControls({ invitationId, canManage }: InvitationContro
           <input type="hidden" name="invitationId" value={invitationId} />
           <Button type="submit" variant="outline" size="sm" disabled={resendPending || revokePending}>
             <RotateCcw className="size-4" aria-hidden={true} />
-            {resendPending ? "Resending..." : "Resend"}
+            {resendPending ? t("Resending...") : t("Resend")}
           </Button>
         </form>
         <form action={revokeAction}>
@@ -48,7 +50,7 @@ export function InvitationControls({ invitationId, canManage }: InvitationContro
             className="text-red-700 hover:bg-red-50 hover:text-red-800"
           >
             <XCircle className="size-4" aria-hidden={true} />
-            {revokePending ? "Revoking..." : "Revoke"}
+            {revokePending ? t("Revoking...") : t("Revoke")}
           </Button>
         </form>
       </div>
