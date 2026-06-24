@@ -302,17 +302,47 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 9px 0 7px;
+  gap: 4px;
+  padding: 8px 0 6px;
   font-size: 11px;
   font-weight: 800;
   color: var(--text-muted);
   text-decoration: none;
   transition: color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Icon sits in a pill that fills in when the tab is active — the standard app cue. */
+.native-app .mobile-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  transition: background-color 0.18s ease, transform 0.12s ease;
 }
 
 .native-app .mobile-tab-active {
   color: var(--primary);
+}
+
+.native-app .mobile-tab-active .mobile-tab-icon {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+/* Press feedback on the icon pill. */
+.native-app .mobile-tab:active .mobile-tab-icon {
+  transform: scale(0.88);
+}
+
+/* Native apps don't float a tab bar over the keyboard. */
+.native-app.keyboard-open .mobile-tab-bar {
+  display: none;
+}
+
+.native-app.keyboard-open main {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Slim app-style top bar: drop the decorative stripe, lock to a compact title-bar height,
@@ -343,6 +373,16 @@ a {
   display: none;
 }
 
+/* Marketing flourishes that don't belong inside the app:
+   opt-out blocks tagged `rz-hide-native`, plus the drifting decorative chevrons. */
+.native-app .rz-hide-native {
+  display: none !important;
+}
+
+.native-app .rz-chevrons-drift {
+  display: none;
+}
+
 /* De-web the feel: no tap flash, no overscroll bounce/glow, no long-press callout/selection. */
 .native-app {
   -webkit-tap-highlight-color: transparent;
@@ -365,6 +405,157 @@ a {
 .native-app [contenteditable="true"] {
   user-select: text;
   -webkit-user-select: text;
+}
+
+/* Tactile press feedback: tappable controls dip slightly while held, like a native button.
+   Scoped to no-reduced-motion and excludes the tab bar (it has its own icon-pill press). */
+@media (prefers-reduced-motion: no-preference) {
+  .native-app button,
+  .native-app a,
+  .native-app [role="button"] {
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+
+  .native-app button:active,
+  .native-app a:active,
+  .native-app [role="button"]:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+
+  .native-app .mobile-tab:active {
+    transform: none;
+    opacity: 1;
+  }
+
+  /* Native-style route enter: content slides up a touch and fades in on each navigation.
+     Re-keyed per pathname by <NativeTransition>; no effect on the website. */
+  .native-app .rz-page {
+    animation: rz-page-enter 0.26s ease-out both;
+  }
+
+  @keyframes rz-page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ---- Pull-to-refresh indicator (native only; hidden + inert on the website) ---- */
+.rz-ptr {
+  display: none;
+}
+
+.native-app .rz-ptr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 50%;
+  transform: translate(-50%, 0);
+  opacity: 0;
+  z-index: 60;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.native-app .rz-ptr-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2.5px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-top-color: var(--primary);
+}
+
+.native-app .rz-ptr.rz-ptr-spin .rz-ptr-ring {
+  animation: rz-ptr-rotate 0.7s linear infinite;
+}
+
+@keyframes rz-ptr-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Header popovers → bottom sheets on native ---- */
+/* On the website these stay as dropdowns. Inside the app, the `.rz-pop` panel docks to the
+   bottom edge as a sheet (with a drag-handle and scrim), the standard mobile pattern. */
+.rz-pop-scrim {
+  display: none;
+}
+
+.native-app .rz-pop-scrim {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  background: rgba(0, 0, 0, 0.45);
+  animation: rz-fade-in 0.2s ease both;
+}
+
+.native-app .rz-pop {
+  position: fixed !important;
+  inset-inline: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  width: auto !important;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 20px 20px 0 0 !important;
+  border-bottom: 0 !important;
+  padding-top: 20px !important;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom)) !important;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.22) !important;
+  animation: rz-sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Grab-handle bar at the top of the sheet. */
+.native-app .rz-pop::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+/* Roomier tap targets inside the sheet. */
+.native-app .rz-pop [role="menuitem"],
+.native-app .rz-pop [role="menuitemradio"] {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 15px;
+}
+
+@keyframes rz-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes rz-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ---- Brand motion (chevrons + hero entrances) ---- */

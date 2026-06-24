@@ -1,18 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { markNotificationRead } from "@/lib/notifications";
+import { markAllNotificationsRead, markNotificationRead } from "@/lib/notifications";
 
-export async function markNotificationReadAction(formData: FormData) {
+export async function markNotificationReadAction(notificationId: string) {
   const session = await auth();
 
   if (!session?.user?.id) {
-    redirect("/login?callbackUrl=/account/notifications");
+    throw new Error("Not authenticated.");
   }
-
-  const notificationId = formData.get("notificationId");
 
   if (typeof notificationId !== "string" || notificationId.length === 0) {
     throw new Error("Missing notification id.");
@@ -20,4 +17,17 @@ export async function markNotificationReadAction(formData: FormData) {
 
   await markNotificationRead(session.user.id, notificationId);
   revalidatePath("/account/notifications");
+  revalidatePath("/");
+}
+
+export async function markAllNotificationsReadAction() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Not authenticated.");
+  }
+
+  await markAllNotificationsRead(session.user.id);
+  revalidatePath("/account/notifications");
+  revalidatePath("/");
 }

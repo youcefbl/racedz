@@ -177,16 +177,16 @@ export const dictionaries = {
         intro: "RaceDZ collects only the information needed to help you discover and register for races.",
         dataTitle: "What we collect",
         dataText:
-          "We store account details, profile information, race registrations, and any documents required by organizers. Organizer accounts also store contact and organization details.",
+          "We store account details, profile information, race registrations, and any documents required by organizers. If you use the AI coach, we also store the training and health details you choose to provide (goals, training history, injuries, ongoing health conditions, weight) and, if you record runs, your run metrics and GPS routes. Organizer accounts also store contact and organization details.",
         useTitle: "How we use your data",
         useText:
-          "Your data is used to manage registrations, share race information, and provide organizer tools. We do not sell personal data to third parties.",
+          "Your data is used to manage registrations, share race information, provide organizer tools, and personalize your AI coach. The AI coach offers training guidance only and is not medical advice. Runs are private by default and only appear on public leaderboards if you explicitly choose to share them. We do not sell personal data to third parties.",
         securityTitle: "Security",
         securityText:
           "We use industry-standard practices to protect your account and data. Passwords are hashed and access to admin tools is restricted.",
         rightsTitle: "Your rights",
         rightsText:
-          "You can update or delete your profile from your account settings. For other data questions, contact us at hello@racedz.dz."
+          "You can update or delete your profile, and turn run sharing on or off, from your account. To request deletion of your coaching and run data, contact us at hello@racedz.dz."
       },
       footerTagline: "Find, register, and manage races across Algeria."
     },
@@ -375,16 +375,16 @@ export const dictionaries = {
         intro: "RaceDZ collecte uniquement les informations necessaires pour vous aider a decouvrir et vous inscrire aux courses.",
         dataTitle: "Ce que nous collectons",
         dataText:
-          "Nous stockons les details du compte, les informations de profil, les inscriptions aux courses et les documents requis par les organisateurs. Les comptes organisateurs stockent egalement les coordonnees et details de l organisation.",
+          "Nous stockons les details du compte, les informations de profil, les inscriptions aux courses et les documents requis par les organisateurs. Si vous utilisez le coach IA, nous stockons aussi les informations d'entrainement et de sante que vous choisissez de fournir (objectifs, historique, blessures, problemes de sante persistants, poids) et, si vous enregistrez des sorties, vos mesures et trajets GPS. Les comptes organisateurs stockent egalement les coordonnees et details de l'organisation.",
         useTitle: "Comment nous utilisons vos donnees",
         useText:
-          "Vos donnees sont utilisees pour gerer les inscriptions, partager les informations de course et fournir les outils organisateurs. Nous ne vendons pas de donnees personnelles a des tiers.",
+          "Vos donnees servent a gerer les inscriptions, partager les informations de course, fournir les outils organisateurs et personnaliser votre coach IA. Le coach IA fournit des conseils d'entrainement uniquement et ne constitue pas un avis medical. Les sorties sont privees par defaut et n'apparaissent dans les classements publics que si vous choisissez de les partager. Nous ne vendons pas de donnees personnelles a des tiers.",
         securityTitle: "Securite",
         securityText:
           "Nous utilisons des pratiques standard pour proteger votre compte et vos donnees. Les mots de passe sont hashes et l acces aux outils admin est restreint.",
         rightsTitle: "Vos droits",
         rightsText:
-          "Vous pouvez mettre a jour ou supprimer votre profil depuis les parametres de votre compte. Pour d autres questions, contactez-nous a hello@racedz.dz."
+          "Vous pouvez mettre a jour ou supprimer votre profil, et activer ou desactiver le partage des sorties, depuis votre compte. Pour demander la suppression de vos donnees de coaching et de sorties, contactez-nous a hello@racedz.dz."
       },
       footerTagline: "Trouvez, inscrivez-vous et gerez des courses en Algerie."
     },
@@ -573,16 +573,16 @@ export const dictionaries = {
         intro: "تجمع RaceDZ فقط المعلومات اللازمة لمساعدتك في اكتشاف السباقات والتسجيل فيها.",
         dataTitle: "ما نجمعه",
         dataText:
-          "نخزن تفاصيل الحساب، ومعلومات الملف الشخصي، وتسجيلات السباقات، وأي مستندات يطلبها المنظمون. تخزن حسابات المنظمين أيضًا بيانات الاتصال وتفاصيل المنظمة.",
+          "نخزن تفاصيل الحساب، ومعلومات الملف الشخصي، وتسجيلات السباقات، وأي مستندات يطلبها المنظمون. إذا استخدمت المدرب الذكي، نخزن أيضًا معلومات التدريب والصحة التي تختار تقديمها (الأهداف، تاريخ التدريب، الإصابات، الحالات الصحية المزمنة، الوزن)، وإذا سجّلت جريات، مقاييسك ومسارات GPS. تخزن حسابات المنظمين أيضًا بيانات الاتصال وتفاصيل المنظمة.",
         useTitle: "كيف نستخدم بياناتك",
         useText:
-          "تُستخدم بياناتك لإدارة التسجيلات، ومشاركة معلومات السباق، وتوفير أدوات المنظمين. لا نبيع البيانات الشخصية لأطراف ثالثة.",
+          "تُستخدم بياناتك لإدارة التسجيلات، ومشاركة معلومات السباق، وتوفير أدوات المنظمين، وتخصيص مدربك الذكي. يقدّم المدرب الذكي إرشادات تدريبية فقط وليس نصيحة طبية. الجريات خاصة افتراضيًا ولا تظهر في التصنيفات العامة إلا إذا اخترت مشاركتها. لا نبيع البيانات الشخصية لأطراف ثالثة.",
         securityTitle: "الأمان",
         securityText:
           "نستخدم ممارسات قياسية لحماية حسابك وبياناتك. كلمات المرور مُعمّاة ويقتصر الوصول إلى أدوات الإدارة على المصرح لهم.",
         rightsTitle: "حقوقك",
         rightsText:
-          "يمكنك تحديث أو حذف ملفك الشخصي من إعدادات حسابك. لأي استفسارات أخرى، تواصل معنا على hello@racedz.dz."
+          "يمكنك تحديث أو حذف ملفك الشخصي، وتفعيل أو إيقاف مشاركة الجريات، من حسابك. لطلب حذف بيانات التدريب والجريات، تواصل معنا على hello@racedz.dz."
       },
       footerTagline: "اكتشف وسجّل و أدر سباقات في الجزائر."
     },

@@ -38,6 +38,7 @@ export function NativeChrome() {
 
     let observer: MutationObserver | null = null;
     let removeBackButton: (() => void) | undefined;
+    let removeKeyboard: (() => void) | undefined;
 
     (async () => {
       try {
@@ -67,11 +68,24 @@ export function NativeChrome() {
       } catch {
         /* ignore */
       }
+      try {
+        const { Keyboard } = await import("@capacitor/keyboard");
+        // Hide the bottom tab bar while the keyboard is up (native apps don't float a tab bar over it).
+        const show = await Keyboard.addListener("keyboardWillShow", () => root.classList.add("keyboard-open"));
+        const hide = await Keyboard.addListener("keyboardWillHide", () => root.classList.remove("keyboard-open"));
+        removeKeyboard = () => {
+          void show.remove();
+          void hide.remove();
+        };
+      } catch {
+        /* keyboard plugin unavailable — fine */
+      }
     })();
 
     return () => {
       observer?.disconnect();
       removeBackButton?.();
+      removeKeyboard?.();
     };
   }, []);
 

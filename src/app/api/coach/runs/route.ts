@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
 import { createRunnerRun, getRunnerRuns } from "@/lib/coach/service";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -20,6 +21,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+
+  const ip = clientIp(request.headers);
+  if (ip) {
+    const limit = checkRateLimit(`coach-run:${ip}`, 30, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down.", code: "RATE_LIMITED" },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+      );
+    }
+  }
 
   try {
     const result = await createRunnerRun(session.user.id, await readCoachJson(request));

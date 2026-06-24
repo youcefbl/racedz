@@ -73,9 +73,10 @@ export function ThemeSwitcher() {
         <SelectedIcon className="size-[18px]" aria-hidden="true" />
       </button>
 
+      {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
         <div
-          className="absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft"
+          className="rz-pop absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft"
           role="menu"
         >
           {THEMES.map((item) => (

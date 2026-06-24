@@ -330,9 +330,10 @@ function NotificationDropdown({
         ) : null}
       </button>
 
+      {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
         <div
-          className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-soft"
+          className="rz-pop absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-soft"
           role="menu"
         >
           <div className="border-b border-[var(--border)] px-4 py-3">

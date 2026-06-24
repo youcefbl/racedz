@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NativeChrome } from "@/components/layout/native-chrome";
+import { NativeTransition } from "@/components/layout/native-transition";
+import { PullToRefresh } from "@/components/layout/pull-to-refresh";
 import { ServiceWorkerRegister } from "@/components/layout/service-worker-register";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -48,13 +50,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <SiteHeader />
         </Suspense>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <NativeTransition>{children}</NativeTransition>
+        </main>
         <Suspense fallback={null}>
           <SiteFooter />
         </Suspense>
         <Suspense fallback={null}>
           <NativeChrome />
         </Suspense>
+        <PullToRefresh />
         <ServiceWorkerRegister />
       </body>
     </html>

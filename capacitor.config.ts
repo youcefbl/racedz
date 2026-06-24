@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize } from "@capacitor/keyboard";
 
 // RaceDZ is a server-rendered Next.js app (server components, server actions, auth),
 // so the native shell loads the live web app in a webview instead of a static export.
@@ -18,6 +19,14 @@ const config: CapacitorConfig = {
   server: {
     url: serverUrl,
     cleartext: isCleartext
+  },
+  plugins: {
+    // Resize the webview body when the keyboard opens so focused inputs aren't covered,
+    // and keep the OS accessory bar so users can dismiss the keyboard.
+    Keyboard: {
+      resize: KeyboardResize.Body,
+      resizeOnFullScreen: true
+    }
   }
 };
 

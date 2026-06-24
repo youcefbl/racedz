@@ -85,8 +85,9 @@ export function AccountMenu({ user }: { user: HeaderUser }) {
         )}
       </button>
 
+      {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-72 rounded-lg border border-gray-200 bg-white p-2 shadow-soft" role="menu">
+        <div className="rz-pop absolute right-0 top-12 z-50 w-72 rounded-lg border border-gray-200 bg-white p-2 shadow-soft" role="menu">
           <div className="border-b border-gray-200 px-3 py-3">
             <p className="truncate text-sm font-black text-gray-950">{user.name}</p>
             <p className="truncate text-xs text-gray-500">{user.email}</p>

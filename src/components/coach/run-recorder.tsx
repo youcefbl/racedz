@@ -7,6 +7,7 @@ import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
+import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
 import type { CoachLocale, CoachRun, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -197,6 +198,7 @@ export function RunRecorder({
       setStatusBoth("tracking");
       stopTimer();
       timer.current = setInterval(tick, 1000);
+      tapHaptic("medium");
     } catch {
       setError(copy.gpsError);
     }
@@ -205,17 +207,20 @@ export function RunRecorder({
   function pause() {
     pauseStart.current = Date.now();
     setStatusBoth("paused");
+    tapHaptic("light");
   }
 
   function resume() {
     pausedAccum.current += Date.now() - pauseStart.current;
     lastMoveTs.current = Date.now();
     setStatusBoth("tracking");
+    tapHaptic("light");
   }
 
   async function finish() {
     await cleanup();
     setStatusBoth("finished");
+    tapHaptic("medium");
   }
 
   function discard() {
@@ -253,6 +258,7 @@ export function RunRecorder({
       });
       statusRef.current = "idle";
       setStatus("idle");
+      notifyHaptic("success");
       await onSaved(payload.data.run.id, false);
     } catch (caught) {
       const err = caught as Error & { code?: string };
@@ -264,8 +270,10 @@ export function RunRecorder({
         setSavedOffline(true);
         statusRef.current = "idle";
         setStatus("idle");
+        notifyHaptic("warning");
       } else {
         setError(err.message || "Unable to save run.");
+        notifyHaptic("error");
       }
     } finally {
       setSaving(false);

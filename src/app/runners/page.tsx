@@ -94,8 +94,8 @@ export default async function RunnersPage({ searchParams }: RunnersPageProps) {
         </div>
       </section>
 
-      {/* Mobile app showcase */}
-      <section className="border-t border-gray-200 bg-white">
+      {/* Mobile app showcase — redundant inside the native app (you're already in it). */}
+      <section className="rz-hide-native border-t border-gray-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1fr_auto] md:items-center lg:px-8">
           <div className="max-w-xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-brand-teal">

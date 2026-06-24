@@ -51,8 +51,9 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale?: Locale }) 
         <span>{LOCALE_LABELS[selectedLocale]}</span>
       </button>
 
+      {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft" role="menu">
+        <div className="rz-pop absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft" role="menu">
           {LOCALES.map((locale) => (
             <Link
               key={locale}

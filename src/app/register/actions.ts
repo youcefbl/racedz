@@ -1,9 +1,11 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getPrisma } from "@/lib/db";
 import { createEmailVerificationToken, sendAccountVerificationEmail } from "@/lib/email-verification";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { registerUserSchema } from "@/lib/validations";
 
 type RegisterFormValues = {
@@ -28,6 +30,11 @@ export async function registerAction(
     lastName: getString(formData, "lastName"),
     email: getString(formData, "email")
   };
+
+  const ip = clientIp(await headers());
+  if (ip && !checkRateLimit(`register:${ip}`, 5, 10 * 60_000).ok) {
+    return { error: "Too many signups from this network. Please try again later.", values };
+  }
   const parsed = registerUserSchema.safeParse({
     ...values,
     password: getString(formData, "password"),
