@@ -37,6 +37,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // User uploads live on a runtime volume served directly by Caddy at /uploads/*.
+  // Disable the Next image optimizer so <Image> loads those sources directly instead
+  // of proxying through /_next/image (which fetches from the app and would 404 on
+  // runtime-written files). Also lighter on CPU/RAM for a small VPS.
+  images: { unoptimized: true },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   }

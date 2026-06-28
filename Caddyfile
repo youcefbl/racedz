@@ -1,4 +1,17 @@
 zidrun.com, www.zidrun.com {
 	encode zstd gzip
-	reverse_proxy app:3003
+
+	# User uploads are written to a runtime volume by the app and served straight
+	# from disk here (next start won't serve runtime-written public/ files).
+	# handle_path strips the /uploads prefix, so /uploads/avatar/x.jpg maps to
+	# /srv/uploads/avatar/x.jpg.
+	handle_path /uploads/* {
+		root * /srv/uploads
+		file_server
+	}
+
+	# Everything else goes to the Next.js app.
+	handle {
+		reverse_proxy app:3003
+	}
 }

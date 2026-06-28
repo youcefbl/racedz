@@ -60,6 +60,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - racedz_caddy_data:/data
       - racedz_caddy_config:/config
+      # Same volume the app writes uploads to — Caddy serves /uploads/* directly
+      # (read-only) because `next start` doesn't serve runtime-written public files.
+      - racedz_uploads:/srv/uploads:ro
 
 volumes:
   racedz_postgres_data:
