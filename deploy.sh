@@ -30,8 +30,9 @@ RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_F
 echo "Applying database migrations..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm app npm run prisma:deploy
 
-echo "Starting ZidRun..."
-RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d app
+echo "Starting ZidRun (app + Caddy HTTPS proxy)..."
+RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
 
 echo "Deployment complete."
-echo "Check logs with: docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f app"
+echo "App logs:   docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f app"
+echo "TLS/Caddy:  docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f caddy"
