@@ -1,6 +1,6 @@
 import { getPrisma } from "@/lib/db";
 import { getRaceOptionalDetails } from "@/lib/race-optional-details";
-import { filterRaces, getRaceById as getMockRaceById, getRaceBySlug as getMockRaceBySlug, getUpcomingRaces as getMockUpcomingRaces, type RaceFilters } from "@/lib/races";
+import { filterRaces, getRaceById as getMockRaceById, getRaceBySlug as getMockRaceBySlug, getUpcomingRaces as getMockUpcomingRaces, sortRaceEvents, startOfToday, type RaceFilters } from "@/lib/races";
 import type { RaceAnnouncement, RaceCategory, RaceEvent } from "@/types/race";
 
 type PrismaRaceEvent = {
@@ -155,6 +155,18 @@ export async function findRaceEvents(filters: RaceFilters) {
                 distanceKm: Number(filters.distance)
               }
             }
+          : undefined,
+        // Upcoming-only: keep races that haven't finished yet — end date in the future,
+        // or (single-day events with no end date) a start date that isn't in the past.
+        AND: filters.upcoming
+          ? [
+              {
+                OR: [
+                  { endDate: { gte: startOfToday() } },
+                  { AND: [{ endDate: null }, { startDate: { gte: startOfToday() } }] }
+                ]
+              }
+            ]
           : undefined
       },
       include: raceInclude,
@@ -163,7 +175,7 @@ export async function findRaceEvents(filters: RaceFilters) {
       }
     })) as PrismaRaceEvent[];
 
-    return races.map(mapRaceEvent);
+    return sortRaceEvents(races.map(mapRaceEvent), filters.sort);
   } catch {
     return filterRaces(filters);
   }
@@ -189,7 +201,7 @@ function mapRaceEvent(race: PrismaRaceEvent): RaceEvent {
     address: race.address ?? undefined,
     organizer: {
       id: race.organization?.id ?? "platform",
-      name: race.organization?.name ?? race.organizerName ?? "RaceDZ",
+      name: race.organization?.name ?? race.organizerName ?? "ZidRun",
       slug: race.organization?.slug ?? "racedz",
       url: race.organizerUrl ?? undefined
     },

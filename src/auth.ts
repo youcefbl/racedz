@@ -285,7 +285,7 @@ function getOAuthNames(profile: unknown, fallbackName: string) {
   const parts = fallbackName.trim().split(/\s+/).filter(Boolean);
 
   return {
-    firstName: parts[0] ?? "RaceDZ",
+    firstName: parts[0] ?? "ZidRun",
     lastName: parts.slice(1).join(" ") || "Runner"
   };
 }

@@ -1,4 +1,4 @@
-# RaceDZ E2E Test Strategy
+# ZidRun E2E Test Strategy
 
 Use Playwright for browser-level tests once the signup, organizer, race creation, approval, and registration flows are stable enough to automate.
 

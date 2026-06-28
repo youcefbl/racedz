@@ -15,19 +15,19 @@
   --text-muted: #6b7280;
   --border: #e5e7eb;
   --border-strong: #d1d5db;
-  --primary: #0f766e;
-  --primary-strong: #115e59;
-  --primary-soft: #f0fdfa;
-  --accent: #f97316;
+  --primary: #15803d;
+  --primary-strong: #166534;
+  --primary-soft: #ecfdf3;
+  --accent: #f47a20;
   --accent-strong: #ea580c;
-  --accent-soft: #fff7ed;
+  --accent-soft: #fff3e9;
   --success: #16a34a;
   --success-soft: #f0fdf4;
   --danger: #dc2626;
   --danger-soft: #fef2f2;
   --info: #2563eb;
   --info-soft: #eff6ff;
-  --focus: #f97316;
+  --focus: #f47a20;
   --soft-shadow: 0 8px 30px rgba(17, 24, 39, 0.08);
 }
 
@@ -44,11 +44,11 @@
   --text-muted: #9ca3af;
   --border: #263244;
   --border-strong: #334155;
-  --primary: #2dd4bf;
-  --primary-strong: #14b8a6;
-  --primary-soft: #042f2e;
+  --primary: #4ade80;
+  --primary-strong: #22c55e;
+  --primary-soft: #052e16;
   --accent: #fb923c;
-  --accent-strong: #f97316;
+  --accent-strong: #f47a20;
   --accent-soft: #431407;
   --success: #22c55e;
   --success-soft: #052e16;
@@ -97,16 +97,41 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans), Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+/* Comfortable measure for long-form prose (race rules, descriptions, articles). */
+.prose-measure {
+  max-width: 70ch;
+  text-wrap: pretty;
+}
+
+/* One type family across the whole site (Manrope). Hierarchy comes from size,
+   spacing, and color — not extra fonts or heavy weights. Headings cap at 600. */
 h1,
 h2,
 h3,
+h4,
 .font-display {
-  font-family: Sora, Inter, ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0;
+  font-family: var(--font-sans), Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  text-wrap: balance;
+}
+h1 {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+h2 {
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+h3,
+h4 {
+  letter-spacing: -0.01em;
 }
 
 a {
@@ -205,8 +230,10 @@ a {
 
 [data-theme="dark"] .text-brand-orange,
 [data-theme="dark"] .text-brand-orangeDark,
+[data-theme="dark"] .text-brand-orangeText,
 [data-theme="race"] .text-brand-orange,
-[data-theme="race"] .text-brand-orangeDark {
+[data-theme="race"] .text-brand-orangeDark,
+[data-theme="race"] .text-brand-orangeText {
   color: var(--accent) !important;
 }
 
@@ -250,6 +277,15 @@ a {
   color: var(--info) !important;
 }
 
+/* Form controls default to the white surface in light mode. Without this, native
+   <select> falls back to the browser's gray "Field" background. The dark/race rules
+   below override with their own tokens; Tailwind bg-* utilities still win over this. */
+input,
+select,
+textarea {
+  background-color: var(--surface);
+}
+
 [data-theme="dark"] input,
 [data-theme="dark"] select,
 [data-theme="dark"] textarea,
@@ -280,13 +316,9 @@ a {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border)) !important;
 }
 
-/* ---- Native app shell (only active inside the Capacitor app via .native-app) ---- */
+/* ---- Bottom tab bar: shown inside the native app AND on mobile-web viewports ---- */
 .mobile-tab-bar {
   display: none;
-}
-
-.native-app .mobile-tab-bar {
-  display: grid;
   grid-template-columns: repeat(4, 1fr);
   position: fixed;
   inset-inline: 0;
@@ -298,7 +330,22 @@ a {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.native-app .mobile-tab {
+.native-app .mobile-tab-bar {
+  display: grid;
+}
+
+/* Mobile web (no native shell): show the bar for thumb-reach nav and keep
+   page content clear of the fixed bar. */
+@media (max-width: 767px) {
+  .mobile-tab-bar {
+    display: grid;
+  }
+  html:not(.native-app) body {
+    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
+  }
+}
+
+.mobile-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -313,7 +360,7 @@ a {
 }
 
 /* Icon sits in a pill that fills in when the tab is active — the standard app cue. */
-.native-app .mobile-tab-icon {
+.mobile-tab-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -323,11 +370,11 @@ a {
   transition: background-color 0.18s ease, transform 0.12s ease;
 }
 
-.native-app .mobile-tab-active {
+.mobile-tab-active {
   color: var(--primary);
 }
 
-.native-app .mobile-tab-active .mobile-tab-icon {
+.mobile-tab-active .mobile-tab-icon {
   background: color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
@@ -345,26 +392,91 @@ a {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Slim app-style top bar: drop the decorative stripe, lock to a compact title-bar height,
-   and hide the Find-a-Race CTA (the Races tab covers it). Nav lives in the bottom tabs. */
-.native-app .site-header-stripe {
+/* The website header is replaced by a purpose-built app bar in the native app. */
+.native-app .site-header {
   display: none;
 }
 
-.native-app .site-header-row {
-  height: 3.5rem;
+/* App-style top bar: only rendered inside the app (hidden on the website). */
+.native-header {
+  display: none;
 }
 
-.native-app .site-header-cta {
-  display: none !important;
-}
-
-/* Make room for the status bar (top) and tab bar (bottom). */
-.native-app header {
+.native-app .native-header {
+  display: block;
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
   padding-top: env(safe-area-inset-top);
 }
 
+.native-app .native-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 3.25rem;
+  padding-inline: 8px 14px;
+}
+
+.native-app .native-header-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.native-app .native-header-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-inline-start: 2px;
+  border-radius: 999px;
+  color: var(--primary);
+}
+
+/* The back chevron flips for RTL automatically via the icon; nudge tap target. */
+.native-app .native-header-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--text);
+}
+
+.native-app .native-header-badge {
+  position: absolute;
+  top: 2px;
+  inset-inline-end: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding-inline: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Make room for the fixed app bar (top) and tab bar (bottom). */
 .native-app main {
+  padding-top: calc(3.25rem + env(safe-area-inset-top));
   padding-bottom: calc(4rem + env(safe-area-inset-bottom));
 }
 
@@ -379,8 +491,38 @@ a {
   display: none !important;
 }
 
-.native-app .rz-chevrons-drift {
-  display: none;
+/* Brand watermark on the dark hero / velocity panels (see <PanelBrandMark>).
+   The blade colors are themed: --mark-1 (the green blade) and --mark-2 (the
+   orange blade) get a distinct pair per mode. */
+.rz-panel-mark {
+  opacity: 0.6;
+  --mark-1: #8bc53f; /* light: real brand green */
+  --mark-2: #f47a20; /* light: real brand orange */
+}
+/* Light-surface variant: the bold dark-panel treatment is too loud on the
+   light auth heroes, so soften the ceiling to read as background texture. */
+.rz-panel-mark.rz-mark-soft {
+  opacity: 0.2;
+}
+[data-theme="dark"] .rz-panel-mark {
+  --mark-1: #4ade80; /* brighter green for dark surfaces */
+  --mark-2: #fb923c; /* warm amber */
+}
+[data-theme="race"] .rz-panel-mark {
+  --mark-1: #39ff14; /* neon green */
+  --mark-2: #ff2bd6; /* neon magenta */
+}
+.rz-panel-mark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* Recolor the two blade paths (override the SVG's hard-coded fills). */
+.rz-panel-mark svg path:nth-child(1) {
+  fill: var(--mark-1) !important;
+}
+.rz-panel-mark svg path:nth-child(2) {
+  fill: var(--mark-2) !important;
 }
 
 /* De-web the feel: no tap flash, no overscroll bounce/glow, no long-press callout/selection. */
@@ -402,9 +544,12 @@ a {
 .native-app input,
 .native-app textarea,
 .native-app select,
-.native-app [contenteditable="true"] {
+.native-app [contenteditable="true"],
+.native-app .rz-selectable,
+.native-app .rz-selectable * {
   user-select: text;
   -webkit-user-select: text;
+  -webkit-touch-callout: default;
 }
 
 /* Tactile press feedback: tappable controls dip slightly while held, like a native button.
@@ -456,7 +601,7 @@ a {
   align-items: center;
   justify-content: center;
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 8px);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 6px);
   left: 50%;
   transform: translate(-50%, 0);
   opacity: 0;
@@ -540,6 +685,15 @@ a {
   font-size: 15px;
 }
 
+/* On any touch device (incl. mobile web, not just the native app), dropdown rows
+   meet the 44px touch-target floor. Pointer/mouse keeps the compact density. */
+@media (pointer: coarse) {
+  .rz-pop [role="menuitem"],
+  .rz-pop [role="menuitemradio"] {
+    min-height: 44px;
+  }
+}
+
 @keyframes rz-sheet-up {
   from {
     transform: translateY(100%);
@@ -558,22 +712,40 @@ a {
   }
 }
 
-/* ---- Brand motion (chevrons + hero entrances) ---- */
-@media (prefers-reduced-motion: no-preference) {
-  /* Logo / foreground chevrons: brighten in sequence left -> right (forward flow). */
-  .rz-chevrons > path {
-    animation: rz-chevron 1.9s ease-in-out infinite;
+/* The two Z blades pull apart along the diagonal, then drift back together.
+   Units are SVG user-space (the mark's viewBox is ~924 wide), so these are
+   subtle. Translate-only, so transform-origin is irrelevant. */
+@keyframes rz-blade-top {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 1;
   }
-  .rz-chevrons > path:nth-child(2) {
-    animation-delay: 0.22s;
+  50% {
+    transform: translate(-24px, -32px);
+    opacity: 0.5;
   }
-  .rz-chevrons > path:nth-child(3) {
-    animation-delay: 0.44s;
+}
+@keyframes rz-blade-bottom {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 1;
   }
+  50% {
+    transform: translate(24px, 32px);
+    opacity: 0.5;
+  }
+}
 
-  /* Large faint backdrop chevrons: a slow gentle drift, no bright flashing. */
-  .rz-chevrons-drift {
-    animation: rz-drift 7s ease-in-out infinite;
+/* ---- Brand motion (watermark + hero entrances) ---- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Brand watermark: the two Z blades slowly breathe apart and back together. */
+  .rz-panel-mark svg path:nth-child(1) {
+    animation: rz-blade-top 9s ease-in-out infinite;
+  }
+  .rz-panel-mark svg path:nth-child(2) {
+    animation: rz-blade-bottom 9s ease-in-out infinite;
   }
 
   /* Subtle hero entrance. */
@@ -585,16 +757,6 @@ a {
   }
   .rz-fade-up-3 {
     animation: rz-fade-up 0.6s ease-out 0.2s both;
-  }
-}
-
-@keyframes rz-chevron {
-  0%,
-  100% {
-    opacity: var(--rz-o, 0.5);
-  }
-  45% {
-    opacity: 1;
   }
 }
 
@@ -618,3 +780,70 @@ a {
     transform: translateY(0);
   }
 }
+
+/* Race list entrance: cards fade + rise in a short, capped stagger. Gated to
+   no-preference so the default (and reduced-motion) state is fully visible. */
+@media (prefers-reduced-motion: no-preference) {
+  .rz-card-enter {
+    animation: rz-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  .rz-toast-in {
+    animation: rz-toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes rz-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== ZidRun brand logo ===== */
+.zid-logo {
+  color: var(--text-strong);
+  text-decoration: none;
+}
+.zid-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+.zid-logo-full svg {
+  display: block;
+  height: 2.75rem;
+  width: auto;
+}
+/* Roomier wordmark on larger (web) viewports — header has the height for it. */
+@media (min-width: 768px) {
+  .zid-logo-full svg {
+    height: 3rem;
+  }
+}
+.zid-logo-icon svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+[data-theme="race"] .zid-logo {
+  --zid-green: #39ff14;
+  --zid-orange: #ff7a1a;
+}
+[data-theme="race"] .zid-logo-mark svg {
+  filter: drop-shadow(0 0 5px rgba(57, 255, 20, 0.5)) drop-shadow(0 0 7px rgba(255, 43, 214, 0.3));
+}
+
+/* ===== Remap leftover Tailwind teal-* defaults to ZidRun green (light/base) =====
+   (dark & race themes already remap brand surfaces above) */
+.bg-teal-50 { background-color: var(--primary-soft) !important; }
+.ring-teal-100 { --tw-ring-color: #dcfce7 !important; }
+.border-teal-100 { border-color: #dcfce7 !important; }
+.border-teal-200 { border-color: #bbf7d0 !important; }
+.text-teal-700 { color: var(--primary) !important; }
+.text-teal-100 { color: #dcfce7 !important; }
+.text-teal-50 { color: #f0fdf4 !important; }

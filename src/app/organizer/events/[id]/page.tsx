@@ -44,10 +44,9 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
     <div className="bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer event")}</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950">{race.title}</h1>
-            <div className="mt-3 flex flex-wrap gap-2">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-black text-gray-950 break-words">{race.title}</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge variant={race.status === "PUBLISHED" ? "green" : race.status === "REJECTED" ? "red" : "orange"}>
                 {translateOrganizerEnum(locale, race.status)}
               </Badge>
@@ -55,11 +54,11 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <ButtonLink href={withLocale(`/organizer/events/${race.id}/registrations`, locale)} variant="secondary">
-              {t("Registrations")}
-            </ButtonLink>
-            <ButtonLink href={withLocale(`/organizer/events/${race.id}/edit`, locale)} variant="outline">
+            <ButtonLink href={withLocale(`/organizer/events/${race.id}/edit`, locale)}>
               {t("Edit event")}
+            </ButtonLink>
+            <ButtonLink href={withLocale(`/organizer/events/${race.id}/registrations`, locale)} variant="outline">
+              {t("Registrations")}
             </ButtonLink>
           </div>
         </div>
@@ -72,17 +71,17 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
               {race.elevationGainText ? <p className="mt-2 text-sm font-semibold text-gray-700">{t("Elevation gain")}: {race.elevationGainText}</p> : null}
               {race.conditions ? <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600"><strong>{t("Conditions")}:</strong> {race.conditions}</p> : null}
               <div className="mt-5 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
-                <p className="flex items-center gap-2">
-                  <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
-                  {formatDateTime(race.startDate)}
+                <p className="flex items-center gap-2 min-w-0">
+                  <CalendarDays className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                  <span className="break-words">{formatDateTime(race.startDate)}</span>
                 </p>
-                <p className="flex items-center gap-2">
-                  <MapPin className="size-4 text-brand-teal" aria-hidden="true" />
-                  {race.city}, {race.wilaya}
+                <p className="flex items-center gap-2 min-w-0">
+                  <MapPin className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                  <span className="break-words">{race.city}, {race.wilaya}</span>
                 </p>
-                <p className="flex items-center gap-2">
-                  <UsersRound className="size-4 text-brand-teal" aria-hidden="true" />
-                  {race._count.registrations} {t("Registrations")}
+                <p className="flex items-center gap-2 min-w-0">
+                  <UsersRound className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                  <span className="break-words">{race._count.registrations} {t("Registrations")}</span>
                 </p>
               </div>
             </div>
@@ -92,14 +91,14 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
               <div className="mt-4 grid gap-3">
                 {race.categories.map((category) => (
                   <div key={category.id} className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4">
-                    <div>
-                      <p className="font-bold text-gray-950">{category.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-950 break-words">{category.name}</p>
                       <p className="text-sm text-gray-500">
                         {translateOrganizerEnum(locale, category.raceType ?? race.raceType)} · {category.distanceKm}K
-                        {category.maxParticipants ? ` · ${category.maxParticipants} places` : ""}
+                        {category.maxParticipants ? ` · ${category.maxParticipants} ${t("places")}` : ""}
                       </p>
                     </div>
-                    <p className="font-bold text-gray-950">{formatDzd(category.priceDzd ?? undefined)}</p>
+                    <p className="shrink-0 font-semibold text-gray-950">{formatDzd(category.priceDzd ?? undefined)}</p>
                   </div>
                 ))}
               </div>
@@ -141,9 +140,9 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
                 {announcements.length > 0 ? (
                   announcements.map((announcement) => (
                     <article key={announcement.id} className="rounded-lg border border-gray-200 p-4">
-                      <p className="text-xs font-bold uppercase tracking-normal text-brand-teal">{formatDateTime(announcement.publishedAt)}</p>
-                      <h3 className="mt-2 font-black text-gray-950">{announcement.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-gray-600">{announcement.body}</p>
+                      <p className="text-xs font-semibold text-gray-500">{formatDateTime(announcement.publishedAt)}</p>
+                      <h3 className="mt-2 font-semibold text-gray-950 break-words">{announcement.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-gray-600 break-words">{announcement.body}</p>
                     </article>
                   ))
                 ) : (

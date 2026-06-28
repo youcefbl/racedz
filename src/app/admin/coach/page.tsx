@@ -1,4 +1,4 @@
-import { Activity, BadgeDollarSign, Bot, Coins, Sparkles, Users } from "lucide-react";
+import { Activity, BadgeDollarSign, Bot, BrainCircuit, Coins, Sparkles, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
@@ -48,7 +48,15 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
       <FilterBar action="/admin/coach" searchPlaceholder="Search runner name or email" defaultSearch={filters?.q} />
 
       {usage.items.length === 0 ? (
-        <EmptyState title="No coach activity yet" description="Runners who use the AI coach or have a subscription will appear here." />
+        <EmptyState
+          icon={BrainCircuit}
+          title={filters?.q ? "No runner found" : "No coach activity yet"}
+          description={
+            filters?.q
+              ? "No user matches that name or email. Check the spelling and try again."
+              : "Runners with coach activity or a subscription appear here. To activate a new runner who hasn't used the coach yet, search their name or email above."
+          }
+        />
       ) : (
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -75,13 +83,13 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
                     <td className="px-4 py-3">
                       <TierBadge tier={row.tier} />
                     </td>
-                    <td className="px-4 py-3 font-semibold text-gray-700">
+                    <td className="px-4 py-3 font-semibold tabular-nums text-gray-700">
                       {formatNumber(row.requests30d)} / {formatNumber(row.totalRequests)}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">
+                    <td className="px-4 py-3 tabular-nums text-gray-700">
                       {formatNumber(row.inputTokens)} / {formatNumber(row.outputTokens)}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-gray-700">{formatUsd(row.costMicroUsd)}</td>
+                    <td className="px-4 py-3 font-semibold tabular-nums text-gray-700">{formatUsd(row.costMicroUsd)}</td>
                     <td className="px-4 py-3 text-gray-600">{row.lastActivityAt ? formatDateTime(row.lastActivityAt) : "—"}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {row.subscriptionPlan ? (
@@ -97,7 +105,7 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
                     </td>
                     <td className="px-4 py-3">
                       <details className="group">
-                        <summary className="cursor-pointer list-none rounded-md border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-700 hover:border-brand-teal hover:text-brand-teal">
+                        <summary className="inline-flex cursor-pointer list-none items-center rounded-md border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:border-brand-teal hover:text-brand-teal pointer-coarse:py-2.5">
                           Manage
                         </summary>
                         <div className="mt-3 w-72 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">

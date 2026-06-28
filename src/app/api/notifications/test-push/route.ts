@@ -13,7 +13,7 @@ export async function POST() {
   const notification = await createNotification({
     userId: session.user.id,
     type: "TEST_PUSH",
-    title: "RaceDZ push test",
+    title: "ZidRun push test",
     body: "Browser push is connected for this account.",
     href: "/account/notification-settings",
     channels: ["IN_APP", "PUSH"]

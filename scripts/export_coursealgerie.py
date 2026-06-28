@@ -19,7 +19,7 @@ IMAGES_DIR = OUTPUT_DIR / "images"
 CSV_FILE = OUTPUT_DIR / "races.csv"
 
 HEADERS = {
-    "User-Agent": "RaceDZ data research crawler - contact: your-email@example.com"
+    "User-Agent": "ZidRun data research crawler - contact: your-email@example.com"
 }
 
 

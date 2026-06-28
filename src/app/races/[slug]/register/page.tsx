@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { getPrisma } from "@/lib/db";
 import { formatDateTime, formatDzd } from "@/lib/format";
+import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import { getRaceEventBySlug } from "@/lib/race-repository";
 import { EVENT_REGISTRATION_STATUS_LABELS } from "@/lib/races";
 import { RegistrationForm } from "./registration-form";
@@ -16,10 +17,13 @@ export const metadata: Metadata = {
 
 type RegisterPageProps = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ lang?: string }>;
 };
 
-export default async function RegisterPage({ params }: RegisterPageProps) {
+export default async function RegisterPage({ params, searchParams }: RegisterPageProps) {
   const { slug } = await params;
+  const locale = getLocale((await searchParams)?.lang);
+  const t = getDictionary(locale).registration;
   const race = await getRaceEventBySlug(slug);
 
   if (!race) {
@@ -68,14 +72,13 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
         <section className="space-y-6">
           <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">Registration</p>
+            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t.eyebrow}</p>
             <h1 className="mt-2 text-3xl font-black text-gray-950 sm:text-4xl">{race.title}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600">
-              Confirm your race distance and emergency contact. Your account profile will be refreshed with the
-              runner details you submit here.
+              {t.intro}
             </p>
           </div>
-          <RegistrationForm race={race} user={user} canRegister={canRegister} existingCategoryIds={existingCategoryIds} />
+          <RegistrationForm race={race} user={user} canRegister={canRegister} existingCategoryIds={existingCategoryIds} locale={locale} />
         </section>
 
         <aside className="h-fit space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -95,7 +98,7 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
               <div>
                 <p className="font-semibold text-gray-950">{formatDateTime(race.startDate)}</p>
                 {race.registrationCloseAt ? (
-                  <p className="text-gray-500">Closes {formatDateTime(race.registrationCloseAt)}</p>
+                  <p className="text-gray-500">{t.closes.replace("{date}", formatDateTime(race.registrationCloseAt))}</p>
                 ) : null}
               </div>
             </div>
@@ -112,12 +115,12 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
               <Route className="mt-0.5 size-4 text-brand-teal" aria-hidden="true" />
               <div>
                 <p className="font-semibold text-gray-950">{race.organizer.name}</p>
-                <p className="text-gray-500">Organizer</p>
+                <p className="text-gray-500">{t.organizer}</p>
               </div>
             </div>
           </div>
           <div className="space-y-2 border-t border-gray-200 pt-4">
-            <p className="text-sm font-bold text-gray-950">Distances</p>
+            <p className="text-sm font-bold text-gray-950">{t.distances}</p>
             {race.categories.map((category) => (
               <div
                 key={category.id}
@@ -131,8 +134,8 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
               </div>
             ))}
           </div>
-          <ButtonLink href={`/races/${race.slug}`} variant="outline" className="w-full">
-            View race details
+          <ButtonLink href={withLocale(`/races/${race.slug}`, locale)} variant="outline" className="w-full">
+            {t.viewRaceDetails}
           </ButtonLink>
         </aside>
       </div>

@@ -50,8 +50,8 @@ export async function startRunWatch(
 ): Promise<string> {
   return BackgroundGeolocation.addWatcher(
     {
-      backgroundMessage: "Recording your run. Tap to return to RaceDZ.",
-      backgroundTitle: "RaceDZ — run in progress",
+      backgroundMessage: "Recording your run. Tap to return to ZidRun.",
+      backgroundTitle: "ZidRun — run in progress",
       requestPermissions: true,
       stale: false,
       distanceFilter: 5

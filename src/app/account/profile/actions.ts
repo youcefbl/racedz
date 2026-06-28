@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { getDictionary, getLocale } from "@/lib/i18n";
 import { updateProfileSchema } from "@/lib/validations";
 
 export type ProfileActionState = {
@@ -17,6 +18,7 @@ export async function updateProfileAction(
   formData: FormData
 ): Promise<ProfileActionState> {
   const session = await auth();
+  const t = getDictionary(getLocale(formData.get("lang") as string | null)).profile;
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account/profile");
@@ -37,7 +39,7 @@ export async function updateProfileAction(
   });
 
   if (!parsed.success) {
-    return { error: "Check the required profile fields and try again." };
+    return { error: t.validationError };
   }
 
   try {
@@ -61,7 +63,7 @@ export async function updateProfileAction(
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "This ID number is already used by another account." };
+      return { error: t.idTaken };
     }
 
     throw error;
@@ -70,7 +72,7 @@ export async function updateProfileAction(
   revalidatePath("/account/profile");
   revalidatePath("/account");
 
-  return { success: "Profile settings saved." };
+  return { success: t.saveSuccess };
 }
 
 function getString(formData: FormData, key: string) {

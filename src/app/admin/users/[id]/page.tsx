@@ -25,7 +25,6 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
 
   return (
     <AdminShell
-      eyebrow="User profile"
       title={`${user.firstName} ${user.lastName}`}
       description={user.email}
       action={
@@ -50,11 +49,11 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                 <UserRound className="size-12" aria-hidden="true" />
               )}
             </div>
-            <div>
-              <h2 className="text-xl font-black text-gray-950">
+            <div className="min-w-0 max-w-full">
+              <h2 className="break-words text-xl font-black text-gray-950">
                 {user.firstName} {user.lastName}
               </h2>
-              {user.arabicFullName ? <p className="text-sm text-gray-500">{user.arabicFullName}</p> : null}
+              {user.arabicFullName ? <p className="break-words text-sm text-gray-500">{user.arabicFullName}</p> : null}
               <div className="mt-2 flex justify-center">
                 <StatusBadge value={user.role} />
               </div>
@@ -62,24 +61,24 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
           </div>
 
           <div className="mt-6 space-y-3 text-sm">
-            <p className="flex items-center gap-2 text-gray-600">
-              <Mail className="size-4 text-brand-teal" aria-hidden="true" />
-              {user.email}
+            <p className="flex items-start gap-2 text-gray-600">
+              <Mail className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+              <span className="min-w-0 break-words">{user.email}</span>
             </p>
             {user.phone ? (
-              <p className="flex items-center gap-2 text-gray-600">
-                <Phone className="size-4 text-brand-teal" aria-hidden="true" />
-                {user.phone}
+              <p className="flex items-start gap-2 text-gray-600">
+                <Phone className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+                <span className="min-w-0 break-words">{user.phone}</span>
               </p>
             ) : null}
-            <p className="flex items-center gap-2 text-gray-600">
-              <MapPin className="size-4 text-brand-teal" aria-hidden="true" />
-              {[user.city, user.wilaya].filter(Boolean).join(", ") || "Not set"}
+            <p className="flex items-start gap-2 text-gray-600">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+              <span className="min-w-0 break-words">{[user.city, user.wilaya].filter(Boolean).join(", ") || "Not set"}</span>
             </p>
             {user.dateOfBirth ? (
-              <p className="flex items-center gap-2 text-gray-600">
-                <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
-                Born {formatDate(user.dateOfBirth)}
+              <p className="flex items-start gap-2 text-gray-600">
+                <CalendarDays className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+                <span className="min-w-0 break-words">Born {formatDate(user.dateOfBirth)}</span>
               </p>
             ) : null}
           </div>
@@ -112,14 +111,14 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                     className="rounded-lg border border-gray-200 p-4 transition hover:border-brand-teal"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <Link
                           href={`/races/${registration.raceEvent.slug}`}
-                          className="font-bold text-gray-950 hover:text-brand-teal"
+                          className="break-words font-bold text-gray-950 hover:text-brand-teal"
                         >
                           {registration.raceEvent.title}
                         </Link>
-                        <p className="mt-1 text-sm text-gray-500">
+                        <p className="mt-1 break-words text-sm text-gray-500">
                           {registration.raceCategory.name} · {registration.raceCategory.distanceKm}K ·{" "}
                           {formatDzd(registration.raceCategory.priceDzd ?? undefined)}
                         </p>
@@ -127,7 +126,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                           Submitted {formatDateTime(registration.createdAt)}
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex shrink-0 flex-wrap gap-2">
                         <StatusBadge value={registration.status} />
                         <Badge variant={getPaymentVariant(registration.paymentStatus)}>
                           {registration.paymentStatus}
@@ -152,13 +151,13 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                 {user.organizations.map((membership) => (
                   <article
                     key={membership.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
+                    className="flex flex-col gap-3 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div>
-                      <p className="font-bold text-gray-950">{membership.organization.name}</p>
+                    <div className="min-w-0">
+                      <p className="break-words font-bold text-gray-950">{membership.organization.name}</p>
                       <p className="text-xs text-gray-500">Joined {formatDate(membership.createdAt)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <StatusBadge value={membership.role} />
                       <StatusBadge value={membership.organization.status} />
                     </div>

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
-import { withLocale, type Locale } from "@/lib/i18n";
+import { getDictionary, withLocale, type Locale } from "@/lib/i18n";
 
 export type PaginationProps = {
   basePath: string;
@@ -16,6 +16,7 @@ export function Pagination({ basePath, searchParams = {}, page, totalPages, loca
     return null;
   }
 
+  const t = getDictionary(locale).ui;
   const canGoBack = page > 1;
   const canGoForward = page < totalPages;
 
@@ -45,24 +46,24 @@ export function Pagination({ basePath, searchParams = {}, page, totalPages, loca
   };
 
   return (
-    <nav aria-label="Pagination" className="mt-4 flex flex-col items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row">
+    <nav aria-label={t.page} className="mt-4 flex flex-col items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row">
       <p className="text-sm text-gray-600">
-        Page <span className="font-semibold text-gray-950">{page}</span> of{" "}
+        {t.page} <span className="font-semibold text-gray-950">{page}</span> {t.pageOf}{" "}
         <span className="font-semibold text-gray-950">{totalPages}</span>
       </p>
       <div className="flex items-center gap-2">
-        <PageButton href={makeHref(1)} disabled={!canGoBack} ariaLabel="First page">
+        <PageButton href={makeHref(1)} disabled={!canGoBack} ariaLabel={t.firstPage}>
           <ChevronsLeft className="size-4" aria-hidden="true" />
         </PageButton>
-        <PageButton href={makeHref(page - 1)} disabled={!canGoBack} ariaLabel="Previous page">
+        <PageButton href={makeHref(page - 1)} disabled={!canGoBack} ariaLabel={t.previousPage}>
           <ChevronLeft className="size-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Previous</span>
+          <span className="hidden sm:inline">{t.previous}</span>
         </PageButton>
-        <PageButton href={makeHref(page + 1)} disabled={!canGoForward} ariaLabel="Next page">
-          <span className="hidden sm:inline">Next</span>
+        <PageButton href={makeHref(page + 1)} disabled={!canGoForward} ariaLabel={t.nextPage}>
+          <span className="hidden sm:inline">{t.next}</span>
           <ChevronRight className="size-4" aria-hidden="true" />
         </PageButton>
-        <PageButton href={makeHref(totalPages)} disabled={!canGoForward} ariaLabel="Last page">
+        <PageButton href={makeHref(totalPages)} disabled={!canGoForward} ariaLabel={t.lastPage}>
           <ChevronsRight className="size-4" aria-hidden="true" />
         </PageButton>
       </div>

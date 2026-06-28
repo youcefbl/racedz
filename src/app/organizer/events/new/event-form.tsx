@@ -43,12 +43,14 @@ export function OrganizerEventForm({
 
   return (
     <form action={formAction} className="grid gap-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-      {state.error ? (
-        <p className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {state.error}
-        </p>
-      ) : null}
+      <div aria-live="polite" className="empty:hidden">
+        {state.error ? (
+          <p role="alert" className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {state.error}
+          </p>
+        ) : null}
+      </div>
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
@@ -76,14 +78,14 @@ export function OrganizerEventForm({
               className={`${controlClassName} h-auto py-2`}
             />
           </label>
-          <Field label={t("Elevation gain")} name="elevationGainText" required={false} placeholder="Example: +850 m across the trail course" />
+          <Field label={t("Elevation gain")} name="elevationGainText" required={false} optionalLabel={t("optional")} placeholder={t("Example: +850 m across the trail course")} />
           <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
             {t("Conditions")}
             <textarea
               name="conditions"
               rows={4}
               className={`${controlClassName} h-auto py-2`}
-              placeholder="Optional terrain, weather, equipment, or participation conditions"
+              placeholder={t("Optional terrain, weather, equipment, or participation conditions")}
             />
           </label>
         </div>
@@ -96,7 +98,7 @@ export function OrganizerEventForm({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Start date and time")} name="startDate" type="datetime-local" />
-          <Field label={t("Registration deadline")} name="registrationCloseAt" type="datetime-local" required={false} />
+          <Field label={t("Registration deadline")} name="registrationCloseAt" type="datetime-local" required={false} optionalLabel={t("optional")} />
           <AutoCancelToggle t={t} />
         </div>
       </section>
@@ -122,8 +124,8 @@ export function OrganizerEventForm({
             </select>
           </label>
           <Field label={t("City")} name="city" defaultValue={organization.city ?? ""} />
-          <Field label={t("Commune")} name="commune" defaultValue={organization.commune ?? ""} required={false} />
-          <Field label={t("Address")} name="address" required={false} />
+          <Field label={t("Commune")} name="commune" defaultValue={organization.commune ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("Address")} name="address" required={false} optionalLabel={t("optional")} />
         </div>
       </section>
 
@@ -142,13 +144,13 @@ export function OrganizerEventForm({
                   onClick={() => removeCategory(row.id)}
                   disabled={categoryRows.length === 1}
                   className="inline-flex size-9 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition hover:border-red-300 hover:text-red-700 disabled:pointer-events-none disabled:opacity-40"
-                  aria-label={`Remove category ${index + 1}`}
+                  aria-label={`${t("Remove category")} ${index + 1}`}
                 >
                   <Trash2 className="size-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.8fr)]">
-                <Field label={t("Category name")} name="categoryName" placeholder="10K Open" />
+                <Field label={t("Category name")} name="categoryName" placeholder={t("10K Open")} />
                 <label className="grid gap-2 text-sm font-semibold text-gray-800">
                   {t("Race type")}
                   <select name="categoryRaceType" defaultValue="ROAD" className={controlClassName}>
@@ -162,9 +164,9 @@ export function OrganizerEventForm({
               </div>
               <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(220px,1.15fr)]">
                 <Field label={t("Distance in KM")} name="distanceKm" type="number" step="0.1" />
-                <Field label={t("Price DZD")} name="priceDzd" type="number" required={false} />
-                <Field label={t("Capacity")} name="categoryMaxParticipants" type="number" required={false} />
-                <Field label={t("Start time")} name="categoryStartTime" type="datetime-local" required={false} />
+                <Field label={t("Price DZD")} name="priceDzd" type="number" required={false} optionalLabel={t("optional")} />
+                <Field label={t("Capacity")} name="categoryMaxParticipants" type="number" required={false} optionalLabel={t("optional")} />
+                <Field label={t("Start time")} name="categoryStartTime" type="datetime-local" required={false} optionalLabel={t("optional")} />
               </div>
             </div>
           ))}
@@ -174,15 +176,15 @@ export function OrganizerEventForm({
           </Button>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t("Total race capacity")} name="maxParticipants" type="number" required={false} />
+          <Field label={t("Total race capacity")} name="maxParticipants" type="number" required={false} optionalLabel={t("optional")} />
         </div>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-black text-gray-950">{t("Contact")}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={organization.email ?? ""} required={false} />
-          <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={organization.phone ?? ""} required={false} />
+          <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={organization.email ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={organization.phone ?? ""} required={false} optionalLabel={t("optional")} />
         </div>
       </section>
 
@@ -203,6 +205,7 @@ function Field({
   name,
   type = "text",
   required = true,
+  optionalLabel,
   defaultValue = "",
   placeholder,
   step
@@ -211,13 +214,17 @@ function Field({
   name: string;
   type?: string;
   required?: boolean;
+  optionalLabel?: string;
   defaultValue?: string;
   placeholder?: string;
   step?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-semibold text-gray-800">
-      {label}
+      <span>
+        {label}
+        {!required && optionalLabel ? <span className="ms-1 font-normal text-gray-500">({optionalLabel})</span> : null}
+      </span>
       <input
         name={name}
         type={type}

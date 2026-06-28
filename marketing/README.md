@@ -1,6 +1,6 @@
-# RaceDZ — Marketing Folder
+# ZidRun — Marketing Folder
 
-Launch-awareness social media campaign for **RaceDZ**, the platform to discover, register for, and manage running races across Algeria — with a built-in AI running coach.
+Launch-awareness social media campaign for **ZidRun**, the platform to discover, register for, and manage running races across Algeria — with a built-in AI running coach.
 
 **Campaign:** Launch Awareness · **Languages:** FR (primary) + AR + EN · **Platforms:** Instagram · Facebook · TikTok
 
@@ -22,4 +22,4 @@ Launch-awareness social media campaign for **RaceDZ**, the platform to discover,
 3. Pull copy from `posts/` and pair with the visuals briefed there.
 4. Track results against the KPIs in the plan; iterate weekly.
 
-> Prepared as a senior-marketing-manager deliverable. Brand: teal `#0F766E`, accent orange `#F97316`.
+> Prepared as a senior-marketing-manager deliverable. Brand: green `#8BC53F`, accent orange `#F47A20`, ink `#141618`. Logo: the ZidRun green+orange "Z" speed-blade + "idRun" wordmark (`public/zidrun-logo.svg`).

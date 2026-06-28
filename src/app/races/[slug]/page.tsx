@@ -54,7 +54,7 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
           <div className="space-y-6">
             <RaceMedia
               src={race.mainImageUrl}
-              alt={`${race.title} race image`}
+              alt={dictionary.raceDetail.raceImageAlt.replace("{title}", race.title)}
               sizes="(min-width: 768px) 60vw, 100vw"
               priority
               className="min-h-96 rounded-lg border border-gray-200 sm:min-h-[30rem]"
@@ -65,7 +65,7 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
                 <Badge variant={canRegister ? "green" : "blue"}>
                   {EVENT_REGISTRATION_STATUS_LABELS[race.registrationStatus]}
                 </Badge>
-                {race.source === "PLATFORM" ? <Badge variant="blue">RaceDZ platform-created</Badge> : null}
+                {race.source === "PLATFORM" ? <Badge variant="blue">{dictionary.raceDetail.platformBadge}</Badge> : null}
                 <Badge variant="orange">{race.wilaya}</Badge>
               </div>
               <h1 className="text-3xl font-black text-gray-950 sm:text-4xl">{race.title}</h1>
@@ -118,13 +118,13 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
                 <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
                   <div className="flex flex-wrap gap-2">
                     <Badge variant={registrationBadgeVariant[currentRegistration.status as RegistrationStatus]}>
-                      {formatEnumLabel(currentRegistration.status)}
+                      {dictionary.status[currentRegistration.status as RegistrationStatus]}
                     </Badge>
                     <Badge variant={paymentBadgeVariant[currentRegistration.paymentStatus as PaymentStatus]}>
-                      {formatEnumLabel(currentRegistration.paymentStatus)}
+                      {dictionary.status[currentRegistration.paymentStatus as PaymentStatus]}
                     </Badge>
                   </div>
-                  <h2 className="mt-3 text-base font-black text-gray-950">Your registration</h2>
+                  <h2 className="mt-3 text-base font-black text-gray-950">{dictionary.raceDetail.yourRegistration}</h2>
                   <div className="mt-3 grid gap-2 text-sm text-gray-700">
                     <p className="flex items-center gap-2">
                       <Route className="size-4 text-brand-teal" aria-hidden="true" />
@@ -136,16 +136,16 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
                     </p>
                     <p className="flex items-center gap-2">
                       <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
-                      Registered {formatDateTime(currentRegistration.createdAt)}
+                      {dictionary.raceDetail.registeredOn.replace("{date}", formatDateTime(currentRegistration.createdAt))}
                     </p>
                   </div>
                   <div className="mt-4 grid gap-2">
-                    <ButtonLink href="/account/registrations" variant="secondary" size="sm">
-                      View registration details
+                    <ButtonLink href={withLocale("/account/registrations", locale)} variant="secondary" size="sm">
+                      {dictionary.raceDetail.viewRegistration}
                     </ButtonLink>
                     {canRegister ? (
                       <ButtonLink href={withLocale(`/races/${race.slug}/register`, locale)} variant="outline" size="sm">
-                        Register another distance
+                        {dictionary.raceDetail.registerAnother}
                       </ButtonLink>
                     ) : null}
                   </div>
@@ -173,12 +173,12 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
             <div className="rounded-lg border border-gray-200 bg-white p-5">
               <div className="mb-4 flex items-center gap-2">
                 <Megaphone className="size-5 text-brand-orange" aria-hidden="true" />
-                <h2 className="text-xl font-black text-gray-950">Race announcements</h2>
+                <h2 className="text-xl font-black text-gray-950">{dictionary.raceDetail.announcementsTitle}</h2>
               </div>
               <div className="grid gap-3">
                 {race.announcements.map((announcement) => (
                   <article key={announcement.id} className="rounded-lg border border-gray-200 bg-orange-50 p-4">
-                    <p className="text-xs font-bold uppercase tracking-normal text-brand-orange">
+                    <p className="text-xs font-bold uppercase tracking-wide text-brand-orangeText">
                       {new Intl.DateTimeFormat(locale, {
                         dateStyle: "medium",
                         timeStyle: "short"
@@ -277,11 +277,3 @@ const paymentBadgeVariant: Record<PaymentStatus, "blue" | "green" | "red" | "ora
   REFUNDED: "blue",
   MANUAL_REVIEW: "blue"
 };
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}

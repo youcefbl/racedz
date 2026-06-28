@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { isEmailVerified } from "@/lib/email-verification";
+import { getDictionary, getLocale } from "@/lib/i18n";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
 
@@ -13,13 +14,14 @@ export type LoginActionState = {
 };
 
 export async function loginAction(_previousState: LoginActionState, formData: FormData): Promise<LoginActionState> {
+  const t = getDictionary(getLocale(formData.get("lang") as string | null)).auth;
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password")
   });
 
   if (!parsed.success) {
-    return { error: "Enter a valid email and password." };
+    return { error: t.errInvalidInput };
   }
 
   const user = await getPrisma().user.findUnique({
@@ -28,7 +30,7 @@ export async function loginAction(_previousState: LoginActionState, formData: Fo
   });
 
   if (user && !(await isEmailVerified(parsed.data.email))) {
-    return { error: "Check your email and activate your account before logging in." };
+    return { error: t.errNotActivated };
   }
 
   const redirectTo = getPostLoginUrl(user?.role as UserRole | undefined, formData.get("callbackUrl"));
@@ -42,11 +44,11 @@ export async function loginAction(_previousState: LoginActionState, formData: Fo
     });
 
     if (typeof result === "string" && new URL(result, "http://127.0.0.1:3003").searchParams.has("error")) {
-      return { error: "Invalid email or password." };
+      return { error: t.errInvalidCredentials };
     }
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Invalid email or password." };
+      return { error: t.errInvalidCredentials };
     }
 
     throw error;

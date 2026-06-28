@@ -2,10 +2,12 @@ import "server-only";
 
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+import { CoachError } from "@/lib/coach/errors";
 import { coachResponseSchema, type CoachResponse } from "@/lib/coach/schemas";
 
 export const COACH_PROMPT_VERSION = "coach-v1-2026-06-21";
 const DEFAULT_MODEL = "gpt-5.4-mini";
+const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
 type CoachGenerationResult = {
   response: CoachResponse;
@@ -86,17 +88,40 @@ export async function generateCoachResponse(context: unknown, interactionId: str
   }
 }
 
+/**
+ * Transcribe a short voice note to text via OpenAI. The result is fed into the normal text
+ * coach pipeline (the user reviews/edits it first), so transcription is just an input method.
+ */
+export async function transcribeCoachAudio(file: File): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL;
+
+  if (!apiKey) {
+    throw new CoachError("Voice input is not configured.", 503, "OPENAI_NOT_CONFIGURED");
+  }
+
+  const client = new OpenAI({ apiKey, timeout: 30_000, maxRetries: 1 });
+
+  try {
+    const result = await client.audio.transcriptions.create({ model, file });
+    return result.text?.trim() ?? "";
+  } catch (error) {
+    const code = error instanceof OpenAI.APIError ? `OPENAI_${error.status ?? "ERROR"}` : "OPENAI_TRANSCRIBE_FAILED";
+    throw new CoachError("Could not transcribe the audio. Please try again.", 502, code);
+  }
+}
+
 function normalizeErrorCode(code: string | null | undefined) {
   return code?.trim().replace(/[^a-z0-9]+/gi, "_").toUpperCase() || null;
 }
 
 function buildInstructions() {
   return [
-    "You are the RaceDZ running training assistant.",
+    "You are the ZidRun running training assistant.",
     "Only answer questions about running, training, recovery, race preparation, and running-related health.",
     "If the runner's question is unrelated to running or training, do not answer it: briefly say you can only help with running and invite a running-related question, and leave workout fields empty.",
     "Return only the requested structured response in the runner's requested language.",
-    "RaceDZ-computed metrics and the fixed weekly plan skeleton are authoritative.",
+    "ZidRun-computed metrics and the fixed weekly plan skeleton are authoritative.",
     "Do not increase distance, change workout dates, or make a workout harder than the fixed skeleton.",
     "Do not diagnose medical conditions, prescribe medication, or claim professional medical certainty.",
     "When safety signals exist, be conservative and clearly recommend appropriate professional assessment.",

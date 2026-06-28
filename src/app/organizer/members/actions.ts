@@ -226,11 +226,11 @@ function sendOrganizationInviteEmail({
 
   return sendNotificationEmail({
     to: email,
-    subject: `${organizationName} invited you to RaceDZ`,
+    subject: `${organizationName} invited you to ZidRun`,
     html: renderRaceDzEmailHtml({
-      preheader: `${organizationName} invited you to help manage races on RaceDZ.`,
+      preheader: `${organizationName} invited you to help manage races on ZidRun.`,
       title: "Organization invite",
-      body: `${organizationName} invited you to join their RaceDZ organizer team as ${role.toLowerCase()}. Accept the invite to help manage races and participants.`,
+      body: `${organizationName} invited you to join their ZidRun organizer team as ${role.toLowerCase()}. Accept the invite to help manage races and participants.`,
       action: {
         label: "Accept invite",
         href: inviteUrl
@@ -242,7 +242,7 @@ function sendOrganizationInviteEmail({
     }),
     text: renderRaceDzEmailText({
       title: "Organization invite",
-      body: `${organizationName} invited you to join their RaceDZ organizer team as ${role.toLowerCase()}.`,
+      body: `${organizationName} invited you to join their ZidRun organizer team as ${role.toLowerCase()}.`,
       action: {
         label: "Accept invite",
         href: inviteUrl

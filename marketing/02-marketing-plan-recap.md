@@ -1,6 +1,6 @@
-# RaceDZ — One-Page Launch Recap
+# ZidRun — One-Page Launch Recap
 
-**Product:** RaceDZ — find, register for & manage running races in Algeria + AI running coach.
+**Product:** ZidRun — find, register for & manage running races in Algeria + AI running coach.
 **Campaign:** Launch awareness · **Languages:** FR + AR + EN · **Channels:** Instagram · Facebook · TikTok · **Sprint:** 6 weeks.
 
 ## Big idea

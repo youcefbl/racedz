@@ -11,23 +11,23 @@ export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
   const content = dictionary.pages.privacy;
 
   return (
-    <SectionPage eyebrow="RaceDZ" title={content.title}>
-      <div className="space-y-6">
-        <p>{content.intro}</p>
-        <PolicySection title={content.dataTitle} text={content.dataText} />
-        <PolicySection title={content.useTitle} text={content.useText} />
-        <PolicySection title={content.securityTitle} text={content.securityText} />
-        <PolicySection title={content.rightsTitle} text={content.rightsText} />
+    <SectionPage eyebrow="ZidRun" title={content.title}>
+      <div className="prose-measure space-y-8">
+        <p className="text-base leading-7 text-gray-700">{content.intro}</p>
+        <PolicySection id="data" title={content.dataTitle} text={content.dataText} />
+        <PolicySection id="use" title={content.useTitle} text={content.useText} />
+        <PolicySection id="security" title={content.securityTitle} text={content.securityText} />
+        <PolicySection id="rights" title={content.rightsTitle} text={content.rightsText} />
       </div>
     </SectionPage>
   );
 }
 
-function PolicySection({ title, text }: { title: string; text: string }) {
+function PolicySection({ id, title, text }: { id: string; title: string; text: string }) {
   return (
-    <div>
-      <h3 className="text-base font-bold text-gray-950">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-gray-600">{text}</p>
-    </div>
+    <section className="scroll-mt-24">
+      <h2 id={id} className="text-lg font-semibold text-gray-950">{title}</h2>
+      <p className="mt-2 text-sm leading-7 text-gray-700">{text}</p>
+    </section>
   );
 }

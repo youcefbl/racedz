@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Bell,
+  BrainCircuit,
   Building2,
   CalendarDays,
   ChevronRight,
@@ -22,10 +23,14 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AccountMenu, type HeaderUser } from "@/components/layout/account-menu";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
-import { RaceDZLogo } from "@/components/layout/racedz-logo";
+import { SettingsMenu } from "@/components/layout/settings-menu";
+import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
+import { toast } from "@/components/ui/toast";
+import { NativeHeader } from "@/components/layout/native-header";
+import { ZidRunLogo } from "@/components/layout/racedz-logo";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { ButtonLink } from "@/components/ui/button";
-import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
+import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
@@ -46,6 +51,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const desktopNavItems = [
     { href: "/races", label: dictionary.nav.races, icon: CalendarDays },
+    { href: "/coach", label: dictionary.nav.aiCoach, icon: BrainCircuit },
     ...(isAdmin ? [{ href: "/rankings", label: dictionary.nav.rankings, icon: Trophy }] : []),
     { href: "/runners", label: dictionary.nav.forRunners, icon: Footprints },
     { href: "/organizers", label: dictionary.nav.organizers, icon: Building2 }
@@ -60,12 +66,14 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   ];
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-30 border-b border-[var(--border)] backdrop-blur-xl transition-shadow duration-300",
-        scrolled ? "bg-[var(--surface)]/95 shadow-sm" : "bg-[var(--surface)]/90"
-      )}
-    >
+    <>
+      <NativeHeader user={user} />
+      <header
+        className={cn(
+          "site-header sticky top-0 z-30 border-b border-[var(--border)] backdrop-blur-xl transition-shadow duration-300",
+          scrolled ? "bg-[var(--surface)]/95 shadow-sm" : "bg-[var(--surface)]/90"
+        )}
+      >
       <div
         className={cn(
           "site-header-stripe bg-[linear-gradient(90deg,var(--primary),var(--accent),#9b5cff)] transition-all duration-300",
@@ -80,7 +88,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
         )}
       >
         <div className="flex min-w-0 items-center gap-2 lg:gap-4">
-          <RaceDZLogo animated />
+          <ZidRunLogo animated />
           <span className="hidden h-7 w-px bg-[var(--border)] lg:block" aria-hidden="true" />
           <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
             {desktopNavItems.map((item) => (
@@ -97,9 +105,8 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-2.5">
-          <div className="hidden items-center gap-1.5 md:flex">
-            <ThemeSwitcher />
-            <LanguageSwitcher currentLocale={locale} />
+          <div className="hidden items-center md:flex">
+            <SettingsMenu currentLocale={locale} />
           </div>
           <span className="hidden h-7 w-px bg-[var(--border)] md:block" aria-hidden="true" />
           {user ? (
@@ -107,8 +114,9 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
               <NotificationDropdown
                 count={user.unreadNotificationCount ?? 0}
                 notifications={user.notifications ?? []}
+                locale={locale}
               />
-              <AccountMenu user={user} />
+              <AccountMenu user={user} locale={locale} />
             </>
           ) : (
             <div className="hidden items-center gap-1 md:flex">
@@ -131,7 +139,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
             aria-label={mobileOpen ? dictionary.nav.closeMenu : dictionary.nav.openMenu}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((value) => !value)}
-            className="inline-flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange md:hidden"
+            className="inline-flex size-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange md:hidden"
           >
             {mobileOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
           </button>
@@ -180,7 +188,8 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
           </div>
         </div>
       ) : null}
-    </header>
+      </header>
+    </>
   );
 }
 
@@ -200,7 +209,7 @@ function HeaderNavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
+        "relative inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
         active
           ? "bg-[var(--surface-soft)] text-brand-teal"
           : "text-[var(--text)] hover:bg-[var(--surface-soft)] hover:text-brand-teal"
@@ -232,7 +241,7 @@ function MobileNavLink({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-12 items-center justify-between rounded-lg border px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
+        "flex min-h-12 items-center justify-between rounded-lg border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
         active
           ? "border-brand-teal bg-[var(--primary-soft)] text-brand-teal"
           : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--text)] hover:border-brand-teal hover:text-brand-teal"
@@ -253,15 +262,20 @@ function isActivePath(pathname: string, href: string) {
 
 function NotificationDropdown({
   count,
-  notifications
+  notifications,
+  locale
 }: {
   count: number;
   notifications: NonNullable<HeaderUser["notifications"]>;
+  locale: Locale;
 }) {
+  const t = getDictionary(locale).notifications;
   const [open, setOpen] = useState(false);
   const [localCount, setLocalCount] = useState(count);
   const [items, setItems] = useState(notifications);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { onKeyDown } = useMenuKeyboard({ open, setOpen, menuRef, triggerRef });
 
   useEffect(() => {
     setLocalCount(count);
@@ -302,10 +316,17 @@ function NotificationDropdown({
       const next = !current;
 
       if (next && localCount > 0) {
+        // Optimistic: mark all read immediately, then roll back if the request fails.
+        const previousCount = localCount;
+        const previousItems = items;
         const readAt = new Date().toISOString();
         setLocalCount(0);
         setItems((currentItems) => currentItems.map((item) => ({ ...item, readAt: item.readAt ?? readAt })));
-        void fetch("/api/notifications/read-all", { method: "POST" });
+        void fetch("/api/notifications/read-all", { method: "POST" }).catch(() => {
+          setLocalCount(previousCount);
+          setItems(previousItems);
+          toast(t.markReadError, "error");
+        });
       }
 
       return next;
@@ -315,16 +336,18 @@ function NotificationDropdown({
   return (
     <div ref={menuRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
-        aria-label={localCount > 0 ? `${localCount} unread notifications` : "Notifications"}
+        aria-label={localCount > 0 ? t.unreadCount.replace("{count}", String(localCount)) : t.panelTitle}
+        title={localCount > 0 ? t.unreadCount.replace("{count}", String(localCount)) : t.panelTitle}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={openNotifications}
-        className="relative inline-flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
+        className="relative inline-flex size-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
       >
         <Bell className="size-5" aria-hidden="true" />
         {localCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-black text-white">
+          <span className="absolute -end-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-bold text-white">
             {localCount > 9 ? "9+" : localCount}
           </span>
         ) : null}
@@ -333,12 +356,14 @@ function NotificationDropdown({
       {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
         <div
-          className="rz-pop absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-soft"
+          className="rz-pop absolute end-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-soft"
           role="menu"
+          aria-label={t.panelTitle}
+          onKeyDown={onKeyDown}
         >
           <div className="border-b border-[var(--border)] px-4 py-3">
-            <p className="text-sm font-black text-[var(--text-strong)]">Notifications</p>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{items.length > 0 ? "Latest RaceDZ updates" : "No updates yet"}</p>
+            <p className="text-sm font-semibold text-[var(--text-strong)]">{t.panelTitle}</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{items.length > 0 ? t.panelSubtitle : t.panelEmpty}</p>
           </div>
           {items.length > 0 ? (
             <div className="max-h-96 overflow-y-auto">
@@ -346,7 +371,7 @@ function NotificationDropdown({
                 const content = (
                   <>
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-black text-[var(--text-strong)]">{item.title}</p>
+                      <p className="text-sm font-semibold text-[var(--text-strong)]">{item.title}</p>
                       {item.href ? <ExternalLink className="mt-0.5 size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" /> : null}
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--text)]">{item.body}</p>
@@ -374,7 +399,7 @@ function NotificationDropdown({
           ) : (
             <div className="px-4 py-8 text-center">
               <Bell className="mx-auto size-8 text-brand-teal" aria-hidden="true" />
-              <p className="mt-3 text-sm font-semibold text-[var(--text)]">You are all caught up.</p>
+              <p className="mt-3 text-sm font-semibold text-[var(--text)]">{t.panelCaughtUp}</p>
             </div>
           )}
         </div>

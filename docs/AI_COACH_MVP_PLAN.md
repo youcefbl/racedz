@@ -1,4 +1,4 @@
-# RaceDZ AI Coach MVP Plan
+# ZidRun AI Coach MVP Plan
 
 ## Purpose
 
@@ -8,7 +8,7 @@ Add a runner-focused AI coach that uses saved goals, training plans, and run his
 - A structured next-run recommendation.
 - A weekly training plan.
 - Progress summaries against a runner's goal.
-- A coach conversation grounded in the runner's RaceDZ data.
+- A coach conversation grounded in the runner's ZidRun data.
 
 The first version is a training assistant, not a medical service. It must not diagnose injuries, replace a qualified coach, or make unrestricted changes to training load.
 
@@ -52,7 +52,7 @@ The configured OpenAI project currently returns `insufficient_quota`; enable pro
   - Date.
   - Distance.
   - Duration.
-  - Average pace calculated by RaceDZ.
+  - Average pace calculated by ZidRun.
   - Optional elevation gain and average heart rate.
   - Perceived effort from 1 to 10.
   - Fatigue or pain indicators.
@@ -85,15 +85,15 @@ These can be evaluated after manual run logging proves that runners use the coac
 ### Initial Setup
 
 1. The runner creates one active goal.
-2. RaceDZ validates that the goal and target date are usable.
-3. RaceDZ creates a conservative initial plan skeleton using deterministic application rules.
+2. ZidRun validates that the goal and target date are usable.
+3. ZidRun creates a conservative initial plan skeleton using deterministic application rules.
 4. The AI personalizes and explains that plan in the runner's language.
 5. The runner reviews and accepts the plan.
 
 ### After A Run
 
 1. Save the run to PostgreSQL before calling OpenAI.
-2. Calculate deterministic metrics in RaceDZ:
+2. Calculate deterministic metrics in ZidRun:
    - Average pace.
    - Weekly distance.
    - Plan adherence.
@@ -103,7 +103,7 @@ These can be evaluated after manual run logging proves that runners use the coac
 3. Update a compact coach snapshot.
 4. Call OpenAI only when post-run feedback is requested or configured.
 5. Validate the structured AI response with Zod.
-6. Apply RaceDZ safety rules before displaying or saving plan adjustments.
+6. Apply ZidRun safety rules before displaying or saving plan adjustments.
 7. Store the feedback, usage, model, and accepted plan changes.
 
 ### Weekly Review
@@ -115,7 +115,7 @@ These can be evaluated after manual run logging proves that runners use the coac
 
 ## Architecture
 
-RaceDZ PostgreSQL is the source of truth for coaching memory. Do not use one indefinitely growing OpenAI conversation as the runner's permanent context.
+ZidRun PostgreSQL is the source of truth for coaching memory. Do not use one indefinitely growing OpenAI conversation as the runner's permanent context.
 
 For each request, build a compact `RunnerCoachContext` containing only:
 
@@ -139,7 +139,7 @@ Do not send email addresses, phone numbers, national IDs, exact addresses, authe
 - `src/lib/coach/schemas.ts`: Zod input and structured-output schemas.
 - `src/lib/coach/service.ts`: orchestration, persistence, rate limits, and error handling.
 
-The OpenAI API key must only be available to server-side code. The browser must call an authenticated RaceDZ route handler or server action.
+The OpenAI API key must only be available to server-side code. The browser must call an authenticated ZidRun route handler or server action.
 
 ## Proposed Data Model
 
@@ -206,7 +206,7 @@ The response schema should include:
 - `recoveryAdvice[]`
 - `requiresProfessionalAdvice`
 
-Keep factual calculations outside the model. The model should explain and personalize metrics calculated by RaceDZ, not invent those metrics.
+Keep factual calculations outside the model. The model should explain and personalize metrics calculated by ZidRun, not invent those metrics.
 
 Do not add fine-tuning initially. Use a versioned system prompt, structured context, deterministic safeguards, and a repeatable evaluation dataset first.
 
@@ -307,7 +307,7 @@ Estimated total for one experienced developer: four to seven weeks for the web M
 - A runner can manually record and edit a run.
 - Pace and progress metrics are calculated deterministically and tested.
 - The coach generates a validated weekly plan and post-run response in the selected language.
-- AI output cannot directly bypass RaceDZ safety constraints.
+- AI output cannot directly bypass ZidRun safety constraints.
 - Provider failures do not lose saved runs or corrupt accepted plans.
 - Every AI request records usage and estimated cost.
 - A runner cannot access another runner's goals, runs, plans, or coach interactions.

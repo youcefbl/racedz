@@ -1,8 +1,8 @@
-# Codex Context: RaceDZ
+# Codex Context: ZidRun
 
 ## Goal
 
-Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product lets runners discover and register for races, organizers manage events and participants, and admins approve organizations/events.
+Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product lets runners discover and register for races, organizers manage events and participants, and admins approve organizations/events.
 
 ## Source Of Truth
 
@@ -35,7 +35,7 @@ Build RaceDZ, a full-stack Next.js MVP for Algerian running events. The product 
 - Authorization helpers start in `src/lib/permissions.ts`.
 - Local image uploads go through `src/lib/storage.ts` and write to `public/uploads` for the MVP. Uploaded files are gitignored except `public/uploads/.gitkeep`. Keep the storage helper as the boundary for a later S3-compatible backend.
 - Notification records go through `src/lib/notifications.ts`. The MVP stores in-app notifications in PostgreSQL, shows recent notifications from the header bell dropdown, marks them read on dropdown open, sends transactional email through Resend using `RESEND_API_KEY` and `EMAIL_FROM`, and has Firebase FCM server delivery plus browser token registration via `PushNotificationControl`. The notification settings page can reconnect the FCM token and send a test push with delivery feedback. Local push testing requires Firebase public web config and `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
-- Branded email HTML/text lives in `src/lib/notifications/email-template.ts`; use it for every RaceDZ email instead of ad hoc HTML.
+- Branded email HTML/text lives in `src/lib/notifications/email-template.ts`; use it for every ZidRun email instead of ad hoc HTML.
 - New accounts require email verification. Verification tokens use raw SQL helpers in `src/lib/email-verification.ts`; Auth.js blocks unverified accounts.
 - Organization invites are still copyable in `/organizer/members`, but the invite action also attempts branded email delivery with the invite link.
 - Race announcements use `RaceAnnouncement` and `src/lib/announcements.ts`. Organizer/admin announcements notify active registrants and appear on public race detail pages.
@@ -56,7 +56,7 @@ Read `TODO.md` first. Current priorities are organizer onboarding, organizer rac
 
 ## Brand
 
-- Name: RaceDZ
+- Name: ZidRun
 - Tagline: Find, register, and manage races across Algeria.
 - Primary: `#0F766E`
 - Accent: `#F97316`

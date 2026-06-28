@@ -272,7 +272,7 @@ export function RunRecorder({
         setStatus("idle");
         notifyHaptic("warning");
       } else {
-        setError(err.message || "Unable to save run.");
+        setError(err.message || copy.runSaveFailed);
         notifyHaptic("error");
       }
     } finally {
@@ -396,7 +396,7 @@ export function RunRecorder({
 function LiveStat({ label, value, big = false }: { label: string; value: string; big?: boolean }) {
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-center">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
       <p className={`mt-1 font-black text-gray-950 ${big ? "text-2xl" : "text-base"}`}>{value}</p>
     </div>
   );

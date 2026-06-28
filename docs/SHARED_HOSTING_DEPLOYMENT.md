@@ -1,12 +1,12 @@
 # Shared Hosting Deployment Guide
 
-This guide is for testing the RaceDZ MVP on an internet-accessible subdomain with a low-cost shared hosting account.
+This guide is for testing the ZidRun MVP on an internet-accessible subdomain with a low-cost shared hosting account.
 
 ## Important Reality Check
 
-RaceDZ is not a static website and is not a PHP/FTP-only app.
+ZidRun is not a static website and is not a PHP/FTP-only app.
 
-RaceDZ needs:
+ZidRun needs:
 
 - Node.js runtime.
 - A running Next.js server process.
@@ -14,7 +14,7 @@ RaceDZ needs:
 - Environment variables.
 - Writable upload storage, or a future object-storage provider.
 
-If your shared hosting only gives you FTP and MySQL, it cannot run the current RaceDZ app correctly.
+If your shared hosting only gives you FTP and MySQL, it cannot run the current ZidRun app correctly.
 
 Your current MySQL database is not directly usable without a database migration project because the app currently uses:
 
@@ -71,7 +71,7 @@ Makefile
 
 This setup runs:
 
-- RaceDZ Next.js app container.
+- ZidRun Next.js app container.
 - PostgreSQL 16 container.
 - Persistent Docker volume for PostgreSQL data.
 - Persistent Docker volume for local uploads at `/app/public/uploads`.
@@ -112,7 +112,7 @@ AUTH_SECRET=use-a-long-random-secret
 NEXTAUTH_SECRET=use-a-long-random-secret
 AUTH_URL=https://test.your-domain.com
 NEXTAUTH_URL=https://test.your-domain.com
-EMAIL_FROM=RaceDZ <notifications@your-domain.com>
+EMAIL_FROM=ZidRun <notifications@your-domain.com>
 RESEND_API_KEY=your-resend-key-if-email-is-enabled
 ```
 
@@ -227,14 +227,14 @@ AUTH_URL="https://test.your-domain.com"
 NEXTAUTH_SECRET="same-as-auth-secret-or-another-long-secret"
 NEXTAUTH_URL="https://test.your-domain.com"
 
-NEXT_PUBLIC_APP_NAME="RaceDZ"
+NEXT_PUBLIC_APP_NAME="ZidRun"
 NEXT_PUBLIC_APP_TAGLINE="Find, register, and manage races across Algeria."
 
 UPLOAD_PROVIDER="local"
 ADMIN_AUDIT_RETENTION_DAYS="31"
 
 EMAIL_PROVIDER="resend"
-EMAIL_FROM="RaceDZ <notifications@your-domain.com>"
+EMAIL_FROM="ZidRun <notifications@your-domain.com>"
 RESEND_API_KEY="your-resend-key"
 
 AUTH_GOOGLE_ID=""
@@ -477,7 +477,7 @@ $7/month
 Reason:
 
 - The `$5/month` instance with 512 MB RAM is too tight for a Next.js app, Prisma, npm operations, and occasional build/start memory spikes.
-- The `$7/month` instance is the lowest reasonable Lightsail size for a small RaceDZ MVP test.
+- The `$7/month` instance is the lowest reasonable Lightsail size for a small ZidRun MVP test.
 - The `$12/month` instance is better if you want to run PostgreSQL on the same server, run builds directly on the VPS, or test with more users at the same time.
 
 Do not run production PostgreSQL on the `$5/month` instance.

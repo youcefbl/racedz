@@ -1,4 +1,4 @@
-# RaceDZ — 6-Week Launch Content Calendar
+# ZidRun — 6-Week Launch Content Calendar
 
 Campaign: **Launch awareness** · Platforms: Instagram (IG), Facebook (FB), TikTok (TT)
 Phases: **Tease → Reveal → Prove → Sustain**
@@ -34,12 +34,12 @@ Goal: curiosity + first follows. Don't reveal the product fully yet.
 
 ---
 
-## WEEK 2 — REVEAL  ("Voici RaceDZ")
-Goal: explain what RaceDZ is + drive first sign-ups. **Founding Runner** offer goes live.
+## WEEK 2 — REVEAL  ("Voici ZidRun")
+Goal: explain what ZidRun is + drive first sign-ups. **Founding Runner** offer goes live.
 
 | Day | IG | FB | TT |
 |---|---|---|---|
-| Sun | 🚀 **Reveal Reel**: "Voici RaceDZ" (find + register + coach) — pinned | **Reveal post** (long caption, FR+AR) + cover photo | 🚀 Reveal TT: fast-cut "this app finds every race in Algeria" |
+| Sun | 🚀 **Reveal Reel**: "Voici ZidRun" (find + register + coach) — pinned | **Reveal post** (long caption, FR+AR) + cover photo | 🚀 Reveal TT: fast-cut "this app finds every race in Algeria" |
 | Mon | 🔍 Carousel: "Comment trouver ta course en 30 secondes" | Same as carousel (image set) | 🔍 screen-record demo |
 | Tue | 🤖 Reel: "J'ai laissé une IA planifier ma semaine de course" | Coach explainer post | 🤖 coach demo POV |
 | Wed | 😄 Relatable Reel + Story poll | Engagement question | 😄 trend-jack |
@@ -80,7 +80,7 @@ Goal: make the **AI coach** the talked-about feature.
 ---
 
 ## WEEK 5 — SUSTAIN (community + UGC)
-Goal: ignite UGC with **#JeCoursAvecRaceDZ / #نجري_مع_RaceDZ**.
+Goal: ignite UGC with **#JeCoursAvecZidRun / #نجري_مع_ZidRun**.
 
 | Day | IG | FB | TT |
 |---|---|---|---|

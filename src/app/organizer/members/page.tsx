@@ -22,10 +22,9 @@ export default async function OrganizerMembersPage({ searchParams }: { searchPar
     <div className="bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer")}</p>
-          <h1 className="mt-2 text-3xl font-black text-gray-950">{t("Organization members")}</h1>
+          <h1 className="text-3xl font-black text-gray-950 break-words">{t("Organization members")}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-            Manage users who can help operate {organization.name}. Send pending invite links to teammates so they can accept access.
+            {t("Manage users who can help operate")} {organization.name}. {t("Send pending invite links to teammates so they can accept access.")}
           </p>
         </div>
 
@@ -33,10 +32,10 @@ export default async function OrganizerMembersPage({ searchParams }: { searchPar
           <section className="space-y-4">
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-200 p-4">
-                <h2 className="font-black text-gray-950">{t("Active members")}</h2>
+                <h2 className="font-bold text-gray-950">{t("Active members")}</h2>
               </div>
               <div className="divide-y divide-gray-200">
-                {data?.members.map((member) => {
+                {data?.members.length ? data.members.map((member) => {
                   const canManageMember =
                     canManageMembers &&
                     member.id !== membership.id &&
@@ -46,12 +45,12 @@ export default async function OrganizerMembersPage({ searchParams }: { searchPar
                     <div key={member.id} className="grid gap-4 p-4 lg:grid-cols-[1fr_260px]">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-bold text-gray-950">
+                          <p className="font-semibold text-gray-950 break-words">
                             {member.user.firstName} {member.user.lastName}
                           </p>
                           <Badge variant={member.role === "OWNER" ? "orange" : "teal"}>{translateOrganizerEnum(locale, member.role)}</Badge>
                         </div>
-                        <p className="mt-1 text-sm text-gray-500">{member.user.email}</p>
+                        <p className="mt-1 text-sm text-gray-500 break-words">{member.user.email}</p>
                         {member.id === membership.id ? <p className="mt-2 text-xs font-semibold text-gray-400">{t("Your access")}</p> : null}
                       </div>
                       <MemberControls
@@ -62,13 +61,15 @@ export default async function OrganizerMembersPage({ searchParams }: { searchPar
                       />
                     </div>
                   );
-                })}
+                }) : (
+                  <p className="p-4 text-sm text-gray-500">{t("No members yet.")}</p>
+                )}
               </div>
             </div>
 
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-200 p-4">
-                <h2 className="font-black text-gray-950">{t("Invitations")}</h2>
+                <h2 className="font-bold text-gray-950">{t("Invitations")}</h2>
               </div>
               {data?.invitations.length ? (
                 <div className="divide-y divide-gray-200">
@@ -81,8 +82,8 @@ export default async function OrganizerMembersPage({ searchParams }: { searchPar
                         <div className="min-w-0">
                           <p className="font-bold text-gray-950">{invitation.email}</p>
                           <p className="text-sm text-gray-500">
-                            Invited {formatDate(invitation.createdAt)}
-                            {invitation.acceptedAt ? ` · accepted ${formatDate(invitation.acceptedAt)}` : ""}
+                            {t("Invited")} {formatDate(invitation.createdAt)}
+                            {invitation.acceptedAt ? ` · ${t("accepted")} ${formatDate(invitation.acceptedAt)}` : ""}
                           </p>
                           {isPending ? <CopyInviteLink path={`/invite/${invitation.token}`} /> : null}
                         </div>

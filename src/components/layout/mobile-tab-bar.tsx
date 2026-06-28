@@ -20,7 +20,7 @@ export function MobileTabBar() {
     { href: "/races", icon: CalendarSearch, label: nav.races, active: pathname.startsWith("/races") },
     { href: "/account/coach", icon: Sparkles, label: nav.coach, active: pathname.startsWith("/account/coach") },
     {
-      href: "/account/registrations",
+      href: "/account",
       icon: UserRound,
       label: nav.account,
       active: pathname.startsWith("/account") && !pathname.startsWith("/account/coach")

@@ -2,7 +2,9 @@ import { ArrowRight, CalendarDays, MapPin, Route, Trophy, UsersRound } from "luc
 import { ButtonLink } from "@/components/ui/button";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
-import { RaceDZMark } from "@/components/layout/racedz-logo";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ZidRunMark } from "@/components/layout/racedz-logo";
+import { PanelBrandMark } from "@/components/layout/panel-brand-mark";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { getUpcomingRaceEvents } from "@/lib/race-repository";
 
@@ -31,7 +33,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.05fr_0.95fr] md:items-center lg:px-8 lg:py-16">
           <div className="space-y-7">
             <div className="rz-fade-up inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-brand-teal">
-              <RaceDZMark className="size-4" animated />
+              <ZidRunMark className="size-4" animated />
               {dictionary.home.eyebrow}
             </div>
             <div className="rz-fade-up-2 space-y-4">
@@ -56,22 +58,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
           {/* Branded velocity panel */}
           <div className="relative min-h-[20rem] overflow-hidden rounded-2xl bg-gradient-to-br from-brand-teal via-[#0c5650] to-[#0a3a36] p-8 text-white shadow-soft">
-            <svg
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              viewBox="0 0 200 200"
-              preserveAspectRatio="xMidYMid slice"
-              fill="none"
-              strokeWidth="14"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <g className="rz-chevrons-drift">
-                <path d="M30 55 L80 105 L30 155" stroke="#ffffff" opacity="0.12" />
-                <path d="M85 55 L135 105 L85 155" stroke="#ffffff" opacity="0.18" />
-                <path d="M140 55 L190 105 L140 155" stroke="#F97316" opacity="0.85" />
-              </g>
-            </svg>
+            <PanelBrandMark className="-end-10 -top-14 w-72 sm:w-80" />
             <div className="relative flex h-full min-h-[18rem] flex-col justify-between gap-8">
               <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-black uppercase tracking-wide backdrop-blur">
                 <span className="size-2 animate-pulse rounded-full bg-brand-orange" aria-hidden="true" />
@@ -93,7 +80,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-bold text-brand-teal">{dictionary.home.upcomingEyebrow}</p>
             <h2 className="text-2xl font-black text-gray-950 sm:text-3xl">{dictionary.home.upcomingTitle}</h2>
           </div>
           <ButtonLink href={withLocale("/races", locale)} variant="outline" size="sm">
@@ -108,10 +94,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-            <h3 className="text-lg font-black text-gray-950">{dictionary.races.emptyTitle}</h3>
-            <p className="mt-2 text-sm text-gray-600">{dictionary.races.emptyText}</p>
-          </div>
+          <EmptyState
+            icon={CalendarDays}
+            title={dictionary.races.emptyTitle}
+            description={dictionary.races.emptyText}
+            action={
+              <ButtonLink href={withLocale("/races", locale)} variant="outline" size="md">
+                {dictionary.home.browseAll}
+                <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+              </ButtonLink>
+            }
+          />
         )}
       </section>
 
@@ -119,7 +112,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <section className="border-y border-gray-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-6">
-            <p className="text-sm font-bold text-brand-teal">{dictionary.home.raceTypesEyebrow}</p>
             <h2 className="text-2xl font-black text-gray-950 sm:text-3xl">{dictionary.home.raceTypesTitle}</h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -145,11 +137,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       {/* Organizer CTA */}
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="relative grid gap-5 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-teal to-[#0a3a36] p-8 text-white shadow-soft md:grid-cols-[1fr_auto] md:items-center">
-          <svg aria-hidden="true" className="pointer-events-none absolute -right-8 -top-8 size-48 opacity-15" viewBox="0 0 40 40" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 11 L16 20 L7 29" stroke="#fff" />
-            <path d="M15 11 L24 20 L15 29" stroke="#fff" />
-            <path d="M23 11 L32 20 L23 29" stroke="#F97316" />
-          </svg>
+          <PanelBrandMark className="-end-10 -top-10 w-56 sm:w-64" />
           <div className="relative">
             <h2 className="text-2xl font-black sm:text-3xl">{dictionary.home.organizerTitle}</h2>
             <p className="mt-2 max-w-xl text-teal-50">{dictionary.home.organizerText}</p>

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, Mail, Phone, ReceiptText, Route, UserRound, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardList, Mail, Phone, ReceiptText, Route, UserRound, XCircle } from "lucide-react";
 import { Pagination } from "@/components/ui/pagination";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminRegistrations, requireAdmin } from "@/lib/admin";
 import { parsePagination } from "@/lib/pagination";
@@ -34,6 +34,8 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
     pagination
   );
 
+  const hasActiveFilters = Boolean(filters?.q || filters?.status || filters?.paymentState || filters?.paymentStatus);
+
   return (
     <AdminShell title="Registrations" description="Review participant registrations, payment state, and race entry details.">
       <FilterBar action="/admin/registrations" searchPlaceholder="Search runner, email, race, distance" defaultSearch={filters?.q}>
@@ -61,7 +63,16 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
       </FilterBar>
 
       {registrations.length === 0 ? (
-        <EmptyState title="No registrations found" description="There are no registrations matching the current filters." />
+        <EmptyState
+          icon={ClipboardList}
+          title="No registrations found"
+          description={hasActiveFilters ? "No registrations match the current filters. Try clearing them to see everything." : "Registrations will appear here as runners sign up for races."}
+          action={hasActiveFilters ? (
+            <ButtonLink href="/admin/registrations" size="sm" variant="outline">
+              Reset filters
+            </ButtonLink>
+          ) : undefined}
+        />
       ) : (
         <div className="space-y-4">
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -85,67 +96,67 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
 
                   return (
                     <tr key={registration.id}>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 align-top">
                       <div className="flex gap-3">
                         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
                           <UserRound className="size-5" aria-hidden="true" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-bold text-gray-950">
                             {registration.user.firstName} {registration.user.lastName}
                           </p>
                           <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                            <Mail className="size-3.5" aria-hidden="true" />
-                            {registration.user.email}
+                            <Mail className="size-3.5 shrink-0" aria-hidden="true" />
+                            <span className="break-all">{registration.user.email}</span>
                           </p>
                           {registration.user.phone ? (
                             <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                              <Phone className="size-3.5" aria-hidden="true" />
+                              <Phone className="size-3.5 shrink-0" aria-hidden="true" />
                               {registration.user.phone}
                             </p>
                           ) : null}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 align-top">
                       <Link href={`/races/${registration.raceEvent.slug}`} className="font-bold text-gray-950 transition hover:text-brand-teal">
                         {registration.raceEvent.title}
                       </Link>
                       <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                        <CalendarDays className="size-3.5" aria-hidden="true" />
+                        <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
                         {formatDateTime(registration.raceEvent.startDate)}
                       </p>
                     </td>
-                    <td className="px-4 py-4 text-gray-600">
+                    <td className="px-4 py-4 align-top text-gray-600">
                       <p className="flex items-center gap-2">
-                        <Route className="size-4 text-brand-teal" aria-hidden="true" />
+                        <Route className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
                         {registration.raceCategory.name}
                       </p>
                       <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                        <ReceiptText className="size-3.5" aria-hidden="true" />
+                        <ReceiptText className="size-3.5 shrink-0" aria-hidden="true" />
                         {registration.raceCategory.distanceKm}K · {formatDzd(registration.raceCategory.priceDzd ?? undefined)}
                       </p>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 align-top">
                       <StatusBadge value={registration.status} />
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 align-top">
                       <StatusBadge value={registration.paymentStatus} />
                     </td>
-                    <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex min-w-44 flex-wrap gap-2">
+                    <td className="whitespace-nowrap px-4 py-4 align-top text-gray-600">{formatDateTime(registration.createdAt)}</td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-col items-stretch gap-1.5">
                         <form action={confirmRegistrationPaymentAction}>
                           <input type="hidden" name="id" value={registration.id} />
-                          <Button type="submit" variant="outline" size="sm" disabled={!canConfirmPayment}>
-                            <CheckCircle2 className="size-4" aria-hidden="true" />
+                          <Button type="submit" variant="outline" size="sm" disabled={!canConfirmPayment} className="h-10 w-full whitespace-nowrap">
+                            <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
                             Confirm payment
                           </Button>
                         </form>
                         <form action={cancelRegistrationAction}>
                           <input type="hidden" name="id" value={registration.id} />
-                          <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="text-red-700 hover:bg-red-50">
-                            <XCircle className="size-4" aria-hidden="true" />
+                          <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="h-10 w-full whitespace-nowrap text-red-700 hover:bg-red-50 disabled:text-gray-400">
+                            <XCircle className="size-4 shrink-0" aria-hidden="true" />
                             Cancel
                           </Button>
                         </form>

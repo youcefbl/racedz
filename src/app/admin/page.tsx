@@ -11,7 +11,7 @@ export default async function AdminPage() {
 
   return (
     <AdminShell
-      title="RaceDZ operations"
+      title="ZidRun operations"
       description="Monitor platform activity, review pending work, and jump into the admin queues without loading entire tables."
       action={
         <ButtonLink href="/admin/races" size="lg">

@@ -64,15 +64,15 @@ export function CoachRunsPanel({
           })
         });
         const analyze = formData.get("analyzeNow") === "on";
-        setSuccess("Run saved.");
+        setSuccess(copy.runSaved);
         setShowForm(false);
         try {
           await onSaved(payload.data.run.id, analyze);
         } catch (caught) {
-          setError(`Run saved, but coach feedback failed: ${caught instanceof Error ? caught.message : "Unknown error"}`);
+          setError(copy.runSavedFeedbackFailed.replace("{error}", caught instanceof Error ? caught.message : "—"));
         }
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Unable to save run.");
+        setError(caught instanceof Error ? caught.message : copy.runSaveFailed);
       }
     });
   }
@@ -84,7 +84,7 @@ export function CoachRunsPanel({
         await coachRequest(`/api/coach/runs/${runId}`, { method: "PATCH", body: JSON.stringify({ isPublic: next }) });
         await onSaved("", false);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Unable to update run.");
+        setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
       }
     });
   }
@@ -162,7 +162,7 @@ export function CoachRunsPanel({
             {pain >= 7 ? (
               <div className="mt-5 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                High pain will pause automated training advice and recommend professional assessment.
+                {copy.highPainWarning}
               </div>
             ) : null}
 
@@ -205,7 +205,7 @@ export function CoachRunsPanel({
                 )}
                 <div>
                   <p className="text-sm font-black text-gray-950">{formatCoachDateTime(run.startedAt, locale)}</p>
-                  <p className="mt-1 text-xs font-semibold text-gray-500">{run.notes || (run.route ? "GPS run" : "Manual run")}</p>
+                  <p className="mt-1 text-xs font-semibold text-gray-500">{run.notes || (run.route ? copy.gpsRunLabel : copy.manualRunLabel)}</p>
                 </div>
                 <RunFact icon={Route} label={`${run.distanceKm} km`} />
                 <RunFact icon={Gauge} label={formatPace(run.averagePaceSecondsPerKm)} />

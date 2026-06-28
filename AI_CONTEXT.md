@@ -1,9 +1,9 @@
-# RaceDZ — AI Working Context (token-lean)
+# ZidRun — AI Working Context (token-lean)
 
 Read THIS first each session. Deep dives: `TODO.md` (backend/product), `UI_TODO.md` (UI/UX),
 `CODEX_CONTEXT.md` (architecture), `docs/AI_COACH_MVP_PLAN.md` (coach). Don't re-read those unless a task needs them.
 
-## What RaceDZ is
+## What ZidRun is
 MVP platform to discover/publish/register for running races in Algeria. Runners browse+register+log
 runs+follow AI coach plans. Organizers publish races+manage participants. Admins approve orgs/races.
 

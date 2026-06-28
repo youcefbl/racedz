@@ -1,10 +1,10 @@
-# RaceDZ TODO
+# ZidRun TODO
 
-This is the single source of truth for RaceDZ product/backend planning. Use `UI_TODO.md` for public website, design, layout, navigation, and UX polish. Older planning notes in `backlog.md` and `requirment.md` are intentionally replaced by pointers to this file.
+This is the single source of truth for ZidRun product/backend planning. Use `UI_TODO.md` for public website, design, layout, navigation, and UX polish. Older planning notes in `backlog.md` and `requirment.md` are intentionally replaced by pointers to this file.
 
 ## Product Goal
 
-RaceDZ is an MVP platform for discovering, publishing, and registering for running races in Algeria.
+ZidRun is an MVP platform for discovering, publishing, and registering for running races in Algeria.
 
 The first useful version must let:
 
@@ -142,7 +142,7 @@ The first useful version must let:
   - Browser e2e test strategy exists in `docs/E2E_TEST_STRATEGY.md`.
   - AWS deployment planning exists in `docs/AWS_DEPLOYMENT_PLAN.md`.
 - Notifications:
-  - Shared branded RaceDZ email template is used by notification emails and account activation.
+  - Shared branded ZidRun email template is used by notification emails and account activation.
   - New account registration sends an activation email; login is blocked until email verification.
   - Notification, delivery, push subscription, and preference tables exist.
   - Header shows a notification bell with unread count and recent-notification dropdown.
@@ -197,7 +197,7 @@ The first useful version must let:
      - Keep analytics privacy-conscious and document retention before production.
 
 2. Notifications:
-   - Improve branded email template UI/UX across all RaceDZ emails.
+   - Improve branded email template UI/UX across all ZidRun emails.
    - Add payment proof review notifications.
    - Add race reminder jobs.
    - Do not build wilaya race alerts for now.
@@ -413,7 +413,7 @@ Decision: bib transfer and registration resale are not part of the MVP.
 Before implementing, define:
 
 - Whether each organizer must allow transfers.
-- Whether RaceDZ handles payment or only connects users.
+- Whether ZidRun handles payment or only connects users.
 - Transfer deadline rules.
 - ID verification rules.
 - Refund and fraud policy.

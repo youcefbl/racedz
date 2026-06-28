@@ -36,13 +36,13 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
         try {
           await operation();
         } catch (caught) {
-          setError(caught instanceof Error ? caught.message : "Coach request failed.");
+          setError(caught instanceof Error ? caught.message : copy.requestFailed);
         } finally {
           setPendingAction(null);
         }
       });
     },
-    []
+    [copy.requestFailed]
   );
 
   const runInteraction = useCallback(
@@ -96,9 +96,9 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
   return (
     <div className="min-h-[70vh] bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <header className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="inline-flex items-center gap-2 text-sm font-black uppercase text-brand-teal">
+        <header className="mb-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl rz-hide-native">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-brand-teal">
               <Sparkles className="size-4 text-brand-orange" aria-hidden="true" />
               {copy.eyebrow}
             </p>
@@ -123,7 +123,7 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
           <Metric icon={Activity} label={copy.fatigue} value={`${metrics.maximumFatigueLast7Days}/10`} />
         </section>
 
-        <nav className="mb-5 grid grid-cols-4 rounded-lg border border-gray-200 bg-white p-1 shadow-sm" aria-label="Coach views">
+        <nav className="coach-tabs mb-5 grid grid-cols-4 rounded-lg border border-gray-200 bg-white p-1 shadow-sm" aria-label="Coach views">
           {views.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -131,13 +131,12 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
               onClick={() => setView(id)}
               aria-current={view === id ? "page" : undefined}
               className={cn(
-                "flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-md px-2 text-xs font-black transition sm:text-sm",
+                "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-2 text-xs font-black transition sm:flex-row sm:gap-2 sm:text-sm",
                 view === id ? "bg-gray-950 text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-950"
               )}
             >
               <Icon className="size-4 shrink-0" aria-hidden="true" />
-              <span className="hidden truncate sm:inline">{label}</span>
-              <span className="sr-only sm:hidden">{label}</span>
+              <span className="coach-tab-label truncate text-[11px] sm:text-sm">{label}</span>
             </button>
           ))}
         </nav>
@@ -193,6 +192,7 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
             locale={locale}
             copy={copy}
             pendingAction={pendingAction}
+            canVoice={dashboard.entitlement?.tier === "SUBSCRIBED"}
             onAsk={(message) => runInteraction("CHAT", { message })}
           />
         ) : null}
@@ -257,7 +257,7 @@ function formatBannerDate(iso: string, locale: CoachLocale) {
 
 function Metric({ icon: Icon, label, value }: { icon: typeof Route; label: string; value: string }) {
   return (
-    <div className="min-w-0 border-b border-r border-gray-200 p-4 last:border-r-0 lg:border-b-0">
+    <div className="min-w-0 border-b border-e border-gray-200 p-4 last:border-e-0 lg:border-b-0">
       <div className="flex items-center gap-2 text-gray-500">
         <Icon className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
         <span className="truncate text-xs font-bold uppercase">{label}</span>

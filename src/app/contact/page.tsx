@@ -12,25 +12,25 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
   const content = dictionary.pages.contact;
 
   return (
-    <SectionPage eyebrow="RaceDZ" title={content.title}>
-      <div className="space-y-6">
-        <p>{content.intro}</p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ContactCard
+    <SectionPage eyebrow="ZidRun" title={content.title}>
+      <div className="space-y-8">
+        <p className="max-w-2xl text-base leading-7 text-gray-700">{content.intro}</p>
+        <dl className="divide-y divide-gray-200 border-t border-gray-200">
+          <ContactRow
             icon={Mail}
             label={content.emailLabel}
             value={content.email}
             href={`mailto:${content.email}`}
           />
-          <ContactCard icon={Phone} label={content.phoneLabel} value={content.phone} href={`tel:${content.phone}`} />
-          <ContactCard icon={Clock} label={content.hoursLabel} value={content.hours} />
-        </div>
+          <ContactRow icon={Phone} label={content.phoneLabel} value={content.phone} href={`tel:${content.phone}`} />
+          <ContactRow icon={Clock} label={content.hoursLabel} value={content.hours} />
+        </dl>
       </div>
     </SectionPage>
   );
 }
 
-function ContactCard({
+function ContactRow({
   icon: Icon,
   label,
   value,
@@ -42,19 +42,22 @@ function ContactCard({
   href?: string;
 }) {
   const valueNode = href ? (
-    <a href={href} className="text-brand-teal transition hover:text-brand-tealDark hover:underline">
+    <a
+      href={href}
+      className="inline-flex min-h-[44px] items-center font-semibold text-brand-teal transition hover:text-brand-tealDark hover:underline"
+    >
       {value}
     </a>
   ) : (
-    <span>{value}</span>
+    <span className="inline-flex min-h-[44px] items-center font-semibold text-gray-950">{value}</span>
   );
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <Icon className="mt-0.5 size-5 text-brand-orange" aria-hidden="true" />
-      <div>
+    <div className="flex items-start gap-3 py-4">
+      <Icon className="mt-3 size-5 shrink-0 text-brand-orange" aria-hidden="true" />
+      <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-normal text-gray-500">{label}</p>
-        <p className="mt-1 text-sm font-semibold text-gray-950">{valueNode}</p>
+        <p className="text-sm">{valueNode}</p>
       </div>
     </div>
   );

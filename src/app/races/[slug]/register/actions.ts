@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { getLocale, withLocale } from "@/lib/i18n";
 import { createRaceRegistrationForUser, RegistrationError } from "@/lib/registrations";
 
 export type RaceRegistrationActionState = {
@@ -49,7 +50,8 @@ export async function registerForRaceAction(
     throw error;
   }
 
-  redirect(`/account/registrations?registered=${raceSlug}`);
+  const locale = getLocale(formData.get("lang") as string | null);
+  redirect(withLocale(`/account/registrations?registered=${raceSlug}`, locale));
 }
 
 function getString(formData: FormData, key: string) {

@@ -1,4 +1,4 @@
-// Generates RaceDZ PNG app icons from the inline "Velocity" SVG mark.
+// Generates ZidRun PNG app icons from the inline "Velocity" SVG mark.
 // Run: node scripts/gen-icons.mjs
 import sharp from "sharp";
 

@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 import { KeyboardResize } from "@capacitor/keyboard";
 
-// RaceDZ is a server-rendered Next.js app (server components, server actions, auth),
+// ZidRun is a server-rendered Next.js app (server components, server actions, auth),
 // so the native shell loads the live web app in a webview instead of a static export.
 //
 // - Production: defaults to the hosted domain below.
@@ -9,12 +9,12 @@ import { KeyboardResize } from "@capacitor/keyboard";
 //     Android emulator:  CAP_SERVER_URL=http://10.0.2.2:3003 npx cap sync android
 //     Physical device:   CAP_SERVER_URL=http://<your-LAN-IP>:3003 npx cap sync android
 //   then rebuild/run the app.
-const serverUrl = process.env.CAP_SERVER_URL || "https://racedz.dz";
+const serverUrl = process.env.CAP_SERVER_URL || "https://zidrun.com";
 const isCleartext = serverUrl.startsWith("http://");
 
 const config: CapacitorConfig = {
   appId: "dz.racedz.app",
-  appName: "RaceDZ",
+  appName: "ZidRun",
   webDir: "www",
   server: {
     url: serverUrl,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { useOptimistic, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { getDictionary, type Locale } from "@/lib/i18n";
 import { notifyHaptic } from "@/lib/native/haptics";
 import { markAllNotificationsReadAction, markNotificationReadAction } from "./actions";
 
@@ -19,7 +20,8 @@ export type NotificationItem = {
 // Optimistic notifications list: marking read flips the UI instantly, then the server
 // action runs (and revalidates the header badge). If the action throws, the transition
 // unwinds and the optimistic state is discarded automatically.
-export function NotificationsList({ notifications }: { notifications: NotificationItem[] }) {
+export function NotificationsList({ notifications, locale }: { notifications: NotificationItem[]; locale: Locale }) {
+  const t = getDictionary(locale).notifications;
   const [, startTransition] = useTransition();
   const [optimistic, addOptimistic] = useOptimistic(notifications, (state, readId: string) =>
     readId === "*"
@@ -50,7 +52,7 @@ export function NotificationsList({ notifications }: { notifications: Notificati
       {unreadCount > 0 ? (
         <div className="mb-3 flex justify-end">
           <Button type="button" variant="ghost" size="sm" onClick={markAll}>
-            Mark all as read ({unreadCount})
+            {t.markAllRead.replace("{count}", String(unreadCount))}
           </Button>
         </div>
       ) : null}
@@ -59,13 +61,18 @@ export function NotificationsList({ notifications }: { notifications: Notificati
           {optimistic.map((notification) => (
             <li key={notification.id} className={notification.readAt ? "p-4" : "bg-teal-50/60 p-4"}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    {!notification.readAt ? <span className="size-2 rounded-full bg-brand-orange" aria-label="Unread" /> : null}
-                    <h2 className="text-sm font-black text-gray-950">{notification.title}</h2>
+                <div className="flex min-w-0 gap-2.5">
+                  <span
+                    className={notification.readAt ? "mt-1.5 size-2 shrink-0 rounded-full bg-transparent" : "mt-1.5 size-2 shrink-0 rounded-full bg-brand-orange"}
+                    aria-label={notification.readAt ? undefined : t.unread}
+                  />
+                  <div className="min-w-0">
+                    <h2 className={notification.readAt ? "text-sm font-semibold text-gray-700" : "text-sm font-black text-gray-950"}>
+                      {notification.title}
+                    </h2>
+                    <p className="mt-1 text-sm leading-6 text-gray-600">{notification.body}</p>
+                    <p className="mt-2 text-xs font-semibold text-gray-500">{formatDate(notification.createdAt, locale)}</p>
                   </div>
-                  <p className="mt-1 text-sm leading-6 text-gray-600">{notification.body}</p>
-                  <p className="mt-2 text-xs font-semibold text-gray-500">{formatDate(notification.createdAt)}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   {notification.href ? (
@@ -73,13 +80,13 @@ export function NotificationsList({ notifications }: { notifications: Notificati
                       href={notification.href}
                       className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:border-brand-teal hover:text-brand-teal"
                     >
-                      Open
+                      {t.open}
                       <ExternalLink className="size-4" aria-hidden="true" />
                     </Link>
                   ) : null}
                   {!notification.readAt ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => markOne(notification.id)}>
-                      Mark read
+                      {t.markRead}
                     </Button>
                   ) : null}
                 </div>
@@ -92,8 +99,8 @@ export function NotificationsList({ notifications }: { notifications: Notificati
   );
 }
 
-function formatDate(value: string | Date) {
-  return new Intl.DateTimeFormat("en", {
+function formatDate(value: string | Date, locale: Locale) {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));

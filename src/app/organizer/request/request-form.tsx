@@ -49,7 +49,7 @@ export function OrganizationRequestForm({ user }: OrganizationRequestFormProps) 
               required
               minLength={20}
               rows={5}
-              placeholder="Tell RaceDZ what kind of races your organization runs and where you operate."
+              placeholder="Tell ZidRun what kind of races your organization runs and where you operate."
               className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
             />
           </label>

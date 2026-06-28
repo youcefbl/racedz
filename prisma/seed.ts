@@ -64,12 +64,12 @@ async function main() {
   const passwordHash = await bcrypt.hash("racedz-demo-password", 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@racedz.dz" },
+    where: { email: "admin@zidrun.com" },
     update: {},
     create: {
-      email: "admin@racedz.dz",
+      email: "admin@zidrun.com",
       passwordHash,
-      firstName: "RaceDZ",
+      firstName: "ZidRun",
       lastName: "Admin",
       arabicFullName: "إدارة رايس ديزاد",
       role: "SUPERADMIN"
@@ -77,10 +77,10 @@ async function main() {
   });
 
   const organizerUser = await prisma.user.upsert({
-    where: { email: "organizer@racedz.dz" },
+    where: { email: "organizer@zidrun.com" },
     update: {},
     create: {
-      email: "organizer@racedz.dz",
+      email: "organizer@zidrun.com",
       passwordHash,
       firstName: "Amina",
       lastName: "Mansouri",
@@ -125,7 +125,7 @@ async function main() {
       name: "Alger Running Club",
       slug: "alger-running-club",
       description: "Community road running organizer in Alger.",
-      email: "club@racedz.dz",
+      email: "club@zidrun.com",
       wilaya: "Alger",
       city: "Alger Centre",
       commune: "Alger Centre",
@@ -146,7 +146,7 @@ async function main() {
       name: "Oran Trail Team",
       slug: "oran-trail-team",
       description: "Trail and road race organizer based in Oran.",
-      email: "oran@racedz.dz",
+      email: "oran@zidrun.com",
       wilaya: "Oran",
       city: "Oran",
       commune: "Oran",
@@ -161,7 +161,7 @@ async function main() {
       name: "Kabylie Mountain Runners",
       slug: "kabylie-mountain-runners",
       description: "Mountain running and trail events in Kabylie.",
-      email: "trail@racedz.dz",
+      email: "trail@zidrun.com",
       wilaya: "Tizi Ouzou",
       city: "Tizi Ouzou",
       commune: "Tizi Ouzou",
@@ -192,7 +192,7 @@ async function main() {
       address: "Place des Martyrs, Alger",
       mainImageUrl: "/racedz-logo.png",
       organizerName: "Alger Running Club",
-      organizerUrl: "https://racedz.dz/organizations/alger-running-club",
+      organizerUrl: "https://zidrun.com/organizations/alger-running-club",
       maxParticipants: 1500,
       availablePlaces: 1320,
       categories: {
@@ -225,7 +225,7 @@ async function main() {
       address: "Front de mer, Oran",
       mainImageUrl: "/racedz-logo.png",
       organizerName: "Oran Trail Team",
-      organizerUrl: "https://racedz.dz/organizations/oran-trail-team",
+      organizerUrl: "https://zidrun.com/organizations/oran-trail-team",
       maxParticipants: 2200,
       availablePlaces: 2040,
       categories: {
@@ -258,7 +258,7 @@ async function main() {
       address: "Maison de la culture Mouloud Mammeri",
       mainImageUrl: "/racedz-logo.png",
       organizerName: "Kabylie Mountain Runners",
-      organizerUrl: "https://racedz.dz/organizations/kabylie-mountain-runners",
+      organizerUrl: "https://zidrun.com/organizations/kabylie-mountain-runners",
       maxParticipants: 700,
       availablePlaces: 580,
       categories: {
@@ -289,9 +289,9 @@ async function main() {
       commune: "Constantine",
       address: "Centre-ville, Constantine",
       mainImageUrl: "/racedz-logo.png",
-      organizerName: "RaceDZ Community Desk",
-      organizerUrl: "https://racedz.dz",
-      contactEmail: "events@racedz.dz",
+      organizerName: "ZidRun Community Desk",
+      organizerUrl: "https://zidrun.com",
+      contactEmail: "events@zidrun.com",
       maxParticipants: 1200,
       availablePlaces: 1200,
       categories: {
@@ -334,7 +334,7 @@ async function main() {
   await seedBulkUsers(passwordHash);
   await seedBulkRaces(organizations);
 
-  console.info(`Seeded RaceDZ with admin ${admin.email}`);
+  console.info(`Seeded ZidRun with admin ${admin.email}`);
 }
 
 async function seedBulkUsers(passwordHash: string) {
@@ -425,7 +425,7 @@ async function seedBulkRaces(organizations: Array<{ id: string }>) {
         commune: wilaya,
         address: `${wilaya} city center`,
         mainImageUrl: "/racedz-logo.png",
-        organizerName: organization ? "Seeded Organizer" : "RaceDZ Community Desk",
+        organizerName: organization ? "Seeded Organizer" : "ZidRun Community Desk",
         maxParticipants: randomInt(200, 3000),
         availablePlaces: randomInt(50, 3000)
       });

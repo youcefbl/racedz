@@ -86,7 +86,7 @@ export function CoachPlanPanel({
           </div>
           <div className="flex items-start gap-2 border-t border-gray-200 bg-teal-50 px-5 py-4 text-xs leading-5 text-gray-700">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
-            Workout dates, types and distance ceilings are enforced by RaceDZ safety rules.
+            {copy.planSafetyNotice}
           </div>
         </>
       ) : (

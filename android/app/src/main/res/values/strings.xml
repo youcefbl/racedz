@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">RaceDZ</string>
-    <string name="title_activity_main">RaceDZ</string>
+    <string name="app_name">ZidRun</string>
+    <string name="title_activity_main">ZidRun</string>
     <string name="package_name">dz.racedz.app</string>
     <string name="custom_url_scheme">dz.racedz.app</string>
 </resources>

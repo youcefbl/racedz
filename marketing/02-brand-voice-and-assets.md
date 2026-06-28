@@ -1,4 +1,4 @@
-# RaceDZ — Brand Voice, Visual Kit & Asset Guide
+# ZidRun — Brand Voice, Visual Kit & Asset Guide
 
 Use this as the style guide for everything posted. Consistency here is what makes a new account feel like a real brand.
 
@@ -32,19 +32,36 @@ Use this as the style guide for everything posted. Consistency here is what make
 ---
 
 ## 3. Visual identity
-- **Primary color:** Teal `#0F766E`
-- **Accent:** Orange `#F97316`
-- **Neutrals:** near-black `#0A0A0A`, off-white `#FAFAFA`
-- **Logo:** RaceDZ wordmark/mark — keep clear space, never stretch, use mono version on busy photos.
-- **Typography (graphics):** bold geometric sans for headlines (e.g. Montserrat/Poppins), clean sans for body.
+
+**Logo:** The ZidRun mark is a dynamic **"Z" speed-blade** — a green chevron (top) + orange chevron (bottom) forming a forward-leaning Z that reads as motion/speed — followed by the **"idRun"** wordmark in bold italic ink. The Z can stand alone as an app icon/avatar.
+
+- **Primary green:** `#8BC53F` (energy, "go", the top blade)
+- **Accent orange:** `#F47A20` (warmth, the bottom blade)
+- **Ink (text/wordmark):** `#141618` (near-black)
+- **Off-white:** `#FAFAFA`
+
+**Logo files (in repo):**
+- `public/zidrun-logo.svg` — full color, light backgrounds
+- `public/zidrun-logo-dark.svg` — for dark backgrounds (green/orange mark, light wordmark)
+- `public/zidrun-logo-race.svg` — flashy "race" variant
+- `public/zidrun-logo.png` — raster fallback
+- `brand-explore/export/` — additional exports (mark-only, shiny, dark)
+
+**Logo usage rules:**
+- Keep clear space around the mark; never stretch, recolor, or rotate.
+- On busy photos, use the dark variant or a mono/white version with the Z mark only.
+- App icon / profile avatar = the **Z mark alone** (green+orange) on white or ink.
+- Never put the green blade on a green background or orange on orange — keep contrast.
+
+- **Typography (graphics):** bold geometric/italic sans for headlines to echo the wordmark's forward lean (e.g. Montserrat/Poppins italic); clean sans for body.
 - **Photo style:** real Algerian runners, real cities, golden-hour, motion, sweat, finish-line joy. Avoid sterile stock.
-- **Template motifs:** speed lines, route/map lines, distance tags (5K/10K/21K), wilaya tags.
+- **Template motifs:** the Z speed-blade, diagonal speed lines, route/map lines, distance tags (5K/10K/21K), wilaya tags. Green = action/CTA, orange = warmth/highlight.
 
 ### Reusable graphic templates to build (Canva)
 1. Race card teaser (race name · wilaya · date · distance · price · "S'inscrire").
 2. "Course du week-end" roundup (3–5 races grid).
-3. Quote/stat card (teal bg, orange accent).
-4. Carousel cover + inner-slide layout.
+3. Quote/stat card (ink or green bg, orange accent, Z watermark).
+4. Carousel cover + inner-slide layout (Z blade motif in corner).
 5. Coach tip card.
 6. Organizer CTA card.
 
@@ -52,7 +69,7 @@ Use this as the style guide for everything posted. Consistency here is what make
 
 ## 4. Profile setup
 
-**Handles (claim consistently):** `@racedz` / `@racedz.dz` / `@race.dz` (use the same on IG/FB/TT).
+**Handles (claim consistently):** `@zidrun` / `@zidrun.dz` / `@zidrun.run` (use the same on IG/FB/TT). Grab them everywhere before launch.
 
 **Instagram bio (FR/AR/EN mix):**
 ```
@@ -65,7 +82,7 @@ Use this as the style guide for everything posted. Consistency here is what make
 
 **Facebook Page — short description:**
 ```
-RaceDZ — Découvre, inscris-toi et gère les courses à pied en Algérie. Avec ton coach IA. | كل سباقات الجزائر في تطبيق واحد
+ZidRun — Découvre, inscris-toi et gère les courses à pied en Algérie. Avec ton coach IA. | كل سباقات الجزائر في تطبيق واحد
 ```
 
 **TikTok bio:**
@@ -83,7 +100,7 @@ Trouve ta course + coach IA 👇
 
 ## 5. Hashtag bank
 
-**Branded:** `#RaceDZ` `#LAlgérieQuiCourt` `#JeCoursAvecRaceDZ` `#نجري_مع_RaceDZ`
+**Branded:** `#ZidRun` `#LAlgérieQuiCourt` `#JeCoursAvecZidRun` `#نجري_مع_ZidRun`
 
 **Core running (FR/EN):** `#course` `#running` `#runningalgeria` `#courseapied` `#semimarathon` `#marathon` `#trail` `#5K` `#10K` `#runner`
 
@@ -99,7 +116,7 @@ Trouve ta course + coach IA 👇
 
 Tag every outbound link so sign-ups are attributable:
 ```
-https://racedz.app/races?utm_source={instagram|facebook|tiktok}&utm_medium=social&utm_campaign=launch_2026&utm_content={post-slug}
+https://zidrun.com/races?utm_source={instagram|facebook|tiktok}&utm_medium=social&utm_campaign=launch_2026&utm_content={post-slug}
 ```
 Examples:
 - Reveal Reel → `...utm_source=instagram&utm_content=reveal_reel`

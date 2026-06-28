@@ -1,4 +1,4 @@
-import { Clock3, Search, ShieldCheck } from "lucide-react";
+import { Clock3, ScrollText, Search, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
@@ -82,7 +82,11 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
         </div>
       </form>
       {logs.length === 0 ? (
-        <EmptyState title="No audit entries" description="Admin actions will appear here after approvals, rejections, edits, and role changes." />
+        <EmptyState
+          icon={ScrollText}
+          title="No audit entries"
+          description="Admin actions will appear here after approvals, rejections, edits, and role changes."
+        />
       ) : (
         <div className="space-y-4">
           <div className="grid gap-3">
@@ -101,9 +105,11 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
                           <Badge variant="blue">{formatAction(log.action)}</Badge>
                           <span className="text-xs font-semibold text-gray-500">{log.targetType}</span>
                         </div>
-                        <h2 className="mt-2 text-sm font-black text-gray-950">{log.summary ?? log.action}</h2>
-                        <p className="mt-1 text-sm text-gray-600">
-                          {log.actorName} · {log.actorEmail}
+                        <h2 className="mt-2 break-words text-sm font-black text-gray-950">{log.summary ?? log.action}</h2>
+                        <p className="mt-1 break-words text-sm text-gray-600">
+                          <span className="font-semibold text-gray-700">{log.actorName}</span>
+                          <span className="text-gray-400"> · </span>
+                          <span className="text-gray-500">{log.actorEmail}</span>
                         </p>
                         <p className="mt-1 break-all text-xs font-semibold text-gray-400">Target: {log.targetId}</p>
                         {metadataItems.length ? (

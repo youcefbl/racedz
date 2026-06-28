@@ -33,7 +33,7 @@ export function RunRouteMap({ points, className }: { points: RunRoutePoint[] | n
 
   return (
     <svg viewBox="0 0 100 100" className={className} role="img" aria-label="Run route">
-      <rect x="0" y="0" width="100" height="100" rx="8" className="fill-gray-50" />
+      <rect x="0" y="0" width="100" height="100" rx="8" fill="var(--surface-soft)" />
       <path d={d} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       <circle cx={start[0]} cy={start[1]} r="3.2" fill="var(--primary)" />
       <circle cx={end[0]} cy={end[1]} r="3.2" fill="var(--accent)" />

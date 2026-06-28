@@ -5,21 +5,22 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type AdminShellProps = {
-  eyebrow?: string;
   title: string;
   description?: string;
   action?: ReactNode;
   children: ReactNode;
 };
 
-export function AdminShell({ eyebrow = "Admin", title, description, action, children }: AdminShellProps) {
+// The admin chrome already establishes "you are in admin", so we don't repeat a
+// redundant uppercase "ADMIN" kicker above every page title. Title + description
+// carry the context; the heading is the page's anchor.
+export function AdminShell({ title, description, action, children }: AdminShellProps) {
   return (
     <div className="bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950">{title}</h1>
+          <div className="min-w-0">
+            <h1 className="text-3xl font-black text-gray-950">{title}</h1>
             {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{description}</p> : null}
           </div>
           {action}
@@ -127,11 +128,27 @@ export function StatusBadge({ value }: { value: string }) {
   return <Badge variant={getStatusVariant(value)}>{formatEnumLabel(value)}</Badge>;
 }
 
-export function EmptyState({ title, description }: { title: string; description: string }) {
+export function EmptyState({
+  title,
+  description,
+  icon: Icon,
+  action
+}: {
+  title: string;
+  description: string;
+  icon?: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  action?: ReactNode;
+}) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
+    <div className="rounded-lg border border-gray-200 bg-white p-10 text-center shadow-sm">
+      {Icon ? (
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-teal-50 text-brand-teal">
+          <Icon className="size-6" aria-hidden={true} />
+        </div>
+      ) : null}
       <h2 className="text-xl font-black text-gray-950">{title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">{description}</p>
+      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
     </div>
   );
 }

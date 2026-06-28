@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 const variants = {
   default: "bg-gray-100 text-gray-700",
   teal: "bg-teal-50 text-brand-teal",
-  orange: "bg-orange-50 text-brand-orangeDark",
+  orange: "bg-orange-50 text-brand-orangeText",
   green: "bg-green-50 text-green-700",
   red: "bg-red-50 text-red-700",
   blue: "bg-blue-50 text-blue-700"

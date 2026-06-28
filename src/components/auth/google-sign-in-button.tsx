@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 
 export function GoogleSignInButton({
   callbackUrl,
-  label = "Continue with Google"
+  label = "Continue with Google",
+  pendingLabel = "Opening Google..."
 }: {
   callbackUrl?: string;
   label?: string;
+  pendingLabel?: string;
 }) {
   const [pending, setPending] = useState(false);
 
@@ -22,10 +24,10 @@ export function GoogleSignInButton({
 
   return (
     <Button type="button" variant="outline" size="lg" className="w-full justify-center" disabled={pending} onClick={handleClick}>
-      <span className="flex size-5 items-center justify-center rounded-full bg-white text-sm font-black text-gray-950 shadow-sm">
+      <span className="flex size-5 items-center justify-center rounded-full bg-white text-sm font-semibold text-gray-950 shadow-sm" aria-hidden="true">
         G
       </span>
-      {pending ? "Opening Google..." : label}
+      {pending ? pendingLabel : label}
     </Button>
   );
 }

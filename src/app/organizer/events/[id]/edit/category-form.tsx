@@ -28,7 +28,7 @@ export function CategoryForm({ raceId, category }: { raceId: string; category?: 
       <input type="hidden" name="raceId" value={raceId} />
       {category?.id ? <input type="hidden" name="categoryId" value={category.id} /> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <Field label={t("Name")} name="name" defaultValue={category?.name ?? ""} placeholder="10K Open" />
+        <Field label={t("Name")} name="name" defaultValue={category?.name ?? ""} placeholder={t("10K Open")} />
         <label className="grid gap-2 text-sm font-semibold text-gray-800">
           {t("Race type")}
           <select
@@ -49,18 +49,21 @@ export function CategoryForm({ raceId, category }: { raceId: string; category?: 
           </select>
         </label>
         <Field label={t("Distance KM")} name="distanceKm" type="number" step="0.1" defaultValue={category?.distanceKm?.toString() ?? ""} />
-        <Field label={t("Price DZD")} name="priceDzd" type="number" defaultValue={category?.priceDzd?.toString() ?? ""} required={false} />
-        <Field label={t("Capacity")} name="maxParticipants" type="number" defaultValue={category?.maxParticipants?.toString() ?? ""} required={false} />
+        <Field label={t("Price DZD")} name="priceDzd" type="number" defaultValue={category?.priceDzd?.toString() ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("Capacity")} name="maxParticipants" type="number" defaultValue={category?.maxParticipants?.toString() ?? ""} required={false} optionalLabel={t("optional")} />
         <Field
           label={t("Start time")}
           name="startTime"
           type="datetime-local"
           defaultValue={category?.startTime ? toDateTimeLocal(category.startTime) : ""}
           required={false}
+          optionalLabel={t("optional")}
         />
       </div>
-      {state.error ? <Message tone="error" message={state.error} /> : null}
-      {state.success ? <Message tone="success" message={state.success} /> : null}
+      <div aria-live="polite" className="empty:hidden">
+        {state.error ? <Message tone="error" message={state.error} /> : null}
+        {state.success ? <Message tone="success" message={state.success} /> : null}
+      </div>
       <Button type="submit" variant={isNew ? "secondary" : "outline"} size="sm" disabled={pending} className="justify-self-start">
         {isNew ? <Plus className="size-4" aria-hidden={true} /> : null}
         {pending ? t("Saving...") : isNew ? t("Add category") : t("Save category")}
@@ -74,6 +77,7 @@ function Field({
   name,
   type = "text",
   required = true,
+  optionalLabel,
   defaultValue = "",
   placeholder,
   step
@@ -82,13 +86,17 @@ function Field({
   name: string;
   type?: string;
   required?: boolean;
+  optionalLabel?: string;
   defaultValue?: string;
   placeholder?: string;
   step?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-semibold text-gray-800">
-      {label}
+      <span>
+        {label}
+        {!required && optionalLabel ? <span className="ms-1 font-normal text-gray-500">({optionalLabel})</span> : null}
+      </span>
       <input
         name={name}
         type={type}
@@ -106,7 +114,7 @@ function Message({ tone, message }: { tone: "error" | "success"; message: string
   const Icon = tone === "error" ? AlertCircle : CheckCircle2;
 
   return (
-    <p className={tone === "error" ? "flex items-start gap-2 rounded-lg bg-red-50 p-2 text-xs font-semibold text-red-700" : "flex items-start gap-2 rounded-lg bg-green-50 p-2 text-xs font-semibold text-green-700"}>
+    <p role={tone === "error" ? "alert" : undefined} className={tone === "error" ? "flex items-start gap-2 rounded-lg bg-red-50 p-2 text-xs font-semibold text-red-700" : "flex items-start gap-2 rounded-lg bg-green-50 p-2 text-xs font-semibold text-green-700"}>
       <Icon className="mt-0.5 size-3.5 shrink-0" aria-hidden={true} />
       {message}
     </p>

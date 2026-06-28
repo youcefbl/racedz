@@ -42,14 +42,14 @@ export async function sendAccountVerificationEmail({
   token: string;
 }) {
   const url = new URL(`/verify-email/${token}`, getAppUrl()).toString();
-  const body = `Hi ${firstName}, confirm your email to activate your RaceDZ account and start registering for races.`;
+  const body = `Hi ${firstName}, confirm your email to activate your ZidRun account and start registering for races.`;
 
   return sendNotificationEmail({
     to,
-    subject: "Activate your RaceDZ account",
+    subject: "Activate your ZidRun account",
     html: renderRaceDzEmailHtml({
-      preheader: "Activate your RaceDZ account.",
-      title: "Activate your RaceDZ account",
+      preheader: "Activate your ZidRun account.",
+      title: "Activate your ZidRun account",
       body,
       action: {
         label: "Activate account",
@@ -63,7 +63,7 @@ export async function sendAccountVerificationEmail({
       ]
     }),
     text: renderRaceDzEmailText({
-      title: "Activate your RaceDZ account",
+      title: "Activate your ZidRun account",
       body,
       action: {
         label: "Activate account",

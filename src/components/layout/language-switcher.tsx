@@ -4,21 +4,19 @@ import Link from "next/link";
 import { Check, Globe } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LOCALE_LABELS, LOCALES, type Locale } from "@/lib/i18n";
+import { LOCALE_LABELS, LOCALE_NAMES, LOCALES, getDictionary, type Locale } from "@/lib/i18n";
+import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { cn } from "@/lib/utils";
-
-const LOCALE_NAMES: Record<Locale, string> = {
-  en: "English",
-  fr: "Français",
-  ar: "العربية"
-};
 
 export function LanguageSwitcher({ currentLocale }: { currentLocale?: Locale }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selectedLocale = currentLocale ?? getCurrentLocale(searchParams.get("lang"));
+  const languageLabel = getDictionary(selectedLocale).account.language;
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { onKeyDown } = useMenuKeyboard({ open, setOpen, menuRef, triggerRef });
 
   useEffect(() => {
     if (!open) return;
@@ -40,12 +38,14 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale?: Locale }) 
   return (
     <div ref={menuRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
-        aria-label={`Language: ${LOCALE_NAMES[selectedLocale]}`}
+        aria-label={`${languageLabel}: ${LOCALE_NAMES[selectedLocale]}`}
+        title={`${languageLabel}: ${LOCALE_NAMES[selectedLocale]}`}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 text-sm font-black text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
+        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 text-sm font-black text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
       >
         <Globe className="size-[18px]" aria-hidden="true" />
         <span>{LOCALE_LABELS[selectedLocale]}</span>
@@ -53,7 +53,7 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale?: Locale }) 
 
       {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
-        <div className="rz-pop absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft" role="menu">
+        <div className="rz-pop absolute end-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft" role="menu" aria-label={languageLabel} onKeyDown={onKeyDown}>
           {LOCALES.map((locale) => (
             <Link
               key={locale}

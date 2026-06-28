@@ -2,12 +2,13 @@
 
 import { Check, Moon, Sparkles, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { cn } from "@/lib/utils";
 
 const THEMES = [
   { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
-  { value: "race", label: "Race", icon: Sparkles }
+  { value: "race", label: "Race (neon)", icon: Sparkles }
 ] as const;
 
 type ThemeMode = (typeof THEMES)[number]["value"];
@@ -16,6 +17,8 @@ export function ThemeSwitcher() {
   const [theme, setTheme] = useState<ThemeMode>("light");
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { onKeyDown } = useMenuKeyboard({ open, setOpen, menuRef, triggerRef });
   const selectedTheme = THEMES.find((item) => item.value === theme) ?? THEMES[0];
   const SelectedIcon = selectedTheme.icon;
 
@@ -62,13 +65,14 @@ export function ThemeSwitcher() {
   return (
     <div ref={menuRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={`Theme: ${selectedTheme.label}`}
         aria-expanded={open}
         aria-haspopup="menu"
         title={`Theme: ${selectedTheme.label}`}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex size-10 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
+        className="inline-flex size-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
       >
         <SelectedIcon className="size-[18px]" aria-hidden="true" />
       </button>
@@ -76,8 +80,10 @@ export function ThemeSwitcher() {
       {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
         <div
-          className="rz-pop absolute right-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft"
+          className="rz-pop absolute end-0 top-12 z-50 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-soft"
           role="menu"
+          aria-label={`Theme: ${selectedTheme.label}`}
+          onKeyDown={onKeyDown}
         >
           {THEMES.map((item) => (
             <ThemeMenuItem
@@ -112,7 +118,7 @@ function ThemeMenuItem({
       aria-checked={active}
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
+        "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-start text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange",
         active ? "bg-[var(--primary-soft)] text-brand-teal" : "text-[var(--text)] hover:bg-[var(--surface-soft)]"
       )}
     >

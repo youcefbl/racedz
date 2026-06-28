@@ -1,4 +1,4 @@
-# RaceDZ — Social Media Launch Marketing Plan
+# ZidRun — Social Media Launch Marketing Plan
 
 **Prepared by:** Senior Marketing Manager
 **Campaign type:** Launch awareness
@@ -10,9 +10,9 @@
 
 ## 1. Executive summary
 
-RaceDZ is the first dedicated platform to **discover, register for, and manage running races across Algeria**, plus a personal **AI running coach**. Today, Algerian runners find races through scattered Facebook posts, WhatsApp groups, and word of mouth; organizers manage registrations on paper and spreadsheets. RaceDZ fixes both sides in one place.
+ZidRun is the first dedicated platform to **discover, register for, and manage running races across Algeria**, plus a personal **AI running coach**. Today, Algerian runners find races through scattered Facebook posts, WhatsApp groups, and word of mouth; organizers manage registrations on paper and spreadsheets. ZidRun fixes both sides in one place.
 
-The launch goal is **awareness + first sign-ups**: make RaceDZ the name runners and organizers think of when they hear "course / سباق / race" in Algeria. We do this with a high-frequency, mostly-organic social push, bilingual-first (FR/AR), video-led (Reels/TikTok), anchored by a strong founding-community offer.
+The launch goal is **awareness + first sign-ups**: make ZidRun the name runners and organizers think of when they hear "course / سباق / race" in Algeria. We do this with a high-frequency, mostly-organic social push, bilingual-first (FR/AR), video-led (Reels/TikTok), anchored by a strong founding-community offer.
 
 **North-star for the campaign:** activated sign-ups (account created + first race viewed or coach goal set).
 
@@ -20,14 +20,14 @@ The launch goal is **awareness + first sign-ups**: make RaceDZ the name runners 
 
 ## 2. Product positioning
 
-**One-liner (FR):** RaceDZ — Trouve ta course, inscris-toi, et cours avec ton coach IA. Toutes les courses d'Algérie, au même endroit.
+**One-liner (FR):** ZidRun — Trouve ta course, inscris-toi, et cours avec ton coach IA. Toutes les courses d'Algérie, au même endroit.
 
-**One-liner (AR):** ‏RaceDZ — لقّى سباقك، سجّل، واجري مع مدرّبك بالذكاء الاصطناعي. كل سباقات الجزائر في بلاصة وحدة.
+**One-liner (AR):** ‏ZidRun — لقّى سباقك، سجّل، واجري مع مدرّبك بالذكاء الاصطناعي. كل سباقات الجزائر في بلاصة وحدة.
 
-**One-liner (EN):** RaceDZ — Find your race, register, and train with your AI coach. Every running race in Algeria, in one place.
+**One-liner (EN):** ZidRun — Find your race, register, and train with your AI coach. Every running race in Algeria, in one place.
 
 ### Positioning statement
-For **runners and race organizers in Algeria** who struggle with scattered race info and manual registration, **RaceDZ** is a **running-events platform** that **brings race discovery, online registration, and AI-powered training into one trilingual app** — unlike Facebook posts and spreadsheets, which are fragmented, manual, and easy to miss.
+For **runners and race organizers in Algeria** who struggle with scattered race info and manual registration, **ZidRun** is a **running-events platform** that **brings race discovery, online registration, and AI-powered training into one trilingual app** — unlike Facebook posts and spreadsheets, which are fragmented, manual, and easy to miss.
 
 ### Value pillars
 1. **Discover** — every race (5K, 10K, semi, marathon, trail) filterable by wilaya, distance, date, price.
@@ -47,7 +47,7 @@ For **runners and race organizers in Algeria** who struggle with scattered race 
 | **Race organizers** (secondary, B2B) | Clubs, associations, municipalities, sponsors | "Managing registrations manually is painful" | Free publishing + participant management |
 | **Diaspora & expats** (tertiary) | Algerians abroad, EN/FR | Want to run when visiting, support local | EN content, "races back home" angle |
 
-**Persona spotlight — "Yacine, 28, Alger":** runs 2–3×/week, wants to do his first 10K, registers for races late or misses them, motivated by community and progress. RaceDZ = his race calendar + coach in his pocket.
+**Persona spotlight — "Yacine, 28, Alger":** runs 2–3×/week, wants to do his first 10K, registers for races late or misses them, motivated by community and progress. ZidRun = his race calendar + coach in his pocket.
 
 ---
 
@@ -70,7 +70,7 @@ For **runners and race organizers in Algeria** who struggle with scattered race 
 ## 5. Campaign strategy & big idea
 
 ### Big idea: **"L'Algérie qui court / الجزائر اللي تجري / Algeria Runs"**
-A movement, not just an app. We document and celebrate the growing running culture in Algeria — every wilaya, every level — and position RaceDZ as the home of that movement. Every post either **inspires** (the movement) or **enables** (find/register/train).
+A movement, not just an app. We document and celebrate the growing running culture in Algeria — every wilaya, every level — and position ZidRun as the home of that movement. Every post either **inspires** (the movement) or **enables** (find/register/train).
 
 ### Three creative angles on rotation
 1. **Inspire** — runner stories, sunrise runs in Algerian cities, "from couch to 5K", finish-line emotion.
@@ -79,7 +79,7 @@ A movement, not just an app. We document and celebrate the growing running cultu
 
 ### Launch beats
 - **Tease** (Week 1): "something is coming for Algerian runners."
-- **Reveal** (Week 2): what RaceDZ is + founding-community CTA.
+- **Reveal** (Week 2): what ZidRun is + founding-community CTA.
 - **Prove** (Weeks 3–4): product demos, coach, first races live.
 - **Sustain** (Weeks 5–6+): UGC, race countdowns, organizer spotlights.
 
@@ -95,7 +95,7 @@ A movement, not just an app. We document and celebrate the growing running cultu
 ### Facebook (reach + organizers + events)
 - **Formats:** native video (re-cut Reels), link posts, image posts, **Facebook Events** for each race, posting into Algerian running **Groups**.
 - **Role:** widest reach in Algeria, older + organizer audience, race events, community groups.
-- **Tactics:** seed value posts into existing running/marathon groups (non-spammy, value-first), create a RaceDZ page + group, list every race as an FB Event linking back to RaceDZ.
+- **Tactics:** seed value posts into existing running/marathon groups (non-spammy, value-first), create a ZidRun page + group, list every race as an FB Event linking back to ZidRun.
 
 ### TikTok (organic growth engine — younger runners)
 - **Formats:** short native video (7–25s), trend-jacking with running spin, POV/relatable, quick how-tos, "running in [city]" series.
@@ -140,9 +140,9 @@ See [01-content-calendar.md](01-content-calendar.md) for the day-by-day 6-week p
 ---
 
 ## 9. Influencer & partnership plan
-- **Running clubs** (Alger, Oran, Constantine…): co-promote their races as RaceDZ Events; offer free management tools.
-- **Micro-influencers** (5k–50k, running/fitness/lifestyle): "find your race with RaceDZ" + coach demo; track with unique UTM/promo.
-- **Race organizers**: each onboarded race = a content partner (we promote their event, they tell participants to register on RaceDZ).
+- **Running clubs** (Alger, Oran, Constantine…): co-promote their races as ZidRun Events; offer free management tools.
+- **Micro-influencers** (5k–50k, running/fitness/lifestyle): "find your race with ZidRun" + coach demo; track with unique UTM/promo.
+- **Race organizers**: each onboarded race = a content partner (we promote their event, they tell participants to register on ZidRun).
 - **Sport shops / brands**: cross-promo, giveaway partners (race-kit bundles).
 
 ---
@@ -187,7 +187,7 @@ Awareness (Reels/TikTok/FB reach)
 ---
 
 ## 13. 90-day outlook (post-launch)
-- **Month 2:** UGC engine (#JeCoursAvecRaceDZ), club partnerships, first race countdowns at scale.
+- **Month 2:** UGC engine (#JeCoursAvecZidRun), club partnerships, first race countdowns at scale.
 - **Month 3:** organizer case studies, coach success stories, referral loop, evaluate app-store push (PWA/Capacitor per product roadmap).
 
 ---

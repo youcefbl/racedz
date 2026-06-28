@@ -1,4 +1,4 @@
-# RaceDZ Manual QA Checklist
+# ZidRun Manual QA Checklist
 
 Use this checklist before a commit, release handoff, or large follow-up change. Keep the app on the canonical local URL: `http://127.0.0.1:3003`.
 
@@ -14,8 +14,8 @@ Demo accounts:
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Superadmin | `admin@racedz.dz` | `racedz-demo-password` |
-| Organizer | `organizer@racedz.dz` | `racedz-demo-password` |
+| Superadmin | `admin@zidrun.com` | `racedz-demo-password` |
+| Organizer | `organizer@zidrun.com` | `racedz-demo-password` |
 | Runner | `runner@example.com` | `racedz-demo-password` |
 
 ## Public Website
@@ -76,7 +76,7 @@ Demo accounts:
 
 ## Organizer Race Management
 
-- Log in as `organizer@racedz.dz`.
+- Log in as `organizer@zidrun.com`.
 - Create a race from `/organizer/events/new`:
   - Add multiple categories with different race types, distances, prices, capacities, and start times.
   - Upload a local race image.
@@ -99,7 +99,7 @@ Demo accounts:
 
 ## Admin And Superadmin
 
-- Log in as `admin@racedz.dz`.
+- Log in as `admin@zidrun.com`.
 - Confirm `/admin` dashboard stats render.
 - Verify list pages support filters and pagination:
   - `/admin/users`

@@ -1,11 +1,11 @@
-# RaceDZ Android app (Capacitor) — Ubuntu testing guide
+# ZidRun Android app (Capacitor) — Ubuntu testing guide
 
-RaceDZ ships as a **Capacitor** native shell that loads the live web app in a webview.
-There is no static export — the app talks to a running RaceDZ server (your local `npm run dev`
+ZidRun ships as a **Capacitor** native shell that loads the live web app in a webview.
+There is no static export — the app talks to a running ZidRun server (your local `npm run dev`
 for testing, or the hosted domain for release). This keeps server components, server actions,
 and auth working exactly like the website.
 
-- App id: `dz.racedz.app` · Name: **RaceDZ**
+- App id: `dz.racedz.app` · Name: **ZidRun**
 - Config: [`capacitor.config.ts`](../capacitor.config.ts) (server-URL model)
 - Native project: `android/` (build artifacts gitignored)
 
@@ -77,7 +77,7 @@ npm run dev:lan       # next dev on 0.0.0.0:3003
 > server's auth/base URL must match the URL the webview loads. Easiest fix while testing: set
 > your `.env` `NEXTAUTH_URL` / app URL to the same address you put in `CAP_SERVER_URL`
 > (e.g. `http://10.0.2.2:3003`), restart `dev:lan`, then sync. For release this is a non-issue —
-> the app and auth both use the real `https://racedz.dz` domain.
+> the app and auth both use the real `https://zidrun.com` domain.
 
 Sync the chosen URL into the native project (sets cleartext-http automatically because the URL is `http://`):
 

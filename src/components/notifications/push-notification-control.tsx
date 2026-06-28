@@ -109,7 +109,7 @@ export function PushNotificationControl() {
       });
 
       if (!response.ok) {
-        setStatus("RaceDZ could not save this push token.");
+        setStatus("ZidRun could not save this push token.");
         return;
       }
 
@@ -118,7 +118,7 @@ export function PushNotificationControl() {
       setEnabled(true);
       setStatus("Push notifications are enabled on this browser.");
     } catch (error) {
-      setStatus(getErrorMessage(error, "RaceDZ could not enable push notifications."));
+      setStatus(getErrorMessage(error, "ZidRun could not enable push notifications."));
     } finally {
       setWorking(false);
     }
@@ -178,7 +178,7 @@ export function PushNotificationControl() {
       } | null;
 
       if (!response.ok) {
-        setStatus(payload?.error ?? "RaceDZ could not send the test push.");
+        setStatus(payload?.error ?? "ZidRun could not send the test push.");
         return;
       }
 
@@ -193,13 +193,13 @@ export function PushNotificationControl() {
       }
 
       if (payload?.pushDelivery?.status === "SKIPPED") {
-        setStatus(payload.pushDelivery.error ?? "RaceDZ skipped push delivery.");
+        setStatus(payload.pushDelivery.error ?? "ZidRun skipped push delivery.");
         return;
       }
 
       setStatus("Test notification created, but no push delivery record was returned.");
     } catch (error) {
-      setStatus(getErrorMessage(error, "RaceDZ could not send the test push."));
+      setStatus(getErrorMessage(error, "ZidRun could not send the test push."));
     } finally {
       setTesting(false);
     }
@@ -211,7 +211,7 @@ export function PushNotificationControl() {
         <div>
           <h2 className="text-sm font-black text-gray-950">Browser push notifications</h2>
           <p className="mt-1 text-sm leading-6 text-gray-600">
-            Enable this browser to receive Firebase push notifications for important RaceDZ updates.
+            Enable this browser to receive Firebase push notifications for important ZidRun updates.
           </p>
           {status ? <p className="mt-2 text-sm font-semibold text-brand-teal">{status}</p> : null}
           {!configReady ? <p className="mt-2 text-xs font-semibold text-orange-700">Firebase public web config is not configured yet.</p> : null}
@@ -299,8 +299,8 @@ function registerForegroundMessageHandler(messaging: FirebaseMessagingClient) {
       return;
     }
 
-    const title = payload.notification?.title || payload.data?.title || "RaceDZ";
-    const body = payload.notification?.body || payload.data?.body || "You have a new RaceDZ notification.";
+    const title = payload.notification?.title || payload.data?.title || "ZidRun";
+    const body = payload.notification?.body || payload.data?.body || "You have a new ZidRun notification.";
 
     new Notification(title, {
       body,

@@ -132,7 +132,7 @@ export async function getCoachUserUsage(
         WHERE "userId" = u."id" AND "status" = 'ACTIVE' AND "expiresAt" > NOW()
         ORDER BY "expiresAt" DESC LIMIT 1
       ) sub ON true
-      WHERE (ci."userId" IS NOT NULL OR sub."plan" IS NOT NULL)
+      WHERE (${search} <> '' OR ci."userId" IS NOT NULL OR sub."plan" IS NOT NULL)
         AND (${search} = '' OR u."email" ILIKE ${searchLike} OR CONCAT(u."firstName", ' ', u."lastName") ILIKE ${searchLike})
       ORDER BY ci."lastActivityAt" DESC NULLS LAST, u."createdAt" DESC
       LIMIT ${limit} OFFSET ${skip}
@@ -145,7 +145,7 @@ export async function getCoachUserUsage(
         SELECT 1 AS x FROM "CoachSubscription"
         WHERE "userId" = u."id" AND "status" = 'ACTIVE' AND "expiresAt" > NOW() LIMIT 1
       ) sub ON true
-      WHERE (ci."userId" IS NOT NULL OR sub."x" IS NOT NULL)
+      WHERE (${search} <> '' OR ci."userId" IS NOT NULL OR sub."x" IS NOT NULL)
         AND (${search} = '' OR u."email" ILIKE ${searchLike} OR CONCAT(u."firstName", ' ', u."lastName") ILIKE ${searchLike})
     `
   ]);

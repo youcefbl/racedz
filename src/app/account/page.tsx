@@ -1,13 +1,39 @@
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { getPrisma } from "@/lib/db";
+import { getUnreadNotificationCount } from "@/lib/notifications";
+import { AccountHub } from "./account-hub";
 
-// /account is just an entry point — send runners straight to their registrations.
+export const dynamic = "force-dynamic";
+
 export default async function AccountPage() {
   const session = await auth();
 
+  // Logged out: still render the hub so Appearance + Language stay reachable in the app.
   if (!session?.user?.id) {
-    redirect("/login?callbackUrl=/account/registrations");
+    return <AccountHub user={null} />;
   }
 
-  redirect("/account/registrations");
+  const [user, unreadCount] = await Promise.all([
+    getPrisma().user.findUnique({
+      where: { id: session.user.id },
+      select: { firstName: true, lastName: true, email: true, avatarUrl: true, role: true }
+    }),
+    getUnreadNotificationCount(session.user.id)
+  ]);
+
+  if (!user) {
+    return <AccountHub user={null} />;
+  }
+
+  return (
+    <AccountHub
+      user={{
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        unreadCount
+      }}
+    />
+  );
 }

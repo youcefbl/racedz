@@ -1,6 +1,6 @@
-# RaceDZ
+# ZidRun
 
-RaceDZ is an MVP web platform for discovering, registering for, and managing running events across Algeria.
+ZidRun is an MVP web platform for discovering, registering for, and managing running events across Algeria.
 
 ## Stack
 
@@ -53,8 +53,8 @@ RaceDZ is an MVP web platform for discovering, registering for, and managing run
 
 Demo accounts seeded by `npm run prisma:seed`:
 
-- `admin@racedz.dz`
-- `organizer@racedz.dz`
+- `admin@zidrun.com`
+- `organizer@zidrun.com`
 - `runner@example.com`
 
 All use password `racedz-demo-password`.

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getPrisma } from "@/lib/db";
 import { createEmailVerificationToken, sendAccountVerificationEmail } from "@/lib/email-verification";
+import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { registerUserSchema } from "@/lib/validations";
 
@@ -24,6 +25,8 @@ export async function registerAction(
   _previousState: RegisterActionState,
   formData: FormData
 ): Promise<RegisterActionState> {
+  const locale = getLocale(formData.get("lang") as string | null);
+  const t = getDictionary(locale).auth;
   const callbackUrl = getSafeCallbackUrl(formData.get("callbackUrl"));
   const values = {
     firstName: getString(formData, "firstName"),
@@ -33,7 +36,7 @@ export async function registerAction(
 
   const ip = clientIp(await headers());
   if (ip && !checkRateLimit(`register:${ip}`, 5, 10 * 60_000).ok) {
-    return { error: "Too many signups from this network. Please try again later.", values };
+    return { error: t.errTooManySignups, values };
   }
   const parsed = registerUserSchema.safeParse({
     ...values,
@@ -43,7 +46,7 @@ export async function registerAction(
 
   if (!parsed.success) {
     return {
-      error: "Check the highlighted fields and try again.",
+      error: t.errCheckFields,
       fieldErrors: getFieldErrors(parsed.error.flatten().fieldErrors),
       values
     };
@@ -56,9 +59,9 @@ export async function registerAction(
 
   if (existingUser) {
     return {
-      error: "An account with this email already exists.",
+      error: t.errEmailExists,
       fieldErrors: {
-        email: "Use a different email or sign in."
+        email: t.errUseDifferentEmail
       },
       values
     };
@@ -84,7 +87,10 @@ export async function registerAction(
 
   const emailDeliveryParam = emailResult.ok ? "" : "&emailDelivery=failed";
 
-  redirect(callbackUrl ? `/login?registered=1${emailDeliveryParam}&callbackUrl=${encodeURIComponent(callbackUrl)}` : `/login?registered=1${emailDeliveryParam}`);
+  const loginUrl = callbackUrl
+    ? `/login?registered=1${emailDeliveryParam}&callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : `/login?registered=1${emailDeliveryParam}`;
+  redirect(withLocale(loginUrl, locale));
 }
 
 function getSafeCallbackUrl(value: FormDataEntryValue | null) {

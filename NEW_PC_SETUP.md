@@ -1,10 +1,10 @@
-# RaceDZ New PC Setup
+# ZidRun New PC Setup
 
-Use this when setting up RaceDZ on another computer.
+Use this when setting up ZidRun on another computer.
 
 ## 1. Prepare GitHub SSH Access
 
-If this PC already uses another GitHub account for work, create a separate SSH key for the RaceDZ account:
+If this PC already uses another GitHub account for work, create a separate SSH key for the ZidRun account:
 
 ```bash
 ssh-keygen -t ed25519 -C "elmererbi.youcef@gmail.com" -f ~/.ssh/id_ed25519_racedz
@@ -57,7 +57,7 @@ git clone git@github-racedz:youcefbl/racedz.git
 cd racedz
 ```
 
-If this PC only uses the RaceDZ GitHub account, this also works:
+If this PC only uses the ZidRun GitHub account, this also works:
 
 ```bash
 git clone git@github.com:youcefbl/racedz.git
@@ -131,8 +131,8 @@ npm run prisma:seed
 Demo accounts:
 
 - `runner@example.com`
-- `organizer@racedz.dz`
-- `admin@racedz.dz`
+- `organizer@zidrun.com`
+- `admin@zidrun.com`
 
 Password:
 
@@ -152,7 +152,7 @@ Open the URL printed by Next.js, usually:
 http://127.0.0.1:3003
 ```
 
-RaceDZ intentionally uses fixed local port `3003` because Auth.js redirects are configured for that origin. If port `3003` is busy, stop the other process instead of switching ports.
+ZidRun intentionally uses fixed local port `3003` because Auth.js redirects are configured for that origin. If port `3003` is busy, stop the other process instead of switching ports.
 
 ## Daily Workflow Between Two PCs
 

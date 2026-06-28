@@ -377,10 +377,10 @@ export async function notifyOrganizerRaceStatusChanged({
     type: published ? "ORGANIZER_RACE_APPROVED" : rejected ? "ORGANIZER_RACE_REJECTED" : "ORGANIZER_RACE_UNPUBLISHED",
     title: published ? "Race published" : rejected ? "Race rejected" : "Race unpublished",
     body: published
-      ? `"${raceTitle}" is now published on RaceDZ.`
+      ? `"${raceTitle}" is now published on ZidRun.`
       : rejected
-        ? `"${raceTitle}" was rejected by the RaceDZ admin team.`
-        : `"${raceTitle}" was unpublished by the RaceDZ admin team.`,
+        ? `"${raceTitle}" was rejected by the ZidRun admin team.`
+        : `"${raceTitle}" was unpublished by the ZidRun admin team.`,
     href: `/organizer/events/${raceId}`,
     metadata: {
       raceId,
@@ -425,7 +425,7 @@ export async function notifyRaceRegistrationCreated({
       to: email,
       subject: `Registration received: ${raceTitle}`,
       html: renderRaceDzEmailHtml({
-        preheader: `Your RaceDZ registration for ${raceTitle} was created.`,
+        preheader: `Your ZidRun registration for ${raceTitle} was created.`,
         title: "Registration received",
         body,
         action: {
@@ -623,7 +623,7 @@ async function deliverEmail(notificationId: string, email: NonNullable<CreateNot
 
   const result = await sendNotificationEmail({
     to: email.to,
-    subject: email.subject ?? "RaceDZ notification",
+    subject: email.subject ?? "ZidRun notification",
     html: email.html ?? "",
     text: email.text
   });
@@ -751,7 +751,7 @@ function renderEmailHtml({ title, body, href }: { title: string; body: string; h
     body,
     action: url
       ? {
-          label: "Open RaceDZ",
+          label: "Open ZidRun",
           href: url
         }
       : undefined
@@ -788,7 +788,7 @@ function renderEmailText({ title, body, href }: { title: string; body: string; h
     body,
     action: url
       ? {
-          label: "Open RaceDZ",
+          label: "Open ZidRun",
           href: url
         }
       : undefined

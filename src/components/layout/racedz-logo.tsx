@@ -1,51 +1,53 @@
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { ZIDRUN_LOGO_SVG, ZIDRUN_MARK_SVG } from "./zidrun-logo-svg";
 
-type RaceDZLogoProps = {
+type ZidRunLogoProps = {
   className?: string;
   showWordmark?: boolean;
+  /** kept for backwards-compat with previous callers; no longer used */
   animated?: boolean;
 };
 
-export function RaceDZLogo({ className, showWordmark = true, animated = false }: RaceDZLogoProps) {
+/**
+ * ZidRun brand logo. Renders the official vectorized artwork.
+ * - The wordmark ("idRun") inherits `currentColor`, so it flips to white in
+ *   dark/race themes (driven by `--text-strong` via the `.zid-logo` class).
+ * - The Z blades use `--zid-green` / `--zid-orange` CSS vars, recolored to neon
+ *   in race mode (see globals.css), with a subtle glow.
+ */
+export function ZidRunLogo({ className, showWordmark = true }: ZidRunLogoProps) {
   return (
-    <Link href="/" className={cn("group inline-flex items-center gap-2", className)} aria-label="RaceDZ home">
-      <RaceDZMark className="size-9 shrink-0" animated={animated} />
+    <Link
+      href="/"
+      className={cn("zid-logo group inline-flex items-center", className)}
+      aria-label="ZidRun home"
+    >
       {showWordmark ? (
-        <span className="text-xl font-black tracking-tight text-[var(--text-strong)]">
-          Race<span style={{ color: "var(--primary)" }}>DZ</span>
-        </span>
-      ) : null}
+        <span
+          className="zid-logo-mark zid-logo-full"
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{ __html: ZIDRUN_LOGO_SVG }}
+        />
+      ) : (
+        <span
+          className="zid-logo-mark zid-logo-icon"
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{ __html: ZIDRUN_MARK_SVG }}
+        />
+      )}
     </Link>
   );
 }
 
-const CHEVRONS = [
-  { d: "M7 11 L16 20 L7 29", stroke: "var(--primary)", o: 0.35 },
-  { d: "M15 11 L24 20 L15 29", stroke: "var(--primary)", o: 0.7 },
-  { d: "M23 11 L32 20 L23 29", stroke: "var(--accent)", o: 1 }
-];
-
-/**
- * RaceDZ "Velocity" mark: three forward chevrons accelerating into the brand accent.
- * Colors use theme tokens (--primary / --accent), so it adapts to light, dark, and race modes.
- * When `animated`, the chevrons brighten in sequence (forward-flow), respecting reduced-motion.
- */
-export function RaceDZMark({ className, animated = false }: { className?: string; animated?: boolean }) {
+/** Icon-only ZidRun mark (the Z). */
+export function ZidRunMark({ className }: { className?: string; animated?: boolean }) {
   return (
-    <svg viewBox="0 0 40 40" className={className} role="img" aria-label="RaceDZ" fill="none">
-      <g className={animated ? "rz-chevrons" : undefined} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round">
-        {CHEVRONS.map((chevron) => (
-          <path
-            key={chevron.d}
-            d={chevron.d}
-            stroke={chevron.stroke}
-            opacity={chevron.o}
-            style={animated ? ({ "--rz-o": chevron.o } as CSSProperties) : undefined}
-          />
-        ))}
-      </g>
-    </svg>
+    <span
+      className={cn("zid-logo zid-logo-mark zid-logo-icon", className)}
+      aria-label="ZidRun"
+      role="img"
+      dangerouslySetInnerHTML={{ __html: ZIDRUN_MARK_SVG }}
+    />
   );
 }

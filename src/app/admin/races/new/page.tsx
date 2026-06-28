@@ -14,9 +14,8 @@ export default async function NewPlatformRacePage() {
 
   return (
     <AdminShell
-      eyebrow="Superadmin"
       title="Create platform race"
-      description="Publish a RaceDZ-created event directly with registration closed by default unless you choose to open it."
+      description="Publish a ZidRun-created event directly with registration closed by default unless you choose to open it."
     >
       <div className="max-w-6xl">
         <PlatformRaceForm />

@@ -83,9 +83,9 @@ if (Object.values(firebaseConfig).every(Boolean)) {
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    const title = payload.notification?.title || payload.data?.title || "RaceDZ";
+    const title = payload.notification?.title || payload.data?.title || "ZidRun";
     const options = {
-      body: payload.notification?.body || payload.data?.body || "You have a new RaceDZ notification.",
+      body: payload.notification?.body || payload.data?.body || "You have a new ZidRun notification.",
       icon: "/racedz-logo.png",
       badge: "/favicon.ico",
       data: {

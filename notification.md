@@ -1,4 +1,4 @@
-# RaceDZ Notification And Email Plan
+# ZidRun Notification And Email Plan
 
 This module should support in-app notifications first, then push and email delivery as channels on top of the same notification event.
 
@@ -6,7 +6,7 @@ This module should support in-app notifications first, then push and email deliv
 
 Use this stack for the MVP:
 
-- In-app notifications: RaceDZ database tables, built in the app.
+- In-app notifications: ZidRun database tables, built in the app.
 - Push notifications: Firebase Cloud Messaging (FCM).
 - Transactional email: Resend for MVP.
 - Backup email provider: Postmark if deliverability becomes more important than low starting cost.
@@ -20,9 +20,9 @@ Provider notes checked on 2026-06-18:
   Source: https://resend.com/pricing
 - Postmark: recommended backup or upgrade path for transactional email deliverability. Current pricing shows a free testing plan with 100 emails/month and Basic from $15/month for 10,000 emails/month.
   Source: https://postmarkapp.com/pricing
-- Brevo: good later if RaceDZ needs marketing email, SMS, WhatsApp, and broader CRM-style campaigns. Free sending is up to 300 emails/day after account approval; paid plans start from 5,000 emails/month.
+- Brevo: good later if ZidRun needs marketing email, SMS, WhatsApp, and broader CRM-style campaigns. Free sending is up to 300 emails/day after account approval; paid plans start from 5,000 emails/month.
   Source: https://www.brevo.com/pricing/
-- OneSignal: good later if RaceDZ wants a managed cross-channel notification product with push, in-app, email, journeys, and segmentation. Free includes all channels with limits, unlimited mobile push sends, and 10,000 email sends/month; Growth starts at $19/month plus channel usage.
+- OneSignal: good later if ZidRun wants a managed cross-channel notification product with push, in-app, email, journeys, and segmentation. Free includes all channels with limits, unlimited mobile push sends, and 10,000 email sends/month; Growth starts at $19/month plus channel usage.
   Source: https://onesignal.com/pricing
 
 ## Recommendation
@@ -31,18 +31,18 @@ Start with internal notification records plus FCM plus Resend.
 
 Reason:
 
-- It keeps ownership of notification history inside RaceDZ.
+- It keeps ownership of notification history inside ZidRun.
 - It avoids vendor lock-in for the notification center.
 - FCM is the simplest and cheapest push choice for web/mobile.
 - Resend is developer-friendly for a Next.js MVP and has enough free quota for early testing.
 - The provider boundary can stay small: one `notification` domain service creates DB rows, then dispatches selected channels.
 
-Do not start with OneSignal as the primary provider unless the goal changes to marketing automation. RaceDZ needs operational notifications first, not a marketing journey platform.
+Do not start with OneSignal as the primary provider unless the goal changes to marketing automation. ZidRun needs operational notifications first, not a marketing journey platform.
 
 ## Backend Flow
 
 ```text
-RaceDZ backend action
+ZidRun backend action
   -> create Notification record in DB
   -> create NotificationDelivery records per channel
   -> enqueue delivery jobs
@@ -131,7 +131,7 @@ Core tables:
 8. Done: Add Firebase browser SDK setup, service worker, and permission prompt.
 9. Done: Add reconnect and test-push controls with foreground-message handling and provider delivery feedback.
 10. Done: Notify organization members when admins unpublish or publish a race again.
-11. Done: Add shared RaceDZ email template and account activation emails.
+11. Done: Add shared ZidRun email template and account activation emails.
 12. Done: Add registration-created and race-change notifications for runners.
 13. Done: Add organizer/admin race announcements with public race-detail display.
 14. Next: Add payment proof review notifications.

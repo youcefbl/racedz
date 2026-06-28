@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Target
 } from "lucide-react";
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { coachRequest } from "@/components/coach/api";
 import {
   chronicConditionOptions,
@@ -68,6 +68,12 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
 
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  // Move focus to the validation message so keyboard/SR users notice why a step blocked.
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const stepLabels = [
     copy.stepGoalLabel,
@@ -96,15 +102,16 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
   }
 
   function validateStep(current: number): string | null {
+    const required = (field: string) => copy.requiredField.replace("{field}", field);
     if (current === 0) {
-      if (goalType === "OTHER" && customGoal.trim().length < 3) return copy.goalType;
-      if (!targetDate) return copy.targetDate;
+      if (goalType === "OTHER" && customGoal.trim().length < 3) return required(copy.goalType);
+      if (!targetDate) return required(copy.targetDate);
     }
     if (current === 1) {
-      if (currentWeeklyDistanceKm.trim() === "" || Number(currentWeeklyDistanceKm) < 0) return copy.weeklyDistance;
+      if (currentWeeklyDistanceKm.trim() === "" || Number(currentWeeklyDistanceKm) < 0) return required(copy.weeklyDistance);
     }
     if (current === 2) {
-      if (trainingDays.length < 2) return "Choose at least two training days.";
+      if (trainingDays.length < 2) return copy.minTrainingDays;
     }
     if (current === 4) {
       if (!consent) return copy.consentRequired;
@@ -164,7 +171,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
         });
         await onCreated();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Unable to create goal.");
+        setError(caught instanceof Error ? caught.message : copy.goalCreateFailed);
       }
     });
   }
@@ -214,7 +221,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
 
           {step === 1 ? (
             <StepShell icon={Route} title={copy.backgroundStepTitle} text={copy.backgroundStepText}>
-              <Field label={copy.experience}>
+              <FieldGroup label={copy.experience}>
                 <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={copy.experience}>
                   {experienceValues.map((value, index) => (
                     <button
@@ -234,7 +241,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
                     </button>
                   ))}
                 </div>
-              </Field>
+              </FieldGroup>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={copy.yearsRunning} hint={copy.optional}>
                   <input type="number" min="0" max="80" step="1" value={yearsRunning} onChange={(event) => setYearsRunning(event.target.value)} className={inputClass} />
@@ -265,7 +272,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
 
           {step === 2 ? (
             <StepShell icon={CalendarDays} title={copy.availabilityStepTitle}>
-              <Field label={copy.trainingDays}>
+              <FieldGroup label={copy.trainingDays} role="group">
                 <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
                   {copy.days.map((day, index) => {
                     const selected = trainingDays.includes(index);
@@ -286,7 +293,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
                     );
                   })}
                 </div>
-              </Field>
+              </FieldGroup>
               <Field label={copy.longRunDay} hint={copy.optional}>
                 <select value={preferredLongRunDay} onChange={(event) => setPreferredLongRunDay(event.target.value)} className={inputClass}>
                   <option value="">-</option>
@@ -307,7 +314,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
               <Field label={copy.injuryHistory} hint={copy.injuryHistoryHint}>
                 <textarea value={injuryHistory} onChange={(event) => setInjuryHistory(event.target.value)} maxLength={1000} rows={2} className={inputClass} />
               </Field>
-              <Field label={copy.chronicConditions} hint={copy.chronicHint}>
+              <FieldGroup label={copy.chronicConditions} hint={copy.chronicHint} role="group">
                 <div className="flex flex-wrap gap-2">
                   {chronicConditionOptions.map((option) => {
                     const value = option[0];
@@ -328,7 +335,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
                     );
                   })}
                 </div>
-              </Field>
+              </FieldGroup>
               <Field label={copy.healthNotes} hint={copy.optional}>
                 <textarea value={healthNotes} onChange={(event) => setHealthNotes(event.target.value)} maxLength={1000} rows={2} className={inputClass} />
               </Field>
@@ -368,9 +375,9 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-gray-200 bg-gray-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-          <p className="text-xs leading-5 text-gray-500">RaceDZ Coach provides training guidance, not medical diagnosis.</p>
+          <p className="text-xs leading-5 text-gray-500">{copy.formDisclaimer}</p>
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-            {error ? <p role="alert" className="text-sm font-semibold text-red-700">{error}</p> : null}
+            {error ? <p ref={errorRef} tabIndex={-1} role="alert" className="text-sm font-semibold text-red-700 outline-none">{error}</p> : null}
             <div className="flex gap-3">
               {step > 0 ? (
                 <Button type="button" variant="outline" size="lg" onClick={goBack} disabled={pending}>
@@ -383,7 +390,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
                 </Button>
               ) : (
                 <Button type="button" size="lg" onClick={submit} disabled={pending || !consent}>
-                  {pending ? "..." : copy.saveGoal}
+                  {pending ? copy.saving : copy.saveGoal}
                 </Button>
               )}
             </div>
@@ -413,7 +420,7 @@ function Stepper({ labels, current, copy }: { labels: string[]; current: number;
                   ? "border-brand-teal bg-teal-50 text-brand-teal"
                   : done
                     ? "border-brand-teal/40 bg-white text-brand-teal"
-                    : "border-gray-200 bg-white text-gray-400"
+                    : "border-gray-200 bg-white text-gray-500"
               )}
             >
               <span className={cn("flex size-5 items-center justify-center rounded-full text-[10px]", active || done ? "bg-brand-teal text-white" : "bg-gray-100 text-gray-500")}>
@@ -446,10 +453,34 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <label className="grid gap-2 text-sm font-bold text-gray-800">
       <span className="flex items-center gap-2">
         {label}
-        {hint ? <span className="text-xs font-medium text-gray-400">{hint}</span> : null}
+        {hint ? <span className="text-xs font-medium text-gray-500">{hint}</span> : null}
       </span>
       {children}
     </label>
+  );
+}
+
+// Like Field, but for groups of controls (toggle buttons, radio grids) where a
+// single <label> would be invalid. Exposes an accessible group name when `role` is set.
+function FieldGroup({
+  label,
+  hint,
+  role,
+  children
+}: {
+  label: string;
+  hint?: string;
+  role?: "group";
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid gap-2 text-sm font-bold text-gray-800" role={role} aria-label={role ? label : undefined}>
+      <span className="flex items-center gap-2">
+        {label}
+        {hint ? <span className="text-xs font-medium text-gray-500">{hint}</span> : null}
+      </span>
+      {children}
+    </div>
   );
 }
 

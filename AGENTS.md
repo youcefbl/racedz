@@ -1,6 +1,6 @@
-# Agent Notes For RaceDZ
+# Agent Notes For ZidRun
 
-These notes are for AI coding agents working on RaceDZ. Read this file alongside `TODO.md` (the single source of truth for planning) and `CODEX_CONTEXT.md` (architecture notes and current raw-SQL context) before making changes.
+These notes are for AI coding agents working on ZidRun. Read this file alongside `TODO.md` (the single source of truth for planning) and `CODEX_CONTEXT.md` (architecture notes and current raw-SQL context) before making changes.
 
 - `backlog.md` and `requirment.md` are intentionally only pointers to `TODO.md`; do not add planning content there.
 - Do not commit `.env` files or uploaded user files.
@@ -9,13 +9,13 @@ These notes are for AI coding agents working on RaceDZ. Read this file alongside
 
 ## Project Overview
 
-RaceDZ is an MVP platform for discovering, publishing, and registering for running races in Algeria. It targets three audiences:
+ZidRun is an MVP platform for discovering, publishing, and registering for running races in Algeria. It targets three audiences:
 
 - **Runners** – browse races, create accounts, register, and track registrations.
 - **Organizations / Organizers** – request organizer access, publish races, manage participants, and invite team members.
 - **Admins / Superadmins** – manage users, organizations, races, approvals, audit logs, and platform health.
 
-Working name: `RaceDZ`. Package name: `racedz`. Database name: `racedz`.
+Working name: `ZidRun`. Package name: `racedz`. Database name: `racedz`.
 Tagline: "Find, register, and manage races across Algeria."
 
 ### Repository
@@ -94,8 +94,8 @@ Created by `prisma/seed.ts`:
 
 | Email | Role | Password |
 |-------|------|----------|
-| `admin@racedz.dz` | SUPERADMIN | `racedz-demo-password` |
-| `organizer@racedz.dz` | ORGANIZER | `racedz-demo-password` |
+| `admin@zidrun.com` | SUPERADMIN | `racedz-demo-password` |
+| `organizer@zidrun.com` | ORGANIZER | `racedz-demo-password` |
 | `runner@example.com` | RUNNER | `racedz-demo-password` |
 
 ---
@@ -169,7 +169,7 @@ src/
       admin/races/
 
   components/          # Reusable UI components
-    layout/            # SiteHeader, SiteHeaderClient, AccountMenu, DashboardShell, ThemeSwitcher, LanguageSwitcher, SiteFooter, RaceDZLogo
+    layout/            # SiteHeader, SiteHeaderClient, AccountMenu, DashboardShell, ThemeSwitcher, LanguageSwitcher, SiteFooter, ZidRunLogo
     ui/                # Button, Badge
     forms/             # ImageUploadField
     races/             # RaceCard, RaceSearchForm
@@ -564,7 +564,7 @@ AUTH_URL="http://127.0.0.1:3003"
 NEXTAUTH_SECRET="change-me"
 NEXTAUTH_URL="http://127.0.0.1:3003"
 
-NEXT_PUBLIC_APP_NAME="RaceDZ"
+NEXT_PUBLIC_APP_NAME="ZidRun"
 NEXT_PUBLIC_APP_TAGLINE="Find, register, and manage races across Algeria."
 
 UPLOAD_PROVIDER="local"

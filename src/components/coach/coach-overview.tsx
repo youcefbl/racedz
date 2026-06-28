@@ -28,7 +28,7 @@ export function CoachOverview({
       <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <div>
-            <p className="text-xs font-black uppercase text-brand-teal">{copy.nextWorkout}</p>
+            <p className="text-xs font-semibold text-brand-teal">{copy.nextWorkout}</p>
             <h2 className="mt-1 text-xl font-black text-gray-950">{nextWorkout?.title ?? copy.noWorkout}</h2>
           </div>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand-orange">
@@ -63,7 +63,14 @@ export function CoachOverview({
           <p className="text-3xl font-black text-gray-950">{metrics?.distanceLast7DaysKm.toFixed(1) ?? "0.0"} km</p>
           <p className="text-sm font-bold text-gray-500">/ {weeklyTarget.toFixed(1)} km</p>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100" aria-label={`${Math.round(progress)}%`}>
+        <div
+          className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100"
+          role="progressbar"
+          aria-label={copy.thisWeek}
+          aria-valuenow={Math.round(progress)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div className="h-full rounded-full bg-brand-orange transition-all" style={{ width: `${progress}%` }} />
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-200 pt-4">

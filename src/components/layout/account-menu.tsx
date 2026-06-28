@@ -6,6 +6,9 @@ import { Bell, LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
+import { toast } from "@/components/ui/toast";
+import { getDictionary, withLocale, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
 
@@ -27,17 +30,44 @@ export type HeaderNotification = {
   createdAt: string;
 };
 
-export function AccountMenu({ user }: { user: HeaderUser }) {
+export function AccountMenu({ user, locale = "en" }: { user: HeaderUser; locale?: Locale }) {
   const [open, setOpen] = useState(false);
   const [signingOut, startSignOut] = useTransition();
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { onKeyDown } = useMenuKeyboard({ open, setOpen, menuRef, triggerRef });
   const pathname = usePathname();
   const router = useRouter();
+  const t = getDictionary(locale).account;
   const initials = getInitials(user.name);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Reset the two-step sign-out confirm whenever the menu closes.
+  useEffect(() => {
+    if (!open) setConfirmingSignOut(false);
+  }, [open]);
+
+  function handleSignOut() {
+    if (!confirmingSignOut) {
+      setConfirmingSignOut(true);
+      return;
+    }
+    startSignOut(() => {
+      void signOut({ redirect: false, callbackUrl: "/login" })
+        .then(() => {
+          router.refresh();
+          router.replace("/login");
+        })
+        .catch(() => {
+          toast(t.signOutError, "error");
+          setConfirmingSignOut(false);
+        });
+    });
+  }
 
   useEffect(() => {
     if (!open) {
@@ -68,13 +98,14 @@ export function AccountMenu({ user }: { user: HeaderUser }) {
   return (
     <div ref={menuRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
-        aria-label="Open account menu"
+        aria-label={t.menuLabel}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "inline-flex size-10 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white text-sm font-black text-gray-950 transition",
+          "inline-flex size-11 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white text-sm font-black text-gray-950 transition",
           "hover:border-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
         )}
       >
@@ -87,25 +118,25 @@ export function AccountMenu({ user }: { user: HeaderUser }) {
 
       {open ? <div className="rz-pop-scrim" aria-hidden="true" onClick={() => setOpen(false)} /> : null}
       {open ? (
-        <div className="rz-pop absolute right-0 top-12 z-50 w-72 rounded-lg border border-gray-200 bg-white p-2 shadow-soft" role="menu">
+        <div className="rz-pop absolute end-0 top-12 z-50 w-72 rounded-lg border border-gray-200 bg-white p-2 shadow-soft" role="menu" aria-label={t.menuLabel} onKeyDown={onKeyDown}>
           <div className="border-b border-gray-200 px-3 py-3">
             <p className="truncate text-sm font-black text-gray-950">{user.name}</p>
             <p className="truncate text-xs text-gray-500">{user.email}</p>
           </div>
           <div className="py-2">
-            <MenuLink href="/account" icon={UserRound} label="Account overview" onSelect={() => setOpen(false)} />
-            <MenuLink href="/account/coach" icon={BrainCircuit} label="AI running coach" onSelect={() => setOpen(false)} />
-            <MenuLink href="/account/profile" icon={Settings} label="Profile settings" onSelect={() => setOpen(false)} />
-            <MenuLink href="/account/notification-settings" icon={Bell} label="Notification settings" onSelect={() => setOpen(false)} />
-            <MenuLink href="/account/registrations" icon={ClipboardList} label="My registrations" onSelect={() => setOpen(false)} />
+            <MenuLink href={withLocale("/account", locale)} icon={UserRound} label={t.accountOverview} onSelect={() => setOpen(false)} />
+            <MenuLink href={withLocale("/account/coach", locale)} icon={BrainCircuit} label={t.coach} onSelect={() => setOpen(false)} />
+            <MenuLink href={withLocale("/account/profile", locale)} icon={Settings} label={t.profileSettings} onSelect={() => setOpen(false)} />
+            <MenuLink href={withLocale("/account/notification-settings", locale)} icon={Bell} label={t.notificationSettings} onSelect={() => setOpen(false)} />
+            <MenuLink href={withLocale("/account/registrations", locale)} icon={ClipboardList} label={t.myRegistrations} onSelect={() => setOpen(false)} />
             {user.role === "RUNNER" ? (
-              <MenuLink href="/organizer/request" icon={Building2} label="Request organizer access" onSelect={() => setOpen(false)} />
+              <MenuLink href={withLocale("/organizer/request", locale)} icon={Building2} label={t.requestOrganizer} onSelect={() => setOpen(false)} />
             ) : null}
             {user.role === "ORGANIZER" || user.role === "ADMIN" || user.role === "SUPERADMIN" ? (
-              <MenuLink href="/organizer" icon={Building2} label="Organizer dashboard" onSelect={() => setOpen(false)} />
+              <MenuLink href={withLocale("/organizer", locale)} icon={Building2} label={t.organizerDashboard} onSelect={() => setOpen(false)} />
             ) : null}
             {user.role === "ADMIN" || user.role === "SUPERADMIN" ? (
-              <MenuLink href="/admin" icon={ShieldCheck} label="Admin dashboard" onSelect={() => setOpen(false)} />
+              <MenuLink href={withLocale("/admin", locale)} icon={ShieldCheck} label={t.adminDashboard} onSelect={() => setOpen(false)} />
             ) : null}
           </div>
           <div className="border-t border-gray-200 pt-2">
@@ -113,19 +144,14 @@ export function AccountMenu({ user }: { user: HeaderUser }) {
               type="button"
               role="menuitem"
               disabled={signingOut}
-              onClick={() => {
-                setOpen(false);
-                startSignOut(() => {
-                  void signOut({ redirect: false, callbackUrl: "/login" }).then(() => {
-                    router.refresh();
-                    router.replace("/login");
-                  });
-                });
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleSignOut}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-3 py-2 text-start text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                confirmingSignOut ? "bg-red-50 text-red-700 hover:bg-red-100" : "text-gray-700 hover:bg-gray-100"
+              )}
             >
-              <LogOut className="size-4 text-brand-orange" aria-hidden="true" />
-              {signingOut ? "Signing out..." : "Sign out"}
+              <LogOut className={cn("size-4", confirmingSignOut ? "text-red-600" : "text-brand-orange")} aria-hidden="true" />
+              {signingOut ? t.signingOut : confirmingSignOut ? t.confirmSignOut : t.signOut}
             </button>
           </div>
         </div>

@@ -1,7 +1,8 @@
 import { Gauge, Medal, Route as RouteIcon, Trophy } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { getWilayaLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
@@ -42,7 +43,7 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
             {content.eyebrow}
           </p>
           <h1 className="mt-3 text-3xl font-black text-gray-950 sm:text-4xl">{content.title}</h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-600">{content.intro}</p>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{content.intro}</p>
 
           {/* Filters */}
           <form action={withLocale("/rankings", locale)} className="mt-6 flex flex-wrap items-end gap-3">
@@ -57,9 +58,9 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
                 ))}
               </select>
             </label>
-            <ButtonLink href={withLocale("/rankings", locale)} variant="outline" size="md" className="h-11">
+            <Button type="submit" variant="secondary" size="md">
               {content.filter}
-            </ButtonLink>
+            </Button>
             <span className="grow" />
             <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
               <TabLink href={tabHref("all")} active={!monthly}>{content.allTime}</TabLink>
@@ -111,13 +112,17 @@ function Board({
         <h2 className="text-lg font-black text-gray-950">{title}</h2>
       </div>
       {entries.length === 0 ? (
-        <p className="px-5 py-10 text-center text-sm text-gray-600">{emptyText}</p>
+        <EmptyState
+          icon={Icon}
+          title={emptyText}
+          className="rounded-none border-0 shadow-none"
+        />
       ) : (
         <ol className="divide-y divide-gray-100">
           {entries.map((entry, index) => (
             <li key={entry.userId} className="flex items-center gap-3 px-4 py-3">
-              <span className="w-6 text-center text-sm font-black text-gray-400">
-                {index < 3 ? <Medal className={`mx-auto size-5 ${medalColor(index)}`} aria-hidden="true" /> : index + 1}
+              <span className="flex w-7 shrink-0 justify-center text-sm font-black tabular-nums text-gray-400">
+                {index < 3 ? <Medal className={`size-5 ${medalColor(index)}`} aria-hidden="true" /> : index + 1}
               </span>
               <Avatar name={entry.name} url={entry.avatarUrl} />
               <div className="min-w-0 flex-1">
@@ -126,7 +131,7 @@ function Board({
                   {entry.wilaya ?? "—"} · {formatDate(entry.startedAt, locale)}
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-black text-brand-teal">
+              <span className="shrink-0 text-sm font-black tabular-nums text-brand-teal">
                 {metric === "pace" ? formatPace(entry.paceSecondsPerKm) : `${entry.distanceKm.toFixed(1)} km`}
               </span>
             </li>

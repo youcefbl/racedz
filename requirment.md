@@ -1,8 +1,8 @@
 # Requirements Moved
 
-RaceDZ requirements and implementation planning have been consolidated into `TODO.md`.
+ZidRun requirements and implementation planning have been consolidated into `TODO.md`.
 
-Do not add new requirements here. Add them to `TODO.md` so RaceDZ has one source of truth.
+Do not add new requirements here. Add them to `TODO.md` so ZidRun has one source of truth.
 
 
 

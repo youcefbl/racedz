@@ -21,7 +21,7 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-echo "Building RaceDZ image..."
+echo "Building ZidRun image..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build app
 
 echo "Starting PostgreSQL..."
@@ -30,7 +30,7 @@ RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_F
 echo "Applying database migrations..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm app npm run prisma:deploy
 
-echo "Starting RaceDZ..."
+echo "Starting ZidRun..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d app
 
 echo "Deployment complete."

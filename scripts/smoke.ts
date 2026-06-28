@@ -11,7 +11,7 @@ const checks: SmokeCheck[] = [
     run: async () => {
       const response = await fetchUrl("/");
       assertStatus(response, 200);
-      assertIncludes(await response.text(), "RaceDZ", "home page should include RaceDZ");
+      assertIncludes(await response.text(), "ZidRun", "home page should include ZidRun");
     }
   },
   {
@@ -115,7 +115,7 @@ const checks: SmokeCheck[] = [
 ];
 
 async function main() {
-  console.info(`RaceDZ smoke checks against ${baseUrl}`);
+  console.info(`ZidRun smoke checks against ${baseUrl}`);
 
   const failures: Array<{ name: string; error: unknown }> = [];
 

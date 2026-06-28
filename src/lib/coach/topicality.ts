@@ -27,9 +27,9 @@ export function evaluateTopicality(message: string | null | undefined): { onTopi
 
 export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachResponse {
   const copy = {
-    en: "I'm your RaceDZ running coach, so I can only help with running, training, recovery, and race preparation. Ask me about your runs, your plan, or how to train for your goal.",
-    fr: "Je suis votre coach de course RaceDZ : je ne peux aider que pour la course, l'entraînement, la récupération et la préparation aux courses. Posez-moi une question sur vos sorties, votre plan ou votre objectif.",
-    ar: "أنا مدرب الجري الخاص بك في RaceDZ، لذا يمكنني المساعدة فقط في الجري والتدريب والاستشفاء والتحضير للسباقات. اسألني عن حصصك أو خطتك أو هدفك."
+    en: "I'm your ZidRun running coach, so I can only help with running, training, recovery, and race preparation. Ask me about your runs, your plan, or how to train for your goal.",
+    fr: "Je suis votre coach de course ZidRun : je ne peux aider que pour la course, l'entraînement, la récupération et la préparation aux courses. Posez-moi une question sur vos sorties, votre plan ou votre objectif.",
+    ar: "أنا مدرب الجري الخاص بك في ZidRun، لذا يمكنني المساعدة فقط في الجري والتدريب والاستشفاء والتحضير للسباقات. اسألني عن حصصك أو خطتك أو هدفك."
   }[locale];
 
   return {

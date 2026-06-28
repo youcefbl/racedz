@@ -189,7 +189,7 @@ export type OrganizerCategoryInput = z.infer<typeof organizerCategorySchema>;
 
 export const platformRaceSchema = organizerRaceSchema.extend({
   registrationStatus: z.enum(["NOT_OPEN", "OPEN", "CLOSED"]).default("NOT_OPEN"),
-  organizerName: z.string().min(2).default("RaceDZ Community Desk"),
+  organizerName: z.string().min(2).default("ZidRun Community Desk"),
   organizerUrl: z.string().url().optional(),
   mainImageUrl: imageUrlSchema.optional()
 });

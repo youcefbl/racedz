@@ -41,8 +41,10 @@ export function EventEditForm({ race }: { race: EditableRace }) {
         <h2 className="text-xl font-black text-gray-950">{t("Race details")}</h2>
         <p className="mt-1 text-sm text-gray-500">{t("Changes remain hidden from the public site until admin publication.")}</p>
       </div>
-      {state.error ? <FormMessage tone="error" message={state.error} /> : null}
-      {state.success ? <FormMessage tone="success" message={state.success} /> : null}
+      <div aria-live="polite" className="empty:hidden">
+        {state.error ? <FormMessage tone="error" message={state.error} /> : null}
+        {state.success ? <FormMessage tone="success" message={state.success} /> : null}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("Race name")} name="title" defaultValue={race.title} />
@@ -75,7 +77,7 @@ export function EventEditForm({ race }: { race: EditableRace }) {
             className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
           />
         </label>
-        <Field label={t("Elevation gain")} name="elevationGainText" defaultValue={race.elevationGainText ?? ""} required={false} />
+        <Field label={t("Elevation gain")} name="elevationGainText" defaultValue={race.elevationGainText ?? ""} required={false} optionalLabel={t("optional")} />
         <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
           {t("Conditions")}
           <textarea
@@ -92,6 +94,7 @@ export function EventEditForm({ race }: { race: EditableRace }) {
           type="datetime-local"
           defaultValue={race.registrationCloseAt ? toDateTimeLocal(race.registrationCloseAt) : ""}
           required={false}
+          optionalLabel={t("optional")}
         />
         <label className="grid gap-2 text-sm font-semibold text-gray-800">
           {t("Wilaya")}
@@ -108,11 +111,11 @@ export function EventEditForm({ race }: { race: EditableRace }) {
           </select>
         </label>
         <Field label={t("City")} name="city" defaultValue={race.city} />
-        <Field label={t("Commune")} name="commune" defaultValue={race.commune ?? ""} required={false} />
-        <Field label={t("Address")} name="address" defaultValue={race.address ?? ""} required={false} />
-        <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={race.contactEmail ?? ""} required={false} />
-        <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={race.contactPhone ?? ""} required={false} />
-        <Field label={t("Total race capacity")} name="maxParticipants" type="number" defaultValue={race.maxParticipants?.toString() ?? ""} required={false} />
+        <Field label={t("Commune")} name="commune" defaultValue={race.commune ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("Address")} name="address" defaultValue={race.address ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={race.contactEmail ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={race.contactPhone ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("Total race capacity")} name="maxParticipants" type="number" defaultValue={race.maxParticipants?.toString() ?? ""} required={false} optionalLabel={t("optional")} />
         <AutoCancelToggle defaultChecked={race.autoCancelUnpaidAfterHours === 48} t={t} />
         <div className="sm:col-span-2">
           <ImageUploadField label={t("Main race image")} name="mainImageUrl" scope="race" defaultValue={race.mainImageUrl} />
@@ -131,17 +134,22 @@ function Field({
   name,
   type = "text",
   required = true,
+  optionalLabel,
   defaultValue = ""
 }: {
   label: string;
   name: string;
   type?: string;
   required?: boolean;
+  optionalLabel?: string;
   defaultValue?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-semibold text-gray-800">
-      {label}
+      <span>
+        {label}
+        {!required && optionalLabel ? <span className="ms-1 font-normal text-gray-500">({optionalLabel})</span> : null}
+      </span>
       <input
         name={name}
         type={type}
@@ -177,7 +185,7 @@ function FormMessage({ tone, message }: { tone: "error" | "success"; message: st
   const Icon = tone === "error" ? AlertCircle : CheckCircle2;
 
   return (
-    <p className={tone === "error" ? "flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700" : "flex items-start gap-2 rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-700"}>
+    <p role={tone === "error" ? "alert" : undefined} className={tone === "error" ? "flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700" : "flex items-start gap-2 rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-700"}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden={true} />
       {message}
     </p>

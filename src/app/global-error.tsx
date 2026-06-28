@@ -17,7 +17,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0F766E",
+          background: "#15803D",
           color: "#fff",
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
           textAlign: "center",
@@ -33,7 +33,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
             style={{
               border: 0,
               cursor: "pointer",
-              background: "#F97316",
+              background: "#F47A20",
               color: "#fff",
               fontWeight: 800,
               fontSize: 15,

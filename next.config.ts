@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-// Content Security Policy tuned for RaceDZ's actual dependencies:
+// Content Security Policy tuned for ZidRun's actual dependencies:
 // - inline theme script in the root layout + Tailwind inline styles ('unsafe-inline')
 // - Firebase messaging SW imports from gstatic; FCM token registration to googleapis
 // - Google sign-in + Google-hosted avatars (https: images)

@@ -31,7 +31,7 @@ Suggested positioning:
 
 Possible user-facing names:
 - RunDZ
-- RaceDZ
+- ZidRun
 - DzRaces
 - Algeria Runs
 - TrailDZ
@@ -1112,7 +1112,7 @@ Do not implement payment gateway yet. Use manual payment status fields only.
 Use the following official working name throughout the codebase, UI, README, and seed data:
 
 ```txt
-RaceDZ
+ZidRun
 ```
 
 ### Tagline
@@ -1135,7 +1135,7 @@ Trouvez, inscrivez-vous et gérez les courses en Algérie.
 
 ### Brand Positioning
 
-RaceDZ is the central Algerian platform for discovering, registering for, and managing running events.
+ZidRun is the central Algerian platform for discovering, registering for, and managing running events.
 
 The platform should cover:
 
@@ -1150,7 +1150,7 @@ The platform should cover:
 - Charity races
 - Community running events
 
-RaceDZ should feel like a modern community platform, not just a simple event listing website.
+ZidRun should feel like a modern community platform, not just a simple event listing website.
 
 ---
 
@@ -1229,7 +1229,7 @@ Later, if the platform grows, split heavy features such as payments, race timing
 The logo should use this concept:
 
 ```txt
-A modern route/location pin icon + RaceDZ wordmark
+A modern route/location pin icon + ZidRun wordmark
 ```
 
 ### Logo Meaning
@@ -1239,7 +1239,7 @@ The icon should combine:
 - A location pin to represent race locations across Algeria
 - A route or track curve to represent running routes
 - A forward movement or speed line to represent racing and progress
-- A clean wordmark for "RaceDZ"
+- A clean wordmark for "ZidRun"
 
 ### Logo Requirements
 
@@ -1269,7 +1269,7 @@ Do not use:
 Use this default layout:
 
 ```txt
-[Icon] RaceDZ
+[Icon] ZidRun
 ```
 
 Also prepare a square icon-only version for favicon and mobile app use.
@@ -1278,7 +1278,7 @@ Also prepare a square icon-only version for favicon and mobile app use.
 
 ## 22.5 Color Palette
 
-Use this official RaceDZ color palette:
+Use this official ZidRun color palette:
 
 | Use | Name | Hex |
 |---|---|---|
@@ -1437,7 +1437,7 @@ Organizer CTA:
 
 ```txt
 Are you organizing a race?
-Create your event and manage registrations online with RaceDZ.
+Create your event and manage registrations online with ZidRun.
 ```
 
 ---
@@ -1447,18 +1447,18 @@ Create your event and manage registrations online with RaceDZ.
 Use these names in the project:
 
 ```txt
-App name: RaceDZ
+App name: ZidRun
 Package name: racedz
 Database name: racedz
-Main brand component: RaceDZLogo
-Primary domain placeholder: racedz.dz
-Fallback domain placeholder: racedz.com
+Main brand component: ZidRunLogo
+Primary domain placeholder: zidrun.com
+Fallback domain placeholder: zidrun.com
 ```
 
 Suggested environment variables:
 
 ```env
-NEXT_PUBLIC_APP_NAME="RaceDZ"
+NEXT_PUBLIC_APP_NAME="ZidRun"
 NEXT_PUBLIC_APP_TAGLINE="Find, register, and manage races across Algeria."
 ```
 
@@ -1469,18 +1469,18 @@ NEXT_PUBLIC_APP_TAGLINE="Find, register, and manage races across Algeria."
 Use this updated prompt to start development:
 
 ```txt
-You are building RaceDZ, an MVP for an Algeria-focused running race platform.
+You are building ZidRun, an MVP for an Algeria-focused running race platform.
 
 Use Next.js 15, TypeScript, Tailwind CSS, shadcn/ui, Prisma, PostgreSQL, Auth.js, and a mobile-first design.
 
 Brand identity:
-- Name: RaceDZ
+- Name: ZidRun
 - Tagline: Find, register, and manage races across Algeria.
 - Colors: Deep Teal #0F766E and Energy Orange #F97316
 - Headings: Sora
 - Body: Inter
 - UI style: clean, sporty, trustworthy, mobile-first
-- Logo direction: route/location pin icon + RaceDZ wordmark
+- Logo direction: route/location pin icon + ZidRun wordmark
 
 Start by creating:
 - Project structure

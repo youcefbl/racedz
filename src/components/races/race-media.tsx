@@ -11,22 +11,28 @@ type RaceMediaProps = {
   priority?: boolean;
   className?: string;
   children?: ReactNode;
+  /** Blurred letterbox fill behind the photo. Skip on dense lists (extra decode/paint). */
+  backdrop?: boolean;
 };
 
-export function RaceMedia({ src, alt, sizes, priority = false, className, children }: RaceMediaProps) {
+export function RaceMedia({ src, alt, sizes, priority = false, className, children, backdrop = true }: RaceMediaProps) {
   return (
     <div className={cn("relative overflow-hidden bg-[var(--surface-soft)]", className)}>
       {src ? (
         <>
-          <Image
-            src={src}
-            alt=""
-            fill
-            sizes={sizes}
-            aria-hidden="true"
-            className="scale-110 object-cover opacity-25 blur-xl"
-          />
-          <div className="absolute inset-0 bg-black/5" aria-hidden="true" />
+          {backdrop ? (
+            <>
+              <Image
+                src={src}
+                alt=""
+                fill
+                sizes={sizes}
+                aria-hidden="true"
+                className="scale-110 object-cover opacity-25 blur-xl"
+              />
+              <div className="absolute inset-0 bg-black/5" aria-hidden="true" />
+            </>
+          ) : null}
           <Image
             src={src}
             alt={alt}
@@ -37,7 +43,7 @@ export function RaceMedia({ src, alt, sizes, priority = false, className, childr
           />
           <ImageLightbox src={src} alt={alt} triggerClassName="absolute inset-0 z-10">
             <span className="sr-only">View full image</span>
-            <span className="absolute bottom-3 right-3 inline-flex size-9 items-center justify-center rounded-lg bg-black/65 text-white shadow-sm backdrop-blur transition group-hover:bg-black/80">
+            <span className="absolute bottom-3 end-3 inline-flex size-9 items-center justify-center rounded-lg bg-black/65 text-white shadow-sm backdrop-blur transition group-hover:bg-black/80">
               <Maximize2 className="size-4" aria-hidden="true" />
             </span>
           </ImageLightbox>

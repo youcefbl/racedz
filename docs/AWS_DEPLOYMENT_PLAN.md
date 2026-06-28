@@ -1,4 +1,4 @@
-# RaceDZ AWS Deployment Plan
+# ZidRun AWS Deployment Plan
 
 This plan targets a low-cost first online MVP with separate staging and production environments on AWS.
 
@@ -48,7 +48,7 @@ For `2,000-3,000` users/day, the base architecture should be enough if the regis
 
 ## Target Architecture
 
-RaceDZ is currently a Next.js monolith with App Router pages, API routes, server actions, Auth.js, Prisma, PostgreSQL, uploads, notifications, and admin/organizer dashboards. For MVP, deploy the app as one container on ECS Fargate.
+ZidRun is currently a Next.js monolith with App Router pages, API routes, server actions, Auth.js, Prisma, PostgreSQL, uploads, notifications, and admin/organizer dashboards. For MVP, deploy the app as one container on ECS Fargate.
 
 ```text
 Route 53
@@ -385,7 +385,7 @@ For the stated traffic profile, start with the Single-AZ public MVP shape plus r
    - Production private beta warning: `$100`, critical: `$200`.
    - Combined account warning: choose a monthly hard expectation and alert at 50%, 80%, and 100%.
 2. Apply mandatory tags:
-   - `Project=RaceDZ`
+   - `Project=ZidRun`
    - `Environment=stg|prod`
    - `Owner=Youcef`
    - `CostCenter=racedz`
@@ -555,7 +555,7 @@ Required:
 
 Low-cost S3 pattern:
 
-- MVP: upload through the RaceDZ API, validate, then stream to S3.
+- MVP: upload through the ZidRun API, validate, then stream to S3.
 - Later: presigned POST with server-created policy:
   - fixed content length range
   - fixed content type allowlist

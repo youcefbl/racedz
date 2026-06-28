@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { CalendarDays, MapPin, Route, UsersRound } from "lucide-react";
+import { CalendarDays, MapPin, Route, Trophy, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaces, requireApprovedOrganizer } from "@/lib/organizer";
 import { getLocale, withLocale } from "@/lib/i18n";
@@ -27,10 +28,9 @@ export default async function OrganizerEventsPage({ searchParams }: OrganizerEve
     <div className="bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer")}</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950">{t("Events")}</h1>
-            <p className="mt-2 text-sm text-gray-600">Manage events owned by {organization.name}.</p>
+          <div className="min-w-0">
+            <h1 className="text-3xl font-black text-gray-950">{t("Events")}</h1>
+            <p className="mt-2 text-sm text-gray-600">{t("Manage events owned by")} {organization.name}.</p>
           </div>
           <ButtonLink href={withLocale("/organizer/events/new", locale)}>{t("Create Event")}</ButtonLink>
         </div>
@@ -42,15 +42,14 @@ export default async function OrganizerEventsPage({ searchParams }: OrganizerEve
         ) : null}
 
         {races.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-black text-gray-950">{t("No events yet")}</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">
-              {t("Create your first race and submit it for RaceDZ admin review.")}
-            </p>
-            <ButtonLink href={withLocale("/organizer/events/new", locale)} className="mt-5">
-              {t("Create Event")}
-            </ButtonLink>
-          </div>
+          <EmptyState
+            icon={Trophy}
+            title={t("No events yet")}
+            description={t("Create your first race and submit it for ZidRun admin review.")}
+            action={
+              <ButtonLink href={withLocale("/organizer/events/new", locale)}>{t("Create Event")}</ButtonLink>
+            }
+          />
         ) : (
           <div className="grid gap-4">
             {races.map((race) => {
@@ -59,43 +58,43 @@ export default async function OrganizerEventsPage({ searchParams }: OrganizerEve
               return (
                 <article key={race.id} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
                   <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
+                    <div className="min-w-0 space-y-4">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant={race.status === "PUBLISHED" ? "green" : race.status === "REJECTED" ? "red" : "orange"}>
                           {translateOrganizerEnum(locale, race.status)}
                         </Badge>
                         <Badge variant="blue">{translateOrganizerEnum(locale, race.registrationStatus)}</Badge>
                       </div>
                       <div>
-                        <Link href={withLocale(`/organizer/events/${race.id}`, locale)} className="text-xl font-black text-gray-950 transition hover:text-brand-teal">
+                        <Link href={withLocale(`/organizer/events/${race.id}`, locale)} className="text-xl font-semibold text-gray-950 transition hover:text-brand-teal break-words">
                           {race.title}
                         </Link>
-                        <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-600">{race.description}</p>
+                        <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-600 break-words">{race.description}</p>
                       </div>
                       <div className="grid gap-2 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-4">
-                        <p className="flex items-center gap-2">
-                          <CalendarDays className="size-4 text-brand-teal" aria-hidden="true" />
-                          {formatDateTime(race.startDate)}
+                        <p className="flex items-center gap-2 min-w-0">
+                          <CalendarDays className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                          <span className="truncate">{formatDateTime(race.startDate)}</span>
                         </p>
-                        <p className="flex items-center gap-2">
-                          <MapPin className="size-4 text-brand-teal" aria-hidden="true" />
-                          {race.city}, {race.wilaya}
+                        <p className="flex items-center gap-2 min-w-0">
+                          <MapPin className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                          <span className="truncate">{race.city}, {race.wilaya}</span>
                         </p>
-                        <p className="flex items-center gap-2">
-                          <Route className="size-4 text-brand-teal" aria-hidden="true" />
-                          {race._count.categories} categories · from {formatDzd(lowestPrice)}
+                        <p className="flex items-center gap-2 min-w-0">
+                          <Route className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                          <span className="truncate">{race._count.categories} {t("categories")} · {t("from")} {formatDzd(lowestPrice)}</span>
                         </p>
-                        <p className="flex items-center gap-2">
-                          <UsersRound className="size-4 text-brand-teal" aria-hidden="true" />
-                          {race._count.registrations} registrations
+                        <p className="flex items-center gap-2 min-w-0">
+                          <UsersRound className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                          <span className="truncate">{race._count.registrations} {t("registrations")}</span>
                         </p>
                       </div>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2 lg:w-44 lg:grid-cols-1">
-                      <ButtonLink href={withLocale(`/organizer/events/${race.id}`, locale)} variant="outline" size="sm">
-                        {t("Overview")}
+                      <ButtonLink href={withLocale(`/organizer/events/${race.id}`, locale)} size="sm">
+                        {t("Manage")}
                       </ButtonLink>
-                      <ButtonLink href={withLocale(`/organizer/events/${race.id}/registrations`, locale)} variant="secondary" size="sm">
+                      <ButtonLink href={withLocale(`/organizer/events/${race.id}/registrations`, locale)} variant="outline" size="sm">
                         {t("Registrations")}
                       </ButtonLink>
                     </div>

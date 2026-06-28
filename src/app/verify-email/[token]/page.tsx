@@ -1,15 +1,19 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { verifyEmailToken } from "@/lib/email-verification";
+import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 type VerifyEmailPageProps = {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ lang?: string }>;
 };
 
-export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) {
+export default async function VerifyEmailPage({ params, searchParams }: VerifyEmailPageProps) {
   const { token } = await params;
+  const locale = getLocale((await searchParams)?.lang);
+  const t = getDictionary(locale).auth;
   const result = await verifyEmailToken(token);
 
   return (
@@ -19,23 +23,23 @@ export default async function VerifyEmailPage({ params }: VerifyEmailPageProps) 
           {result.ok ? (
             <>
               <CheckCircle2 className="mx-auto size-12 text-green-700" aria-hidden="true" />
-              <h1 className="mt-4 text-2xl font-black text-gray-950">Account activated</h1>
+              <h1 className="mt-4 text-2xl font-black text-gray-950">{t.verifiedTitle}</h1>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                Your email is verified. You can now log in and register for races on RaceDZ.
+                {t.verifiedText}
               </p>
-              <ButtonLink href="/login" className="mt-6">
-                Go to login
+              <ButtonLink href={withLocale("/login", locale)} className="mt-6">
+                {t.goToLogin}
               </ButtonLink>
             </>
           ) : (
             <>
               <XCircle className="mx-auto size-12 text-red-700" aria-hidden="true" />
-              <h1 className="mt-4 text-2xl font-black text-gray-950">Verification link expired</h1>
+              <h1 className="mt-4 text-2xl font-black text-gray-950">{t.verifyExpiredTitle}</h1>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                This activation link is invalid, expired, or already used. Create a new account or ask support for a new verification email.
+                {t.verifyExpiredText}
               </p>
-              <ButtonLink href="/register" className="mt-6">
-                Create account
+              <ButtonLink href={withLocale("/register", locale)} className="mt-6">
+                {t.createAccount}
               </ButtonLink>
             </>
           )}

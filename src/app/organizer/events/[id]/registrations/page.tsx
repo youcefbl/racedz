@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2, Mail, Phone, Route, Search, UserRound, XCircle } from "lucide-react";
+import { CheckCircle2, Mail, Phone, Route, Search, UserRound, Users, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaceById, getOrganizerRaceRegistrations, requireApprovedOrganizer } from "@/lib/organizer";
@@ -54,9 +55,9 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
     <div className="bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t("Organizer")}</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950">{race.title} · {t("Registrations")}</h1>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-brand-teal break-words">{race.title}</p>
+            <h1 className="mt-2 text-3xl font-black text-gray-950">{t("Registrations")}</h1>
           </div>
           <ButtonLink href={`/api/organizer/events/${race.id}/registrations/export`} variant="outline">
             {t("Export CSV")}
@@ -110,12 +111,11 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
         </form>
 
         {registrations.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-black text-gray-950">{t("No participants found")}</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">
-              {t("Registrations will appear here after runners sign up, or when the current filters match existing participants.")}
-            </p>
-          </div>
+          <EmptyState
+            icon={Users}
+            title={t("No participants found")}
+            description={t("Registrations will appear here after runners sign up, or when the current filters match existing participants.")}
+          />
         ) : (
           <div className="space-y-4">
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -143,17 +143,17 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
                                 <UserRound className="size-5" aria-hidden="true" />
                               </div>
-                              <div>
-                                <p className="font-bold text-gray-950">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-950 break-words">
                                   {registration.user.firstName} {registration.user.lastName}
                                 </p>
                                 <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                                  <Mail className="size-3.5" aria-hidden="true" />
-                                  {registration.user.email}
+                                  <Mail className="size-3.5 shrink-0" aria-hidden="true" />
+                                  <span className="break-all">{registration.user.email}</span>
                                 </p>
                                 {registration.user.phone ? (
                                   <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                                    <Phone className="size-3.5" aria-hidden="true" />
+                                    <Phone className="size-3.5 shrink-0" aria-hidden="true" />
                                     {registration.user.phone}
                                   </p>
                                 ) : null}

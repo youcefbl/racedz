@@ -6,7 +6,9 @@ coverage
 playwright-report
 test-results
 .env
-.env*.local
+.env.*
+!.env.example
+!.env.production.example
 *.log
 *.tsbuildinfo
 .DS_Store
@@ -25,3 +27,13 @@ public/uploads/*
 /android/local.properties
 
 /coursealgerie_export
+
+# AI / editor tooling (local, not project source)
+.agents/
+.codex/
+.impeccable/
+.claude/skills/
+.claude/settings.local.json
+
+# Brand exploration scratch — 250MB+ of generated images; shipped logos live in public/
+brand-explore/

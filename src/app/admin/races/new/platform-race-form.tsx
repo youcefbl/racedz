@@ -160,8 +160,8 @@ export function PlatformRaceForm() {
       <section className="space-y-3">
         <SectionTitle icon={ShieldCheck} title="Organizer contact" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Organizer name" name="organizerName" defaultValue="RaceDZ Community Desk" />
-          <Field label="Organizer URL" name="organizerUrl" type="url" required={false} placeholder="https://racedz.dz" />
+          <Field label="Organizer name" name="organizerName" defaultValue="ZidRun Community Desk" />
+          <Field label="Organizer URL" name="organizerUrl" type="url" required={false} placeholder="https://zidrun.com" />
           <Field label="Contact email" name="contactEmail" type="email" required={false} />
           <Field label="Contact phone" name="contactPhone" type="tel" required={false} />
         </div>

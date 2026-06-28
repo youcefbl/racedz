@@ -48,7 +48,7 @@ export const sampleRaces: RaceEvent[] = [
     mainImageUrl: "/racedz-logo.png",
     rules: "Participants must wear their bib visibly and respect the marked route.",
     requiredDocuments: "Medical certificate optional for the 5K and required for the 10K.",
-    contactEmail: "events@racedz.dz",
+    contactEmail: "events@zidrun.com",
     contactPhone: "+213 555 000 100",
     maxParticipants: 1500,
     availablePlaces: 1320,
@@ -83,7 +83,7 @@ export const sampleRaces: RaceEvent[] = [
     mainImageUrl: "/racedz-logo.png",
     rules: "Road closures apply. Runners must pass all timing checkpoints.",
     requiredDocuments: "Medical certificate required.",
-    contactEmail: "oran@racedz.dz",
+    contactEmail: "oran@zidrun.com",
     maxParticipants: 2200,
     availablePlaces: 2040,
     categories: [
@@ -117,7 +117,7 @@ export const sampleRaces: RaceEvent[] = [
     mainImageUrl: "/racedz-logo.png",
     rules: "Mandatory equipment checks happen before bib collection.",
     requiredDocuments: "Medical certificate and emergency contact required.",
-    contactEmail: "trail@racedz.dz",
+    contactEmail: "trail@zidrun.com",
     maxParticipants: 700,
     availablePlaces: 580,
     categories: [
@@ -158,13 +158,13 @@ export const sampleRaces: RaceEvent[] = [
     address: "Centre-ville, Constantine",
     organizer: {
       id: "org-racedz-platform",
-      name: "RaceDZ Community Desk",
+      name: "ZidRun Community Desk",
       slug: "racedz-platform",
       url: "/"
     },
     mainImageUrl: "/racedz-logo.png",
     rules: "Open to runners aged 14 and above for 10K, all ages for the family 5K.",
-    contactEmail: "constantine@racedz.dz",
+    contactEmail: "constantine@zidrun.com",
     maxParticipants: 1200,
     availablePlaces: 1200,
     categories: [
@@ -174,13 +174,45 @@ export const sampleRaces: RaceEvent[] = [
   }
 ];
 
+export type RaceSort = "date" | "distance" | "price";
+
 export type RaceFilters = {
   q?: string;
   wilaya?: string;
   type?: RaceType;
   distance?: string;
   registrationStatus?: EventRegistrationStatus;
+  /** When truthy, hide races whose date is already in the past (show upcoming/ongoing only). */
+  upcoming?: string;
+  /** Result ordering. Defaults to soonest race first. */
+  sort?: RaceSort;
 };
+
+type SortableRace = {
+  startDate: string | Date;
+  categories: { distanceKm: number; priceDzd?: number | null }[];
+};
+
+/** Order races by the chosen key; ties (and the default) fall back to soonest first. */
+export function sortRaceEvents<T extends SortableRace>(races: T[], sort?: RaceSort): T[] {
+  const time = (value: string | Date) => new Date(value).getTime();
+  const minDistance = (race: SortableRace) =>
+    race.categories.reduce((min, category) => Math.min(min, category.distanceKm), Infinity);
+  const minPrice = (race: SortableRace) =>
+    race.categories.reduce((min, category) => (category.priceDzd != null ? Math.min(min, category.priceDzd) : min), Infinity);
+  const byDate = (a: SortableRace, b: SortableRace) => time(a.startDate) - time(b.startDate);
+  const list = [...races];
+  if (sort === "distance") return list.sort((a, b) => minDistance(a) - minDistance(b) || byDate(a, b));
+  if (sort === "price") return list.sort((a, b) => minPrice(a) - minPrice(b) || byDate(a, b));
+  return list.sort(byDate);
+}
+
+/** Midnight today — the cutoff for "past" vs "upcoming" races. */
+export function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
 
 export function getUpcomingRaces(limit?: number) {
   const races = [...sampleRaces]
@@ -201,7 +233,7 @@ export function getRaceById(id: string) {
 export function filterRaces(filters: RaceFilters) {
   const query = filters.q?.trim().toLowerCase();
 
-  return getUpcomingRaces().filter((race) => {
+  const filtered = getUpcomingRaces().filter((race) => {
     const matchesQuery = query
       ? [race.title, race.city, race.wilaya, race.organizer.name]
           .join(" ")
@@ -216,7 +248,12 @@ export function filterRaces(filters: RaceFilters) {
     const matchesDistance = filters.distance
       ? race.categories.some((category) => String(category.distanceKm) === filters.distance)
       : true;
+    const matchesUpcoming = filters.upcoming
+      ? new Date(race.endDate ?? race.startDate) >= startOfToday()
+      : true;
 
-    return matchesQuery && matchesWilaya && matchesType && matchesRegistrationStatus && matchesDistance;
+    return matchesQuery && matchesWilaya && matchesType && matchesRegistrationStatus && matchesDistance && matchesUpcoming;
   });
+
+  return sortRaceEvents(filtered, filters.sort);
 }
