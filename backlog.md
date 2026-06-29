@@ -15,3 +15,7 @@ Do not add new backlog items here. Add them to `TODO.md` so ZidRun has one sourc
 on admin panel , list of users, on dark mode,  hovering the user is making it white , cant read so fix it 
 
 - on races page remove selection of Soonest distance , price , Upcoming only is enabled by default 
+
+
+if the user ask AI coach in arabic or in fresh ,  is it possible to answer in that langue , and keep the plan and setting in that langue ? 
+also be able in the seeting of the coach to change the langue if the user want that 

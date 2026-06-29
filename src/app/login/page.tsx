@@ -18,6 +18,7 @@ type LoginPageProps = {
     registered?: string;
     emailDelivery?: string;
     email?: string;
+    reset?: string;
     lang?: string;
   }>;
 };
@@ -83,6 +84,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </section>
 
         <section className="order-1 rounded-lg border border-gray-200 bg-white p-5 shadow-sm lg:order-2">
+          {params?.reset === "1" ? (
+            <div className="mb-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
+              {t.resetSuccess}
+            </div>
+          ) : null}
           {params?.registered === "1" ? (
             <div className="mb-5 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-brand-teal">
               {params.emailDelivery === "failed" ? t.activatedNoEmail : t.activatedCheckEmail}

@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { Eye, EyeOff, Mail, LockKeyhole } from "lucide-react";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getDictionary, type Locale } from "@/lib/i18n";
+import { getDictionary, withLocale, type Locale } from "@/lib/i18n";
 import { loginAction, type LoginActionState } from "./actions";
 
 const initialState: LoginActionState = {};
@@ -46,7 +47,7 @@ export function LoginForm({ callbackUrl, locale }: { callbackUrl?: string; local
             autoComplete="current-password"
             placeholder={t.passwordPlaceholder}
             required
-            minLength={8}
+            minLength={6}
             className="h-11 w-full rounded-lg border border-gray-300 ps-9 pe-11 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
           />
           <button
@@ -60,6 +61,11 @@ export function LoginForm({ callbackUrl, locale }: { callbackUrl?: string; local
           </button>
         </span>
       </label>
+      <div className="-mt-1 flex justify-end">
+        <Link href={withLocale("/forgot-password", locale)} className="text-sm font-semibold text-brand-teal hover:underline">
+          {t.forgotLink}
+        </Link>
+      </div>
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? t.signingIn : t.login}
       </Button>
