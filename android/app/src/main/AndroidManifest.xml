@@ -22,6 +22,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Verified App Links: https://zidrun.com/* opens the app directly.
+                 Requires /.well-known/assetlinks.json hosted on the domain with this
+                 app's signing-cert SHA-256 (see docs/MOBILE_ANDROID.md). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="zidrun.com" />
+                <data android:scheme="https" android:host="www.zidrun.com" />
+            </intent-filter>
+
+            <!-- Custom scheme for native callbacks (e.g. Google OAuth return): zidrun://... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="zidrun" />
+            </intent-filter>
+
         </activity>
 
         <provider

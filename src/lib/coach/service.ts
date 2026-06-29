@@ -254,32 +254,37 @@ export async function setRunVisibility(userId: string, runId: string, isPublic: 
 
 export async function getCoachDashboard(userId: string) {
   const prisma = getPrisma();
-  const goal = await getActiveGoal(userId);
-  const runs = await getRunnerRuns(userId, 10);
-  const plans = await prisma.$queryRaw<Array<Record<string, unknown>>>`
-    SELECT plan.*,
-      COALESCE(
-        jsonb_agg(to_jsonb(workout) ORDER BY workout."scheduledFor") FILTER (WHERE workout."id" IS NOT NULL),
-        '[]'::jsonb
-      ) AS workouts
-    FROM "TrainingPlan" plan
-    LEFT JOIN "TrainingWorkout" workout ON workout."trainingPlanId" = plan."id"
-    WHERE plan."userId" = ${userId} AND plan."status" IN ('ACTIVE', 'DRAFT')
-    GROUP BY plan."id"
-    ORDER BY CASE WHEN plan."status" = 'ACTIVE' THEN 0 ELSE 1 END, plan."version" DESC
-    LIMIT 2
-  `;
-  const interactions = await prisma.$queryRaw<InteractionRow[]>`
-    SELECT "id", "type", "status", "userMessage", "response", "safety", "model", "errorCode", "createdAt", "completedAt"
-    FROM "CoachInteraction"
-    WHERE "userId" = ${userId}
-    ORDER BY "createdAt" DESC
-    LIMIT 10
-  `;
-  const snapshots = await prisma.$queryRaw<Array<{ metrics: CoachMetrics; generatedAt: Date }>>`
-    SELECT "metrics", "generatedAt" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
-  `;
-  const entitlement = await getCoachEntitlementWithUsage(userId);
+  // These six reads are independent — run them in parallel so the dashboard is a single
+  // round-trip's worth of latency instead of six sequential ones (matters a lot when the
+  // app talks to the origin over a high-latency link).
+  const [goal, runs, plans, interactions, snapshots, entitlement] = await Promise.all([
+    getActiveGoal(userId),
+    getRunnerRuns(userId, 10),
+    prisma.$queryRaw<Array<Record<string, unknown>>>`
+      SELECT plan.*,
+        COALESCE(
+          jsonb_agg(to_jsonb(workout) ORDER BY workout."scheduledFor") FILTER (WHERE workout."id" IS NOT NULL),
+          '[]'::jsonb
+        ) AS workouts
+      FROM "TrainingPlan" plan
+      LEFT JOIN "TrainingWorkout" workout ON workout."trainingPlanId" = plan."id"
+      WHERE plan."userId" = ${userId} AND plan."status" IN ('ACTIVE', 'DRAFT')
+      GROUP BY plan."id"
+      ORDER BY CASE WHEN plan."status" = 'ACTIVE' THEN 0 ELSE 1 END, plan."version" DESC
+      LIMIT 2
+    `,
+    prisma.$queryRaw<InteractionRow[]>`
+      SELECT "id", "type", "status", "userMessage", "response", "safety", "model", "errorCode", "createdAt", "completedAt"
+      FROM "CoachInteraction"
+      WHERE "userId" = ${userId}
+      ORDER BY "createdAt" DESC
+      LIMIT 10
+    `,
+    prisma.$queryRaw<Array<{ metrics: CoachMetrics; generatedAt: Date }>>`
+      SELECT "metrics", "generatedAt" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
+    `,
+    getCoachEntitlementWithUsage(userId)
+  ]);
 
   return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement };
 }

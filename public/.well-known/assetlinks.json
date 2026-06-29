@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dz.racedz.app",
+      "sha256_cert_fingerprints": [
+        "27:D5:13:D4:E6:86:7E:DF:AA:43:45:8A:50:C4:1C:D4:47:70:DF:87:50:A2:FA:22:E2:15:27:D9:F9:E5:DD:B5"
+      ]
+    }
+  }
+]

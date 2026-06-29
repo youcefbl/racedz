@@ -34,6 +34,7 @@ model User {
   organizationInvitationsSent OrganizationInvitation[]
   emailVerificationTokens     EmailVerificationToken[]
   passwordResetTokens         PasswordResetToken[]
+  nativeAuthTokens            NativeAuthToken[]
   registrations               RaceRegistration[]
   raceEditHistory             RaceEditHistory[]
   adminAuditLogs              AdminAuditLog[]
@@ -296,6 +297,23 @@ model RaceEditHistory {
 }
 
 model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+}
+
+// Short-lived, single-use token that bridges a web (system-browser) Google sign-in
+// into the native app's webview session. Minted at /auth/native/handoff after a
+// successful OAuth login, delivered via the zidrun://auth deep link, then consumed
+// by the "native-bridge" credentials provider. See src/lib/native-auth.ts.
+model NativeAuthToken {
   id        String    @id @default(cuid())
   userId    String
   token     String    @unique

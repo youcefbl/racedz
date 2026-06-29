@@ -18,5 +18,9 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- Dark window background so there is no white flash before the splash drawable. -->
+        <item name="android:windowBackground">@color/splashBackground</item>
+        <!-- Android 12+ system splash: dark brand background instead of the default white. -->
+        <item name="windowSplashScreenBackground">@color/splashBackground</item>
     </style>
 </resources>

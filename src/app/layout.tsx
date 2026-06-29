@@ -9,6 +9,8 @@ import { Suspense } from "react";
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 import { HtmlLangDir } from "@/components/layout/html-lang-dir";
 import { NativeChrome } from "@/components/layout/native-chrome";
+import { NativeDeepLinks } from "@/components/layout/native-deep-links";
+import { NativePush } from "@/components/layout/native-push";
 import { NativeTransition } from "@/components/layout/native-transition";
 import { PullToRefresh } from "@/components/layout/pull-to-refresh";
 import { ServiceWorkerRegister } from "@/components/layout/service-worker-register";
@@ -72,6 +74,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <NativeChrome />
         </Suspense>
+        <NativeDeepLinks />
+        <NativePush />
         <PullToRefresh />
         <Toaster />
         <ServiceWorkerRegister />

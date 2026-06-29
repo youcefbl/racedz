@@ -20,6 +20,8 @@ type LoginPageProps = {
     email?: string;
     reset?: string;
     lang?: string;
+    native?: string;
+    provider?: string;
   }>;
 };
 
@@ -31,7 +33,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const t = dict.auth;
   const trialBadge = dict.pages.coachLanding.trialBadge;
 
+  const nativeFlow = params?.native === "1";
+
   if (session?.user) {
+    // Native sign-in flow (opened in the system browser): bridge the existing
+    // browser session straight into the app instead of landing on the website.
+    if (nativeFlow) {
+      const cb = params?.callbackUrl && params.callbackUrl.startsWith("/") ? params.callbackUrl : "/account";
+      redirect(`/auth/native/handoff?callbackUrl=${encodeURIComponent(cb)}`);
+    }
     redirect(getPostLoginUrl(session.user.role, params?.callbackUrl));
   }
 
@@ -115,7 +125,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
           {googleEnabled ? (
             <>
-              <GoogleSignInButton callbackUrl={params?.callbackUrl} label={t.continueWithGoogle} pendingLabel={t.openingGoogle} />
+              <GoogleSignInButton
+                callbackUrl={params?.callbackUrl}
+                native={nativeFlow}
+                autoStart={nativeFlow && params?.provider === "google"}
+                label={t.continueWithGoogle}
+                pendingLabel={t.openingGoogle}
+              />
               <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
                 <span className="text-xs font-bold uppercase tracking-normal text-gray-400">{t.or}</span>

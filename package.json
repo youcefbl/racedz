@@ -24,15 +24,19 @@
     "cap:open": "cap open android",
     "android:run": "cap run android",
     "android:dev": "CAP_SERVER_URL=http://10.0.2.2:3003 cap run android",
-    "icons:gen": "node scripts/gen-icons.mjs"
+    "icons:gen": "node scripts/gen-icons.mjs",
+    "icons:android": "node scripts/gen-android-icons.mjs",
+    "splash:gen": "node scripts/gen-splash.mjs"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/android": "^6.2.1",
     "@capacitor/app": "^6.0.3",
+    "@capacitor/browser": "^6.0.6",
     "@capacitor/core": "^6.2.1",
     "@capacitor/haptics": "^6.0.3",
     "@capacitor/keyboard": "^6.0.4",
+    "@capacitor/push-notifications": "^6.0.5",
     "@capacitor/splash-screen": "^6.0.4",
     "@capacitor/status-bar": "^6.0.3",
     "@prisma/client": "^5.21.1",

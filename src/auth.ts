@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/db";
 import { isEmailVerified } from "@/lib/email-verification";
+import { consumeNativeAuthToken } from "@/lib/native-auth";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
 
@@ -97,6 +98,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           organizationIds: user.organizations?.map((member) => member.organizationId) ?? []
         };
+      }
+    }),
+    // Native bridge: the app's WebView exchanges a one-time token (minted after a
+    // system-browser Google sign-in) for a real session. See src/lib/native-auth.ts.
+    Credentials({
+      id: "native-bridge",
+      name: "Native bridge",
+      credentials: {
+        token: { label: "Token", type: "text" }
+      },
+      async authorize(credentials) {
+        const token = typeof credentials?.token === "string" ? credentials.token : null;
+
+        if (!token) {
+          return null;
+        }
+
+        return consumeNativeAuthToken(token);
       }
     }),
     ...(googleProviderEnabled

@@ -26,6 +26,18 @@ const config: CapacitorConfig = {
     Keyboard: {
       resize: KeyboardResize.Body,
       resizeOnFullScreen: true
+    },
+    // Branded launch screen: dark brand background (#0c1116) with the centered
+    // ZidRun wordmark. NativeChrome calls SplashScreen.hide() as soon as the web
+    // app has mounted; launchShowDuration is the safety cap if that never fires.
+    SplashScreen: {
+      launchShowDuration: 3000,
+      launchAutoHide: true,
+      backgroundColor: "#0c1116",
+      androidScaleType: "CENTER_CROP",
+      showSpinner: false,
+      splashFullScreen: true,
+      splashImmersive: true
     }
   }
 };
