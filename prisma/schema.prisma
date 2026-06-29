@@ -167,6 +167,10 @@ model RaceEvent {
   requiredDocuments          String?
   contactEmail               String?
   contactPhone               String?
+  baridiMobNumber            String?
+  ccpAccount                 String?
+  ccpKey                     String?
+  paymentNote                String?
   maxParticipants            Int?
   availablePlaces            Int?
   autoCancelUnpaidAfterHours Int?
@@ -440,6 +444,7 @@ enum PaymentMethod {
   CASH
   BANK_TRANSFER
   BARIDIMOB
+  CCP
   ONLINE_CARD
   OTHER
 }

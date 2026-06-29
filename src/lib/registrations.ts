@@ -68,7 +68,13 @@ export async function getUserRegistrations(userId: string) {
     where: {
       userId
     },
-    include: {
+    select: {
+      id: true,
+      status: true,
+      paymentStatus: true,
+      paymentMethod: true,
+      paymentProofUrl: true,
+      createdAt: true,
       raceEvent: {
         select: {
           id: true,
@@ -78,7 +84,11 @@ export async function getUserRegistrations(userId: string) {
           wilaya: true,
           city: true,
           registrationStatus: true,
-          status: true
+          status: true,
+          baridiMobNumber: true,
+          ccpAccount: true,
+          ccpKey: true,
+          paymentNote: true
         }
       },
       raceCategory: {

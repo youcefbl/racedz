@@ -394,6 +394,25 @@ export const dictionaries = {
       raceDetails: "Race details",
       addDistance: "Add distance"
     },
+    pay: {
+      title: "Payment required",
+      amount: "Amount",
+      payVia: "Pay to",
+      baridiMob: "BaridiMob",
+      ccp: "CCP",
+      ccpKey: "key",
+      note: "Note",
+      noDetails: "The organizer hasn't added payment details yet. Contact them to arrange payment.",
+      methodLabel: "How did you pay?",
+      methodBaridiMob: "BaridiMob",
+      methodCcp: "CCP / Algérie Poste",
+      proofLabel: "Payment screenshot",
+      proofHelp: "Upload a clear screenshot of your transfer so the organizer can confirm it.",
+      submit: "Submit payment proof",
+      submitting: "Submitting…",
+      underReview: "Proof submitted — waiting for the organizer to confirm your payment.",
+      resubmit: "Re-upload proof"
+    },
     status: {
       PENDING: "Pending",
       CONFIRMED: "Confirmed",
@@ -918,6 +937,25 @@ export const dictionaries = {
       raceDetails: "Détails de la course",
       addDistance: "Ajouter une distance"
     },
+    pay: {
+      title: "Paiement requis",
+      amount: "Montant",
+      payVia: "Payer à",
+      baridiMob: "BaridiMob",
+      ccp: "CCP",
+      ccpKey: "clé",
+      note: "Note",
+      noDetails: "L'organisateur n'a pas encore ajouté de coordonnées de paiement. Contactez-le pour payer.",
+      methodLabel: "Comment avez-vous payé ?",
+      methodBaridiMob: "BaridiMob",
+      methodCcp: "CCP / Algérie Poste",
+      proofLabel: "Capture du paiement",
+      proofHelp: "Téléversez une capture claire de votre virement pour que l'organisateur puisse le confirmer.",
+      submit: "Envoyer la preuve de paiement",
+      submitting: "Envoi…",
+      underReview: "Preuve envoyée — en attente de confirmation par l'organisateur.",
+      resubmit: "Renvoyer la preuve"
+    },
     status: {
       PENDING: "En attente",
       CONFIRMED: "Confirmé",
@@ -1440,6 +1478,25 @@ export const dictionaries = {
       browse: "تصفّح السباقات",
       raceDetails: "تفاصيل السباق",
       addDistance: "إضافة مسافة"
+    },
+    pay: {
+      title: "الدفع مطلوب",
+      amount: "المبلغ",
+      payVia: "ادفع إلى",
+      baridiMob: "بريدي موب",
+      ccp: "CCP",
+      ccpKey: "المفتاح",
+      note: "ملاحظة",
+      noDetails: "لم يضِف المنظّم بيانات الدفع بعد. تواصل معه لإتمام الدفع.",
+      methodLabel: "كيف دفعت؟",
+      methodBaridiMob: "بريدي موب",
+      methodCcp: "CCP / بريد الجزائر",
+      proofLabel: "لقطة شاشة للدفع",
+      proofHelp: "حمّل لقطة واضحة لعملية التحويل ليتمكّن المنظّم من تأكيدها.",
+      submit: "إرسال إثبات الدفع",
+      submitting: "جارٍ الإرسال…",
+      underReview: "تم إرسال الإثبات — في انتظار تأكيد المنظّم للدفع.",
+      resubmit: "إعادة رفع الإثبات"
     },
     status: {
       PENDING: "قيد الانتظار",

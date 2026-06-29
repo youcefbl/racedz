@@ -9,6 +9,7 @@ import { formatDateTime, formatDzd } from "@/lib/format";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { getUserRegistrations } from "@/lib/registrations";
 import type { PaymentStatus, RegistrationStatus } from "@/types/race";
+import { PaymentPanel } from "./payment-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export default async function AccountRegistrationsPage({ searchParams }: Account
   const locale = getLocale(params?.lang);
   const t = getDictionary(locale).registrations;
   const statusLabels = getDictionary(locale).status;
+  const payLabels = getDictionary(locale).pay;
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account/registrations");
@@ -127,6 +129,20 @@ export default async function AccountRegistrationsPage({ searchParams }: Account
                     </ButtonLink>
                   </div>
                 </div>
+                {["PENDING", "FAILED", "MANUAL_REVIEW"].includes(registration.paymentStatus) ? (
+                  <PaymentPanel
+                    registrationId={registration.id}
+                    amount={formatDzd(registration.raceCategory.priceDzd ?? undefined)}
+                    race={{
+                      baridiMobNumber: registration.raceEvent.baridiMobNumber,
+                      ccpAccount: registration.raceEvent.ccpAccount,
+                      ccpKey: registration.raceEvent.ccpKey,
+                      paymentNote: registration.raceEvent.paymentNote
+                    }}
+                    underReview={registration.paymentStatus === "MANUAL_REVIEW"}
+                    labels={payLabels}
+                  />
+                ) : null}
               </article>
             ))}
           </div>

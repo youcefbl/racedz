@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2, Mail, Phone, Route, Search, UserRound, Users, XCircle } from "lucide-react";
+import { CheckCircle2, Mail, Phone, Receipt, Route, Search, UserRound, Users, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
@@ -175,6 +175,18 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                           </td>
                           <td className="px-4 py-4">
                             <Badge variant={getStatusVariant(registration.paymentStatus)}>{translateOrganizerEnum(locale, registration.paymentStatus)}</Badge>
+                            {registration.paymentProofUrl ? (
+                              <a
+                                href={registration.paymentProofUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-1 flex items-center gap-1 text-xs font-semibold text-brand-teal hover:underline"
+                              >
+                                <Receipt className="size-3.5" aria-hidden="true" />
+                                {t("View proof")}
+                                {registration.paymentMethod ? ` · ${translateOrganizerEnum(locale, registration.paymentMethod)}` : ""}
+                              </a>
+                            ) : null}
                           </td>
                           <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
                           <td className="px-4 py-4">

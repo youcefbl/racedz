@@ -185,6 +185,10 @@ export function OrganizerEventForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={organization.email ?? ""} required={false} optionalLabel={t("optional")} />
           <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={organization.phone ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("BaridiMob number")} name="baridiMobNumber" defaultValue="" required={false} optionalLabel={t("optional")} />
+          <Field label={t("CCP account")} name="ccpAccount" defaultValue="" required={false} optionalLabel={t("optional")} />
+          <Field label={t("CCP key")} name="ccpKey" defaultValue="" required={false} optionalLabel={t("optional")} />
+          <Field label={t("Payment note (how runners should pay)")} name="paymentNote" defaultValue="" required={false} optionalLabel={t("optional")} />
         </div>
       </section>
 

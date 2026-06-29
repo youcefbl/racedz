@@ -829,6 +829,10 @@ export async function createOrganizerRace({
         organizerUrl: `/organizations/${organization.slug}`,
         contactEmail: parsed.data.contactEmail,
         contactPhone: parsed.data.contactPhone,
+        baridiMobNumber: parsed.data.baridiMobNumber,
+        ccpAccount: parsed.data.ccpAccount,
+        ccpKey: parsed.data.ccpKey,
+        paymentNote: parsed.data.paymentNote,
         mainImageUrl: parsed.data.mainImageUrl,
         maxParticipants,
         availablePlaces: maxParticipants
@@ -982,6 +986,10 @@ export async function updateOrganizerRace({
         address: true,
         contactEmail: true,
         contactPhone: true,
+        baridiMobNumber: true,
+        ccpAccount: true,
+        ccpKey: true,
+        paymentNote: true,
         maxParticipants: true,
         mainImageUrl: true
       }
@@ -1000,6 +1008,10 @@ export async function updateOrganizerRace({
       address: parsed.data.address ?? null,
       contactEmail: parsed.data.contactEmail ?? null,
       contactPhone: parsed.data.contactPhone ?? null,
+      baridiMobNumber: parsed.data.baridiMobNumber ?? null,
+      ccpAccount: parsed.data.ccpAccount ?? null,
+      ccpKey: parsed.data.ccpKey ?? null,
+      paymentNote: parsed.data.paymentNote ?? null,
       maxParticipants: parsed.data.maxParticipants ?? null,
       mainImageUrl: parsed.data.mainImageUrl ?? null
     };

@@ -39,6 +39,10 @@ export async function updateOrganizerRaceAction(
         address: getOptionalString(formData, "address"),
         contactEmail: getOptionalString(formData, "contactEmail"),
         contactPhone: getOptionalString(formData, "contactPhone"),
+        baridiMobNumber: getOptionalString(formData, "baridiMobNumber"),
+        ccpAccount: getOptionalString(formData, "ccpAccount"),
+        ccpKey: getOptionalString(formData, "ccpKey"),
+        paymentNote: getOptionalString(formData, "paymentNote"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),
         autoCancelUnpaidAfterHours: getAutoCancelUnpaidAfterHours(formData),
         mainImageUrl: getOptionalString(formData, "mainImageUrl")

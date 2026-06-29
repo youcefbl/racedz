@@ -25,6 +25,10 @@ type EditableRace = {
   address: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  baridiMobNumber: string | null;
+  ccpAccount: string | null;
+  ccpKey: string | null;
+  paymentNote: string | null;
   maxParticipants: number | null;
   mainImageUrl: string | null;
   autoCancelUnpaidAfterHours: number | null;
@@ -115,6 +119,10 @@ export function EventEditForm({ race }: { race: EditableRace }) {
         <Field label={t("Address")} name="address" defaultValue={race.address ?? ""} required={false} optionalLabel={t("optional")} />
         <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={race.contactEmail ?? ""} required={false} optionalLabel={t("optional")} />
         <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={race.contactPhone ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("BaridiMob number")} name="baridiMobNumber" defaultValue={race.baridiMobNumber ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("CCP account")} name="ccpAccount" defaultValue={race.ccpAccount ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("CCP key")} name="ccpKey" defaultValue={race.ccpKey ?? ""} required={false} optionalLabel={t("optional")} />
+        <Field label={t("Payment note (how runners should pay)")} name="paymentNote" defaultValue={race.paymentNote ?? ""} required={false} optionalLabel={t("optional")} />
         <Field label={t("Total race capacity")} name="maxParticipants" type="number" defaultValue={race.maxParticipants?.toString() ?? ""} required={false} optionalLabel={t("optional")} />
         <AutoCancelToggle defaultChecked={race.autoCancelUnpaidAfterHours === 48} t={t} />
         <div className="sm:col-span-2">
