@@ -37,3 +37,5 @@ public/uploads/*
 
 # Brand exploration scratch — 250MB+ of generated images; shipped logos live in public/
 brand-explore/
+# Generated email preview (npm run email:preview)
+public/email-preview.html
