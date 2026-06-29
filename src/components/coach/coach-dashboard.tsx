@@ -72,6 +72,21 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
     [dashboard.plans]
   );
 
+  const activeGoal = dashboard.goal;
+  const setCoachLanguage = useCallback(
+    (next: CoachLocale) => {
+      if (!activeGoal || next === activeGoal.preferredLocale) return;
+      mutate("GOAL_SETTINGS", async () => {
+        await coachRequest(`/api/coach/goals/${activeGoal.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ preferredLocale: next })
+        });
+        await refresh();
+      });
+    },
+    [activeGoal, mutate, refresh]
+  );
+
   if (!dashboard.goal) {
     return (
       <div dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -86,20 +101,6 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
   }
 
   const goal = dashboard.goal;
-  const setCoachLanguage = useCallback(
-    (next: CoachLocale) => {
-      if (next === goal.preferredLocale) return;
-      mutate("GOAL_SETTINGS", async () => {
-        await coachRequest(`/api/coach/goals/${goal.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ preferredLocale: next })
-        });
-        await refresh();
-      });
-    },
-    [goal.id, goal.preferredLocale, mutate, refresh]
-  );
-
   const metrics = dashboard.snapshot?.metrics ?? emptyMetrics;
   const views = [
     { id: "overview" as const, label: copy.overview, icon: Gauge },
