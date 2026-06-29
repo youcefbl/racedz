@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Bell, LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building2, BrainCircuit } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { toast } from "@/components/ui/toast";
@@ -38,7 +38,6 @@ export function AccountMenu({ user, locale = "en" }: { user: HeaderUser; locale?
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { onKeyDown } = useMenuKeyboard({ open, setOpen, menuRef, triggerRef });
   const pathname = usePathname();
-  const router = useRouter();
   const t = getDictionary(locale).account;
   const initials = getInitials(user.name);
 
@@ -57,10 +56,11 @@ export function AccountMenu({ user, locale = "en" }: { user: HeaderUser; locale?
       return;
     }
     startSignOut(() => {
-      void signOut({ redirect: false, callbackUrl: "/login" })
+      void signOut({ redirect: false })
         .then(() => {
-          router.refresh();
-          router.replace("/login");
+          // Full navigation so the server-rendered header (in the root layout, which
+          // client navigation doesn't re-render) resets to the logged-out state.
+          window.location.assign(withLocale("/login", locale));
         })
         .catch(() => {
           toast(t.signOutError, "error");

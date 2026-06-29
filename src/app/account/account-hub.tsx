@@ -15,7 +15,7 @@ import {
   Sun,
   UserRound
 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useEffect, useState, useTransition } from "react";
 import { LogIn, UserPlus } from "lucide-react";
@@ -44,7 +44,6 @@ type ThemeMode = (typeof THEMES)[number]["value"];
 export function AccountHub({ user }: { user: HubUser | null }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const locale = getLocale(searchParams.get("lang"));
   const t = getDictionary(locale).account;
   const [signingOut, startSignOut] = useTransition();
@@ -129,9 +128,10 @@ export function AccountHub({ user }: { user: HubUser | null }) {
             onClick={() => {
               tapHaptic("medium");
               startSignOut(() => {
+                // Full navigation so the server-rendered header (root layout) resets to
+                // the logged-out state — client navigation alone keeps the cached header.
                 void signOut({ redirect: false }).then(() => {
-                  router.refresh();
-                  router.replace("/login");
+                  window.location.assign(withLocale("/login", locale));
                 });
               });
             }}
