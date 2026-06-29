@@ -78,6 +78,10 @@ export const updateCoachGoalStatusSchema = z.object({
   status: z.enum(["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"])
 });
 
+export const updateCoachGoalSettingsSchema = z.object({
+  preferredLocale: coachLocaleSchema
+});
+
 export const runRoutePointSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
@@ -143,6 +147,7 @@ export const coachResponseSchema = z.object({
   requiresProfessionalAdvice: z.boolean()
 });
 
+export type CoachLocale = z.infer<typeof coachLocaleSchema>;
 export type CreateCoachGoalInput = z.infer<typeof createCoachGoalSchema>;
 export type CreateRunnerRunInput = z.infer<typeof createRunnerRunSchema>;
 export type CoachInteractionInput = z.infer<typeof coachInteractionInputSchema>;

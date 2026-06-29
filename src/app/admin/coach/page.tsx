@@ -1,4 +1,4 @@
-import { Activity, BadgeDollarSign, Bot, BrainCircuit, Coins, Sparkles, Users } from "lucide-react";
+import { Activity, BadgeDollarSign, Bot, BrainCircuit, Coins, Sparkles, TriangleAlert, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
@@ -8,6 +8,8 @@ import {
   expireStaleCoachSubscriptions,
   getCoachUsageSummary,
   getCoachUserUsage,
+  getRecentCoachErrors,
+  type CoachErrorRow,
   type CoachTierLabel
 } from "@/lib/coach-admin";
 import { parsePagination } from "@/lib/pagination";
@@ -26,9 +28,10 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
 
   const filters = await searchParams;
   const pagination = parsePagination({ page: filters?.page });
-  const [summary, usage] = await Promise.all([
+  const [summary, usage, recentErrors] = await Promise.all([
     getCoachUsageSummary(),
-    getCoachUserUsage({ search: filters?.q }, pagination)
+    getCoachUserUsage({ search: filters?.q }, pagination),
+    getRecentCoachErrors()
   ]);
 
   return (
@@ -43,7 +46,15 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
         <StatCard label="Tokens in / out" value={`${formatNumber(summary.inputTokens)} / ${formatNumber(summary.outputTokens)}`} icon={Sparkles} />
         <StatCard label="Active subscribers" value={formatNumber(summary.activeSubscribers)} icon={BadgeDollarSign} tone="orange" />
         <StatCard label="Coached runners" value={formatNumber(summary.coachedUsers)} icon={Users} />
+        <StatCard
+          label="Failed AI requests (30d / all)"
+          value={`${formatNumber(summary.failedRequests30d)} / ${formatNumber(summary.failedRequests)}`}
+          icon={TriangleAlert}
+          tone="orange"
+        />
       </div>
+
+      <RecentErrors errors={recentErrors} />
 
       <FilterBar action="/admin/coach" searchPlaceholder="Search runner name or email" defaultSearch={filters?.q} />
 
@@ -159,6 +170,52 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
         </div>
       )}
     </AdminShell>
+  );
+}
+
+function RecentErrors({ errors }: { errors: CoachErrorRow[] }) {
+  if (errors.length === 0) return null;
+
+  return (
+    <details className="mb-6 overflow-hidden rounded-lg border border-orange-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-orange-100 bg-orange-50 px-5 py-3 text-sm font-black text-brand-orange">
+        <TriangleAlert className="size-4" aria-hidden={true} />
+        Recent failed AI requests ({errors.length})
+      </summary>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="border-b border-gray-200 bg-gray-50 text-xs font-bold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">When</th>
+              <th className="px-4 py-3">Runner</th>
+              <th className="px-4 py-3">Kind</th>
+              <th className="px-4 py-3">Code</th>
+              <th className="px-4 py-3">Detail</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {errors.map((error) => (
+              <tr key={error.id} className="align-top">
+                <td className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDateTime(error.createdAt)}</td>
+                <td className="px-4 py-3">
+                  <p className="font-bold text-gray-900">{error.name.trim() || "—"}</p>
+                  <p className="break-all text-xs text-gray-500">{error.email}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={error.kind === "Audio" ? "blue" : "red"}>
+                    {error.kind}
+                    {error.interactionType ? ` · ${error.interactionType}` : ""}
+                  </Badge>
+                  <p className="mt-1 text-xs text-gray-400">{error.model}</p>
+                </td>
+                <td className="px-4 py-3 font-mono text-xs font-bold text-gray-700">{error.errorCode ?? "—"}</td>
+                <td className="px-4 py-3 text-gray-600">{error.errorMessage ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }
 

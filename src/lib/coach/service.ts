@@ -5,12 +5,13 @@ import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { buildRunnerCoachContext } from "@/lib/coach/context";
 import { calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
-import { generateCoachResponse, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
+import { generateCoachResponse, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
 import {
   coachInteractionInputSchema,
   createCoachGoalSchema,
   createRunnerRunSchema,
+  updateCoachGoalSettingsSchema,
   updateCoachGoalStatusSchema,
   type CoachInteractionInput,
   type CoachResponse,
@@ -172,6 +173,49 @@ export async function updateCoachGoalStatus(userId: string, goalId: string, rawI
     if (!rows[0]) throw new CoachError("Goal was not found.", 404, "GOAL_NOT_FOUND");
     return rows[0];
   });
+}
+
+export async function updateCoachGoalSettings(userId: string, goalId: string, rawInput: unknown) {
+  const { preferredLocale } = updateCoachGoalSettingsSchema.parse(rawInput);
+
+  const rows = await getPrisma().$queryRaw<GoalRow[]>`
+    UPDATE "RunnerGoal"
+    SET "preferredLocale" = ${preferredLocale}, "updatedAt" = NOW()
+    WHERE "id" = ${goalId} AND "userId" = ${userId}
+    RETURNING *
+  `;
+  if (!rows[0]) throw new CoachError("Goal was not found.", 404, "GOAL_NOT_FOUND");
+  return rows[0];
+}
+
+// Transcribe a voice note and record the OpenAI call in AiUsageLog (success and failure alike),
+// so audio failures are tracked next to text failures on the admin dashboard.
+export async function transcribeCoachVoiceNote(userId: string, file: File): Promise<string> {
+  const prisma = getPrisma();
+  const model = resolveTranscribeModel();
+
+  try {
+    const transcript = await transcribeCoachAudio(file);
+    await prisma.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status")
+      VALUES (${randomUUID()}, ${userId}, ${model}, 'SUCCEEDED')
+    `;
+    return transcript;
+  } catch (error) {
+    const code = error instanceof CoachError ? error.code : "OPENAI_TRANSCRIBE_FAILED";
+    await prisma.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status", "errorCode", "errorMessage")
+      VALUES (${randomUUID()}, ${userId}, ${model}, 'FAILED', ${code}, ${errorMessageFor(error)})
+    `;
+    throw error;
+  }
+}
+
+// Keep a readable, length-capped detail for the admin error log. Falls back to a provided
+// default when the thrown value has no usable message.
+function errorMessageFor(error: unknown, fallback = "Unknown error.") {
+  const raw = error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
+  return (raw || fallback).slice(0, 500);
 }
 
 export async function createRunnerRun(userId: string, rawInput: unknown) {
@@ -355,7 +399,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
   try {
     const generated = await generateCoachResponse(context, interactionId);
-    const response = enforceCoachSafety(generated.response, safety, skeleton);
+    const response = enforceCoachSafety(generated.response, safety, skeleton, goal.preferredLocale);
     const plan = input.type === "INITIAL_PLAN" || input.type === "WEEKLY_REVIEW"
       ? await saveDraftPlan(userId, goal.id, response)
       : null;
@@ -392,8 +436,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         WHERE "id" = ${interactionId}
       `;
       await tx.$executeRaw`
-        INSERT INTO "AiUsageLog" ("id", "userId", "interactionId", "model", "status", "errorCode")
-        VALUES (${randomUUID()}, ${userId}, ${interactionId}, ${providerError.model}, 'FAILED', ${providerError.code})
+        INSERT INTO "AiUsageLog" ("id", "userId", "interactionId", "model", "status", "errorCode", "errorMessage")
+        VALUES (
+          ${randomUUID()}, ${userId}, ${interactionId}, ${providerError.model}, 'FAILED',
+          ${providerError.code}, ${errorMessageFor(error, providerError.message)}
+        )
       `;
     });
 

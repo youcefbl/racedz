@@ -92,9 +92,13 @@ export async function generateCoachResponse(context: unknown, interactionId: str
  * Transcribe a short voice note to text via OpenAI. The result is fed into the normal text
  * coach pipeline (the user reviews/edits it first), so transcription is just an input method.
  */
+export function resolveTranscribeModel(): string {
+  return process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL;
+}
+
 export async function transcribeCoachAudio(file: File): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL;
+  const model = resolveTranscribeModel();
 
   if (!apiKey) {
     throw new CoachError("Voice input is not configured.", 503, "OPENAI_NOT_CONFIGURED");

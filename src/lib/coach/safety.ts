@@ -1,5 +1,6 @@
 import type { CoachMetrics } from "@/lib/coach/metrics";
-import type { CoachResponse, CoachWorkout } from "@/lib/coach/schemas";
+import type { CoachLocale, CoachResponse, CoachWorkout } from "@/lib/coach/schemas";
+import { localizeWorkout } from "@/lib/coach/workout-i18n";
 
 export type CoachSafetyDecision = {
   level: "CLEAR" | "CAUTION" | "BLOCKED";
@@ -60,10 +61,12 @@ export function evaluateCoachSafety(run: SafetyRun, metrics: CoachMetrics, profi
 export function enforceCoachSafety(
   response: CoachResponse,
   decision: CoachSafetyDecision,
-  skeleton: CoachWorkout[]
+  skeleton: CoachWorkout[],
+  locale: CoachLocale
 ): CoachResponse {
   const upcomingWorkouts = skeleton.map((safeWorkout) => {
-    return decision.level === "CAUTION" ? reduceWorkout(safeWorkout) : safeWorkout;
+    const workout = decision.level === "CAUTION" ? reduceWorkout(safeWorkout) : safeWorkout;
+    return localizeWorkout(workout, locale);
   });
 
   const warningSignals = [...new Set([...decision.reasons, ...response.warningSignals])].slice(0, 6);

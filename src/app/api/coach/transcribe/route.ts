@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import { CoachError } from "@/lib/coach/errors";
 import { coachErrorResponse } from "@/lib/coach/http";
-import { transcribeCoachAudio } from "@/lib/coach/openai";
+import { transcribeCoachVoiceNote } from "@/lib/coach/service";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 // Voice input for the coach: accepts a short audio note (multipart form field "audio"),
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       throw new CoachError("That recording is too large. Keep voice notes short.", 413, "AUDIO_TOO_LARGE");
     }
 
-    const transcript = await transcribeCoachAudio(audio);
+    const transcript = await transcribeCoachVoiceNote(session.user.id, audio);
     if (!transcript) {
       throw new CoachError("Could not hear anything. Please try again.", 422, "EMPTY_TRANSCRIPT");
     }

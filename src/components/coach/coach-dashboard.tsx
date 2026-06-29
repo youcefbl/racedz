@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BrainCircuit, CalendarRange, Gauge, Route, Sparkles, Target, TrendingUp } from "lucide-react";
+import { Activity, BrainCircuit, CalendarRange, Gauge, Languages, Route, Sparkles, Target, TrendingUp } from "lucide-react";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import { getCoachCopy } from "@/components/coach/copy";
@@ -85,6 +85,21 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
     );
   }
 
+  const goal = dashboard.goal;
+  const setCoachLanguage = useCallback(
+    (next: CoachLocale) => {
+      if (next === goal.preferredLocale) return;
+      mutate("GOAL_SETTINGS", async () => {
+        await coachRequest(`/api/coach/goals/${goal.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ preferredLocale: next })
+        });
+        await refresh();
+      });
+    },
+    [goal.id, goal.preferredLocale, mutate, refresh]
+  );
+
   const metrics = dashboard.snapshot?.metrics ?? emptyMetrics;
   const views = [
     { id: "overview" as const, label: copy.overview, icon: Gauge },
@@ -105,14 +120,34 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
             <h1 className="mt-2 text-3xl font-black text-gray-950 sm:text-4xl">{copy.title}</h1>
             <p className="mt-2 text-sm leading-6 text-gray-600">{copy.intro}</p>
           </div>
-          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm lg:max-w-sm">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand-orange">
-              <Target className="size-5" aria-hidden="true" />
+          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
+            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand-orange">
+                <Target className="size-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase text-gray-500">{copy.currentGoal}</p>
+                <p className="truncate text-sm font-black text-gray-950">{formatGoal(goal.goalType, goal.customGoal)}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase text-gray-500">{copy.currentGoal}</p>
-              <p className="truncate text-sm font-black text-gray-950">{formatGoal(dashboard.goal.goalType, dashboard.goal.customGoal)}</p>
-            </div>
+            <label className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
+                <Languages className="size-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-xs font-bold uppercase text-gray-500">{copy.responseLanguage}</span>
+                <select
+                  value={goal.preferredLocale}
+                  onChange={(event) => setCoachLanguage(event.target.value as CoachLocale)}
+                  disabled={pendingAction === "GOAL_SETTINGS"}
+                  className="mt-0.5 w-full cursor-pointer bg-transparent text-sm font-black text-gray-950 outline-none disabled:opacity-60"
+                >
+                  <option value="en">English</option>
+                  <option value="fr">Français</option>
+                  <option value="ar">العربية</option>
+                </select>
+              </div>
+            </label>
           </div>
         </header>
 

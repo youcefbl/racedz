@@ -29,6 +29,8 @@ export type CoachUsageSummary = {
   costMicroUsd: number;
   activeSubscribers: number;
   coachedUsers: number;
+  failedRequests: number;
+  failedRequests30d: number;
 };
 
 type SummaryQueryRow = {
@@ -39,6 +41,8 @@ type SummaryQueryRow = {
   costMicroUsd: bigint | null;
   activeSubscribers: bigint;
   coachedUsers: bigint;
+  failedRequests: bigint;
+  failedRequests30d: bigint;
 };
 
 type UsageQueryRow = {
@@ -74,7 +78,9 @@ export async function getCoachUsageSummary(): Promise<CoachUsageSummary> {
       (SELECT COALESCE(SUM("outputTokens"), 0) FROM "AiUsageLog") AS "outputTokens",
       (SELECT COALESCE(SUM("estimatedCostMicroUsd"), 0) FROM "AiUsageLog") AS "costMicroUsd",
       (SELECT COUNT(*) FROM "CoachSubscription" WHERE "status" = 'ACTIVE' AND "expiresAt" > NOW()) AS "activeSubscribers",
-      (SELECT COUNT(DISTINCT "userId") FROM "CoachInteraction") AS "coachedUsers"
+      (SELECT COUNT(DISTINCT "userId") FROM "CoachInteraction") AS "coachedUsers",
+      (SELECT COUNT(*) FROM "AiUsageLog" WHERE "status" = 'FAILED') AS "failedRequests",
+      (SELECT COUNT(*) FROM "AiUsageLog" WHERE "status" = 'FAILED' AND "createdAt" >= NOW() - INTERVAL '30 days') AS "failedRequests30d"
   `;
   const row = rows[0];
   return {
@@ -84,8 +90,63 @@ export async function getCoachUsageSummary(): Promise<CoachUsageSummary> {
     outputTokens: Number(row?.outputTokens ?? 0),
     costMicroUsd: Number(row?.costMicroUsd ?? 0),
     activeSubscribers: Number(row?.activeSubscribers ?? 0),
-    coachedUsers: Number(row?.coachedUsers ?? 0)
+    coachedUsers: Number(row?.coachedUsers ?? 0),
+    failedRequests: Number(row?.failedRequests ?? 0),
+    failedRequests30d: Number(row?.failedRequests30d ?? 0)
   };
+}
+
+export type CoachErrorRow = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  kind: "Audio" | "Text";
+  model: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  interactionType: string | null;
+  createdAt: Date;
+};
+
+type ErrorQueryRow = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  model: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  interactionType: string | null;
+  createdAt: Date;
+};
+
+/** Most recent failed OpenAI calls (audio + text) with details, so admins can diagnose and fix. */
+export async function getRecentCoachErrors(limit = 30): Promise<CoachErrorRow[]> {
+  const rows = await getPrisma().$queryRaw<ErrorQueryRow[]>`
+    SELECT
+      log."id",
+      log."userId",
+      CONCAT(u."firstName", ' ', u."lastName") AS "name",
+      u."email",
+      log."model",
+      log."errorCode",
+      log."errorMessage",
+      ci."type"::TEXT AS "interactionType",
+      log."createdAt"
+    FROM "AiUsageLog" log
+    LEFT JOIN "User" u ON u."id" = log."userId"
+    LEFT JOIN "CoachInteraction" ci ON ci."id" = log."interactionId"
+    WHERE log."status" = 'FAILED'
+    ORDER BY log."createdAt" DESC
+    LIMIT ${limit}
+  `;
+
+  // Audio (transcription) calls have no linked interaction; the Whisper model name also marks them.
+  return rows.map((row) => ({
+    ...row,
+    kind: row.interactionType === null ? "Audio" : "Text"
+  }));
 }
 
 export async function getCoachUserUsage(

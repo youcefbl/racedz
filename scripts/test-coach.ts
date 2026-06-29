@@ -62,10 +62,14 @@ const safeResponse = enforceCoachSafety(
     requiresProfessionalAdvice: false
   },
   caution,
-  skeleton
+  skeleton,
+  "ar"
 );
 assert.ok(safeResponse.upcomingWorkouts.every((workout) => workout.workoutType === "RECOVERY"));
 assert.ok(safeResponse.upcomingWorkouts.every((workout, index) => (workout.targetDistanceKm ?? 0) <= (skeleton[index].targetDistanceKm ?? 0)));
 assert.ok(safeResponse.upcomingWorkouts.every((workout) => workout.instructions !== undefined && !workout.instructions.includes("100")));
+// The plan must be returned in the runner's selected coach language, not English.
+assert.ok(safeResponse.upcomingWorkouts.every((workout) => /[؀-ۿ]/.test(workout.title)));
+assert.ok(safeResponse.upcomingWorkouts.every((workout) => /[؀-ۿ]/.test(workout.instructions)));
 
 console.log("Coach metrics, planning, and safety checks passed.");
