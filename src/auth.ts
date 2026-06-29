@@ -99,7 +99,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       }
     }),
-    ...(googleProviderEnabled ? [Google] : [])
+    ...(googleProviderEnabled
+      ? [
+          Google({
+            // Always show Google's "choose an account" picker instead of a full login,
+            // so users already signed into Google can pick their account in one tap.
+            authorization: { params: { prompt: "select_account" } }
+          })
+        ]
+      : [])
   ],
   callbacks: {
     async signIn({ account, profile }) {
