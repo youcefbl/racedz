@@ -198,43 +198,49 @@ async function getOrCreateGoogleUser({
 
   if (existing) {
     const picture = getOAuthPicture(profile);
-    const updateData: { emailVerifiedAt?: Date; avatarUrl?: string } = {};
+    const now = new Date();
+    // Track sign-in activity (lastLoginAt always, firstLoginAt on the first one).
+    const updateData: { emailVerifiedAt?: Date; avatarUrl?: string; lastLoginAt: Date; firstLoginAt?: Date } = {
+      lastLoginAt: now,
+      firstLoginAt: existing.firstLoginAt ?? now
+    };
 
     if (!existing.emailVerifiedAt) {
-      updateData.emailVerifiedAt = new Date();
+      updateData.emailVerifiedAt = now;
     }
 
     if (!existing.avatarUrl && picture) {
       updateData.avatarUrl = picture;
     }
 
-    const user = Object.keys(updateData).length
-      ? await prisma.user.update({
-          where: {
-            id: existing.id
-          },
-          data: updateData,
-          include: {
-            organizations: {
-              select: {
-                organizationId: true
-              }
-            }
+    const user = await prisma.user.update({
+      where: {
+        id: existing.id
+      },
+      data: updateData,
+      include: {
+        organizations: {
+          select: {
+            organizationId: true
           }
-        })
-      : existing;
+        }
+      }
+    });
 
     return mapDatabaseUserToAuthUser(user);
   }
 
   const names = getOAuthNames(profile, name ?? email);
+  const now = new Date();
   const created = await prisma.user.create({
     data: {
       email,
       firstName: names.firstName,
       lastName: names.lastName,
       avatarUrl: getOAuthPicture(profile),
-      emailVerifiedAt: new Date(),
+      emailVerifiedAt: now,
+      firstLoginAt: now,
+      lastLoginAt: now,
       role: "RUNNER"
     },
     include: {
