@@ -12,7 +12,7 @@ const imageUrlSchema = z.union([z.string().url(), localUploadPathSchema]);
 
 export const loginSchema = z.object({
   email: z.string().email().transform((value) => value.toLowerCase()),
-  password: z.string().min(8)
+  password: z.string().min(6)
 });
 
 // Sign-up is intentionally minimal: name + email + password. The detailed participant
@@ -22,11 +22,7 @@ export const registerUserSchema = z.object({
   firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
   lastName: z.string().trim().min(2, "Last name must be at least 2 characters."),
   email: z.string().trim().email("Enter a valid email address.").transform((value) => value.toLowerCase()),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters.")
-    .regex(/[A-Za-z]/, "Password must include at least one letter.")
-    .regex(/[0-9]/, "Password must include at least one number."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",

@@ -3,11 +3,9 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
-import { RaceSortSelect } from "@/components/races/race-sort-select";
-import { UpcomingToggle } from "@/components/races/upcoming-toggle";
+import { ShowPastToggle } from "@/components/races/show-past-toggle";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { findRaceEvents } from "@/lib/race-repository";
-import type { RaceSort } from "@/lib/races";
 import type { EventRegistrationStatus, RaceType } from "@/types/race";
 
 export const metadata: Metadata = {
@@ -22,8 +20,7 @@ type RacesPageProps = {
     type?: RaceType;
     distance?: string;
     registrationStatus?: EventRegistrationStatus;
-    upcoming?: string;
-    sort?: RaceSort;
+    past?: string;
     lang?: Locale;
   }>;
 };
@@ -34,7 +31,7 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
   const dictionary = getDictionary(locale);
   const races = await findRaceEvents(filters);
   const hasActiveFilters = Boolean(
-    filters.q || filters.wilaya || filters.type || filters.distance || filters.registrationStatus || filters.upcoming
+    filters.q || filters.wilaya || filters.type || filters.distance || filters.registrationStatus
   );
 
   return (
@@ -48,7 +45,6 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
         type={filters.type}
         distance={filters.distance}
         registrationStatus={filters.registrationStatus}
-        upcoming={filters.upcoming}
         lang={locale}
         filtersLabel={dictionary.races.filters}
         labels={dictionary.search}
@@ -58,15 +54,7 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
           {dictionary.races.resultCount.replace("{count}", String(races.length))}
         </p>
         <div className="flex flex-wrap items-center gap-4">
-          <RaceSortSelect
-            label={dictionary.races.sortLabel}
-            options={[
-              { value: "date", label: dictionary.races.sortDate },
-              { value: "distance", label: dictionary.races.sortDistance },
-              { value: "price", label: dictionary.races.sortPrice }
-            ]}
-          />
-          <UpcomingToggle label={dictionary.races.upcomingOnly} />
+          <ShowPastToggle label={dictionary.races.showPast} />
           {hasActiveFilters ? (
             <Link
               href={withLocale("/races", locale)}

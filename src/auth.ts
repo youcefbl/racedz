@@ -14,6 +14,8 @@ type DatabaseUser = {
   lastName: string;
   passwordHash: string | null;
   role: UserRole;
+  blockedAt?: Date | null;
+  firstLoginAt?: Date | null;
   organizations?: Array<{
     organizationId: string;
   }>;
@@ -67,6 +69,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Blocked accounts cannot sign in.
+        if (user.blockedAt) {
+          return null;
+        }
+
         if (!(await isEmailVerified(user.email))) {
           return null;
         }
@@ -76,6 +83,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!passwordMatches) {
           return null;
         }
+
+        const now = new Date();
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: now, firstLoginAt: user.firstLoginAt ?? now }
+        });
 
         return {
           id: user.id,
@@ -89,9 +102,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...(googleProviderEnabled ? [Google] : [])
   ],
   callbacks: {
-    signIn({ account, profile }) {
+    async signIn({ account, profile }) {
       if (account?.provider === "google") {
-        return Boolean(getOAuthEmail(profile) && getGoogleEmailVerified(profile));
+        const email = getOAuthEmail(profile);
+        if (!email || !getGoogleEmailVerified(profile)) {
+          return false;
+        }
+        // Blocked accounts cannot sign in via Google either.
+        const existing = await getPrisma().user.findUnique({ where: { email }, select: { blockedAt: true } });
+        return !existing?.blockedAt;
       }
 
       return true;

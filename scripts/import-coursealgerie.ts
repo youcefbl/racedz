@@ -179,7 +179,8 @@ async function main() {
 
     const existing = await prisma.raceEvent.findUnique({ where: { slug } });
     await prisma.raceEvent.upsert({ where: { slug }, create: { slug, ...data }, update: data });
-    existing ? updated++ : created++;
+    if (existing) updated++;
+    else created++;
   }
 
   console.info(`\nDone. created=${created} updated=${updated} skipped=${skipped.length}`);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays, CheckCircle2, ClipboardList, Mail, Phone, ReceiptText, Route, UserRound, XCircle } from "lucide-react";
 import { Pagination } from "@/components/ui/pagination";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminRegistrations, requireAdmin } from "@/lib/admin";
 import { parsePagination } from "@/lib/pagination";
@@ -155,10 +156,19 @@ export default async function AdminRegistrationsPage({ searchParams }: AdminRegi
                         </form>
                         <form action={cancelRegistrationAction}>
                           <input type="hidden" name="id" value={registration.id} />
-                          <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="h-10 w-full whitespace-nowrap text-red-700 hover:bg-red-50 disabled:text-gray-400">
+                          <ConfirmSubmit
+                            variant="ghost"
+                            size="sm"
+                            disabled={!canCancel}
+                            className="h-10 w-full whitespace-nowrap text-red-700 hover:bg-red-50 disabled:text-gray-400"
+                            title="Cancel this registration?"
+                            description="This frees the participant's place and notifies them. This cannot be undone."
+                            confirmLabel="Cancel registration"
+                            cancelLabel="Keep it"
+                          >
                             <XCircle className="size-4 shrink-0" aria-hidden="true" />
                             Cancel
-                          </Button>
+                          </ConfirmSubmit>
                         </form>
                       </div>
                     </td>

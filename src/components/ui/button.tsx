@@ -6,7 +6,8 @@ const variants = {
   primary: "bg-brand-orange text-white hover:bg-brand-orangeDark focus-visible:ring-brand-orange",
   secondary: "bg-brand-teal text-white hover:bg-brand-tealDark focus-visible:ring-brand-teal",
   outline: "border border-gray-300 bg-white text-gray-900 hover:border-brand-teal hover:text-brand-teal",
-  ghost: "text-gray-700 hover:bg-gray-100"
+  ghost: "text-gray-700 hover:bg-gray-100",
+  danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600"
 };
 
 const sizes = {

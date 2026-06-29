@@ -324,6 +324,103 @@ export async function cancelRegistrationAction(formData: FormData) {
   revalidatePath("/races");
 }
 
+// --- User management ---------------------------------------------------------
+
+/** Admin override: mark an account's email verified so it can log in without the email link. */
+export async function verifyUserAction(formData: FormData) {
+  const session = await requireAdmin();
+  const userId = getFormId(formData);
+  const prisma = getPrisma();
+
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } });
+  if (!target) {
+    throw new Error("User not found");
+  }
+  if (target.emailVerifiedAt) {
+    return;
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "user.verified",
+    targetType: "User",
+    targetId: userId,
+    summary: "Manually verified the account's email."
+  });
+  revalidateAdmin();
+}
+
+/** Toggle a block on an account. Blocked accounts cannot sign in (credentials or Google). */
+export async function toggleBlockUserAction(formData: FormData) {
+  const session = await requireAdmin();
+  const userId = getFormId(formData);
+
+  if (session.user.id === userId) {
+    throw new Error("Admins cannot block their own account.");
+  }
+
+  const prisma = getPrisma();
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, blockedAt: true } });
+  if (!target) {
+    throw new Error("User not found");
+  }
+  if (target.role === "SUPERADMIN" && session.user.role !== "SUPERADMIN") {
+    throw new Error("Only superadmins can manage superadmin accounts.");
+  }
+
+  const nextBlockedAt = target.blockedAt ? null : new Date();
+  await prisma.user.update({ where: { id: userId }, data: { blockedAt: nextBlockedAt } });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: nextBlockedAt ? "user.blocked" : "user.unblocked",
+    targetType: "User",
+    targetId: userId,
+    summary: nextBlockedAt ? "Blocked the account." : "Unblocked the account."
+  });
+  revalidateAdmin();
+}
+
+/** Permanently delete an account and its dependent records. Superadmins are protected. */
+export async function deleteUserAction(formData: FormData) {
+  const session = await requireAdmin();
+  const userId = getFormId(formData);
+
+  if (session.user.id === userId) {
+    throw new Error("Admins cannot delete their own account.");
+  }
+
+  const prisma = getPrisma();
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, email: true } });
+  if (!target) {
+    throw new Error("User not found");
+  }
+  if (target.role === "SUPERADMIN") {
+    throw new Error("Superadmin accounts cannot be deleted here.");
+  }
+
+  // Remove relations that don't cascade on delete, then the user (the rest cascade).
+  await prisma.$transaction([
+    prisma.notification.deleteMany({ where: { userId } }),
+    prisma.notificationPreference.deleteMany({ where: { userId } }),
+    prisma.pushSubscription.deleteMany({ where: { userId } }),
+    prisma.organizationMember.deleteMany({ where: { userId } }),
+    prisma.organizationInvitation.deleteMany({ where: { invitedById: userId } }),
+    prisma.raceAnnouncement.deleteMany({ where: { authorId: userId } }),
+    prisma.adminAuditLog.deleteMany({ where: { actorId: userId } }),
+    prisma.user.delete({ where: { id: userId } })
+  ]);
+
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "user.deleted",
+    targetType: "User",
+    targetId: userId,
+    summary: `Deleted the account (${target.email}).`
+  });
+  revalidateAdmin();
+}
+
 function getFormId(formData: FormData) {
   const id = formData.get("id");
 

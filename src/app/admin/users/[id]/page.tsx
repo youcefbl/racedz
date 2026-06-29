@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Mail, MapPin, Phone, UserRound } from "lucide-react";
+import { BadgeCheck, Ban, CalendarDays, Mail, MapPin, Phone, Trash2, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { formatDate, formatDateTime, formatDzd } from "@/lib/format";
 import { getAdminUserById, requireAdmin } from "@/lib/admin";
+import { deleteUserAction, toggleBlockUserAction, verifyUserAction } from "../../actions";
 import { AdminShell, EmptyState, StatusBadge } from "../../_components/admin-ui";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +17,18 @@ type AdminUserDetailPageProps = {
 };
 
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const { id } = await params;
   const user = await getAdminUserById(id);
 
   if (!user) {
     notFound();
   }
+
+  const isSelf = session.user.id === user.id;
+  const canManageSuperadmin = session.user.role === "SUPERADMIN";
+  const canManage = !isSelf && (user.role !== "SUPERADMIN" || canManageSuperadmin);
+  const canDelete = canManage && user.role !== "SUPERADMIN";
 
   return (
     <AdminShell
@@ -96,6 +103,80 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         </aside>
 
         <div className="space-y-6">
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-black text-gray-950">Account management</h2>
+            <div className="grid gap-4 text-sm sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Email status</p>
+                <div className="mt-1">
+                  {user.emailVerifiedAt ? <Badge variant="green">Verified</Badge> : <Badge variant="default">Unverified</Badge>}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Account status</p>
+                <div className="mt-1">
+                  {user.blockedAt ? <Badge variant="red">Blocked</Badge> : <Badge variant="green">Active</Badge>}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">First login</p>
+                <p className="mt-1 text-gray-700">{user.firstLoginAt ? formatDateTime(user.firstLoginAt) : "Never"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Last login</p>
+                <p className="mt-1 text-gray-700">{user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "Never"}</p>
+              </div>
+            </div>
+            {canManage ? (
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-gray-200 pt-4">
+                {!user.emailVerifiedAt ? (
+                  <form action={verifyUserAction}>
+                    <input type="hidden" name="id" value={user.id} />
+                    <Button type="submit" variant="outline" size="sm">
+                      <BadgeCheck className="size-4" aria-hidden="true" />
+                      Verify email
+                    </Button>
+                  </form>
+                ) : null}
+                <form action={toggleBlockUserAction}>
+                  <input type="hidden" name="id" value={user.id} />
+                  <ConfirmSubmit
+                    variant={user.blockedAt ? "outline" : "ghost"}
+                    size="sm"
+                    className={user.blockedAt ? undefined : "text-red-700 hover:bg-red-50"}
+                    title={user.blockedAt ? "Unblock this account?" : "Block this account?"}
+                    description={
+                      user.blockedAt
+                        ? "They will be able to sign in again."
+                        : "They will be signed out and unable to sign in until unblocked."
+                    }
+                    confirmLabel={user.blockedAt ? "Unblock" : "Block"}
+                    cancelLabel="Cancel"
+                  >
+                    <Ban className="size-4" aria-hidden="true" />
+                    {user.blockedAt ? "Unblock" : "Block"}
+                  </ConfirmSubmit>
+                </form>
+                {canDelete ? (
+                  <form action={deleteUserAction}>
+                    <input type="hidden" name="id" value={user.id} />
+                    <ConfirmSubmit
+                      variant="danger"
+                      size="sm"
+                      title="Delete this account?"
+                      description="This permanently removes the account and its data. This cannot be undone."
+                      confirmLabel="Delete account"
+                      cancelLabel="Keep it"
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      Delete
+                    </ConfirmSubmit>
+                  </form>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
           <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-black text-gray-950">Registrations</h2>
             {user.registrations.length === 0 ? (

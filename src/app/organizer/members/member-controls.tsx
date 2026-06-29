@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { useOrganizerTranslation } from "@/hooks/use-organizer-translation";
 import {
   removeMemberAction,
@@ -49,10 +50,19 @@ export function MemberControls({ memberId, currentRole, canManage, canAssignOwne
       </form>
       <form action={removeAction}>
         <input type="hidden" name="memberId" value={memberId} />
-        <Button type="submit" size="sm" variant="ghost" disabled={!canManage || removePending} className="w-full justify-start text-red-700 hover:bg-red-50">
+        <ConfirmSubmit
+          variant="ghost"
+          size="sm"
+          disabled={!canManage || removePending}
+          className="w-full justify-start text-red-700 hover:bg-red-50"
+          title={t("Remove this member?")}
+          description={t("They lose access to this organization immediately. This cannot be undone.")}
+          confirmLabel={t("Remove member")}
+          cancelLabel={t("Keep member")}
+        >
           <Trash2 className="size-4" aria-hidden={true} />
           {removePending ? t("Removing...") : t("Remove member")}
-        </Button>
+        </ConfirmSubmit>
       </form>
       {message ? (
         <p

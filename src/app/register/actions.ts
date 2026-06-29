@@ -86,10 +86,11 @@ export async function registerAction(
   });
 
   const emailDeliveryParam = emailResult.ok ? "" : "&emailDelivery=failed";
+  const emailParam = `&email=${encodeURIComponent(user.email)}`;
 
   const loginUrl = callbackUrl
-    ? `/login?registered=1${emailDeliveryParam}&callbackUrl=${encodeURIComponent(callbackUrl)}`
-    : `/login?registered=1${emailDeliveryParam}`;
+    ? `/login?registered=1${emailDeliveryParam}${emailParam}&callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : `/login?registered=1${emailDeliveryParam}${emailParam}`;
   redirect(withLocale(loginUrl, locale));
 }
 

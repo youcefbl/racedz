@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { formatDate, formatDzd } from "@/lib/format";
 import { getDictionary, withLocale, type Locale } from "@/lib/i18n";
-import { EVENT_REGISTRATION_STATUS_LABELS, RACE_TYPE_LABELS } from "@/lib/races";
+import { EVENT_REGISTRATION_STATUS_LABELS, RACE_TYPE_LABELS, isPastRace } from "@/lib/races";
 import type { EventRegistrationStatus, RaceEvent } from "@/types/race";
 
 type RaceCardProps = {
@@ -16,7 +16,9 @@ type RaceCardProps = {
 };
 
 export function RaceCard({ race, viewLabel = "View", locale = "en", index = 0 }: RaceCardProps) {
-  const t = getDictionary(locale).ui;
+  const dict = getDictionary(locale);
+  const t = dict.ui;
+  const isPast = isPastRace(race);
   const lowestPrice = Math.min(...race.categories.map((category) => category.priceDzd ?? 0));
   const distances = race.categories.map((category) => category.distanceKm);
   const uniqueDistances = Array.from(new Set(distances)).sort((a, b) => a - b);
@@ -35,9 +37,13 @@ export function RaceCard({ race, viewLabel = "View", locale = "en", index = 0 }:
       >
         <div className="absolute start-3 top-3 flex flex-wrap gap-2">
           <Badge variant="teal">{RACE_TYPE_LABELS[race.raceType]}</Badge>
-          <Badge variant={getRegistrationBadgeVariant(race.registrationStatus)}>
-            {EVENT_REGISTRATION_STATUS_LABELS[race.registrationStatus]}
-          </Badge>
+          {isPast ? (
+            <Badge variant="default">{dict.races.completed}</Badge>
+          ) : (
+            <Badge variant={getRegistrationBadgeVariant(race.registrationStatus)}>
+              {EVENT_REGISTRATION_STATUS_LABELS[race.registrationStatus]}
+            </Badge>
+          )}
         </div>
       </RaceMedia>
       <div className="space-y-4 p-4">

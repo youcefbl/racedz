@@ -1,13 +1,42 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { getPrisma } from "@/lib/db";
-import { isEmailVerified } from "@/lib/email-verification";
+import { createEmailVerificationToken, isEmailVerified, sendAccountVerificationEmail } from "@/lib/email-verification";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
+
+/**
+ * Resend the account-verification email. Always reports success so we never reveal
+ * whether an email exists or is already verified. The UI enforces a 120s cooldown;
+ * this server guard is a backstop against abuse.
+ */
+export async function resendVerificationAction(email: string): Promise<{ ok: boolean }> {
+  const normalized = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!normalized || !normalized.includes("@")) return { ok: false };
+
+  const ip = clientIp(await headers());
+  if (ip && !checkRateLimit(`resend-verify:${ip}`, 5, 10 * 60_000).ok) {
+    return { ok: true };
+  }
+
+  const user = await getPrisma().user.findUnique({
+    where: { email: normalized },
+    select: { id: true, firstName: true, email: true, emailVerifiedAt: true }
+  });
+
+  if (user && !user.emailVerifiedAt) {
+    const token = await createEmailVerificationToken(user.id);
+    await sendAccountVerificationEmail({ to: user.email, firstName: user.firstName, token });
+  }
+
+  return { ok: true };
+}
 
 export type LoginActionState = {
   error?: string;

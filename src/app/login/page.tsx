@@ -10,12 +10,14 @@ import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import type { UserRole } from "@/types/race";
 import { DemoAccounts } from "./demo-accounts";
 import { LoginForm } from "./login-form";
+import { ResendVerification } from "./resend-verification";
 
 type LoginPageProps = {
   searchParams?: Promise<{
     callbackUrl?: string;
     registered?: string;
     emailDelivery?: string;
+    email?: string;
     lang?: string;
   }>;
 };
@@ -84,6 +86,18 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           {params?.registered === "1" ? (
             <div className="mb-5 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-brand-teal">
               {params.emailDelivery === "failed" ? t.activatedNoEmail : t.activatedCheckEmail}
+              {params.email ? (
+                <ResendVerification
+                  email={params.email}
+                  labels={{
+                    prompt: t.resendPrompt,
+                    resend: t.resend,
+                    sending: t.resendSending,
+                    sent: t.resendSent,
+                    retryIn: t.resendRetryIn
+                  }}
+                />
+              ) : null}
             </div>
           ) : null}
           <div className="mb-5">

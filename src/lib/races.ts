@@ -182,11 +182,16 @@ export type RaceFilters = {
   type?: RaceType;
   distance?: string;
   registrationStatus?: EventRegistrationStatus;
-  /** When truthy, hide races whose date is already in the past (show upcoming/ongoing only). */
-  upcoming?: string;
+  /** When truthy, INCLUDE past races. Listings hide past (completed) races by default. */
+  past?: string;
   /** Result ordering. Defaults to soonest race first. */
   sort?: RaceSort;
 };
+
+/** A race is "past" (completed) once its end date — or start date for single-day events — is before today. */
+export function isPastRace(race: { startDate: string | Date; endDate?: string | Date | null }) {
+  return new Date(race.endDate ?? race.startDate) < startOfToday();
+}
 
 type SortableRace = {
   startDate: string | Date;
@@ -248,9 +253,8 @@ export function filterRaces(filters: RaceFilters) {
     const matchesDistance = filters.distance
       ? race.categories.some((category) => String(category.distanceKm) === filters.distance)
       : true;
-    const matchesUpcoming = filters.upcoming
-      ? new Date(race.endDate ?? race.startDate) >= startOfToday()
-      : true;
+    // Hide past (completed) races by default; show them only when the user opts in.
+    const matchesUpcoming = filters.past ? true : !isPastRace(race);
 
     return matchesQuery && matchesWilaya && matchesType && matchesRegistrationStatus && matchesDistance && matchesUpcoming;
   });

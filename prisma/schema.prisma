@@ -24,6 +24,9 @@ model User {
   city            String?
   commune         String?
   emailVerifiedAt DateTime?
+  blockedAt       DateTime?
+  firstLoginAt    DateTime?
+  lastLoginAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

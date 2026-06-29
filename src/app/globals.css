@@ -156,6 +156,17 @@ a {
   background-color: var(--surface-muted) !important;
 }
 
+/* Hover-state grays must be remapped too, otherwise hovering a row/button applies
+   literal near-white over light text (unreadable in dark/race themes). */
+[data-theme="dark"] .hover\:bg-gray-50:hover,
+[data-theme="race"] .hover\:bg-gray-50:hover,
+[data-theme="dark"] .hover\:bg-gray-100:hover,
+[data-theme="race"] .hover\:bg-gray-100:hover,
+[data-theme="dark"] .hover\:bg-gray-200:hover,
+[data-theme="race"] .hover\:bg-gray-200:hover {
+  background-color: var(--surface-muted) !important;
+}
+
 [data-theme="dark"] .bg-gray-950,
 [data-theme="race"] .bg-gray-950 {
   background-color: var(--surface-strong) !important;

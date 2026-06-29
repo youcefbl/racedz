@@ -156,10 +156,12 @@ export async function findRaceEvents(filters: RaceFilters) {
               }
             }
           : undefined,
-        // Upcoming-only: keep races that haven't finished yet — end date in the future,
-        // or (single-day events with no end date) a start date that isn't in the past.
-        AND: filters.upcoming
-          ? [
+        // Hide past (completed) races by default — keep only races that haven't finished
+        // (end date in the future, or for single-day events a start date not in the past).
+        // The user can opt back in to old races with `past=1`.
+        AND: filters.past
+          ? undefined
+          : [
               {
                 OR: [
                   { endDate: { gte: startOfToday() } },
@@ -167,7 +169,6 @@ export async function findRaceEvents(filters: RaceFilters) {
                 ]
               }
             ]
-          : undefined
       },
       include: raceInclude,
       orderBy: {

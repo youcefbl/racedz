@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, Mail, MapPin, Phone, UserRound, UsersRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDate } from "@/lib/format";
@@ -87,7 +88,11 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         ) : null}
                       </div>
                     </Link>
-                    <StatusBadge value={user.role} />
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <StatusBadge value={user.role} />
+                      {!user.emailVerifiedAt ? <Badge variant="default">Unverified</Badge> : null}
+                      {user.blockedAt ? <Badge variant="red">Blocked</Badge> : null}
+                    </div>
                   </div>
 
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
@@ -191,7 +196,11 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                           </Link>
                         </td>
                         <td className="px-4 py-4">
-                          <StatusBadge value={user.role} />
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <StatusBadge value={user.role} />
+                      {!user.emailVerifiedAt ? <Badge variant="default">Unverified</Badge> : null}
+                      {user.blockedAt ? <Badge variant="red">Blocked</Badge> : null}
+                    </div>
                         </td>
                         <td className="px-4 py-4">
                           <form action={updateUserRoleAction} className="flex min-w-52 items-center gap-2">

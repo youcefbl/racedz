@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, Mail, Phone, Route, Search, UserRound, Users, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
@@ -189,10 +190,19 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                               <form action={cancelOrganizerRegistrationAction}>
                                 <input type="hidden" name="id" value={registration.id} />
                                 <input type="hidden" name="raceId" value={race.id} />
-                                <Button type="submit" variant="ghost" size="sm" disabled={!canCancel} className="text-red-700 hover:bg-red-50">
+                                <ConfirmSubmit
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={!canCancel}
+                                  className="text-red-700 hover:bg-red-50"
+                                  title={t("Cancel this registration?")}
+                                  description={t("This frees the participant's place and notifies them. This cannot be undone.")}
+                                  confirmLabel={t("Cancel registration")}
+                                  cancelLabel={t("Keep it")}
+                                >
                                   <XCircle className="size-4" aria-hidden="true" />
                                   {t("Cancel")}
-                                </Button>
+                                </ConfirmSubmit>
                               </form>
                             </div>
                           </td>

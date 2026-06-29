@@ -4,19 +4,19 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { tapHaptic } from "@/lib/native/haptics";
 import { cn } from "@/lib/utils";
 
-// Switch that hides past races (keeps the `upcoming` query param in sync). Navigates
-// immediately on toggle while preserving every other active filter. Works on web + app.
-export function UpcomingToggle({ label }: { label: string }) {
+// Past (completed) races are hidden by default. This switch opts back into them by
+// toggling the `past` query param, preserving every other active filter. Works on web + app.
+export function ShowPastToggle({ label }: { label: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const on = searchParams.get("upcoming") === "1";
+  const on = searchParams.get("past") === "1";
 
   function toggle() {
     tapHaptic("light");
     const params = new URLSearchParams(searchParams.toString());
-    if (on) params.delete("upcoming");
-    else params.set("upcoming", "1");
+    if (on) params.delete("past");
+    else params.set("past", "1");
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
   }

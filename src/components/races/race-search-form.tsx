@@ -15,7 +15,6 @@ type RaceSearchFormProps = {
   type?: RaceType;
   distance?: string;
   registrationStatus?: EventRegistrationStatus;
-  upcoming?: string;
   lang?: Locale;
   filtersLabel?: string;
   labels?: {
