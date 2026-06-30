@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     default: "ZidRun",
     template: "%s | ZidRun"
   },
-  description: "Find, register, and manage races across Algeria.",
+  description: "Discover races, register, and train with an AI coach across Algeria.",
   metadataBase: new URL("https://zidrun.com"),
   icons: {
     icon: [

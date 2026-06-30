@@ -123,7 +123,7 @@ export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [
                 <!-- Footer -->
                 <tr>
                   <td class="rz-footer" style="padding:22px 8px 0;color:#6b7280;font-size:12px;line-height:1.7">
-                    <div style="font-weight:700;color:#4b5563">ZidRun — Find, register, and manage races across Algeria.</div>
+                    <div style="font-weight:700;color:#4b5563">ZidRun — Discover races, register, and train with an AI coach across Algeria.</div>
                     <div style="margin-top:6px;color:#6b7280">You received this email because you have a ZidRun account or race registration. Manage notifications anytime from your account settings.</div>
                     <div style="margin-top:12px;color:#6b7280">© ${year} ZidRun · <a href="${escapeHtml(appUrl)}" style="color:#15803D;text-decoration:none">zidrun.com</a></div>
                   </td>
@@ -142,7 +142,7 @@ export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [
 export function renderRaceDzEmailText({ title, body, action, meta = [] }: RaceDzEmailTemplateInput) {
   const appUrl = getAppUrl();
   return [
-    "ZidRun — Find, register, and manage races across Algeria.",
+    "ZidRun — Discover races, register, and train with an AI coach across Algeria.",
     "",
     title,
     body,

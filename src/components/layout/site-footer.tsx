@@ -9,6 +9,7 @@ export function SiteFooter() {
   const searchParams = useSearchParams();
   const locale = getLocale(searchParams.get("lang"));
   const dictionary = getDictionary(locale);
+  const year = new Date().getFullYear();
   const links = [
     { href: "/races", label: dictionary.nav.races },
     { href: "/organizers", label: dictionary.nav.organizers },
@@ -31,6 +32,22 @@ export function SiteFooter() {
             </Link>
           ))}
         </nav>
+      </div>
+      <div className="border-t border-gray-200">
+        <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <p>© {year} ZidRun. {dictionary.pages.footerRights}</p>
+          <p>
+            {dictionary.pages.footerDevelopedBy}{" "}
+            <a
+              href="https://innoblast.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-gray-600 transition hover:text-brand-teal"
+            >
+              Innoblast.net
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   );

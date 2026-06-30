@@ -7,6 +7,8 @@ import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
 import { RunRecorder } from "@/components/coach/run-recorder";
 import { RunRouteMap } from "@/components/coach/run-route-map";
+import { RunMap } from "@/components/coach/run-map";
+import { RunSummary } from "@/components/coach/run-summary";
 import type { CoachLocale, CoachPlan, CoachRun } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ export function CoachRunsPanel({
   const [share, setShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const pace = useMemo(() => (distance > 0 && duration > 0 ? Math.round((duration * 60) / distance) : null), [distance, duration]);
   const plannedWorkouts = plan?.workouts.filter((workout) => workout.status !== "COMPLETED") ?? [];
@@ -196,10 +199,22 @@ export function CoachRunsPanel({
           <p className="px-5 py-10 text-center text-sm text-gray-600">{copy.noRuns}</p>
         ) : (
           <div className="divide-y divide-gray-200">
-            {runs.map((run) => (
-              <article key={run.id} className="grid gap-4 px-5 py-4 md:grid-cols-[auto_minmax(150px,.8fr)_repeat(5,minmax(64px,.4fr))_auto] md:items-center">
-                {run.route && run.route.length > 1 ? (
-                  <RunRouteMap points={run.route} className="size-12 shrink-0 rounded-md" />
+            {runs.map((run) => {
+              const isOpen = expandedRun === run.id;
+              const hasRoute = Boolean(run.route && run.route.length > 1);
+              return (
+              <div key={run.id}>
+              <article className="grid gap-4 px-5 py-4 md:grid-cols-[auto_minmax(150px,.8fr)_repeat(5,minmax(64px,.4fr))_auto] md:items-center">
+                {hasRoute ? (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedRun(isOpen ? null : run.id)}
+                    aria-expanded={isOpen}
+                    aria-label={copy.splitsLabel}
+                    className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+                  >
+                    <RunRouteMap points={run.route} className="size-12 rounded-md" />
+                  </button>
                 ) : (
                   <span className="hidden size-12 md:block" aria-hidden="true" />
                 )}
@@ -234,7 +249,24 @@ export function CoachRunsPanel({
                   </Button>
                 </div>
               </article>
-            ))}
+              {isOpen && run.route && run.route.length > 1 ? (
+                <div className="px-5 pb-5">
+                  <RunMap points={run.route} className="mb-4 h-56 w-full overflow-hidden rounded-md border border-gray-200" />
+                  <RunSummary
+                    points={run.route}
+                    distanceKm={run.distanceKm}
+                    durationSeconds={run.durationSeconds}
+                    movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
+                    avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
+                    elevationGainM={run.elevationGainM}
+                    calories={run.calories}
+                    copy={copy}
+                  />
+                </div>
+              ) : null}
+              </div>
+              );
+            })}
           </div>
         )}
       </section>

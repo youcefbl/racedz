@@ -242,7 +242,7 @@ export const dictionaries = {
         title: "Contact us",
         intro: "Have a question about ZidRun? Reach out and we will get back to you as soon as possible.",
         emailLabel: "Email",
-        email: "hello@zidrun.com",
+        email: "contact@zidrun.com",
         phoneLabel: "Phone",
         phone: "+213 555 123 456",
         hoursLabel: "Office hours",
@@ -280,7 +280,9 @@ export const dictionaries = {
         rightsText:
           "You can update or delete your profile, and turn run sharing on or off, from your account. To request deletion of your coaching and run data, contact us at hello@zidrun.com."
       },
-      footerTagline: "Find, register, and manage races across Algeria."
+      footerTagline: "Discover races, register, and train with an AI coach across Algeria.",
+      footerRights: "All rights reserved.",
+      footerDevelopedBy: "Developed by"
     },
     search: {
       keyword: "Race, city, organizer",
@@ -786,7 +788,7 @@ export const dictionaries = {
         title: "Contactez-nous",
         intro: "Vous avez une question sur ZidRun ? Écrivez-nous et nous vous répondrons dès que possible.",
         emailLabel: "E-mail",
-        email: "hello@zidrun.com",
+        email: "contact@zidrun.com",
         phoneLabel: "Téléphone",
         phone: "+213 555 123 456",
         hoursLabel: "Heures d'ouverture",
@@ -824,7 +826,9 @@ export const dictionaries = {
         rightsText:
           "Vous pouvez mettre à jour ou supprimer votre profil, et activer ou désactiver le partage des sorties, depuis votre compte. Pour demander la suppression de vos données de coaching et de sorties, contactez-nous à hello@zidrun.com."
       },
-      footerTagline: "Trouvez, inscrivez-vous et gérez des courses partout en Algérie."
+      footerTagline: "Découvrez des courses, inscrivez-vous et entraînez-vous avec un coach IA partout en Algérie.",
+      footerRights: "Tous droits réservés.",
+      footerDevelopedBy: "Développé par"
     },
     search: {
       keyword: "Course, ville, organisateur",
@@ -1329,7 +1333,7 @@ export const dictionaries = {
         title: "اتصل بنا",
         intro: "هل لديك سؤال حول ZidRun؟ تواصل معنا وسنرد عليك في أقرب وقت ممكن.",
         emailLabel: "البريد الإلكتروني",
-        email: "hello@zidrun.com",
+        email: "contact@zidrun.com",
         phoneLabel: "الهاتف",
         phone: "+213 555 123 456",
         hoursLabel: "ساعات العمل",
@@ -1367,7 +1371,9 @@ export const dictionaries = {
         rightsText:
           "يمكنك تحديث أو حذف ملفك الشخصي، وتفعيل أو إيقاف مشاركة الجريات، من حسابك. لطلب حذف بيانات التدريب والجريات، تواصل معنا على hello@zidrun.com."
       },
-      footerTagline: "اكتشف وسجّل وأدِر سباقات في الجزائر."
+      footerTagline: "اكتشف السباقات، سجّل، وتدرّب مع مدرب ذكي في الجزائر.",
+      footerRights: "جميع الحقوق محفوظة.",
+      footerDevelopedBy: "تطوير"
     },
     search: {
       keyword: "سباق، مدينة، منظّم",

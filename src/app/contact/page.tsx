@@ -1,4 +1,4 @@
-import { Mail, Phone, Clock } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import { SectionPage } from "@/components/layout/section-page";
 import { getDictionary, getLocale } from "@/lib/i18n";
 
@@ -23,7 +23,6 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
             href={`mailto:${content.email}`}
           />
           <ContactRow icon={Phone} label={content.phoneLabel} value={content.phone} href={`tel:${content.phone}`} />
-          <ContactRow icon={Clock} label={content.hoursLabel} value={content.hours} />
         </dl>
       </div>
     </SectionPage>

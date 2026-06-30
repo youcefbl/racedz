@@ -1,11 +1,12 @@
 "use client";
 
 import { BatteryCharging, Footprints, MapPin, MapPinOff, Pause, Play, Square, TimerReset } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
-import { RunRouteMap } from "@/components/coach/run-route-map";
+import { RunMap } from "@/components/coach/run-map";
+import { RunSummary } from "@/components/coach/run-summary";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
@@ -433,6 +434,10 @@ export function RunRecorder({
     }
   }
 
+  // New array identity whenever a GPS point is added, so the live map redraws.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const trackPoints = useMemo(() => route.current.slice(), [pointCount]);
+
   // GPS run recording is phone-only.
   if (!native) return null;
 
@@ -522,6 +527,9 @@ export function RunRecorder({
 
         {status === "tracking" || status === "paused" ? (
           <div className="space-y-5">
+            {pointCount > 0 ? (
+              <RunMap points={trackPoints} live className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
+            ) : null}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <LiveStat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
               <LiveStat label={copy.statTime} value={formatDuration(elapsedSec)} big />
@@ -549,14 +557,18 @@ export function RunRecorder({
 
         {status === "finished" ? (
           <div className="space-y-5">
-            <RunRouteMap points={route.current} className="mx-auto block aspect-square w-44" />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <LiveStat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
-              <LiveStat label={copy.statTime} value={formatDuration(elapsedSec)} big />
-              <LiveStat label={copy.statPace} value={formatPace(distanceKm > 0 ? Math.round(elapsedSec / distanceKm) : null)} big />
-              <LiveStat label={copy.statMovingTime} value={formatDuration(movingSec)} />
-              <LiveStat label={copy.statElevation} value={`${Math.round(elevationM)} m`} />
-            </div>
+            {pointCount > 1 ? (
+              <RunMap points={trackPoints} className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
+            ) : null}
+            <RunSummary
+              points={trackPoints}
+              distanceKm={distanceKm}
+              durationSeconds={elapsedSec}
+              movingSeconds={movingSec}
+              avgPaceSecondsPerKm={distanceKm > 0 ? Math.round(elapsedSec / distanceKm) : null}
+              elevationGainM={Math.round(elevationM)}
+              copy={copy}
+            />
             <label className="grid gap-2 text-sm font-bold text-gray-800">
               <span className="flex items-center justify-between">
                 <span>{copy.effort}</span>

@@ -19,7 +19,10 @@ export function RaceCard({ race, viewLabel = "View", locale = "en", index = 0 }:
   const dict = getDictionary(locale);
   const t = dict.ui;
   const isPast = isPastRace(race);
-  const lowestPrice = Math.min(...race.categories.map((category) => category.priceDzd ?? 0));
+  const pricedCategories = race.categories.filter((category) => category.priceDzd != null);
+  const lowestPrice = pricedCategories.length
+    ? Math.min(...pricedCategories.map((category) => category.priceDzd as number))
+    : null;
   const distances = race.categories.map((category) => category.distanceKm);
   const uniqueDistances = Array.from(new Set(distances)).sort((a, b) => a - b);
 
@@ -75,7 +78,9 @@ export function RaceCard({ race, viewLabel = "View", locale = "en", index = 0 }:
         </div>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-gray-900">{t.from.replace("{price}", formatDzd(lowestPrice))}</p>
+            {lowestPrice != null ? (
+              <p className="text-sm font-semibold text-gray-900">{t.from.replace("{price}", formatDzd(lowestPrice))}</p>
+            ) : null}
             {race.availablePlaces != null ? (
               <p className="text-xs text-gray-500">{t.placesAvailable.replace("{count}", String(race.availablePlaces))}</p>
             ) : null}
