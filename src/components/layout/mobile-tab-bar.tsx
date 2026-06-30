@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { CalendarSearch, House, Sparkles, UserRound } from "lucide-react";
+import { CalendarSearch, Footprints, Sparkles, UserRound } from "lucide-react";
 import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import { tapHaptic } from "@/lib/native/haptics";
 import { cn } from "@/lib/utils";
@@ -16,14 +16,18 @@ export function MobileTabBar() {
   const nav = getDictionary(locale).nav;
 
   const tabs = [
-    { href: "/", icon: House, label: nav.home, active: pathname === "/" },
-    { href: "/races", icon: CalendarSearch, label: nav.races, active: pathname.startsWith("/races") },
+    // Races is the app home now (also active on the marketing "/" landing).
+    { href: "/races", icon: CalendarSearch, label: nav.races, active: pathname === "/" || pathname.startsWith("/races") },
+    { href: "/account/runs", icon: Footprints, label: nav.runs, active: pathname.startsWith("/account/runs") },
     { href: "/account/coach", icon: Sparkles, label: nav.coach, active: pathname.startsWith("/account/coach") },
     {
       href: "/account",
       icon: UserRound,
       label: nav.account,
-      active: pathname.startsWith("/account") && !pathname.startsWith("/account/coach")
+      active:
+        pathname.startsWith("/account") &&
+        !pathname.startsWith("/account/coach") &&
+        !pathname.startsWith("/account/runs")
     }
   ];
 

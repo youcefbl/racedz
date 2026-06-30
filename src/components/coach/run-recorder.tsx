@@ -1,6 +1,6 @@
 "use client";
 
-import { BatteryCharging, Footprints, MapPin, Pause, Play, Square, TimerReset } from "lucide-react";
+import { BatteryCharging, Footprints, MapPin, MapPinOff, Pause, Play, Square, TimerReset } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -8,6 +8,7 @@ import { formatDuration, formatPace } from "@/components/coach/format";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
+import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
 import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
 import { clearActiveRun, loadActiveRun, saveActiveRun, type ActiveRunSnapshot } from "@/lib/native/run-store";
 import type { CoachLocale, CoachRun, RunRoutePoint } from "@/components/coach/types";
@@ -57,6 +58,7 @@ export function RunRecorder({
   const [pendingCount, setPendingCount] = useState(0);
   const [recoverable, setRecoverable] = useState<ActiveRunSnapshot | null>(null);
   const [batteryOk, setBatteryOk] = useState(true);
+  const [bgLocation, setBgLocation] = useState<LocationPermissionState>({ fine: true, background: true });
 
   const watcherId = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -168,6 +170,7 @@ export function RunRecorder({
   useEffect(() => {
     if (!isNativeRuntime()) return;
     void isIgnoringBatteryOptimizations().then(setBatteryOk);
+    void checkBackgroundLocation().then(setBgLocation);
     void (async () => {
       const snapshot = await loadActiveRun();
       if (snapshot && snapshot.route.length > 1 && snapshot.distanceM > 50) {
@@ -184,6 +187,7 @@ export function RunRecorder({
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         void isIgnoringBatteryOptimizations().then(setBatteryOk);
+        void checkBackgroundLocation().then(setBgLocation);
       } else if (statusRef.current === "tracking" || statusRef.current === "paused") {
         persistSnapshot();
       }
@@ -482,14 +486,29 @@ export function RunRecorder({
           </div>
         ) : null}
 
-        {(status === "tracking" || status === "paused") && !batteryOk ? (
-          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3">
-            <p className="flex items-center gap-2 text-sm font-black text-blue-900">
-              <BatteryCharging className="size-4" aria-hidden="true" />
+        {/* Background-recording readiness. Shown before starting and while recording so
+            the user fixes what makes GPS stop when the screen locks. */}
+        {status !== "finished" && !bgLocation.background ? (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="flex items-center gap-2 text-sm font-black text-red-900">
+              <MapPinOff className="size-4 shrink-0" aria-hidden="true" />
+              {copy.bgLocationTitle}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-red-800">{copy.bgLocationText}</p>
+            <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => void openLocationPermissionSettings()}>
+              {copy.bgLocationCta}
+            </Button>
+          </div>
+        ) : null}
+
+        {status !== "finished" && !batteryOk ? (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+            <p className="flex items-center gap-2 text-sm font-black text-amber-900">
+              <BatteryCharging className="size-4 shrink-0" aria-hidden="true" />
               {copy.bgTitle}
             </p>
-            <p className="mt-1 text-xs font-semibold text-blue-800">{copy.bgText}</p>
-            <Button type="button" size="sm" className="mt-3" onClick={() => void enableBackground()}>
+            <p className="mt-1 text-xs font-semibold text-amber-800">{copy.bgText}</p>
+            <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => void enableBackground()}>
               {copy.bgEnable}
             </Button>
           </div>
