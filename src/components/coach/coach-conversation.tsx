@@ -33,6 +33,9 @@ export function CoachConversation({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const thinking = pendingAction === "CHAT" || pendingAction === "POST_RUN";
+  // Failed AI requests are tracked for admins but not surfaced to the runner; the submit flow
+  // already shows a transient error, so a failed card would only add noise here.
+  const visibleInteractions = interactions.filter((interaction) => interaction.status !== "FAILED");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -105,14 +108,14 @@ export function CoachConversation({
         </div>
 
         <div className="max-h-[620px] min-h-72 overflow-y-auto bg-gray-50 px-4 py-5 sm:px-5" role="log" aria-live="polite" aria-atomic="false" aria-busy={thinking}>
-          {interactions.length === 0 ? (
+          {visibleInteractions.length === 0 ? (
             <div className="flex min-h-64 flex-col items-center justify-center text-center">
               <MessageSquareText className="size-8 text-gray-400" aria-hidden="true" />
               <p className="mt-3 max-w-sm text-sm leading-6 text-gray-600">{copy.noReview}</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {[...interactions].reverse().map((interaction) => (
+              {[...visibleInteractions].reverse().map((interaction) => (
                 <InteractionMessage key={interaction.id} interaction={interaction} locale={locale} copy={copy} />
               ))}
             </div>

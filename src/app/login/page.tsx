@@ -128,7 +128,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <GoogleSignInButton
                 callbackUrl={params?.callbackUrl}
                 native={nativeFlow}
-                autoStart={nativeFlow && params?.provider === "google"}
                 label={t.continueWithGoogle}
                 pendingLabel={t.openingGoogle}
               />

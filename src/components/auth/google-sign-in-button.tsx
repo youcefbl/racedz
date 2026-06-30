@@ -2,7 +2,7 @@
 
 import { Capacitor } from "@capacitor/core";
 import { signIn } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const SITE_ORIGIN = "https://zidrun.com";
@@ -10,7 +10,6 @@ const SITE_ORIGIN = "https://zidrun.com";
 export function GoogleSignInButton({
   callbackUrl,
   native = false,
-  autoStart = false,
   label = "Continue with Google",
   pendingLabel = "Opening Google..."
 }: {
@@ -18,13 +17,10 @@ export function GoogleSignInButton({
   // True when this button is rendered in the system browser as part of the native
   // sign-in flow (?native=1): the post-OAuth redirect routes through the deep-link handoff.
   native?: boolean;
-  // Auto-trigger the web OAuth on mount (used by the system-browser native flow).
-  autoStart?: boolean;
   label?: string;
   pendingLabel?: string;
 }) {
   const [pending, setPending] = useState(false);
-  const started = useRef(false);
 
   // Standard web Google OAuth (runs in a real browser). In the native flow we send
   // the user to the deep-link handoff instead of straight to their account.
@@ -45,7 +41,6 @@ export function GoogleSignInButton({
         const { Browser } = await import("@capacitor/browser");
         const url = new URL("/login", SITE_ORIGIN);
         url.searchParams.set("native", "1");
-        url.searchParams.set("provider", "google");
         if (callbackUrl) url.searchParams.set("callbackUrl", callbackUrl);
         await Browser.open({ url: url.toString() });
       } finally {
@@ -56,15 +51,6 @@ export function GoogleSignInButton({
 
     await startWebGoogle();
   }
-
-  // System-browser native flow: start immediately so the user only taps once (in the app).
-  useEffect(() => {
-    if (autoStart && native && !started.current && !Capacitor.isNativePlatform()) {
-      started.current = true;
-      void startWebGoogle();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStart, native]);
 
   return (
     <Button type="button" variant="outline" size="lg" className="w-full justify-center" disabled={pending} onClick={handleClick}>

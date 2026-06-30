@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { createNativeAuthToken } from "@/lib/native-auth";
 
@@ -15,10 +16,9 @@ export async function GET(request: Request) {
 
   if (!session?.user?.id) {
     // Opened without a session — start the web sign-in, then return here.
-    const login = new URL("/login", url.origin);
-    login.searchParams.set("native", "1");
-    login.searchParams.set("callbackUrl", callbackUrl);
-    return Response.redirect(login.toString(), 302);
+    // Use a relative redirect: behind the prod proxy, request.url's origin is the
+    // internal bind address (0.0.0.0:3003), not the public domain.
+    redirect(`/login?native=1&callbackUrl=${encodeURIComponent(callbackUrl)}`);
   }
 
   const token = await createNativeAuthToken(session.user.id);

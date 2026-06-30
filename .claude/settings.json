@@ -1,9 +1,90 @@
 {
   "permissions": {
     "allow": [
+      "Bash(command -v session-manager-plugin)",
+      "Bash(node -e ' *)",
+      "Bash(base64 -w0 verifyfix2.js)",
+      "Bash(shred -u stg-secret.json)",
+      "Bash(gh auth *)",
+      "Bash(git cherry-pick *)",
+      "Bash(echo \"=== exit: $? ===\")",
+      "Bash(git --no-pager diff --stat)",
+      "Bash(git --no-pager diff)",
+      "Bash(git --no-pager log --oneline -1)",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "Bash(git:*)",
+      "Bash(docker:*)",
+      "Bash(gh pr *)",
+      "Bash(docker exec *)",
+      "Bash(git stash *)",
+      "Bash(docker cp *)",
+
+            "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+
       "Bash(npm run typecheck)",
       "Bash(npm run lint)",
-      "Bash(npm run test:coach)"
+      "Bash(npm run test:coach)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit *)",
+
+      "Bash(emulator -avd *)",
+      "Bash(nohup emulator -avd *)",
+      "Bash(emulator -list-avds)",
+      "Bash(adb emu kill)",
+      "Bash(adb emu kill *)",
+      "Bash($ADB emu kill)",
+      "Bash($ADB emu kill *)",
+
+      "Bash(adb shell am force-stop *)",
+      "Bash($ADB shell am force-stop *)",
+      "Bash(adb shell monkey *)",
+      "Bash($ADB shell monkey *)",
+
+      "Bash(adb logcat *)",
+      "Bash($ADB logcat *)",
+
+      "Bash(adb devices)",
+      "Bash(adb devices *)",
+      "Bash($ADB devices)",
+      "Bash($ADB devices *)",
+      "Bash(adb wait-for-device)",
+      "Bash(adb wait-for-device *)",
+      "Bash($ADB wait-for-device)",
+      "Bash($ADB wait-for-device *)",
+      "Bash(adb shell getprop *)",
+      "Bash($ADB shell getprop *)",
+
+      "Bash(adb exec-out screencap *)",
+      "Bash($ADB exec-out screencap *)",
+      "Bash(adb install *)",
+      "Bash($ADB install *)",
+      "Bash(adb shell pidof *)",
+      "Bash($ADB shell pidof *)",
+      "Bash(adb shell pm *)",
+      "Bash($ADB shell pm *)",
+      "Bash(adb shell am start *)",
+      "Bash($ADB shell am start *)",
+      "Bash(adb shell input *)",
+      "Bash($ADB shell input *)",
+      "Bash(adb shell dumpsys *)",
+      "Bash($ADB shell dumpsys *)",
+      "Bash(adb shell cat *)",
+      "Bash($ADB shell cat *)",
+
+      "Bash(npx cap *)",
+      "Bash(./gradlew *)",
+      "Bash(node scripts/*)",
+      "Bash(npx eslint *)",
+      "Bash(npm install *)",
+      "Bash(npm run dev:lan)",
+      "Bash(keytool *)",
+      "Bash(cp *)",
+      "Bash(curl *)"
     ]
   }
 }
+  

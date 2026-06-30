@@ -1,13 +1,15 @@
 "use client";
 
-import { Footprints, MapPin, Pause, Play, Square, TimerReset } from "lucide-react";
+import { BatteryCharging, Footprints, MapPin, Pause, Play, Square, TimerReset } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
+import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
+import { clearActiveRun, loadActiveRun, saveActiveRun, type ActiveRunSnapshot } from "@/lib/native/run-store";
 import type { CoachLocale, CoachRun, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +24,11 @@ import {
 type RecorderStatus = "idle" | "tracking" | "paused" | "finished";
 
 const MAX_ROUTE_POINTS = 1500;
+// Persist the in-progress run to device storage at most this often (ms).
+const SNAPSHOT_INTERVAL_MS = 4000;
+// Ignore the gap between two fixes when summing moving time if it's this long —
+// it usually means GPS was lost, not that the runner was moving the whole time.
+const MAX_MOVING_GAP_S = 15;
 
 export function RunRecorder({
   locale,
@@ -40,6 +47,7 @@ export function RunRecorder({
   const [elevationM, setElevationM] = useState(0);
   const [currentPace, setCurrentPace] = useState<number | null>(null);
   const [pointCount, setPointCount] = useState(0);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [effort, setEffort] = useState(5);
   const [share, setShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +55,8 @@ export function RunRecorder({
   const [saving, setSaving] = useState(false);
   const [savedOffline, setSavedOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [recoverable, setRecoverable] = useState<ActiveRunSnapshot | null>(null);
+  const [batteryOk, setBatteryOk] = useState(true);
 
   const watcherId = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -54,16 +64,26 @@ export function RunRecorder({
   const lastPoint = useRef<LivePoint | null>(null);
   const distanceRef = useRef(0);
   const elevationRef = useRef(0);
-  const movingRef = useRef(0);
-  const lastMoveTs = useRef(0);
+  const movingRef = useRef(0); // seconds (float), summed from GPS point timestamps
+  const lastPointTs = useRef(0);
   const startTs = useRef(0);
   const pausedAccum = useRef(0);
   const pauseStart = useRef(0);
   const statusRef = useRef<RecorderStatus>("idle");
+  const lastSnapshotTs = useRef(0);
+  const effortRef = useRef(5);
+  const shareRef = useRef(false);
 
   useEffect(() => {
     setNative(isNativeRuntime());
   }, []);
+
+  useEffect(() => {
+    effortRef.current = effort;
+  }, [effort]);
+  useEffect(() => {
+    shareRef.current = share;
+  }, [share]);
 
   const stopTimer = useCallback(() => {
     if (timer.current) {
@@ -87,6 +107,26 @@ export function RunRecorder({
       if (watcherId.current) void stopRunWatch(watcherId.current);
     };
   }, [stopTimer]);
+
+  // Write a durable snapshot so a crash / OS-kill doesn't lose the run.
+  const persistSnapshot = useCallback((statusOverride?: "tracking" | "paused") => {
+    if (startTs.current === 0) return;
+    const snapshot: ActiveRunSnapshot = {
+      v: 1,
+      status: statusOverride ?? (statusRef.current === "paused" ? "paused" : "tracking"),
+      startTs: startTs.current,
+      pausedAccum: pausedAccum.current,
+      distanceM: distanceRef.current,
+      elevationM: elevationRef.current,
+      movingSec: movingRef.current,
+      lastPointTs: lastPointTs.current,
+      effort: effortRef.current,
+      share: shareRef.current,
+      route: route.current,
+      updatedAt: Date.now()
+    };
+    void saveActiveRun(snapshot);
+  }, []);
 
   // Upload any runs that were saved offline, and retry when connectivity returns.
   const flushQueue = useCallback(async () => {
@@ -124,80 +164,129 @@ export function RunRecorder({
     return () => window.removeEventListener("online", onOnline);
   }, [flushQueue]);
 
+  // On launch: surface a recoverable run, and check the battery-optimization state.
+  useEffect(() => {
+    if (!isNativeRuntime()) return;
+    void isIgnoringBatteryOptimizations().then(setBatteryOk);
+    void (async () => {
+      const snapshot = await loadActiveRun();
+      if (snapshot && snapshot.route.length > 1 && snapshot.distanceM > 50) {
+        setRecoverable(snapshot);
+      } else if (snapshot) {
+        await clearActiveRun();
+      }
+    })();
+  }, []);
+
+  // Re-check battery state when returning from the system dialog; persist on background.
+  useEffect(() => {
+    if (!native) return;
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void isIgnoringBatteryOptimizations().then(setBatteryOk);
+      } else if (statusRef.current === "tracking" || statusRef.current === "paused") {
+        persistSnapshot();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [native, persistSnapshot]);
+
   const setStatusBoth = (next: RecorderStatus) => {
     statusRef.current = next;
     setStatus(next);
   };
 
-  const onPoint = useCallback((point: LivePoint) => {
-    if (statusRef.current !== "tracking") return;
-    if (point.accuracy != null && point.accuracy > 40) return; // too noisy
+  const onPoint = useCallback(
+    (point: LivePoint) => {
+      if (statusRef.current !== "tracking") return;
+      setGpsAccuracy(point.accuracy ?? null);
+      if (point.accuracy != null && point.accuracy > 40) return; // too noisy
 
-    const prev = lastPoint.current;
-    if (prev) {
-      const d = haversineMeters(prev, point);
-      if (d >= 1 && d <= 60) {
-        distanceRef.current += d;
-        setDistanceM(distanceRef.current);
-        lastMoveTs.current = Date.now();
-        if (prev.ele != null && point.ele != null) {
-          const delta = point.ele - prev.ele;
-          if (delta > 1) {
-            elevationRef.current += delta;
-            setElevationM(elevationRef.current);
+      const prev = lastPoint.current;
+      if (prev) {
+        const d = haversineMeters(prev, point);
+        if (d >= 1 && d <= 60) {
+          distanceRef.current += d;
+          setDistanceM(distanceRef.current);
+          // Moving time summed from GPS timestamps — survives screen-off throttling.
+          const dt = (point.t - prev.t) / 1000;
+          if (dt > 0 && dt < MAX_MOVING_GAP_S) {
+            movingRef.current += dt;
+            setMovingSec(Math.round(movingRef.current));
           }
+          if (prev.ele != null && point.ele != null) {
+            const delta = point.ele - prev.ele;
+            if (delta > 1) {
+              elevationRef.current += delta;
+              setElevationM(elevationRef.current);
+            }
+          }
+          if (route.current.length < 100000) {
+            route.current.push({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
+            setPointCount(route.current.length);
+          }
+          lastPointTs.current = point.t;
         }
-        if (route.current.length < 100000) {
-          route.current.push({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
-          setPointCount(route.current.length);
-        }
+      } else {
+        route.current.push({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
+        setPointCount(route.current.length);
+        lastPointTs.current = point.t;
       }
-    } else {
       lastPoint.current = point;
-      route.current.push({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
-      setPointCount(route.current.length);
-    }
-    lastPoint.current = point;
 
-    setCurrentPace(point.speed != null && point.speed > 0.4 ? Math.round(1000 / point.speed) : null);
-  }, []);
+      setCurrentPace(point.speed != null && point.speed > 0.4 ? Math.round(1000 / point.speed) : null);
 
+      const now = Date.now();
+      if (now - lastSnapshotTs.current > SNAPSHOT_INTERVAL_MS) {
+        lastSnapshotTs.current = now;
+        persistSnapshot();
+      }
+    },
+    [persistSnapshot]
+  );
+
+  // Display-only ticker: refresh elapsed time while in the foreground. All persisted
+  // metrics are derived from GPS timestamps, so a throttled ticker can't corrupt them.
   const tick = useCallback(() => {
     if (statusRef.current !== "tracking") return;
-    const now = Date.now();
-    setElapsedSec(Math.floor((now - startTs.current - pausedAccum.current) / 1000));
-    if (now - lastMoveTs.current < 6000) {
-      movingRef.current += 1;
-      setMovingSec(movingRef.current);
-    }
+    setElapsedSec(Math.floor((Date.now() - startTs.current - pausedAccum.current) / 1000));
   }, []);
+
+  const beginWatch = useCallback(async () => {
+    const id = await startRunWatch(onPoint, (err) => {
+      setPermissionError(err.code === "NOT_AUTHORIZED");
+      setError(copy.gpsError);
+    });
+    watcherId.current = id;
+    stopTimer();
+    timer.current = setInterval(tick, 1000);
+  }, [copy.gpsError, onPoint, stopTimer, tick]);
 
   async function start() {
     setError(null);
     setPermissionError(false);
+    await clearActiveRun();
+    setRecoverable(null);
     distanceRef.current = 0;
     elevationRef.current = 0;
     movingRef.current = 0;
     route.current = [];
     lastPoint.current = null;
+    lastPointTs.current = 0;
     startTs.current = Date.now();
     pausedAccum.current = 0;
-    lastMoveTs.current = Date.now();
+    lastSnapshotTs.current = 0;
     setDistanceM(0);
     setElapsedSec(0);
     setMovingSec(0);
     setElevationM(0);
     setCurrentPace(null);
     setPointCount(0);
+    setGpsAccuracy(null);
     try {
-      const id = await startRunWatch(onPoint, (err) => {
-        setPermissionError(err.code === "NOT_AUTHORIZED");
-        setError(copy.gpsError);
-      });
-      watcherId.current = id;
+      await beginWatch();
       setStatusBoth("tracking");
-      stopTimer();
-      timer.current = setInterval(tick, 1000);
       tapHaptic("medium");
     } catch {
       setError(copy.gpsError);
@@ -207,27 +296,85 @@ export function RunRecorder({
   function pause() {
     pauseStart.current = Date.now();
     setStatusBoth("paused");
+    persistSnapshot("paused");
     tapHaptic("light");
   }
 
   function resume() {
     pausedAccum.current += Date.now() - pauseStart.current;
-    lastMoveTs.current = Date.now();
     setStatusBoth("tracking");
+    persistSnapshot("tracking");
     tapHaptic("light");
   }
 
   async function finish() {
+    if (statusRef.current === "paused") {
+      pausedAccum.current += Date.now() - pauseStart.current;
+    }
+    setElapsedSec(Math.floor((Date.now() - startTs.current - pausedAccum.current) / 1000));
     await cleanup();
     setStatusBoth("finished");
+    persistSnapshot("paused"); // keep recoverable if the app dies on the summary screen
     tapHaptic("medium");
   }
 
   function discard() {
     void cleanup();
+    void clearActiveRun();
     statusRef.current = "idle";
     setStatus("idle");
     setError(null);
+  }
+
+  // Restore an interrupted run from storage and pause it so the user can resume or save.
+  async function recover(snapshot: ActiveRunSnapshot) {
+    distanceRef.current = snapshot.distanceM;
+    elevationRef.current = snapshot.elevationM;
+    movingRef.current = snapshot.movingSec;
+    route.current = snapshot.route;
+    lastPointTs.current = snapshot.lastPointTs;
+    startTs.current = snapshot.startTs;
+    pausedAccum.current = snapshot.pausedAccum;
+    const last = snapshot.route[snapshot.route.length - 1];
+    lastPoint.current = last
+      ? { lat: last.lat, lng: last.lng, ele: last.ele ?? null, t: last.t ?? snapshot.lastPointTs, speed: null, accuracy: null }
+      : null;
+    setDistanceM(snapshot.distanceM);
+    setElevationM(snapshot.elevationM);
+    setMovingSec(Math.round(snapshot.movingSec));
+    setPointCount(snapshot.route.length);
+    setEffort(snapshot.effort);
+    setShare(snapshot.share);
+    setElapsedSec(Math.floor((Date.now() - snapshot.startTs - snapshot.pausedAccum) / 1000));
+    setCurrentPace(null);
+    setRecoverable(null);
+    // Enter paused: the original GPS watcher is gone; resuming restarts it and the
+    // time spent crashed is treated as paused (not counted toward elapsed).
+    pauseStart.current = Date.now();
+    setStatusBoth("paused");
+  }
+
+  async function discardRecovered() {
+    await clearActiveRun();
+    setRecoverable(null);
+  }
+
+  async function enableBackground() {
+    await requestIgnoreBatteryOptimizations();
+    setBatteryOk(await isIgnoringBatteryOptimizations());
+  }
+
+  // Resuming may need to (re)start the GPS watcher if it was torn down (e.g. after recovery).
+  async function resumeTracking() {
+    if (!watcherId.current) {
+      try {
+        await beginWatch();
+      } catch {
+        setError(copy.gpsError);
+        return;
+      }
+    }
+    resume();
   }
 
   async function save() {
@@ -244,7 +391,7 @@ export function RunRecorder({
       startedAt: new Date(startTs.current).toISOString(),
       distanceKm: Number(distanceKm.toFixed(3)),
       durationSeconds,
-      movingTimeSeconds: movingRef.current,
+      movingTimeSeconds: Math.round(movingRef.current),
       elevationGainM: Math.round(elevationRef.current),
       perceivedEffort: effort,
       source: "GPS" as const,
@@ -256,6 +403,7 @@ export function RunRecorder({
         method: "POST",
         body: JSON.stringify(body)
       });
+      await clearActiveRun();
       statusRef.current = "idle";
       setStatus("idle");
       notifyHaptic("success");
@@ -266,6 +414,7 @@ export function RunRecorder({
       // No error code means the request never reached the server (connectivity) — queue it.
       if (offline || !err.code) {
         queueRun(body, typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `q_${startTs.current}`);
+        await clearActiveRun();
         setPendingCount(queuedRunCount());
         setSavedOffline(true);
         statusRef.current = "idle";
@@ -284,6 +433,14 @@ export function RunRecorder({
   if (!native) return null;
 
   const distanceKm = distanceM / 1000;
+  const gpsValue =
+    gpsAccuracy == null
+      ? copy.gpsAcquiring
+      : gpsAccuracy <= 12
+        ? copy.gpsStrong
+        : gpsAccuracy <= 25
+          ? copy.gpsFair
+          : copy.gpsWeak;
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -310,6 +467,34 @@ export function RunRecorder({
           </div>
         ) : null}
 
+        {status === "idle" && recoverable ? (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-black text-amber-900">{copy.recoverTitle}</p>
+            <p className="mt-1 text-xs font-semibold text-amber-800">{copy.recoverText}</p>
+            <div className="mt-3 flex gap-2">
+              <Button type="button" size="sm" onClick={() => void recover(recoverable)}>
+                {copy.recoverResume}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => void discardRecovered()}>
+                {copy.recoverDiscard}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {(status === "tracking" || status === "paused") && !batteryOk ? (
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+            <p className="flex items-center gap-2 text-sm font-black text-blue-900">
+              <BatteryCharging className="size-4" aria-hidden="true" />
+              {copy.bgTitle}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-blue-800">{copy.bgText}</p>
+            <Button type="button" size="sm" className="mt-3" onClick={() => void enableBackground()}>
+              {copy.bgEnable}
+            </Button>
+          </div>
+        ) : null}
+
         {status === "idle" ? (
           <Button type="button" size="lg" className="w-full" onClick={() => void start()}>
             <Play className="size-5" aria-hidden="true" /> {copy.startRun}
@@ -324,7 +509,7 @@ export function RunRecorder({
               <LiveStat label={copy.statPace} value={formatPace(currentPace)} big />
               <LiveStat label={copy.statMovingTime} value={formatDuration(movingSec)} />
               <LiveStat label={copy.statElevation} value={`${Math.round(elevationM)} m`} />
-              <LiveStat label="GPS" value={pointCount > 0 ? `${pointCount}` : copy.gpsAcquiring} />
+              <LiveStat label={copy.statGps} value={pointCount > 0 ? gpsValue : copy.gpsAcquiring} />
             </div>
             <div className="flex gap-3">
               {status === "tracking" ? (
@@ -332,7 +517,7 @@ export function RunRecorder({
                   <Pause className="size-5" aria-hidden="true" /> {copy.pause}
                 </Button>
               ) : (
-                <Button type="button" size="lg" className="flex-1" onClick={resume}>
+                <Button type="button" size="lg" className="flex-1" onClick={() => void resumeTracking()}>
                   <Play className="size-5" aria-hidden="true" /> {copy.resume}
                 </Button>
               )}
