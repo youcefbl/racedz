@@ -103,6 +103,7 @@ export const createRunnerRunSchema = z.object({
   movingTimeSeconds: z.coerce.number().int().min(0).max(172800).nullable().optional(),
   elevationGainM: z.coerce.number().int().min(0).max(20000).nullable().optional(),
   averageHeartRate: z.coerce.number().int().min(30).max(250).nullable().optional(),
+  avgCadence: z.coerce.number().int().min(0).max(300).nullable().optional(),
   calories: z.coerce.number().int().min(0).max(50000).nullable().optional(),
   weightKg: z.coerce.number().min(20).max(300).nullable().optional(),
   source: z.enum(["MANUAL", "GPS"]).default("MANUAL"),

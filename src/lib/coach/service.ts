@@ -67,6 +67,7 @@ type RunRow = {
   movingTimeSeconds: number | null;
   elevationGainM: number | null;
   averageHeartRate: number | null;
+  avgCadence: number | null;
   calories: number | null;
   route: unknown;
   isPublic: boolean;

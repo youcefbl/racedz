@@ -502,6 +502,7 @@ model RunnerRun {
   movingTimeSeconds       Int?
   elevationGainM          Int?
   averageHeartRate        Int?
+  avgCadence              Int?
   calories                Int?
   route                   Json?
   isPublic                Boolean         @default(false)
