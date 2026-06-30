@@ -6,7 +6,9 @@ import { coachRequest } from "@/components/coach/api";
 import { getCoachCopy } from "@/components/coach/copy";
 import { CoachConversation } from "@/components/coach/coach-conversation";
 import { CoachGoalForm } from "@/components/coach/coach-goal-form";
+import { CoachMotivation } from "@/components/coach/coach-motivation";
 import { CoachOverview } from "@/components/coach/coach-overview";
+import { CoachPushPrompt } from "@/components/coach/coach-push-prompt";
 import { CoachPlanPanel } from "@/components/coach/coach-plan-panel";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -15,7 +17,15 @@ import { cn } from "@/lib/utils";
 
 type CoachView = "overview" | "plan" | "runs" | "coach";
 
-export function CoachDashboard({ initialData, locale }: { initialData: CoachDashboardData; locale: CoachLocale }) {
+export function CoachDashboard({
+  initialData,
+  locale,
+  profileGaps
+}: {
+  initialData: CoachDashboardData;
+  locale: CoachLocale;
+  profileGaps?: { sex: boolean; birthDate: boolean };
+}) {
   const [dashboard, setDashboard] = useState(initialData);
   const [view, setView] = useState<CoachView>("overview");
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +105,7 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
             <EntitlementBanner entitlement={dashboard.entitlement} copy={copy} locale={locale} />
           </div>
         ) : null}
-        <CoachGoalForm locale={locale} copy={copy} onCreated={refresh} />
+        <CoachGoalForm locale={locale} copy={copy} onCreated={refresh} profileGaps={profileGaps} />
       </div>
     );
   }
@@ -183,6 +193,8 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
           </div>
         ) : null}
 
+        <CoachPushPrompt copy={copy} />
+
         {error ? (
           <div role="alert" className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             <span className="mt-0.5 size-2 shrink-0 rounded-full bg-red-500" />
@@ -191,7 +203,10 @@ export function CoachDashboard({ initialData, locale }: { initialData: CoachDash
         ) : null}
 
         {view === "overview" ? (
-          <CoachOverview data={dashboard} latestPlan={latestPlan} locale={locale} copy={copy} onOpenPlan={() => setView("plan")} />
+          <>
+            <CoachMotivation goal={goal} runs={dashboard.runs} metrics={metrics} copy={copy} />
+            <CoachOverview data={dashboard} latestPlan={latestPlan} locale={locale} copy={copy} onOpenPlan={() => setView("plan")} />
+          </>
         ) : null}
         {view === "plan" ? (
           <CoachPlanPanel

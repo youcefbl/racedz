@@ -41,6 +41,7 @@ type GoalRow = {
   recentRaceResult: string | null;
   restingHeartRate: number | null;
   weightKg: number | null;
+  heightCm: number | null;
   availableTrainingDays: number[];
   preferredLongRunDay: number | null;
   constraints: string | null;
@@ -118,7 +119,7 @@ export async function createCoachGoal(userId: string, rawInput: unknown) {
       INSERT INTO "RunnerGoal" (
         "id", "userId", "raceEventId", "goalType", "customGoal", "targetDate",
         "targetDistanceKm", "targetTimeSeconds", "experienceLevel", "currentWeeklyDistanceKm",
-        "yearsRunning", "peakWeeklyDistanceKm", "longestRecentRunKm", "recentRaceResult", "restingHeartRate", "weightKg",
+        "yearsRunning", "peakWeeklyDistanceKm", "longestRecentRunKm", "recentRaceResult", "restingHeartRate", "weightKg", "heightCm",
         "availableTrainingDays", "preferredLongRunDay", "constraints", "injuryNotes",
         "injuryHistory", "chronicConditions", "healthNotes",
         "preferredLocale", "status", "updatedAt"
@@ -127,7 +128,7 @@ export async function createCoachGoal(userId: string, rawInput: unknown) {
         ${input.customGoal ?? null}, ${input.targetDate}, ${input.targetDistanceKm ?? null},
         ${input.targetTimeSeconds ?? null}, ${input.experienceLevel}::"RunnerExperience",
         ${input.currentWeeklyDistanceKm}, ${input.yearsRunning ?? null}, ${input.peakWeeklyDistanceKm ?? null},
-        ${input.longestRecentRunKm ?? null}, ${input.recentRaceResult ?? null}, ${input.restingHeartRate ?? null}, ${input.weightKg ?? null},
+        ${input.longestRecentRunKm ?? null}, ${input.recentRaceResult ?? null}, ${input.restingHeartRate ?? null}, ${input.weightKg ?? null}, ${input.heightCm ?? null},
         ARRAY[${Prisma.join(input.availableTrainingDays)}]::INTEGER[],
         ${input.preferredLongRunDay ?? null}, ${input.constraints ?? null}, ${input.injuryNotes ?? null},
         ${input.injuryHistory ?? null},
@@ -137,11 +138,46 @@ export async function createCoachGoal(userId: string, rawInput: unknown) {
       )
       RETURNING *
     `;
+
+    // Backfill the account profile with sex / birth date collected during onboarding, but only
+    // where the user hasn't already set them — never overwrite existing profile data.
+    if (input.sex || input.dateOfBirth) {
+      await tx.$executeRaw`
+        UPDATE "User"
+        SET "gender" = COALESCE("gender", ${input.sex ?? null}::"Gender"),
+            "dateOfBirth" = COALESCE("dateOfBirth", ${input.dateOfBirth ?? null}),
+            "updatedAt" = NOW()
+        WHERE "id" = ${userId}
+      `;
+    }
+
     return rows[0];
   });
 
   await refreshCoachSnapshot(userId, goal);
   return goal;
+}
+
+// Whole years between the runner's birth date and today; null when the birth date is unknown.
+function ageFromDateOfBirth(dateOfBirth: Date | null): number | null {
+  if (!dateOfBirth) return null;
+  const birth = new Date(dateOfBirth);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getUTCFullYear() - birth.getUTCFullYear();
+  const monthDelta = now.getUTCMonth() - birth.getUTCMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < birth.getUTCDate())) age -= 1;
+  return age >= 0 && age < 120 ? age : null;
+}
+
+// Which critical profile fields the runner hasn't set yet, so onboarding can ask for them.
+// These drive plan personalisation (training load, recovery, calorie estimates).
+export async function getCoachProfileGaps(userId: string) {
+  const rows = await getPrisma().$queryRaw<Array<{ gender: string | null; dateOfBirth: Date | null }>>`
+    SELECT "gender", "dateOfBirth" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  `;
+  const user = rows[0];
+  return { sex: !user?.gender, birthDate: !user?.dateOfBirth };
 }
 
 export async function getCoachGoals(userId: string) {
@@ -395,7 +431,14 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     return { id: interactionId, status: "BLOCKED" as const, response, safety, plan: null };
   }
 
-  const context = buildRunnerCoachContext({ goal, runs, metrics, skeleton, safety, interaction: input });
+  const profileRows = await prisma.$queryRaw<Array<{ gender: string | null; dateOfBirth: Date | null }>>`
+    SELECT "gender", "dateOfBirth" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  `;
+  const profile = {
+    sex: profileRows[0]?.gender ?? null,
+    age: ageFromDateOfBirth(profileRows[0]?.dateOfBirth ?? null)
+  };
+  const context = buildRunnerCoachContext({ goal, runs, metrics, skeleton, safety, interaction: input, profile });
 
   try {
     const generated = await generateCoachResponse(context, interactionId);

@@ -26,13 +26,20 @@ type CoachGoalFormProps = {
   locale: CoachLocale;
   copy: CoachCopy;
   onCreated: () => Promise<void>;
+  profileGaps?: { sex: boolean; birthDate: boolean };
 };
 
 const experienceValues = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
 const TOTAL_STEPS = 5;
 
-export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
+export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoalFormProps) {
   const [step, setStep] = useState(0);
+
+  // Core profile facts the coach needs (sex, age) — asked here only when the account lacks them.
+  const needsSex = profileGaps?.sex ?? false;
+  const needsBirthDate = profileGaps?.birthDate ?? false;
+  const [sex, setSex] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
 
   // Step 1 — goal
   const [goalType, setGoalType] = useState("TEN_K");
@@ -50,6 +57,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
   const [recentRaceResult, setRecentRaceResult] = useState("");
   const [restingHeartRate, setRestingHeartRate] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [heightCm, setHeightCm] = useState("");
 
   // Step 3 — availability
   const [trainingDays, setTrainingDays] = useState<number[]>([2, 4, 6]);
@@ -108,6 +116,8 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
       if (!targetDate) return required(copy.targetDate);
     }
     if (current === 1) {
+      if (needsSex && !sex) return required(copy.sex);
+      if (needsBirthDate && !dateOfBirth) return required(copy.birthDate);
       if (currentWeeklyDistanceKm.trim() === "" || Number(currentWeeklyDistanceKm) < 0) return required(copy.weeklyDistance);
     }
     if (current === 2) {
@@ -148,6 +158,8 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
           body: JSON.stringify({
             goalType,
             customGoal: goalType === "OTHER" ? customGoal.trim() || null : null,
+            sex: sex || null,
+            dateOfBirth: dateOfBirth || null,
             targetDate,
             targetDistanceKm: numberOrNull(targetDistanceKm),
             targetTimeSeconds: targetTime.trim() ? parseDurationToSeconds(targetTime.trim()) : null,
@@ -159,6 +171,7 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
             recentRaceResult: recentRaceResult.trim() || null,
             restingHeartRate: numberOrNull(restingHeartRate),
             weightKg: numberOrNull(weightKg),
+            heightCm: numberOrNull(heightCm),
             availableTrainingDays: trainingDays,
             preferredLongRunDay: preferredLongRunDay ? Number(preferredLongRunDay) : null,
             constraints: constraints.trim() || null,
@@ -221,6 +234,24 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
 
           {step === 1 ? (
             <StepShell icon={Route} title={copy.backgroundStepTitle} text={copy.backgroundStepText}>
+              {needsSex || needsBirthDate ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {needsSex ? (
+                    <Field label={copy.sex}>
+                      <select value={sex} onChange={(event) => setSex(event.target.value)} className={inputClass}>
+                        <option value="">-</option>
+                        <option value="MALE">{copy.sexMale}</option>
+                        <option value="FEMALE">{copy.sexFemale}</option>
+                      </select>
+                    </Field>
+                  ) : null}
+                  {needsBirthDate ? (
+                    <Field label={copy.birthDate}>
+                      <input type="date" max={futureDate(0)} value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} className={inputClass} />
+                    </Field>
+                  ) : null}
+                </div>
+              ) : null}
               <FieldGroup label={copy.experience}>
                 <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={copy.experience}>
                   {experienceValues.map((value, index) => (
@@ -265,6 +296,9 @@ export function CoachGoalForm({ locale, copy, onCreated }: CoachGoalFormProps) {
                 </Field>
                 <Field label={copy.weight} hint={copy.weightHint}>
                   <input type="number" min="20" max="300" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label={copy.height} hint={copy.heightHint}>
+                  <input type="number" min="100" max="250" step="1" value={heightCm} onChange={(event) => setHeightCm(event.target.value)} className={inputClass} />
                 </Field>
               </div>
             </StepShell>

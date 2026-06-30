@@ -1,70 +1,28 @@
 /* global firebase */
 
 // ---------------------------------------------------------------------------
-// Offline caching (PWA) lives in the SAME worker as Firebase messaging so the
-// two never fight over the service-worker scope. FCM push handling is below.
-// Strategy: navigations are network-first with an offline fallback (never cache
-// authenticated HTML); hashed static assets are cache-first; /api is never cached.
+// This worker exists ONLY for Firebase push messaging. It deliberately does NOT
+// cache pages or assets: a caching SW could pin a stale/broken app shell in a
+// single browser (loads fine elsewhere) until a manual hard-refresh. Cloudflare
+// already edge-caches static assets, so we let every request hit the network.
+//
+// It is also self-healing: on activate it deletes ALL caches and takes control
+// immediately, so any browser still carrying the old caching SW recovers on its
+// next visit without the user doing anything.
 // ---------------------------------------------------------------------------
-const RACEDZ_CACHE = "racedz-cache-v1";
-const RACEDZ_OFFLINE_URL = "/offline.html";
-const RACEDZ_PRECACHE = [RACEDZ_OFFLINE_URL, "/icon.svg"];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(RACEDZ_CACHE)
-      .then((cache) => cache.addAll(RACEDZ_PRECACHE))
-      .catch(() => undefined)
-      .then(() => self.skipWaiting())
-  );
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== RACEDZ_CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .catch(() => undefined)
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  if (request.method !== "GET") return;
-
-  const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // leave cross-origin alone
-  if (url.pathname.startsWith("/api/")) return; // never cache API / auth responses
-
-  // Page navigations: network-first, fall back to the offline page when offline.
-  if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match(RACEDZ_OFFLINE_URL)));
-    return;
-  }
-
-  // Immutable / static assets: serve from cache, refresh in the background.
-  const isStatic =
-    url.pathname.startsWith("/_next/static/") ||
-    /\.(?:js|css|png|jpg|jpeg|svg|webp|ico|woff2?)$/.test(url.pathname);
-
-  if (isStatic) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        const network = fetch(request)
-          .then((response) => {
-            if (response && response.status === 200) {
-              const copy = response.clone();
-              caches.open(RACEDZ_CACHE).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
-    );
-  }
-});
+// No fetch handler on purpose — nothing is served from cache.
 
 importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js");

@@ -99,6 +99,11 @@ export const notificationPreferenceOptions = [
     type: "RACE_ANNOUNCEMENT",
     title: "Race announcements",
     description: "Runners receive organizer or admin announcements for races they registered for."
+  },
+  {
+    type: "RUNNER_INACTIVITY_NUDGE",
+    title: "Coach activity reminders",
+    description: "The AI coach reminds you to keep moving when you haven't logged a run in a while."
   }
 ] as const;
 

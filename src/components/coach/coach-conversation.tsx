@@ -126,6 +126,23 @@ export function CoachConversation({
         </div>
 
         <form onSubmit={submit} className="border-t border-gray-200 p-4 sm:p-5">
+          {!message.trim() && !thinking ? (
+            <div className="mb-3">
+              <p className="mb-2 text-xs font-bold text-gray-500">{copy.suggestionsTitle}</p>
+              <div className="flex flex-wrap gap-2">
+                {copy.suggestedQuestions.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => setMessage(question)}
+                    className="rounded-full border border-gray-300 px-3 py-1.5 text-start text-xs font-semibold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <label className="sr-only" htmlFor="coach-question">{copy.askTitle}</label>
           <div className="flex items-end gap-3">
             <textarea

@@ -466,6 +466,7 @@ model RunnerGoal {
   recentRaceResult        String?
   restingHeartRate        Int?
   weightKg                Float?
+  heightCm                Int?
   availableTrainingDays   Int[]
   preferredLongRunDay     Int?
   constraints             String?

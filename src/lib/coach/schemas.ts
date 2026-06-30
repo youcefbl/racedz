@@ -20,6 +20,10 @@ export const createCoachGoalSchema = z
     raceEventId: z.string().min(1).max(64).nullable().optional(),
     goalType: z.enum(["GENERAL_FITNESS", "FIVE_K", "TEN_K", "HALF_MARATHON", "MARATHON", "TRAIL", "OTHER"]),
     customGoal: z.string().trim().min(3).max(300).nullable().optional(),
+    // Sex and birth date are core profile fields used to personalise the plan; collected here only
+    // when missing from the runner's account profile, then saved back to the User record.
+    sex: z.enum(["MALE", "FEMALE"]).nullable().optional(),
+    dateOfBirth: z.coerce.date().nullable().optional(),
     targetDate: z.coerce.date(),
     targetDistanceKm: z.coerce.number().positive().max(500).nullable().optional(),
     targetTimeSeconds: z.coerce.number().int().positive().max(172800).nullable().optional(),
@@ -31,6 +35,7 @@ export const createCoachGoalSchema = z
     recentRaceResult: z.string().trim().max(300).nullable().optional(),
     restingHeartRate: z.coerce.number().int().min(30).max(120).nullable().optional(),
     weightKg: z.coerce.number().min(20).max(300).nullable().optional(),
+    heightCm: z.coerce.number().int().min(100).max(250).nullable().optional(),
     availableTrainingDays: z
       .array(z.coerce.number().int().min(0).max(6))
       .min(2)

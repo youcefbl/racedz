@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 
-// Registers the combined service worker (offline caching + Firebase messaging) on app load,
-// so offline support is active for every visitor — not only those who enable push.
-// When the public Firebase config is present, the same config-bearing URL the push flow uses
-// is registered, so the two registrations are identical (idempotent) and never conflict.
+// Registers the Firebase-messaging service worker (push notifications). The worker no
+// longer caches pages/assets — see public/firebase-messaging-sw.js for why — so this is
+// mostly about push, plus making sure a new worker version takes over promptly and the
+// page reloads once when it does (so a deploy reaches already-open browsers).
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,14 +25,33 @@ export function ServiceWorkerRegister() {
       url = `/firebase-messaging-sw.js?${params.toString()}`;
     }
 
-    const register = () => navigator.serviceWorker.register(url).catch(() => undefined);
+    // Reload once when a NEW worker takes control (an update) — never on the first
+    // registration, and guarded so it can't loop.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let refreshing = false;
+    const onControllerChange = () => {
+      if (!hadController || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
+    const register = () =>
+      navigator.serviceWorker
+        .register(url)
+        .then((registration) => {
+          // Proactively check for a newer worker on each load so deploys propagate.
+          registration.update().catch(() => undefined);
+        })
+        .catch(() => undefined);
 
     if (document.readyState === "complete") {
       register();
     } else {
       window.addEventListener("load", register, { once: true });
-      return () => window.removeEventListener("load", register);
     }
+
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
   }, []);
 
   return null;

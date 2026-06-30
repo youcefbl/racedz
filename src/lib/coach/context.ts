@@ -16,6 +16,8 @@ type ContextGoal = {
   longestRecentRunKm: number | null;
   recentRaceResult: string | null;
   restingHeartRate: number | null;
+  weightKg: number | null;
+  heightCm: number | null;
   availableTrainingDays: number[];
   preferredLongRunDay: number | null;
   constraints: string | null;
@@ -42,12 +44,17 @@ export function buildRunnerCoachContext(input: {
   skeleton: CoachWorkout[];
   safety: CoachSafetyDecision;
   interaction: CoachInteractionInput;
+  profile?: { sex: string | null; age: number | null };
 }) {
   return {
     request: {
       type: input.interaction.type,
       runnerQuestion: input.interaction.message ?? null,
       responseLocale: input.goal.preferredLocale
+    },
+    runner: {
+      sex: input.profile?.sex ?? null,
+      age: input.profile?.age ?? null
     },
     goal: {
       type: input.goal.goalType,
@@ -62,6 +69,9 @@ export function buildRunnerCoachContext(input: {
       longestRecentRunKm: input.goal.longestRecentRunKm,
       recentRaceResult: input.goal.recentRaceResult,
       restingHeartRate: input.goal.restingHeartRate,
+      weightKg: input.goal.weightKg,
+      heightCm: input.goal.heightCm,
+      bmi: computeBmi(input.goal.weightKg, input.goal.heightCm),
       availableTrainingDays: input.goal.availableTrainingDays,
       preferredLongRunDay: input.goal.preferredLongRunDay,
       constraints: input.goal.constraints,
@@ -87,5 +97,13 @@ export function buildRunnerCoachContext(input: {
     fixedSafetyDecision: input.safety,
     fixedWeeklyPlanSkeleton: input.skeleton
   };
+}
+
+// Body Mass Index (kg/m²), rounded to one decimal. Null when weight or height is unknown,
+// giving the coach a quick read on the runner's build alongside raw weight and height.
+function computeBmi(weightKg: number | null, heightCm: number | null) {
+  if (!weightKg || !heightCm) return null;
+  const heightM = heightCm / 100;
+  return Math.round((weightKg / (heightM * heightM)) * 10) / 10;
 }
 
