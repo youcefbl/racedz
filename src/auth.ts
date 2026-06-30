@@ -34,6 +34,14 @@ const googleProviderEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  // Surface the real cause of auth failures in the server logs. Without this, a
+  // thrown callback/OAuth error only shows users the generic
+  // /api/auth/error?error=Configuration page with no detail. Grep logs for "[auth]".
+  logger: {
+    error(error: Error) {
+      console.error("[auth][error]", error);
+    }
+  },
   session: {
     strategy: "jwt"
   },
@@ -135,24 +143,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !getGoogleEmailVerified(profile)) {
           return false;
         }
-        // Blocked accounts cannot sign in via Google either.
-        const existing = await getPrisma().user.findUnique({ where: { email }, select: { blockedAt: true } });
-        return !existing?.blockedAt;
+        try {
+          // Blocked accounts cannot sign in via Google either.
+          const existing = await getPrisma().user.findUnique({ where: { email }, select: { blockedAt: true } });
+          return !existing?.blockedAt;
+        } catch (error) {
+          console.error("[auth][google] signIn callback DB lookup failed:", error);
+          throw error;
+        }
       }
 
       return true;
     },
     async jwt({ token, user, account, profile }) {
       if (account?.provider === "google") {
-        const authUser = await getOrCreateGoogleUser({ profile, name: user?.name });
+        try {
+          const authUser = await getOrCreateGoogleUser({ profile, name: user?.name });
 
-        token.sub = authUser.id;
-        token.email = authUser.email;
-        token.name = authUser.name;
-        token.role = authUser.role;
-        token.organizationIds = authUser.organizationIds;
+          token.sub = authUser.id;
+          token.email = authUser.email;
+          token.name = authUser.name;
+          token.role = authUser.role;
+          token.organizationIds = authUser.organizationIds;
 
-        return token;
+          return token;
+        } catch (error) {
+          console.error("[auth][google] jwt callback failed to resolve user:", error);
+          throw error;
+        }
       }
 
       if (user) {
