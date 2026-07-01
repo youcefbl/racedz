@@ -83,7 +83,14 @@
       "Bash(npm run dev:lan)",
       "Bash(keytool *)",
       "Bash(cp *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+
+      "Bash(npm run build)",
+      "Bash(dig *)",
+      "Bash(npx prisma generate)",
+      "Bash(npx prisma migrate dev *)",
+      "Bash(npx prisma migrate deploy)",
+      "Bash(npx prisma migrate status)"
     ]
   }
 }
