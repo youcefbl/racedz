@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, BrainCircuit, CheckCircle2, Loader2, MessageSquareText, Mic, Send, ShieldAlert, Sparkles, Square } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatEnum } from "@/components/coach/format";
@@ -17,6 +17,7 @@ export function CoachConversation({
   copy,
   pendingAction,
   canVoice = false,
+  focusInteractionId = null,
   onAsk
 }: {
   interactions: CoachInteraction[];
@@ -24,6 +25,7 @@ export function CoachConversation({
   copy: CoachCopy;
   pendingAction: string | null;
   canVoice?: boolean;
+  focusInteractionId?: string | null;
   onAsk: (message: string) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
@@ -36,6 +38,13 @@ export function CoachConversation({
   // Failed AI requests are tracked for admins but not surfaced to the runner; the submit flow
   // already shows a transient error, so a failed card would only add noise here.
   const visibleInteractions = interactions.filter((interaction) => interaction.status !== "FAILED");
+
+  // When the user taps "View analysis" on a run, scroll its analysis into view.
+  useEffect(() => {
+    if (!focusInteractionId) return;
+    const el = document.getElementById(`coach-interaction-${focusInteractionId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusInteractionId, interactions]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,7 +125,13 @@ export function CoachConversation({
           ) : (
             <div className="space-y-4">
               {[...visibleInteractions].reverse().map((interaction) => (
-                <InteractionMessage key={interaction.id} interaction={interaction} locale={locale} copy={copy} />
+                <InteractionMessage
+                  key={interaction.id}
+                  interaction={interaction}
+                  locale={locale}
+                  copy={copy}
+                  highlight={interaction.id === focusInteractionId}
+                />
               ))}
             </div>
           )}
@@ -204,12 +219,28 @@ export function CoachConversation({
   );
 }
 
-function InteractionMessage({ interaction, locale, copy }: { interaction: CoachInteraction; locale: CoachLocale; copy: CoachCopy }) {
+function InteractionMessage({
+  interaction,
+  locale,
+  copy,
+  highlight = false
+}: {
+  interaction: CoachInteraction;
+  locale: CoachLocale;
+  copy: CoachCopy;
+  highlight?: boolean;
+}) {
   const response = interaction.response;
   const failed = interaction.status === "FAILED";
 
   return (
-    <article className="max-w-3xl rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <article
+      id={`coach-interaction-${interaction.id}`}
+      className={cn(
+        "max-w-3xl rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition",
+        highlight && "border-brand-teal ring-2 ring-brand-teal/30"
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={interaction.status === "BLOCKED" || failed ? "red" : "teal"}>{formatEnum(interaction.type)}</Badge>
         <span className="text-xs font-semibold text-gray-500">{formatCoachDateTime(interaction.createdAt, locale)}</span>

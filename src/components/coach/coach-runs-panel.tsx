@@ -20,7 +20,9 @@ export function CoachRunsPanel({
   copy,
   pendingAction,
   onSaved,
-  onAnalyze
+  onAnalyze,
+  analyzedRuns,
+  onViewAnalysis
 }: {
   runs: CoachRun[];
   plan: CoachPlan | null;
@@ -29,6 +31,9 @@ export function CoachRunsPanel({
   pendingAction: string | null;
   onSaved: (runId: string, analyze: boolean) => Promise<void>;
   onAnalyze: (runId: string) => Promise<void>;
+  /** runId → id of the existing POST_RUN analysis, when the run has already been analyzed. */
+  analyzedRuns?: Record<string, string>;
+  onViewAnalysis?: (interactionId: string) => void;
 }) {
   const [showForm, setShowForm] = useState(runs.length === 0);
   const [effort, setEffort] = useState(5);
@@ -244,9 +249,15 @@ export function CoachRunsPanel({
                     {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
                     {run.isPublic ? copy.publicLabel : copy.privateLabel}
                   </button>
-                  <Button type="button" variant="outline" size="sm" disabled={pendingAction === "POST_RUN"} onClick={() => void onAnalyze(run.id)}>
-                    <Sparkles className="size-4" aria-hidden="true" /> {copy.analyzeRun}
-                  </Button>
+                  {analyzedRuns?.[run.id] && onViewAnalysis ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => onViewAnalysis(analyzedRuns[run.id])}>
+                      <Sparkles className="size-4" aria-hidden="true" /> {copy.viewAnalysis}
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" disabled={pendingAction === "POST_RUN"} onClick={() => void onAnalyze(run.id)}>
+                      <Sparkles className="size-4" aria-hidden="true" /> {copy.analyzeRun}
+                    </Button>
+                  )}
                 </div>
               </article>
               {isOpen && run.route && run.route.length > 1 ? (

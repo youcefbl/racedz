@@ -30,6 +30,7 @@ export function CoachDashboard({
   const [view, setView] = useState<CoachView>("overview");
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [focusInteractionId, setFocusInteractionId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const copy = getCoachCopy(locale);
 
@@ -81,6 +82,24 @@ export function CoachDashboard({
     () => dashboard.plans.find((plan) => plan.status === "ACTIVE") ?? dashboard.plans.find((plan) => plan.status === "DRAFT") ?? null,
     [dashboard.plans]
   );
+
+  // Map each already-analyzed run to its POST_RUN interaction so the Runs list can jump
+  // to the existing analysis instead of generating a duplicate one. Interactions arrive
+  // newest-first, so the first match per run is the most recent analysis.
+  const analyzedRuns = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const interaction of dashboard.interactions) {
+      if (interaction.type === "POST_RUN" && interaction.runId && interaction.status !== "FAILED" && !map[interaction.runId]) {
+        map[interaction.runId] = interaction.id;
+      }
+    }
+    return map;
+  }, [dashboard.interactions]);
+
+  const viewAnalysis = useCallback((interactionId: string) => {
+    setFocusInteractionId(interactionId);
+    setView("coach");
+  }, []);
 
   const activeGoal = dashboard.goal;
   const setCoachLanguage = useCallback(
@@ -235,6 +254,8 @@ export function CoachDashboard({
               if (analyze) await runInteraction("POST_RUN", { runId });
             }}
             onAnalyze={(runId) => runInteraction("POST_RUN", { runId })}
+            analyzedRuns={analyzedRuns}
+            onViewAnalysis={viewAnalysis}
           />
         ) : null}
         {view === "coach" ? (
@@ -244,6 +265,7 @@ export function CoachDashboard({
             copy={copy}
             pendingAction={pendingAction}
             canVoice={dashboard.entitlement?.tier === "SUBSCRIBED"}
+            focusInteractionId={focusInteractionId}
             onAsk={(message) => runInteraction("CHAT", { message })}
           />
         ) : null}

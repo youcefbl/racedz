@@ -84,6 +84,7 @@ type RunRow = {
 type InteractionRow = {
   id: string;
   type: CoachInteractionInput["type"];
+  runId: string | null;
   status: "PENDING" | "COMPLETED" | "BLOCKED" | "FAILED";
   userMessage: string | null;
   response: CoachResponse | null;
@@ -355,7 +356,7 @@ export async function getCoachDashboard(userId: string) {
       LIMIT 2
     `,
     prisma.$queryRaw<InteractionRow[]>`
-      SELECT "id", "type", "status", "userMessage", "response", "safety", "model", "errorCode", "createdAt", "completedAt"
+      SELECT "id", "type", "runId", "status", "userMessage", "response", "safety", "model", "errorCode", "createdAt", "completedAt"
       FROM "CoachInteraction"
       WHERE "userId" = ${userId}
       ORDER BY "createdAt" DESC

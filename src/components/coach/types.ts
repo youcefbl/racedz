@@ -105,6 +105,7 @@ export type CoachResponse = {
 export type CoachInteraction = {
   id: string;
   type: "INITIAL_PLAN" | "POST_RUN" | "WEEKLY_REVIEW" | "CHAT";
+  runId: string | null;
   status: "PENDING" | "COMPLETED" | "BLOCKED" | "FAILED";
   userMessage: string | null;
   response: CoachResponse | null;
