@@ -4,6 +4,8 @@
 // control and by lightweight in-context prompts (e.g. the coach dashboard) so the permission
 // request, token registration, and foreground handler live in exactly one place.
 
+import { Capacitor } from "@capacitor/core";
+
 declare global {
   interface Window {
     firebase?: {
@@ -55,6 +57,11 @@ export function isPushConfigured() {
 }
 
 export function isPushBrowserReady() {
+  // The Android WebView reports Notification/serviceWorker support, but the native app
+  // must NOT use web push — it registers device tokens through native FCM (NativePush).
+  // Running the browser-push flow here registers a service worker that then reloads the
+  // WebView (controllerchange), which crashes/loops the app. Treat native as not ready.
+  if (Capacitor.isNativePlatform()) return false;
   return typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
 }
 

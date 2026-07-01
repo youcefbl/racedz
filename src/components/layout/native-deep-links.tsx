@@ -32,6 +32,10 @@ export function NativeDeepLinks() {
   return null;
 }
 
+// The handoff page can dispatch the zidrun://auth link more than once (meta refresh +
+// script), so the OS may deliver appUrlOpen twice. Exchange each one-time token only once.
+let lastHandledToken: string | null = null;
+
 async function handleDeepLink(rawUrl: string) {
   let url: URL;
   try {
@@ -43,7 +47,8 @@ async function handleDeepLink(rawUrl: string) {
   // Native Google OAuth callback: zidrun://auth?token=<one-time>&callbackUrl=<path>
   if (url.protocol === "zidrun:" && url.host === "auth") {
     const token = url.searchParams.get("token");
-    if (!token) return;
+    if (!token || token === lastHandledToken) return;
+    lastHandledToken = token;
     const callbackUrl = safeInternalPath(url.searchParams.get("callbackUrl")) ?? "/account";
     // Dismiss the system browser that ran the Google OAuth, if it's still open.
     try {
@@ -52,12 +57,18 @@ async function handleDeepLink(rawUrl: string) {
     } catch {
       /* browser already closed / plugin missing — fine */
     }
+    // Exchange the one-time token for a WebView session. signIn(redirect:false) does NOT
+    // throw when the token is invalid/expired/used — it returns { ok:false } — so check the
+    // result and only land on the destination when a session was actually created. Otherwise
+    // go back to login with a flag (navigating to /account with no session silently bounces).
+    let ok = false;
     try {
-      await signIn("native-bridge", { token, redirect: false });
+      const result = await signIn("native-bridge", { token, redirect: false });
+      ok = Boolean(result && !result.error);
     } catch {
-      /* fall through to navigation; the session check on the page will gate access */
+      ok = false;
     }
-    window.location.assign(callbackUrl);
+    window.location.assign(ok ? callbackUrl : "/login?native=1&authError=1");
     return;
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import { useEffect } from "react";
 
 // Registers the Firebase-messaging service worker (push notifications). The worker no
@@ -18,6 +19,18 @@ const firebaseConfig = {
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // The native app loads the remote site and uses native FCM push — a service worker
+    // here only causes trouble (controllerchange -> window.location.reload(), which can
+    // reload the WebView at bad moments and crash/loop it). Never register one in native,
+    // and tear down any a previous build may have left controlling the WebView.
+    if (Capacitor.isNativePlatform()) {
+      navigator.serviceWorker
+        .getRegistrations?.()
+        .then((registrations) => registrations.forEach((registration) => void registration.unregister()))
+        .catch(() => undefined);
+      return;
+    }
 
     let url = "/firebase-messaging-sw.js";
     if (Object.values(firebaseConfig).every(Boolean)) {
