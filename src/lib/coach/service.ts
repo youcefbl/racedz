@@ -288,12 +288,12 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   const rows = await prisma.$queryRaw<RunRow[]>`
     INSERT INTO "RunnerRun" (
       "id", "userId", "goalId", "workoutId", "startedAt", "distanceKm", "durationSeconds",
-      "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate",
+      "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "isPublic", "perceivedEffort",
       "fatigueLevel", "painLevel", "symptoms", "notes", "source", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${input.workoutId ?? null}, ${input.startedAt}, ${input.distanceKm},
-      ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${input.elevationGainM ?? null}, ${input.averageHeartRate ?? null},
+      ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${input.elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.symptoms ?? null},
       ${input.notes ?? null}, ${input.source}::"RunnerRunSource", NOW()

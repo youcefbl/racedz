@@ -11,6 +11,7 @@ import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
 import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
+import { startStepCounter, stopStepCounter } from "@/lib/native/step-counter";
 import { clearActiveRun, loadActiveRun, saveActiveRun, type ActiveRunSnapshot } from "@/lib/native/run-store";
 import type { CoachLocale, CoachRun, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export function RunRecorder({
   const [movingSec, setMovingSec] = useState(0);
   const [elevationM, setElevationM] = useState(0);
   const [currentPace, setCurrentPace] = useState<number | null>(null);
+  const [avgCadence, setAvgCadence] = useState<number | null>(null);
   const [pointCount, setPointCount] = useState(0);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [effort, setEffort] = useState(5);
@@ -73,6 +75,7 @@ export function RunRecorder({
   const pausedAccum = useRef(0);
   const pauseStart = useRef(0);
   const statusRef = useRef<RecorderStatus>("idle");
+  const cadenceTracking = useRef(false); // step sensor active for this run
   const lastSnapshotTs = useRef(0);
   const effortRef = useRef(5);
   const shareRef = useRef(false);
@@ -287,10 +290,13 @@ export function RunRecorder({
     setMovingSec(0);
     setElevationM(0);
     setCurrentPace(null);
+    setAvgCadence(null);
     setPointCount(0);
     setGpsAccuracy(null);
     try {
       await beginWatch();
+      // Best-effort: start counting steps for cadence. Never blocks the run.
+      cadenceTracking.current = await startStepCounter();
       setStatusBoth("tracking");
       tapHaptic("medium");
     } catch {
@@ -318,6 +324,15 @@ export function RunRecorder({
     }
     setElapsedSec(Math.floor((Date.now() - startTs.current - pausedAccum.current) / 1000));
     await cleanup();
+    // Average cadence = total steps / moving minutes (spm). Best-effort; null if the
+    // step sensor wasn't available or captured nothing.
+    if (cadenceTracking.current) {
+      const steps = await stopStepCounter();
+      cadenceTracking.current = false;
+      const movingMin = movingRef.current / 60;
+      const cadence = steps > 0 && movingMin > 0.5 ? Math.round(steps / movingMin) : null;
+      setAvgCadence(cadence && cadence > 0 && cadence <= 300 ? cadence : null);
+    }
     setStatusBoth("finished");
     persistSnapshot("paused"); // keep recoverable if the app dies on the summary screen
     tapHaptic("medium");
@@ -325,7 +340,12 @@ export function RunRecorder({
 
   function discard() {
     void cleanup();
+    if (cadenceTracking.current) {
+      void stopStepCounter();
+      cadenceTracking.current = false;
+    }
     void clearActiveRun();
+    setAvgCadence(null);
     statusRef.current = "idle";
     setStatus("idle");
     setError(null);
@@ -398,6 +418,7 @@ export function RunRecorder({
       durationSeconds,
       movingTimeSeconds: Math.round(movingRef.current),
       elevationGainM: Math.round(elevationRef.current),
+      avgCadence: avgCadence ?? undefined,
       perceivedEffort: effort,
       source: "GPS" as const,
       isPublic: share,
@@ -567,6 +588,7 @@ export function RunRecorder({
               movingSeconds={movingSec}
               avgPaceSecondsPerKm={distanceKm > 0 ? Math.round(elapsedSec / distanceKm) : null}
               elevationGainM={Math.round(elevationM)}
+              avgCadence={avgCadence}
               copy={copy}
             />
             <label className="grid gap-2 text-sm font-bold text-gray-800">

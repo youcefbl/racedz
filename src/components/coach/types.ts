@@ -37,6 +37,7 @@ export type CoachRun = {
   movingTimeSeconds: number | null;
   elevationGainM: number | null;
   averageHeartRate: number | null;
+  avgCadence: number | null;
   calories: number | null;
   route: RunRoutePoint[] | null;
   isPublic: boolean;

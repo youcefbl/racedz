@@ -70,6 +70,10 @@
 
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
+    <!-- Step counter for run cadence (steps/min) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false" />
+
     <!-- Voice input for the AI coach (paid subscribers) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />

@@ -33,6 +33,7 @@ type ContextRun = MetricRun & {
   averagePaceSecondsPerKm: number;
   elevationGainM: number | null;
   averageHeartRate: number | null;
+  avgCadence: number | null;
   symptoms: string | null;
   notes: string | null;
 };
@@ -88,6 +89,7 @@ export function buildRunnerCoachContext(input: {
       averagePaceSecondsPerKm: run.averagePaceSecondsPerKm,
       elevationGainM: run.elevationGainM,
       averageHeartRate: run.averageHeartRate,
+      avgCadence: run.avgCadence,
       perceivedEffort: run.perceivedEffort,
       fatigueLevel: run.fatigueLevel,
       painLevel: run.painLevel,

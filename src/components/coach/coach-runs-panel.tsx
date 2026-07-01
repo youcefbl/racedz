@@ -259,6 +259,7 @@ export function CoachRunsPanel({
                     movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
                     avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
                     elevationGainM={run.elevationGainM}
+                    avgCadence={run.avgCadence}
                     calories={run.calories}
                     copy={copy}
                   />
