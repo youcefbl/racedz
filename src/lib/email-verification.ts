@@ -1,7 +1,49 @@
 import { randomUUID } from "crypto";
 import { getPrisma } from "@/lib/db";
+import type { Locale } from "@/lib/i18n";
 import { sendNotificationEmail } from "@/lib/notifications/email-provider";
 import { renderRaceDzEmailHtml, renderRaceDzEmailText } from "@/lib/notifications/email-template";
+
+type VerificationCopy = {
+  subject: string;
+  preheader: string;
+  title: string;
+  /** Uses {name} for the recipient's first name. */
+  body: string;
+  action: string;
+  validForLabel: string;
+  validForValue: string;
+};
+
+const VERIFICATION_COPY: Record<Locale, VerificationCopy> = {
+  en: {
+    subject: "Activate your ZidRun account",
+    preheader: "Activate your ZidRun account.",
+    title: "Activate your ZidRun account",
+    body: "Hi {name}, confirm your email to activate your ZidRun account and start registering for races.",
+    action: "Activate account",
+    validForLabel: "Valid for",
+    validForValue: "24 hours"
+  },
+  fr: {
+    subject: "Activez votre compte ZidRun",
+    preheader: "Activez votre compte ZidRun.",
+    title: "Activez votre compte ZidRun",
+    body: "Bonjour {name}, confirmez votre e-mail pour activer votre compte ZidRun et vous inscrire aux courses.",
+    action: "Activer le compte",
+    validForLabel: "Valable",
+    validForValue: "24 heures"
+  },
+  ar: {
+    subject: "فعّل حساب ZidRun الخاص بك",
+    preheader: "فعّل حساب ZidRun الخاص بك.",
+    title: "فعّل حساب ZidRun الخاص بك",
+    body: "مرحباً {name}، أكّد بريدك الإلكتروني لتفعيل حساب ZidRun والبدء في التسجيل في السباقات.",
+    action: "تفعيل الحساب",
+    validForLabel: "صالح لمدة",
+    validForValue: "24 ساعة"
+  }
+};
 
 type VerificationRow = {
   id: string;
@@ -35,46 +77,35 @@ export async function createEmailVerificationToken(userId: string) {
 export async function sendAccountVerificationEmail({
   to,
   firstName,
-  token
+  token,
+  locale = "en"
 }: {
   to: string;
   firstName: string;
   token: string;
+  locale?: Locale;
 }) {
   const url = new URL(`/verify-email/${token}`, getAppUrl()).toString();
-  const body = `Hi ${firstName}, confirm your email to activate your ZidRun account and start registering for races.`;
+  const copy = VERIFICATION_COPY[locale] ?? VERIFICATION_COPY.en;
+  const body = copy.body.replace("{name}", firstName);
+  const action = { label: copy.action, href: url };
+  const meta = [{ label: copy.validForLabel, value: copy.validForValue }];
 
   return sendNotificationEmail({
     to,
-    subject: "Activate your ZidRun account",
+    subject: copy.subject,
     html: renderRaceDzEmailHtml({
-      preheader: "Activate your ZidRun account.",
-      title: "Activate your ZidRun account",
+      preheader: copy.preheader,
+      title: copy.title,
       body,
-      action: {
-        label: "Activate account",
-        href: url
-      },
-      meta: [
-        {
-          label: "Valid for",
-          value: "24 hours"
-        }
-      ]
+      action,
+      meta
     }),
     text: renderRaceDzEmailText({
-      title: "Activate your ZidRun account",
+      title: copy.title,
       body,
-      action: {
-        label: "Activate account",
-        href: url
-      },
-      meta: [
-        {
-          label: "Valid for",
-          value: "24 hours"
-        }
-      ]
+      action,
+      meta
     })
   });
 }

@@ -105,6 +105,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               {params.email ? (
                 <ResendVerification
                   email={params.email}
+                  lang={locale}
                   labels={{
                     prompt: t.resendPrompt,
                     resend: t.resend,

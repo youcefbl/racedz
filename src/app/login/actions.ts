@@ -16,7 +16,7 @@ import type { UserRole } from "@/types/race";
  * whether an email exists or is already verified. The UI enforces a 120s cooldown;
  * this server guard is a backstop against abuse.
  */
-export async function resendVerificationAction(email: string): Promise<{ ok: boolean }> {
+export async function resendVerificationAction(email: string, lang?: string | null): Promise<{ ok: boolean }> {
   const normalized = typeof email === "string" ? email.trim().toLowerCase() : "";
   if (!normalized || !normalized.includes("@")) return { ok: false };
 
@@ -32,7 +32,7 @@ export async function resendVerificationAction(email: string): Promise<{ ok: boo
 
   if (user && !user.emailVerifiedAt) {
     const token = await createEmailVerificationToken(user.id);
-    await sendAccountVerificationEmail({ to: user.email, firstName: user.firstName, token });
+    await sendAccountVerificationEmail({ to: user.email, firstName: user.firstName, token, locale: getLocale(lang) });
   }
 
   return { ok: true };

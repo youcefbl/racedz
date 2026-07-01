@@ -82,7 +82,8 @@ export async function registerAction(
   const emailResult = await sendAccountVerificationEmail({
     to: user.email,
     firstName: user.firstName,
-    token
+    token,
+    locale
   });
 
   const emailDeliveryParam = emailResult.ok ? "" : "&emailDelivery=failed";

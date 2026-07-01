@@ -19,7 +19,7 @@ type ResendLabels = {
  * at registration, so we start the countdown immediately and persist the next-allowed
  * time in localStorage so a page reload doesn't reset it.
  */
-export function ResendVerification({ email, labels }: { email: string; labels: ResendLabels }) {
+export function ResendVerification({ email, labels, lang }: { email: string; labels: ResendLabels; lang?: string }) {
   const [secondsLeft, setSecondsLeft] = useState(COOLDOWN_SECONDS);
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const storageKey = `verify-resend:${email.toLowerCase()}`;
@@ -44,7 +44,7 @@ export function ResendVerification({ email, labels }: { email: string; labels: R
   async function resend() {
     if (secondsLeft > 0 || status === "sending") return;
     setStatus("sending");
-    await resendVerificationAction(email);
+    await resendVerificationAction(email, lang);
     window.localStorage.setItem(storageKey, String(Date.now() + COOLDOWN_SECONDS * 1000));
     setSecondsLeft(COOLDOWN_SECONDS);
     setStatus("sent");
