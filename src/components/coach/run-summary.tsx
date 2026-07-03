@@ -84,7 +84,7 @@ function Stat({ label, value, big = false }: { label: string; value: string; big
   );
 }
 
-function SplitsChart({ splits, copy }: { splits: ReturnType<typeof computeSplits>; copy: CoachCopy }) {
+export function SplitsChart({ splits, copy }: { splits: ReturnType<typeof computeSplits>; copy: CoachCopy }) {
   const fastestPace = Math.min(...splits.map((s) => s.paceSecondsPerKm));
   const slowestPace = Math.max(...splits.map((s) => s.paceSecondsPerKm));
   const span = Math.max(1, slowestPace - fastestPace);

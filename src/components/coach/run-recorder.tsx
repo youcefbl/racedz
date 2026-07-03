@@ -6,7 +6,8 @@ import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
 import { RunMap } from "@/components/coach/run-map";
-import { RunSummary } from "@/components/coach/run-summary";
+import { RunSummary, SplitsChart } from "@/components/coach/run-summary";
+import { computeSplits } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
@@ -181,10 +182,16 @@ export function RunRecorder({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const trackPoints = useMemo(() => runEngine.getRoute().slice(), [state.pointCount, state.status]);
 
+  // Live per-km splits, recomputed only when a new GPS point lands (not on every tick).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const liveSplits = useMemo(() => computeSplits(trackPoints), [state.pointCount, state.status]);
+
   // GPS run recording is phone-only.
   if (!native) return null;
 
   const distanceKm = state.distanceM / 1000;
+  // Average pace over the whole run so far — same basis (elapsed/distance) as the summary.
+  const avgPace = distanceKm > 0 ? Math.round(state.elapsedSec / distanceKm) : null;
   const permissionError = state.errorCode === "NOT_AUTHORIZED";
   const shownError = saveError ?? (state.errorCode ? copy.gpsError : null);
   const gpsValue =
@@ -263,11 +270,18 @@ export function RunRecorder({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <LiveStat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
               <LiveStat label={copy.statTime} value={formatDuration(state.elapsedSec)} big />
-              <LiveStat label={copy.statPace} value={formatPace(state.currentPace)} big />
+              <LiveStat label={copy.statCurrentPace} value={formatPace(state.currentPace)} big />
+              <LiveStat label={copy.statAvgPace} value={formatPace(avgPace)} />
               <LiveStat label={copy.statMovingTime} value={formatDuration(state.movingSec)} />
               <LiveStat label={copy.statElevation} value={`${Math.round(state.elevationM)} m`} />
               <LiveStat label={copy.statGps} value={state.pointCount > 0 ? gpsValue : copy.gpsAcquiring} />
             </div>
+            {liveSplits.length > 0 ? (
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">{copy.splitsLabel}</h3>
+                <SplitsChart splits={liveSplits} copy={copy} />
+              </div>
+            ) : null}
             <div className="flex gap-3">
               {status === "tracking" ? (
                 <Button type="button" variant="outline" size="lg" className="flex-1" onClick={pause}>
