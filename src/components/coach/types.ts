@@ -133,6 +133,8 @@ export type CoachDashboardData = {
   interactions: CoachInteraction[];
   snapshot: { metrics: CoachMetrics; generatedAt: string } | null;
   entitlement?: CoachEntitlement | null;
+  // Published tips matched to the runner's profile and localized, ready to display.
+  tips?: string[];
 };
 
 export type CoachApiError = {

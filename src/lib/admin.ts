@@ -742,6 +742,55 @@ export async function getAdminOrganizations(
   };
 }
 
+export type AdminTipRow = Prisma.CoachTipGetPayload<Record<string, never>>;
+
+const TIP_STATUS_VALUES = ["PROPOSED", "PUBLISHED", "REJECTED"] as const;
+const TIP_CATEGORY_VALUES = ["GENERAL", "BEGINNER", "HEAVY_WEIGHT", "EXPERIENCED", "MARATHON"] as const;
+
+export async function getAdminTips(
+  filters: { q?: string; status?: string; category?: string },
+  pagination?: PaginationParams
+): Promise<PaginatedResult<AdminTipRow>> {
+  const prisma = getPrisma();
+  const q = filters.q?.trim();
+  const { page, limit, skip } = pagination ?? parsePagination();
+
+  const where: Prisma.CoachTipWhereInput = {
+    status: (TIP_STATUS_VALUES as readonly string[]).includes(filters.status ?? "")
+      ? (filters.status as (typeof TIP_STATUS_VALUES)[number])
+      : undefined,
+    category: (TIP_CATEGORY_VALUES as readonly string[]).includes(filters.category ?? "")
+      ? (filters.category as (typeof TIP_CATEGORY_VALUES)[number])
+      : undefined,
+    OR: q
+      ? [
+          { textEn: { contains: q, mode: "insensitive" } },
+          { textFr: { contains: q, mode: "insensitive" } },
+          { textAr: { contains: q, mode: "insensitive" } }
+        ]
+      : undefined
+  };
+
+  const [tips, total] = await Promise.all([
+    // Enum order (PROPOSED, PUBLISHED, REJECTED) surfaces the review queue first.
+    prisma.coachTip.findMany({ where, orderBy: [{ status: "asc" }, { createdAt: "desc" }], skip, take: limit }),
+    prisma.coachTip.count({ where })
+  ]);
+
+  return { items: tips, ...buildPaginationMeta(total, page, limit) };
+}
+
+/** Counts of tips per status, for the admin tips header. */
+export async function getAdminTipStatusCounts(): Promise<{ proposed: number; published: number; rejected: number }> {
+  const grouped = await getPrisma().coachTip.groupBy({ by: ["status"], _count: { _all: true } });
+  const byStatus = new Map(grouped.map((row) => [row.status, row._count._all]));
+  return {
+    proposed: byStatus.get("PROPOSED") ?? 0,
+    published: byStatus.get("PUBLISHED") ?? 0,
+    rejected: byStatus.get("REJECTED") ?? 0
+  };
+}
+
 export async function getAdminRaces(
   filters: {
     q?: string;

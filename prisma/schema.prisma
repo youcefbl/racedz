@@ -744,3 +744,40 @@ enum AiRequestStatus {
   SUCCEEDED
   FAILED
 }
+
+// Coaching "tips" shown to runners on the coach dashboard. Stored per-language
+// (textEn/textFr/textAr) following the app's sibling-column localization convention.
+// AI-proposed tips land as PROPOSED for an admin to review, edit, then PUBLISH.
+model CoachTip {
+  id              String        @id @default(cuid())
+  category        CoachTipCategory
+  status          CoachTipStatus @default(PROPOSED)
+  source          CoachTipSource @default(MANUAL)
+  textEn          String
+  textFr          String
+  textAr          String
+  proposedByModel String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, category])
+}
+
+enum CoachTipCategory {
+  GENERAL
+  BEGINNER
+  HEAVY_WEIGHT
+  EXPERIENCED
+  MARATHON
+}
+
+enum CoachTipStatus {
+  PROPOSED
+  PUBLISHED
+  REJECTED
+}
+
+enum CoachTipSource {
+  MANUAL
+  AI
+}

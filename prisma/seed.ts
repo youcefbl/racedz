@@ -333,8 +333,69 @@ async function main() {
 
   await seedBulkUsers(passwordHash);
   await seedBulkRaces(organizations);
+  await seedCoachTips();
 
   console.info(`Seeded ZidRun with admin ${admin.email}`);
+}
+
+// The original hardcoded coach tips, now stored in the DB as published GENERAL tips.
+// Each entry is [en, fr, ar] to match the app's sibling-column localization convention.
+const GENERAL_COACH_TIPS: Array<[string, string, string]> = [
+  [
+    "Warm up with 5 minutes of easy jogging and leg swings before every run to prevent injury.",
+    "Échauffez-vous avec 5 minutes de footing léger et des balancements de jambes avant chaque sortie pour éviter les blessures.",
+    "ابدأ بإحماء 5 دقائق من الجري الخفيف وتمارين تأرجح الساق قبل كل حصة لتفادي الإصابات."
+  ],
+  [
+    "Follow the 10% rule: don't increase your weekly distance by more than 10% to avoid overuse injuries.",
+    "Suivez la règle des 10 % : n'augmentez pas votre distance hebdomadaire de plus de 10 % pour éviter les blessures de surmenage.",
+    "اتبع قاعدة الـ10٪: لا تزد مسافتك الأسبوعية بأكثر من 10٪ لتجنب إصابات الإجهاد."
+  ],
+  [
+    "Cool down and stretch your calves, hamstrings, and quads after each run to aid recovery.",
+    "Récupérez en étirant mollets, ischio-jambiers et quadriceps après chaque sortie.",
+    "قم بالتهدئة وإطالة عضلات الساق والفخذ بعد كل حصة لتسريع الاستشفاء."
+  ],
+  [
+    "Replace running shoes every 600–800 km — worn soles are a common cause of knee and shin pain.",
+    "Changez vos chaussures tous les 600–800 km — des semelles usées causent souvent des douleurs au genou et au tibia.",
+    "غيّر حذاء الجري كل 600–800 كم — النعل المهترئ سبب شائع لآلام الركبة والساق."
+  ],
+  [
+    "Hydrate before, during, and after long runs, and run in breathable, moisture-wicking clothing.",
+    "Hydratez-vous avant, pendant et après les sorties longues, et portez des vêtements respirants.",
+    "اشرب الماء قبل الجري الطويل وأثناءه وبعده، والبس ملابس مريحة تسمح بالتهوية."
+  ],
+  [
+    "Easy runs should feel conversational — if you can't talk in full sentences, slow down.",
+    "Les sorties faciles doivent rester conversationnelles — si vous ne pouvez pas parler, ralentissez.",
+    "يجب أن تكون الحصص السهلة بوتيرة تسمح بالحديث — إن لم تستطع الكلام فأبطئ."
+  ],
+  [
+    "Prioritise sleep: most of your fitness gains happen during recovery, not the run itself.",
+    "Privilégiez le sommeil : la plupart des progrès se font pendant la récupération, pas pendant la course.",
+    "أعطِ النوم أولوية: معظم تحسّن لياقتك يحدث أثناء الاستشفاء وليس أثناء الجري."
+  ]
+];
+
+async function seedCoachTips() {
+  const existing = await prisma.coachTip.count();
+  if (existing > 0) {
+    console.info(`Skipping coach tips: ${existing} already seeded.`);
+    return;
+  }
+
+  await prisma.coachTip.createMany({
+    data: GENERAL_COACH_TIPS.map(([textEn, textFr, textAr]) => ({
+      category: "GENERAL" as const,
+      status: "PUBLISHED" as const,
+      source: "MANUAL" as const,
+      textEn,
+      textFr,
+      textAr
+    }))
+  });
+  console.info(`Seeded ${GENERAL_COACH_TIPS.length} coach tips`);
 }
 
 async function seedBulkUsers(passwordHash: string) {

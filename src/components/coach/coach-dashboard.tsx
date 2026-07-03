@@ -223,7 +223,7 @@ export function CoachDashboard({
 
         {view === "overview" ? (
           <>
-            <CoachMotivation goal={goal} runs={dashboard.runs} metrics={metrics} copy={copy} />
+            <CoachMotivation goal={goal} runs={dashboard.runs} metrics={metrics} tips={dashboard.tips} copy={copy} />
             <CoachOverview data={dashboard} latestPlan={latestPlan} locale={locale} copy={copy} onOpenPlan={() => setView("plan")} />
           </>
         ) : null}

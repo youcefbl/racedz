@@ -20,6 +20,7 @@ import {
 import { buildBlockedCoachResponse, enforceCoachSafety, evaluateCoachSafety } from "@/lib/coach/safety";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
+import { getTipsForProfile } from "@/lib/coach/tips";
 import { buildOffTopicCoachResponse, evaluateTopicality } from "@/lib/coach/topicality";
 
 export { CoachError };
@@ -368,7 +369,13 @@ export async function getCoachDashboard(userId: string) {
     getCoachEntitlementWithUsage(userId)
   ]);
 
-  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement };
+  // Tip categories depend on the resolved goal, so this runs after the parallel reads.
+  // It's a single small indexed query; localized to the runner's preferred language.
+  const preferred = goal?.preferredLocale;
+  const locale = preferred === "fr" || preferred === "ar" ? preferred : "en";
+  const tips = (await getTipsForProfile(goal, locale)).map((tip) => tip.text);
+
+  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips };
 }
 
 export async function createCoachInteraction(userId: string, rawInput: unknown) {

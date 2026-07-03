@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/db";
+import { generateTipProposals } from "@/lib/coach/tip-generator";
 import { notifyOrganizerRaceStatusChanged } from "@/lib/notifications";
 import {
   cancelAdminRaceRegistration,
@@ -419,6 +420,151 @@ export async function deleteUserAction(formData: FormData) {
     summary: `Deleted the account (${target.email}).`
   });
   revalidateAdmin();
+}
+
+// --- Coach tips --------------------------------------------------------------
+
+const TIP_CATEGORY_VALUES = ["GENERAL", "BEGINNER", "HEAVY_WEIGHT", "EXPERIENCED", "MARATHON"] as const;
+type TipCategoryValue = (typeof TIP_CATEGORY_VALUES)[number];
+
+function getTipCategory(formData: FormData): TipCategoryValue {
+  const value = getFormString(formData, "category");
+  if (!(TIP_CATEGORY_VALUES as readonly string[]).includes(value)) {
+    throw new Error("Invalid tip category");
+  }
+  return value as TipCategoryValue;
+}
+
+/** Ask the AI for candidate tips in a category; store them as PROPOSED for review. */
+export async function generateTipProposalsAction(formData: FormData) {
+  const session = await requireAdmin();
+  const category = getTipCategory(formData);
+  const countRaw = Number(getOptionalFormString(formData, "count") ?? "5");
+  const count = Number.isFinite(countRaw) ? Math.min(10, Math.max(1, Math.round(countRaw))) : 5;
+
+  const proposals = await generateTipProposals(category, count);
+  const model = process.env.OPENAI_COACH_MODEL?.trim() || "gpt-5.4-mini";
+
+  await getPrisma().coachTip.createMany({
+    data: proposals.map((tip) => ({
+      category,
+      status: "PROPOSED" as const,
+      source: "AI" as const,
+      textEn: tip.textEn,
+      textFr: tip.textFr,
+      textAr: tip.textAr,
+      proposedByModel: model
+    }))
+  });
+
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "coach_tip.proposed",
+    targetType: "CoachTip",
+    targetId: category,
+    summary: `Generated ${proposals.length} ${category} tip proposals`
+  });
+
+  revalidatePath("/admin/tips");
+}
+
+/** Publish a tip (make it visible to matching runners). */
+export async function approveTipAction(formData: FormData) {
+  const session = await requireAdmin();
+  const tipId = getFormId(formData);
+
+  await getPrisma().coachTip.update({ where: { id: tipId }, data: { status: "PUBLISHED" } });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "coach_tip.published",
+    targetType: "CoachTip",
+    targetId: tipId,
+    summary: "Published coach tip"
+  });
+  revalidatePath("/admin/tips");
+}
+
+/** Reject a tip (kept for the record but never shown). */
+export async function rejectTipAction(formData: FormData) {
+  const session = await requireAdmin();
+  const tipId = getFormId(formData);
+
+  await getPrisma().coachTip.update({ where: { id: tipId }, data: { status: "REJECTED" } });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "coach_tip.rejected",
+    targetType: "CoachTip",
+    targetId: tipId,
+    summary: "Rejected coach tip"
+  });
+  revalidatePath("/admin/tips");
+}
+
+/** Edit a tip's category and text in all three languages (admin improving a proposal). */
+export async function updateTipAction(formData: FormData) {
+  const session = await requireAdmin();
+  const tipId = getFormId(formData);
+  const category = getTipCategory(formData);
+
+  await getPrisma().coachTip.update({
+    where: { id: tipId },
+    data: {
+      category,
+      textEn: getFormString(formData, "textEn").trim(),
+      textFr: getFormString(formData, "textFr").trim(),
+      textAr: getFormString(formData, "textAr").trim()
+    }
+  });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "coach_tip.updated",
+    targetType: "CoachTip",
+    targetId: tipId,
+    summary: "Edited coach tip"
+  });
+  revalidatePath("/admin/tips");
+}
+
+/** Manually create a published tip. */
+export async function createTipAction(formData: FormData) {
+  const session = await requireAdmin();
+  const category = getTipCategory(formData);
+
+  const tip = await getPrisma().coachTip.create({
+    data: {
+      category,
+      status: "PUBLISHED",
+      source: "MANUAL",
+      textEn: getFormString(formData, "textEn").trim(),
+      textFr: getFormString(formData, "textFr").trim(),
+      textAr: getFormString(formData, "textAr").trim()
+    },
+    select: { id: true }
+  });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "coach_tip.created",
+    targetType: "CoachTip",
+    targetId: tip.id,
+    summary: `Created ${category} coach tip`
+  });
+  revalidatePath("/admin/tips");
+}
+
+/** Permanently delete a tip. */
+export async function deleteTipAction(formData: FormData) {
+  const session = await requireAdmin();
+  const tipId = getFormId(formData);
+
+  await getPrisma().coachTip.delete({ where: { id: tipId } });
+  await recordAdminAuditLog({
+    actorId: session.user.id,
+    action: "coach_tip.deleted",
+    targetType: "CoachTip",
+    targetId: tipId,
+    summary: "Deleted coach tip"
+  });
+  revalidatePath("/admin/tips");
 }
 
 function getFormId(formData: FormData) {

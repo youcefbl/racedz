@@ -12,11 +12,13 @@ export function CoachMotivation({
   goal,
   runs,
   metrics,
+  tips,
   copy
 }: {
   goal: CoachGoal;
   runs: CoachRun[];
   metrics: CoachMetrics;
+  tips?: string[];
   copy: CoachCopy;
 }) {
   const runTarget = Math.max(2, goal.availableTrainingDays.length);
@@ -57,7 +59,7 @@ export function CoachMotivation({
         <p className="mt-4 text-xs font-semibold text-gray-500">{streak > 0 ? copy.streakActive : copy.streakNone}</p>
       </section>
 
-      <CoachTip copy={copy} />
+      <CoachTip tips={tips} copy={copy} />
     </div>
   );
 }
@@ -85,10 +87,13 @@ function ChallengeBar({ label, value, target, display }: { label: string; value:
   );
 }
 
-function CoachTip({ copy }: { copy: CoachCopy }) {
+function CoachTip({ tips, copy }: { tips?: string[]; copy: CoachCopy }) {
+  // Prefer DB-backed tips (matched to the runner's profile); fall back to the built-in
+  // copy tips when none are published yet so the card is never empty.
+  const list = tips && tips.length > 0 ? tips : copy.tips;
   // Start on a random tip, then let the runner cycle through the rest.
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * copy.tips.length));
-  const tip = copy.tips[index % copy.tips.length];
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * list.length));
+  const tip = list[index % list.length];
 
   return (
     <section className="flex flex-col rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -99,7 +104,7 @@ function CoachTip({ copy }: { copy: CoachCopy }) {
       <p className="mt-3 flex-1 text-sm leading-6 text-gray-700">{tip}</p>
       <button
         type="button"
-        onClick={() => setIndex((current) => (current + 1) % copy.tips.length)}
+        onClick={() => setIndex((current) => (current + 1) % list.length)}
         className="mt-4 inline-flex items-center gap-1.5 self-start rounded-md border border-gray-300 px-3 py-1.5 text-xs font-black text-gray-700 transition hover:border-brand-teal hover:text-brand-teal"
       >
         <RefreshCw className="size-3.5" aria-hidden="true" />

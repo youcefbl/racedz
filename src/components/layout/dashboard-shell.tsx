@@ -9,6 +9,7 @@ import {
   ClipboardList,
   History,
   LayoutDashboard,
+  Lightbulb,
   ShieldCheck,
   Trophy,
   UsersRound
@@ -34,6 +35,7 @@ const adminNavItems: DashboardNavItem[] = [
   { href: "/admin/races", label: "Races", description: "Review and publish", icon: Trophy },
   { href: "/admin/registrations", label: "Registrations", description: "Runner entries", icon: ClipboardList },
   { href: "/admin/coach", label: "AI Coach", description: "Usage and subscriptions", icon: Bot },
+  { href: "/admin/tips", label: "Coach tips", description: "Review and publish tips", icon: Lightbulb },
   { href: "/admin/audit", label: "Audit", description: "Admin action log", icon: History }
 ];
 
