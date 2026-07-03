@@ -67,7 +67,7 @@ export default async function RegisterAccountPage({ searchParams }: RegisterAcco
         <section className="order-1 lg:order-2">
           {googleEnabled ? (
             <div className="mb-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-              <GoogleSignInButton callbackUrl={params?.callbackUrl} label={t.signUpWithGoogle} pendingLabel={t.openingGoogle} />
+              <GoogleSignInButton callbackUrl={params?.callbackUrl} webClientId={process.env.AUTH_GOOGLE_ID} label={t.signUpWithGoogle} pendingLabel={t.openingGoogle} errorLabel={t.googleSignInError} />
               <div className="mt-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
                 <span className="text-xs font-bold uppercase tracking-normal text-gray-400">{t.orUseEmail}</span>

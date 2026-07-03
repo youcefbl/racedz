@@ -134,9 +134,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <>
               <GoogleSignInButton
                 callbackUrl={params?.callbackUrl}
-                native={nativeFlow}
+                webClientId={process.env.AUTH_GOOGLE_ID}
                 label={t.continueWithGoogle}
                 pendingLabel={t.openingGoogle}
+                errorLabel={t.googleSignInError}
               />
               <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />

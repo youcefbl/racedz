@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import type { TokenPayload } from "google-auth-library";
 import { getPrisma } from "@/lib/db";
 import type { UserRole } from "@/types/race";
 
@@ -30,6 +31,52 @@ export async function createNativeAuthToken(userId: string): Promise<string> {
   });
 
   return token;
+}
+
+// Find-or-create a user from a verified Google idToken payload (native sign-in), then
+// return the user id so the caller can mint a native-auth token. Mirrors the web Google
+// provisioning in auth.ts (getOrCreateGoogleUser) so both sign-in paths behave identically.
+export async function upsertGoogleUserFromPayload(payload: TokenPayload): Promise<string> {
+  const email = payload.email?.toLowerCase();
+  if (!email) throw new Error("Google token has no email.");
+
+  const prisma = getPrisma();
+  const now = new Date();
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, emailVerifiedAt: true, avatarUrl: true, firstLoginAt: true }
+  });
+
+  if (existing) {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        lastLoginAt: now,
+        firstLoginAt: existing.firstLoginAt ?? now,
+        ...(existing.emailVerifiedAt ? {} : { emailVerifiedAt: now }),
+        ...(!existing.avatarUrl && payload.picture ? { avatarUrl: payload.picture } : {})
+      }
+    });
+    return existing.id;
+  }
+
+  const parts = (payload.name ?? email).trim().split(/\s+/).filter(Boolean);
+  const firstName = payload.given_name?.trim() || parts[0] || "ZidRun";
+  const lastName = payload.family_name?.trim() || parts.slice(1).join(" ") || "Runner";
+  const created = await prisma.user.create({
+    data: {
+      email,
+      firstName,
+      lastName,
+      avatarUrl: payload.picture ?? undefined,
+      emailVerifiedAt: now,
+      firstLoginAt: now,
+      lastLoginAt: now,
+      role: "RUNNER"
+    },
+    select: { id: true }
+  });
+  return created.id;
 }
 
 export async function consumeNativeAuthToken(token: string): Promise<NativeAuthUser | null> {
