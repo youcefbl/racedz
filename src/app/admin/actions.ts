@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/db";
 import { generateTipProposals } from "@/lib/coach/tip-generator";
+import { invalidatePublishedTipsCache } from "@/lib/coach/tips";
 import { notifyOrganizerRaceStatusChanged } from "@/lib/notifications";
 import {
   cancelAdminRaceRegistration,
@@ -476,6 +477,7 @@ export async function generateTipProposalsAction(formData: FormData) {
     summary: `Generated ${proposals.length} ${category} tip proposals`
   });
 
+  invalidatePublishedTipsCache();
   revalidatePath("/admin/tips");
 }
 
@@ -492,6 +494,7 @@ export async function approveTipAction(formData: FormData) {
     targetId: tipId,
     summary: "Published coach tip"
   });
+  invalidatePublishedTipsCache();
   revalidatePath("/admin/tips");
 }
 
@@ -508,6 +511,7 @@ export async function rejectTipAction(formData: FormData) {
     targetId: tipId,
     summary: "Rejected coach tip"
   });
+  invalidatePublishedTipsCache();
   revalidatePath("/admin/tips");
 }
 
@@ -533,6 +537,7 @@ export async function updateTipAction(formData: FormData) {
     targetId: tipId,
     summary: "Edited coach tip"
   });
+  invalidatePublishedTipsCache();
   revalidatePath("/admin/tips");
 }
 
@@ -559,6 +564,7 @@ export async function createTipAction(formData: FormData) {
     targetId: tip.id,
     summary: `Created ${category} coach tip`
   });
+  invalidatePublishedTipsCache();
   revalidatePath("/admin/tips");
 }
 
@@ -575,6 +581,7 @@ export async function deleteTipAction(formData: FormData) {
     targetId: tipId,
     summary: "Deleted coach tip"
   });
+  invalidatePublishedTipsCache();
   revalidatePath("/admin/tips");
 }
 

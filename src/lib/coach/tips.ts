@@ -101,26 +101,65 @@ function shuffleInPlace<T>(items: T[]): T[] {
 
 type TipRow = { id: string; category: string; textEn: string; textFr: string; textAr: string };
 
+// Published tips are effectively static content (they only change when an admin edits
+// them), yet getTipsForProfile runs on every coach-dashboard load. So instead of hitting
+// the DB per request, we cache the whole published pool in memory and do the per-user
+// filter + shuffle in memory. Result: one query per TTL window per server instance no
+// matter how many users load their dashboard. Admin mutations call invalidate to refresh
+// immediately (single long-lived Node process on the prod host).
+const POOL_TTL_MS = 5 * 60 * 1000;
+let poolCache: { at: number; tips: TipRow[] } | null = null;
+let poolInflight: Promise<TipRow[]> | null = null;
+
+/** Drop the cached tip pool so the next read reflects admin changes right away. */
+export function invalidatePublishedTipsCache(): void {
+  poolCache = null;
+  poolInflight = null;
+}
+
+async function loadPublishedTips(): Promise<TipRow[]> {
+  const now = Date.now();
+  if (poolCache && now - poolCache.at < POOL_TTL_MS) return poolCache.tips;
+  // Dedupe concurrent cold loads so a burst of requests triggers a single query.
+  if (poolInflight) return poolInflight;
+
+  poolInflight = getPrisma()
+    .coachTip.findMany({
+      where: { status: "PUBLISHED" },
+      select: { id: true, category: true, textEn: true, textFr: true, textAr: true }
+    })
+    .then((tips) => {
+      poolCache = { at: Date.now(), tips };
+      poolInflight = null;
+      return tips;
+    })
+    .catch((error) => {
+      poolInflight = null;
+      throw error;
+    });
+
+  return poolInflight;
+}
+
 /**
  * Published tips matching a runner's profile, localized. Each applicable category is
  * shuffled independently, then categories are interleaved round-robin (in random order)
  * so the runner reliably sees a mix from every matched category — the profile-specific
- * ones aren't drowned out by the larger GENERAL pool.
+ * ones aren't drowned out by the larger GENERAL pool. Reads from the in-memory pool
+ * cache, so per-request cost is just filtering + shuffling a small array.
  */
 export async function getTipsForProfile(
   profile: TipMatchProfile | null | undefined,
   locale: CoachLocale,
   limit = 12
 ): Promise<LocalizedTip[]> {
-  const categories = applicableTipCategories(profile);
-  const tips = await getPrisma().coachTip.findMany({
-    where: { status: "PUBLISHED", category: { in: categories } },
-    select: { id: true, category: true, textEn: true, textFr: true, textAr: true }
-  });
+  const categories = new Set(applicableTipCategories(profile));
+  const pool = await loadPublishedTips();
 
-  // Bucket by category and shuffle each bucket.
+  // Bucket the matching tips by category and shuffle each bucket.
   const buckets = new Map<string, TipRow[]>();
-  for (const tip of tips) {
+  for (const tip of pool) {
+    if (!categories.has(tip.category as TipCategory)) continue;
     const bucket = buckets.get(tip.category) ?? [];
     bucket.push(tip);
     buckets.set(tip.category, bucket);
