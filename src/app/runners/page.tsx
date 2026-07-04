@@ -120,26 +120,21 @@ export default async function RunnersPage({ searchParams }: RunnersPageProps) {
               aria-hidden="true"
             />
             <div className="relative w-[244px] rounded-[2.6rem] border-[10px] border-gray-950 bg-gray-950 shadow-soft sm:w-[260px]">
-              <div className="overflow-hidden rounded-[1.9rem] bg-gray-950">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/app/app-home-light.png"
-                  alt={content.appShotAltLight}
-                  width={600}
-                  height={2236}
-                  loading="lazy"
-                  decoding="async"
-                  className="rz-appshot-light block w-full"
+              {/* Fixed aspect crops the screenshot to its hero, keeping the device
+                  proportional to the copy beside it. CSS background images (not image
+                  elements) so the hidden theme's file is never downloaded. */}
+              <div className="relative overflow-hidden rounded-[1.9rem] bg-gray-950" style={{ aspectRatio: "9 / 16" }}>
+                <div
+                  role="img"
+                  aria-label={content.appShotAltLight}
+                  className="rz-appshot-light absolute inset-0 bg-cover bg-top"
+                  style={{ backgroundImage: "url('/app/app-home-light.webp')" }}
                 />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/app/app-home-dark.png"
-                  alt={content.appShotAltDark}
-                  width={600}
-                  height={2236}
-                  loading="lazy"
-                  decoding="async"
-                  className="rz-appshot-dark block w-full"
+                <div
+                  role="img"
+                  aria-label={content.appShotAltDark}
+                  className="rz-appshot-dark absolute inset-0 bg-cover bg-top"
+                  style={{ backgroundImage: "url('/app/app-home-dark.webp')" }}
                 />
               </div>
             </div>

@@ -113,14 +113,14 @@ export default async function CoachLandingPage({ searchParams }: CoachLandingPag
             <h2 className="text-balance text-2xl font-black text-gray-950 sm:text-3xl">{t.personalizeTitle}</h2>
             <p className="mt-3 text-base leading-7 text-gray-600">{t.personalizeText}</p>
           </div>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* One panel of divided "signals" rather than four separate cards — reads as
+              inputs the coach reads about you, and breaks the icon-card grid rhythm. */}
+          <div className="mt-8 grid gap-8 rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:grid-cols-2 sm:p-8 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-gray-200 rtl:lg:divide-x-reverse">
             {factors.map((factor) => (
-              <div key={factor.title} className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-                <div className="flex size-11 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
-                  <factor.icon className="size-6" aria-hidden="true" />
-                </div>
-                <h3 className="mt-4 text-base font-black text-gray-950">{factor.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-gray-600">{factor.text}</p>
+              <div key={factor.title} className="lg:px-6 lg:first:ps-0 lg:last:pe-0">
+                <factor.icon className="size-6 text-brand-teal" aria-hidden="true" />
+                <h3 className="mt-3 text-base font-black text-gray-950">{factor.title}</h3>
+                <p className="mt-1.5 text-sm leading-6 text-gray-600">{factor.text}</p>
               </div>
             ))}
           </div>
@@ -141,29 +141,37 @@ export default async function CoachLandingPage({ searchParams }: CoachLandingPag
             </li>
           ))}
         </ol>
-        <p className="mt-6 flex items-start gap-2.5 rounded-xl bg-orange-50 p-4 text-sm font-bold text-gray-800">
-          <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-orange" aria-hidden="true" />
-          {t.guidanceNote}
-        </p>
       </section>
 
-      {/* Tips + languages — two things that keep runners coming back */}
+      {/* Guidance-to-goal — a bold full-width band that breaks the card rhythm. */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-teal to-[#0a3a36] p-6 text-white shadow-soft sm:p-8">
+          <PanelBrandMark className="-end-8 -top-10 w-44 sm:w-56" />
+          <p className="relative flex items-start gap-3 text-lg font-black leading-8 sm:text-xl sm:leading-9">
+            <Sparkles className="mt-1 size-6 shrink-0 text-brand-orange" aria-hidden="true" />
+            {t.guidanceNote}
+          </p>
+        </div>
+      </section>
+
+      {/* Tips + languages — asymmetric, with inline icons instead of icon squares so
+          it reads differently from the feature list above. */}
       <section className="border-t border-gray-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-12 sm:px-6 md:grid-cols-2 lg:py-16 lg:px-8">
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:p-7">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
-              <Lightbulb className="size-6" aria-hidden="true" />
-            </div>
-            <h3 className="mt-4 text-xl font-black text-gray-950">{t.tipsTitle}</h3>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{t.tipsText}</p>
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr] lg:py-16 lg:px-8">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:p-8">
+            <h3 className="flex items-center gap-2.5 text-xl font-black text-gray-950">
+              <Lightbulb className="size-6 shrink-0 text-brand-orange" aria-hidden="true" />
+              {t.tipsTitle}
+            </h3>
+            <p className="mt-3 text-sm leading-6 text-gray-600 sm:text-base sm:leading-7">{t.tipsText}</p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:p-7">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-teal-50 text-brand-teal">
-              <Languages className="size-6" aria-hidden="true" />
-            </div>
-            <h3 className="mt-4 text-xl font-black text-gray-950">{t.langTitle}</h3>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{t.langText}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
+          <div className="rounded-2xl border border-brand-teal/30 bg-teal-50 p-6 sm:p-8">
+            <h3 className="flex items-center gap-2.5 text-xl font-black text-gray-950">
+              <Languages className="size-6 shrink-0 text-brand-teal" aria-hidden="true" />
+              {t.langTitle}
+            </h3>
+            <p className="mt-3 text-sm leading-6 text-gray-700">{t.langText}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
               {["العربية", "Français", "English"].map((label) => (
                 <span key={label} className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-black text-gray-700">
                   {label}
