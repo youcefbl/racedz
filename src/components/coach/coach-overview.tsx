@@ -44,7 +44,7 @@ export function CoachOverview({
             </div>
             <p className="mt-5 border-t border-gray-200 pt-4 text-sm leading-6 text-gray-600">{nextWorkout.instructions}</p>
             <Button type="button" variant="outline" size="sm" className="mt-4" onClick={onOpenPlan}>
-              {copy.plan} <ArrowRight className="size-4" aria-hidden="true" />
+              {copy.plan} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
             </Button>
           </div>
         ) : (

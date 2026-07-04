@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Bell, Mail, Smartphone } from "lucide-react";
+import { Bell, Check, Mail, Smartphone } from "lucide-react";
 import { auth } from "@/auth";
 import { PushNotificationControl } from "@/components/notifications/push-notification-control";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,12 @@ import { updateNotificationSettingsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function NotificationSettingsPage({ searchParams }: { searchParams?: Promise<{ lang?: string }> }) {
+export default async function NotificationSettingsPage({ searchParams }: { searchParams?: Promise<{ lang?: string; saved?: string }> }) {
   const session = await auth();
-  const locale = getLocale((await searchParams)?.lang);
+  const params = await searchParams;
+  const locale = getLocale(params?.lang);
   const t = getDictionary(locale).notificationSettings;
+  const justSaved = params?.saved === "1";
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account/notification-settings");
@@ -30,9 +32,19 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
           </p>
         </div>
 
+        <div aria-live="polite" className="empty:hidden">
+          {justSaved ? (
+            <p role="status" className="mb-6 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
+              <Check className="size-4 shrink-0" aria-hidden="true" />
+              {t.saved}
+            </p>
+          ) : null}
+        </div>
+
         <PushNotificationControl />
 
         <form action={updateNotificationSettingsAction} className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <input type="hidden" name="lang" value={locale} />
           <div className="grid grid-cols-[1fr_3rem_3rem] gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-black uppercase tracking-normal text-gray-500">
             <span>{t.columnNotification}</span>
             <span className="flex flex-col items-center gap-1 text-center">

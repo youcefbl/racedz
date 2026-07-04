@@ -70,7 +70,7 @@ export default async function RegisterAccountPage({ searchParams }: RegisterAcco
               <GoogleSignInButton callbackUrl={params?.callbackUrl} webClientId={process.env.AUTH_GOOGLE_ID} label={t.signUpWithGoogle} pendingLabel={t.openingGoogle} errorLabel={t.googleSignInError} />
               <div className="mt-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs font-bold uppercase tracking-normal text-gray-400">{t.orUseEmail}</span>
+                <span className="text-xs font-bold uppercase tracking-normal text-gray-500">{t.orUseEmail}</span>
                 <span className="h-px flex-1 bg-gray-200" />
               </div>
             </div>

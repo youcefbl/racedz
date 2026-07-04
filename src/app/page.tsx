@@ -44,7 +44,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 {dictionary.home.subtitle}
               </p>
             </div>
-            <RaceSearchForm lang={locale} labels={dictionary.search} />
+            <RaceSearchForm lang={locale} labels={dictionary.search} hideFilters />
             <div className="flex flex-col gap-3 sm:flex-row">
               <ButtonLink href={withLocale("/races", locale)} variant="primary" size="lg">
                 {dictionary.home.findRace}
@@ -65,7 +65,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 {dictionary.home.upcomingTitle}
               </span>
               <div>
-                <p className="text-2xl font-black leading-tight sm:text-3xl">{dictionary.home.title}</p>
+                <p className="text-2xl font-black leading-tight sm:text-3xl">{dictionary.home.raceTypesTitle}</p>
                 <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold backdrop-blur">
                   <CalendarDays className="size-4 text-brand-orange" aria-hidden="true" />
                   {dictionary.home.heroNote}
@@ -119,7 +119,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <a
                 key={item.label}
                 href={withLocale(`/races?type=${item.type}`, locale)}
-                className="group rounded-xl border border-gray-200 bg-gray-50 p-5 transition hover:-translate-y-0.5 hover:border-brand-teal hover:shadow-soft"
+                className="group rounded-xl border border-gray-200 bg-gray-50 p-5 transition hover:-translate-y-0.5 hover:border-brand-teal hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2"
               >
                 <div className="mb-4 flex size-11 items-center justify-center rounded-lg bg-orange-50 text-brand-orange transition group-hover:bg-brand-teal group-hover:text-white">
                   <item.icon className="size-6" aria-hidden="true" />

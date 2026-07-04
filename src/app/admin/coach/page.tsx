@@ -37,8 +37,28 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
   return (
     <AdminShell
       title="AI coach"
-      description="Track AI coach usage and API consumption per runner, and manage paid subscriptions. Free trial: 30 days from signup (3/day, 30/month). Paid: 20/day. Prices 500 DA/month or 4000 DA/year are activated manually after payment."
+      description="Track coach usage and manage subscriptions."
     >
+      <details className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-black text-gray-800">
+          <BadgeDollarSign className="size-4 text-brand-orange" aria-hidden={true} />
+          Pricing &amp; limits
+        </summary>
+        <div className="border-t border-gray-100 px-5 py-4 text-sm text-gray-600">
+          <ul className="space-y-1.5">
+            <li>
+              <span className="font-bold text-gray-800">Free trial:</span> 30 days from signup — 3 requests/day, 30/month.
+            </li>
+            <li>
+              <span className="font-bold text-gray-800">Paid:</span> 20 requests/day.
+            </li>
+            <li>
+              <span className="font-bold text-gray-800">Pricing:</span> 500 DA/month or 4000 DA/year, activated manually after payment.
+            </li>
+          </ul>
+        </div>
+      </details>
+
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Requests (30 days)" value={formatNumber(summary.requests30d)} icon={Activity} />
         <StatCard label="Requests (all time)" value={formatNumber(summary.totalRequests)} icon={Bot} />

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Megaphone, Route, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { getRaceAnnouncements } from "@/lib/announcements";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaceById, requireApprovedOrganizer } from "@/lib/organizer";
@@ -159,18 +160,30 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
               {t("Organization-created races stay hidden from public pages until an admin publishes them.")}
             </p>
             {race.status === "PUBLISHED" ? (
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="mt-4 grid gap-2">
                 <form action={updateRegistrationStatusAction}>
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="OPEN" />
-                  <Button type="submit" size="sm" className="w-full" disabled={race.registrationStatus === "OPEN" || Boolean(openBlockReason)}>
+                  <Button
+                    type="submit"
+                    variant={race.registrationStatus === "OPEN" ? "outline" : "primary"}
+                    size="sm"
+                    className="w-full"
+                    disabled={race.registrationStatus === "OPEN" || Boolean(openBlockReason)}
+                  >
                     {t("Open registration")}
                   </Button>
                 </form>
                 <form action={updateRegistrationStatusAction}>
                   <input type="hidden" name="raceId" value={race.id} />
                   <input type="hidden" name="registrationStatus" value="CLOSED" />
-                  <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "CLOSED"}>
+                  <Button
+                    type="submit"
+                    variant={race.registrationStatus === "OPEN" ? "primary" : "outline"}
+                    size="sm"
+                    className="w-full"
+                    disabled={race.registrationStatus === "CLOSED"}
+                  >
                     {t("Close registration")}
                   </Button>
                 </form>
@@ -181,18 +194,27 @@ export default async function OrganizerEventPage({ params, searchParams }: Organ
                     {t("Mark full")}
                   </Button>
                 </form>
-                <form action={updateRegistrationStatusAction}>
-                  <input type="hidden" name="raceId" value={race.id} />
-                  <input type="hidden" name="registrationStatus" value="CANCELLED" />
-                  <Button type="submit" variant="outline" size="sm" className="w-full" disabled={race.registrationStatus === "CANCELLED"}>
-                    {t("Cancel registration")}
-                  </Button>
-                </form>
                 {openBlockReason ? (
-                  <p className="rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700 sm:col-span-2 lg:col-span-1">
+                  <p className="rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">
                     {t(openBlockReason)}
                   </p>
                 ) : null}
+                <form action={updateRegistrationStatusAction} className="mt-2 border-t border-gray-100 pt-3">
+                  <input type="hidden" name="raceId" value={race.id} />
+                  <input type="hidden" name="registrationStatus" value="CANCELLED" />
+                  <ConfirmSubmit
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-red-700 hover:bg-red-50"
+                    disabled={race.registrationStatus === "CANCELLED"}
+                    title={t("Cancel registration for this race?")}
+                    description={t("This marks the race as cancelled for runners and stops new sign-ups. You can reopen registration later.")}
+                    confirmLabel={t("Cancel registration")}
+                    cancelLabel={t("Keep it")}
+                  >
+                    {t("Cancel registration")}
+                  </ConfirmSubmit>
+                </form>
               </div>
             ) : (
               <p className="mt-4 rounded-lg bg-orange-50 p-3 text-sm font-semibold text-orange-700">

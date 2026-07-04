@@ -124,8 +124,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           ) : null}
           <div className="mb-5">
-            <p className="text-sm font-bold uppercase tracking-normal text-brand-teal">{t.welcomeBack}</p>
-            <h2 className="mt-2 text-2xl font-black text-gray-950">{t.signIn}</h2>
+            <h2 className="text-2xl font-black text-gray-950">{t.signIn}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-500">
               {t.loginCardSub}
             </p>
@@ -141,7 +140,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               />
               <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs font-bold uppercase tracking-normal text-gray-400">{t.or}</span>
+                <span className="text-xs font-bold uppercase tracking-normal text-gray-500">{t.or}</span>
                 <span className="h-px flex-1 bg-gray-200" />
               </div>
             </>

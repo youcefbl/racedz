@@ -72,12 +72,12 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
           <input type="hidden" name="lang" value={locale} />
           <label className="relative">
             <span className="sr-only">{t("Search registrations")}</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
             <input
               name="q"
               defaultValue={filters?.q ?? ""}
               placeholder={t("Search runner, email, distance")}
-              className="h-10 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+              className="h-10 w-full rounded-lg border border-gray-300 ps-9 pe-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
             />
           </label>
           <div className="flex flex-wrap gap-2">

@@ -323,6 +323,16 @@ textarea {
   color: #18001c !important;
 }
 
+/* Dark theme accents go bright (green/orange), so filled brand buttons need dark ink
+   for AA contrast — mirrors the race-mode rules above. Fixes white-on-bright-accent. */
+[data-theme="dark"] .bg-brand-teal {
+  color: #071006 !important;
+}
+
+[data-theme="dark"] .bg-brand-orange {
+  color: #18001c !important;
+}
+
 [data-theme="race"] article {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border)) !important;
 }

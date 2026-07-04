@@ -1,7 +1,7 @@
 "use client";
 
 import { Flame, Lightbulb, RefreshCw, Trophy } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CoachCopy } from "@/components/coach/copy";
 import type { CoachGoal, CoachMetrics, CoachRun } from "@/components/coach/types";
 import { cn } from "@/lib/utils";
@@ -91,8 +91,12 @@ function CoachTip({ tips, copy }: { tips?: string[]; copy: CoachCopy }) {
   // Prefer DB-backed tips (matched to the runner's profile); fall back to the built-in
   // copy tips when none are published yet so the card is never empty.
   const list = tips && tips.length > 0 ? tips : copy.tips;
-  // Start on a random tip, then let the runner cycle through the rest.
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * list.length));
+  // Start deterministically (0) so SSR and first client render match — no hydration
+  // mismatch — then pick a random starting tip after mount. The runner cycles from there.
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    setIndex(Math.floor(Math.random() * list.length));
+  }, [list.length]);
   const tip = list[index % list.length];
 
   return (
@@ -105,7 +109,7 @@ function CoachTip({ tips, copy }: { tips?: string[]; copy: CoachCopy }) {
       <button
         type="button"
         onClick={() => setIndex((current) => (current + 1) % list.length)}
-        className="mt-4 inline-flex items-center gap-1.5 self-start rounded-md border border-gray-300 px-3 py-1.5 text-xs font-black text-gray-700 transition hover:border-brand-teal hover:text-brand-teal"
+        className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-md border border-gray-300 px-3 py-1.5 text-xs font-black text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
       >
         <RefreshCw className="size-3.5" aria-hidden="true" />
         {copy.newTip}

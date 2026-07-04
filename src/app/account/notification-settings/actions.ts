@@ -24,4 +24,8 @@ export async function updateNotificationSettingsAction(formData: FormData) {
 
   revalidatePath("/account/notification-settings");
   revalidatePath("/");
+
+  const lang = formData.get("lang");
+  const langSuffix = typeof lang === "string" && lang ? `&lang=${encodeURIComponent(lang)}` : "";
+  redirect(`/account/notification-settings?saved=1${langSuffix}`);
 }

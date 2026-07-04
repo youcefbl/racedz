@@ -71,12 +71,16 @@ export default async function CoachLandingPage({ searchParams }: CoachLandingPag
       {/* Features */}
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-black text-gray-950 sm:text-3xl">{t.featuresTitle}</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           {features.map((feature) => (
-            <div key={feature.title} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-              <feature.icon className="size-7 text-brand-orange" aria-hidden={true} />
-              <h3 className="mt-4 text-lg font-black text-gray-950">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-gray-600">{feature.text}</p>
+            <div key={feature.title} className="flex items-start gap-4 p-5 sm:gap-5 sm:p-6">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
+                <feature.icon className="size-6" aria-hidden={true} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-lg font-black text-gray-950">{feature.title}</h3>
+                <p className="mt-1.5 text-sm leading-6 text-gray-600">{feature.text}</p>
+              </div>
             </div>
           ))}
         </div>

@@ -251,7 +251,7 @@ function MobileNavLink({
         <Icon className="size-4" aria-hidden="true" />
         {children}
       </span>
-      <ChevronRight className="size-4 text-[var(--text-muted)]" aria-hidden="true" />
+      <ChevronRight className="size-4 text-[var(--text-muted)] rtl:rotate-180" aria-hidden="true" />
     </Link>
   );
 }
@@ -347,7 +347,7 @@ function NotificationDropdown({
       >
         <Bell className="size-5" aria-hidden="true" />
         {localCount > 0 ? (
-          <span className="absolute -end-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-bold text-white">
+          <span className="absolute -end-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-bold text-[#18001c]">
             {localCount > 9 ? "9+" : localCount}
           </span>
         ) : null}

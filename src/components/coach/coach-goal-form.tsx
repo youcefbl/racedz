@@ -111,14 +111,31 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
 
   function validateStep(current: number): string | null {
     const required = (field: string) => copy.requiredField.replace("{field}", field);
+    const invalid = (field: string) => copy.invalidField.replace("{field}", field);
+    // Optional numeric field: blank is fine, but any value must be a finite number in range.
+    const badOptional = (value: string, min: number, max: number) => {
+      const trimmed = value.trim();
+      if (trimmed === "") return false;
+      const num = Number(trimmed);
+      return !Number.isFinite(num) || num < min || num > max;
+    };
     if (current === 0) {
       if (goalType === "OTHER" && customGoal.trim().length < 3) return required(copy.goalType);
       if (!targetDate) return required(copy.targetDate);
+      if (badOptional(targetDistanceKm, 0.1, 500)) return invalid(copy.targetDistance);
+      if (targetTime.trim() && parseDurationToSeconds(targetTime.trim()) === null) return invalid(copy.targetTime);
     }
     if (current === 1) {
       if (needsSex && !sex) return required(copy.sex);
       if (needsBirthDate && !dateOfBirth) return required(copy.birthDate);
-      if (currentWeeklyDistanceKm.trim() === "" || Number(currentWeeklyDistanceKm) < 0) return required(copy.weeklyDistance);
+      const weekly = Number(currentWeeklyDistanceKm);
+      if (currentWeeklyDistanceKm.trim() === "" || !Number.isFinite(weekly) || weekly < 0 || weekly > 500) return invalid(copy.weeklyDistance);
+      if (badOptional(yearsRunning, 0, 80)) return invalid(copy.yearsRunning);
+      if (badOptional(peakWeeklyDistanceKm, 0, 500)) return invalid(copy.peakWeeklyDistance);
+      if (badOptional(longestRecentRunKm, 0, 500)) return invalid(copy.longestRecentRun);
+      if (badOptional(restingHeartRate, 30, 120)) return invalid(copy.restingHeartRate);
+      if (badOptional(weightKg, 20, 300)) return invalid(copy.weight);
+      if (badOptional(heightCm, 100, 250)) return invalid(copy.height);
     }
     if (current === 2) {
       if (trainingDays.length < 2) return copy.minTrainingDays;
@@ -145,10 +162,15 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
   }
 
   function submit() {
-    const stepError = validateStep(4);
-    if (stepError) {
-      setError(stepError);
-      return;
+    // Re-check every step (not just review): guards against out-of-range or malformed
+    // values ever reaching the API, even if a prior step was somehow bypassed.
+    for (let current = 0; current < TOTAL_STEPS; current += 1) {
+      const stepError = validateStep(current);
+      if (stepError) {
+        setStep(current);
+        setError(stepError);
+        return;
+      }
     }
     setError(null);
     startTransition(async () => {
@@ -273,33 +295,38 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
                   ))}
                 </div>
               </FieldGroup>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label={copy.yearsRunning} hint={copy.optional}>
-                  <input type="number" min="0" max="80" step="1" value={yearsRunning} onChange={(event) => setYearsRunning(event.target.value)} className={inputClass} />
-                </Field>
-                <Field label={copy.weeklyDistance}>
-                  <input type="number" min="0" max="500" step="0.1" value={currentWeeklyDistanceKm} onChange={(event) => setCurrentWeeklyDistanceKm(event.target.value)} className={inputClass} />
-                </Field>
-                <Field label={copy.peakWeeklyDistance} hint={copy.optional}>
-                  <input type="number" min="0" max="500" step="0.1" value={peakWeeklyDistanceKm} onChange={(event) => setPeakWeeklyDistanceKm(event.target.value)} className={inputClass} />
-                </Field>
-                <Field label={copy.longestRecentRun} hint={copy.optional}>
-                  <input type="number" min="0" max="500" step="0.1" value={longestRecentRunKm} onChange={(event) => setLongestRecentRunKm(event.target.value)} className={inputClass} />
-                </Field>
-              </div>
-              <Field label={copy.recentRaceResult} hint={copy.optional}>
-                <input placeholder={copy.recentRaceResultHint} maxLength={300} value={recentRaceResult} onChange={(event) => setRecentRaceResult(event.target.value)} className={inputClass} />
+              <Field label={copy.weeklyDistance}>
+                <input type="number" min="0" max="500" step="0.1" value={currentWeeklyDistanceKm} onChange={(event) => setCurrentWeeklyDistanceKm(event.target.value)} className={inputClass} />
               </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label={copy.restingHeartRate} hint={copy.optional}>
-                  <input type="number" min="30" max="120" step="1" value={restingHeartRate} onChange={(event) => setRestingHeartRate(event.target.value)} className={inputClass} />
+              {/* The one required background fact is above; everything below is optional and
+                  grouped so the step doesn't read as a wall of ~10 equal-weight inputs. */}
+              <div className="space-y-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-gray-500">{copy.optionalDetails}</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={copy.yearsRunning} hint={copy.optional}>
+                    <input type="number" min="0" max="80" step="1" value={yearsRunning} onChange={(event) => setYearsRunning(event.target.value)} className={inputClass} />
+                  </Field>
+                  <Field label={copy.peakWeeklyDistance} hint={copy.optional}>
+                    <input type="number" min="0" max="500" step="0.1" value={peakWeeklyDistanceKm} onChange={(event) => setPeakWeeklyDistanceKm(event.target.value)} className={inputClass} />
+                  </Field>
+                  <Field label={copy.longestRecentRun} hint={copy.optional}>
+                    <input type="number" min="0" max="500" step="0.1" value={longestRecentRunKm} onChange={(event) => setLongestRecentRunKm(event.target.value)} className={inputClass} />
+                  </Field>
+                </div>
+                <Field label={copy.recentRaceResult} hint={copy.optional}>
+                  <input placeholder={copy.recentRaceResultHint} maxLength={300} value={recentRaceResult} onChange={(event) => setRecentRaceResult(event.target.value)} className={inputClass} />
                 </Field>
-                <Field label={copy.weight} hint={copy.weightHint}>
-                  <input type="number" min="20" max="300" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} className={inputClass} />
-                </Field>
-                <Field label={copy.height} hint={copy.heightHint}>
-                  <input type="number" min="100" max="250" step="1" value={heightCm} onChange={(event) => setHeightCm(event.target.value)} className={inputClass} />
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={copy.restingHeartRate} hint={copy.optional}>
+                    <input type="number" min="30" max="120" step="1" value={restingHeartRate} onChange={(event) => setRestingHeartRate(event.target.value)} className={inputClass} />
+                  </Field>
+                  <Field label={copy.weight} hint={copy.weightHint}>
+                    <input type="number" min="20" max="300" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} className={inputClass} />
+                  </Field>
+                  <Field label={copy.height} hint={copy.heightHint}>
+                    <input type="number" min="100" max="250" step="1" value={heightCm} onChange={(event) => setHeightCm(event.target.value)} className={inputClass} />
+                  </Field>
+                </div>
               </div>
             </StepShell>
           ) : null}
@@ -537,9 +564,17 @@ function numberOrNull(value: string) {
   return trimmed ? Number(trimmed) : null;
 }
 
-function parseDurationToSeconds(value: string) {
-  const [hours, minutes, seconds] = value.split(":").map(Number);
-  return hours * 3600 + minutes * 60 + seconds;
+// Accepts HH:MM:SS or MM:SS. Returns total seconds, or null when the string is
+// malformed / out of range (so "abc", "1:2:3:4" or "12:99" never produce NaN).
+function parseDurationToSeconds(value: string): number | null {
+  const parts = value.split(":");
+  if (parts.length < 2 || parts.length > 3) return null;
+  if (!parts.every((part) => /^\d+$/.test(part))) return null;
+  const nums = parts.map(Number);
+  const [hours, minutes, seconds] = parts.length === 3 ? nums : [0, nums[0], nums[1]];
+  if (minutes > 59 || seconds > 59) return null;
+  const total = hours * 3600 + minutes * 60 + seconds;
+  return total > 0 ? total : null;
 }
 
 function tomorrow() {

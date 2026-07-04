@@ -53,7 +53,7 @@ export default async function OrganizersPage({ searchParams }: OrganizersPagePro
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href={withLocale("/organizer/request", locale)} variant="primary" size="lg">
                 {content.primaryCta}
-                <ArrowRight className="size-5" aria-hidden={true} />
+                <ArrowRight className="size-5 rtl:rotate-180" aria-hidden={true} />
               </ButtonLink>
               <ButtonLink href={withLocale("/races", locale)} variant="outline" size="lg" className="border-white/30 bg-white/10 text-white hover:border-white hover:text-white">
                 {content.secondaryCta}

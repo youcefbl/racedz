@@ -52,7 +52,7 @@ export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [
     ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px">
         <tr>
           <td bgcolor="#F47A20" style="border-radius:10px;mso-padding-alt:14px 28px">
-            <a href="${escapeHtml(action.href)}" style="display:inline-block;padding:14px 28px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;line-height:1.2;border-radius:10px">${escapeHtml(action.label)}</a>
+            <a href="${escapeHtml(action.href)}" style="display:inline-block;padding:14px 28px;color:#18001c;text-decoration:none;font-weight:700;font-size:15px;line-height:1.2;border-radius:10px">${escapeHtml(action.label)}</a>
           </td>
         </tr>
       </table>

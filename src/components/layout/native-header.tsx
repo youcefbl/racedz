@@ -37,7 +37,7 @@ export function NativeHeader({ user }: { user?: HeaderUser }) {
               }}
               className="native-header-back"
             >
-              <ChevronLeft className="size-6" aria-hidden="true" />
+              <ChevronLeft className="size-6 rtl:rotate-180" aria-hidden="true" />
             </button>
           ) : null}
           <h1 className="native-header-title">{title}</h1>

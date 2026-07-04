@@ -53,18 +53,18 @@ export function Pagination({ basePath, searchParams = {}, page, totalPages, loca
       </p>
       <div className="flex items-center gap-2">
         <PageButton href={makeHref(1)} disabled={!canGoBack} ariaLabel={t.firstPage}>
-          <ChevronsLeft className="size-4" aria-hidden="true" />
+          <ChevronsLeft className="size-4 rtl:rotate-180" aria-hidden="true" />
         </PageButton>
         <PageButton href={makeHref(page - 1)} disabled={!canGoBack} ariaLabel={t.previousPage}>
-          <ChevronLeft className="size-4" aria-hidden="true" />
+          <ChevronLeft className="size-4 rtl:rotate-180" aria-hidden="true" />
           <span className="hidden sm:inline">{t.previous}</span>
         </PageButton>
         <PageButton href={makeHref(page + 1)} disabled={!canGoForward} ariaLabel={t.nextPage}>
           <span className="hidden sm:inline">{t.next}</span>
-          <ChevronRight className="size-4" aria-hidden="true" />
+          <ChevronRight className="size-4 rtl:rotate-180" aria-hidden="true" />
         </PageButton>
         <PageButton href={makeHref(totalPages)} disabled={!canGoForward} ariaLabel={t.lastPage}>
-          <ChevronsRight className="size-4" aria-hidden="true" />
+          <ChevronsRight className="size-4 rtl:rotate-180" aria-hidden="true" />
         </PageButton>
       </div>
     </nav>

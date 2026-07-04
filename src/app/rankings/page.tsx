@@ -83,7 +83,7 @@ function TabLink({ href, active, children }: { href: string; active: boolean; ch
     <a
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`rounded-md px-3 py-1.5 text-sm font-black transition ${active ? "bg-brand-teal text-white" : "text-gray-600 hover:bg-gray-100"}`}
+      className={`rounded-md px-3 py-1.5 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 ${active ? "bg-brand-teal text-white" : "text-gray-600 hover:bg-gray-100"}`}
     >
       {children}
     </a>

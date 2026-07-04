@@ -17,6 +17,10 @@ type RaceSearchFormProps = {
   registrationStatus?: EventRegistrationStatus;
   lang?: Locale;
   filtersLabel?: string;
+  // When true (e.g. the home hero), render only the keyword + submit and hide
+  // the wilaya/type/distance/status filter controls. Defaults to false so
+  // /races keeps the full filter grid.
+  hideFilters?: boolean;
   labels?: {
     keyword: string;
     keywordLabel: string;
@@ -55,6 +59,7 @@ export function RaceSearchForm({
   distance,
   registrationStatus,
   filtersLabel = "Filters",
+  hideFilters = false,
   labels = defaultLabels
 }: RaceSearchFormProps) {
   const router = useRouter();
@@ -108,20 +113,22 @@ export function RaceSearchForm({
           </button>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => setFiltersOpen((open) => !open)}
-        aria-expanded={filtersOpen}
-        className="mt-3 inline-flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-700 transition hover:border-brand-teal md:hidden"
-      >
-        <span className="inline-flex items-center gap-2">
-          <SlidersHorizontal className="size-4" aria-hidden="true" />
-          {filtersLabel}
-          {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-        </span>
-        <ChevronDown className={cn("size-4 transition-transform", filtersOpen && "rotate-180")} aria-hidden="true" />
-      </button>
-      <div className={cn("mt-3 gap-3 sm:grid-cols-2 lg:grid-cols-4 md:grid", filtersOpen ? "grid" : "hidden")}>
+      {hideFilters ? null : (
+        <>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-between rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-700 transition hover:border-brand-teal md:hidden"
+          >
+            <span className="inline-flex items-center gap-2">
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              {filtersLabel}
+              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </span>
+            <ChevronDown className={cn("size-4 transition-transform", filtersOpen && "rotate-180")} aria-hidden="true" />
+          </button>
+          <div className={cn("mt-3 gap-3 sm:grid-cols-2 lg:grid-cols-4 md:grid", filtersOpen ? "grid" : "hidden")}>
         <Field label={labels.wilayaLabel} htmlFor="race-search-wilaya">
           <LiveSelect id="race-search-wilaya" value={wilaya ?? ""} onChange={(value) => pushParam("wilaya", value)}>
             <option value="">{labels.allWilayas}</option>
@@ -162,7 +169,9 @@ export function RaceSearchForm({
             ))}
           </LiveSelect>
         </Field>
-      </div>
+          </div>
+        </>
+      )}
     </form>
   );
 }

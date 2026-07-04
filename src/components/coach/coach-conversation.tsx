@@ -117,11 +117,21 @@ export function CoachConversation({
         </div>
 
         <div className="max-h-[620px] min-h-72 overflow-y-auto bg-gray-50 px-4 py-5 sm:px-5" role="log" aria-live="polite" aria-atomic="false" aria-busy={thinking}>
-          {visibleInteractions.length === 0 ? (
-            <div className="flex min-h-64 flex-col items-center justify-center text-center">
-              <MessageSquareText className="size-8 text-gray-400" aria-hidden="true" />
-              <p className="mt-3 max-w-sm text-sm leading-6 text-gray-600">{copy.noReview}</p>
+          {/* The log renders newest-first, so the "reviewing…" indicator sits at the top —
+              where the incoming answer will appear — instead of at the far bottom. */}
+          {thinking ? (
+            <div className="mb-4 flex max-w-xl items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 shadow-sm">
+              <Sparkles className="size-4 animate-pulse text-brand-orange" aria-hidden="true" />
+              {copy.thinking}
             </div>
+          ) : null}
+          {visibleInteractions.length === 0 ? (
+            thinking ? null : (
+              <div className="flex min-h-64 flex-col items-center justify-center text-center">
+                <MessageSquareText className="size-8 text-gray-400" aria-hidden="true" />
+                <p className="mt-3 max-w-sm text-sm leading-6 text-gray-600">{copy.noReview}</p>
+              </div>
+            )
           ) : (
             <div className="space-y-4">
               {[...visibleInteractions].reverse().map((interaction) => (
@@ -135,12 +145,6 @@ export function CoachConversation({
               ))}
             </div>
           )}
-          {thinking ? (
-            <div className="mt-4 flex max-w-xl items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 shadow-sm">
-              <Sparkles className="size-4 animate-pulse text-brand-orange" aria-hidden="true" />
-              {copy.thinking}
-            </div>
-          ) : null}
         </div>
 
         <form onSubmit={submit} className="border-t border-gray-200 p-4 sm:p-5">
@@ -153,7 +157,7 @@ export function CoachConversation({
                     key={question}
                     type="button"
                     onClick={() => setMessage(question)}
-                    className="rounded-full border border-gray-300 px-3 py-1.5 text-start text-xs font-semibold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal"
+                    className="inline-flex min-h-11 items-center rounded-full border border-gray-300 px-3 py-1.5 text-start text-xs font-semibold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
                   >
                     {question}
                   </button>

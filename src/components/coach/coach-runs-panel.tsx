@@ -113,7 +113,7 @@ export function CoachRunsPanel({
             aria-label={copy.logRun}
             aria-expanded={showForm}
             onClick={() => setShowForm((value) => !value)}
-            className="flex size-10 items-center justify-center rounded-md border border-gray-200 text-brand-teal transition hover:border-brand-teal hover:bg-teal-50"
+            className="flex size-11 items-center justify-center rounded-md border border-gray-200 text-brand-teal transition hover:border-brand-teal hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
           >
             <Plus className={`size-5 transition ${showForm ? "rotate-45" : ""}`} aria-hidden="true" />
           </button>
@@ -240,7 +240,7 @@ export function CoachRunsPanel({
                     aria-pressed={run.isPublic}
                     title={run.isPublic ? copy.publicLabel : copy.privateLabel}
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-bold transition disabled:opacity-50",
+                      "inline-flex min-h-11 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50",
                       run.isPublic
                         ? "border-brand-teal bg-teal-50 text-brand-teal"
                         : "border-gray-200 text-gray-500 hover:border-brand-teal"

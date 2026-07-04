@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDictionary, type Locale } from "@/lib/i18n";
@@ -14,6 +14,9 @@ export function RegisterForm({ callbackUrl, locale }: { callbackUrl?: string; lo
   const [state, formAction, pending] = useActionState(registerAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
 
   return (
     <form action={formAction} className="grid gap-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
@@ -44,6 +47,8 @@ export function RegisterForm({ callbackUrl, locale }: { callbackUrl?: string; lo
           type={showPassword ? "text" : "password"}
           autoComplete="new-password"
           minLength={8}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
           error={state.fieldErrors?.password}
           hint={t.passwordHint}
           trailingControl={
@@ -60,7 +65,9 @@ export function RegisterForm({ callbackUrl, locale }: { callbackUrl?: string; lo
           type={showConfirmPassword ? "text" : "password"}
           autoComplete="new-password"
           minLength={8}
-          error={state.fieldErrors?.confirmPassword}
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          error={state.fieldErrors?.confirmPassword ?? (passwordMismatch ? t.passwordMismatch : undefined)}
           trailingControl={
             <PasswordToggle
               pressed={showConfirmPassword}
@@ -90,6 +97,8 @@ function Field({
   autoComplete,
   minLength,
   defaultValue,
+  value,
+  onChange,
   error,
   hint,
   trailingControl
@@ -101,6 +110,8 @@ function Field({
   autoComplete?: string;
   minLength?: number;
   defaultValue?: string;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   error?: string;
   hint?: string;
   trailingControl?: ReactNode;
@@ -119,7 +130,7 @@ function Field({
           required={required}
           autoComplete={autoComplete}
           minLength={minLength}
-          defaultValue={defaultValue}
+          {...(value !== undefined ? { value, onChange } : { defaultValue })}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
           className={`h-11 w-full rounded-lg border border-gray-300 bg-white px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100 aria-[invalid=true]:border-red-400 aria-[invalid=true]:bg-red-50 ${trailingControl ? "pe-11" : ""}`}

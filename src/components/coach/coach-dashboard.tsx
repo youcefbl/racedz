@@ -196,7 +196,7 @@ export function CoachDashboard({
               onClick={() => setView(id)}
               aria-current={view === id ? "page" : undefined}
               className={cn(
-                "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-2 text-xs font-black transition sm:flex-row sm:gap-2 sm:text-sm",
+                "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-2 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal sm:flex-row sm:gap-2 sm:text-sm",
                 view === id ? "bg-gray-950 text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-950"
               )}
             >

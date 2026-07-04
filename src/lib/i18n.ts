@@ -383,7 +383,8 @@ export const dictionaries = {
       columnPush: "Push",
       emailFor: "Email for {name}",
       pushFor: "Push for {name}",
-      save: "Save settings"
+      save: "Save settings",
+      saved: "Preferences saved."
     },
     registrations: {
       eyebrow: "Account",
@@ -507,10 +508,11 @@ export const dictionaries = {
       lastName: "Last name",
       loginSecurity: "Login security",
       loginSecuritySub: "You will need to verify your email before logging in.",
-      passwordHint: "Use at least 6 characters.",
+      passwordHint: "Use at least 8 characters.",
       hidePassword: "Hide password",
       showPassword: "Show password",
       confirmPassword: "Confirm password",
+      passwordMismatch: "Passwords do not match.",
       hideConfirmPassword: "Hide confirmation password",
       showConfirmPassword: "Show confirmation password",
       registerFootnote:
@@ -930,7 +932,8 @@ export const dictionaries = {
       columnPush: "Push",
       emailFor: "E-mail pour {name}",
       pushFor: "Push pour {name}",
-      save: "Enregistrer les paramètres"
+      save: "Enregistrer les paramètres",
+      saved: "Préférences enregistrées."
     },
     registrations: {
       eyebrow: "Compte",
@@ -1054,10 +1057,11 @@ export const dictionaries = {
       lastName: "Nom",
       loginSecurity: "Sécurité de connexion",
       loginSecuritySub: "Vous devrez vérifier votre e-mail avant de vous connecter.",
-      passwordHint: "Utilisez au moins 6 caractères.",
+      passwordHint: "Utilisez au moins 8 caractères.",
       hidePassword: "Masquer le mot de passe",
       showPassword: "Afficher le mot de passe",
       confirmPassword: "Confirmer le mot de passe",
+      passwordMismatch: "Les mots de passe ne correspondent pas.",
       hideConfirmPassword: "Masquer la confirmation du mot de passe",
       showConfirmPassword: "Afficher la confirmation du mot de passe",
       registerFootnote:
@@ -1476,7 +1480,8 @@ export const dictionaries = {
       columnPush: "فوري",
       emailFor: "بريد لـ {name}",
       pushFor: "إشعار فوري لـ {name}",
-      save: "حفظ الإعدادات"
+      save: "حفظ الإعدادات",
+      saved: "تم حفظ التفضيلات."
     },
     registrations: {
       eyebrow: "الحساب",
@@ -1600,10 +1605,11 @@ export const dictionaries = {
       lastName: "اللقب",
       loginSecurity: "أمان الدخول",
       loginSecuritySub: "ستحتاج إلى التحقق من بريدك قبل تسجيل الدخول.",
-      passwordHint: "استخدم 6 أحرف على الأقل.",
+      passwordHint: "استخدم 8 أحرف على الأقل.",
       hidePassword: "إخفاء كلمة المرور",
       showPassword: "إظهار كلمة المرور",
       confirmPassword: "تأكيد كلمة المرور",
+      passwordMismatch: "كلمتا المرور غير متطابقتين.",
       hideConfirmPassword: "إخفاء تأكيد كلمة المرور",
       showConfirmPassword: "إظهار تأكيد كلمة المرور",
       registerFootnote:

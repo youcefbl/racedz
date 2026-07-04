@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, MapPin, Route, Trophy } from "lucide-react";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
@@ -39,96 +39,134 @@ export function EventEditForm({ race }: { race: EditableRace }) {
   const [state, formAction, pending] = useActionState(updateOrganizerRaceAction, initialState);
 
   return (
-    <form action={formAction} className="grid gap-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <form action={formAction} className="grid gap-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
       <input type="hidden" name="raceId" value={race.id} />
-      <div>
-        <h2 className="text-xl font-black text-gray-950">{t("Race details")}</h2>
-        <p className="mt-1 text-sm text-gray-500">{t("Changes remain hidden from the public site until admin publication.")}</p>
-      </div>
+      <p className="text-sm text-gray-500">{t("Changes remain hidden from the public site until admin publication.")}</p>
       <div aria-live="polite" className="empty:hidden">
         {state.error ? <FormMessage tone="error" message={state.error} /> : null}
         {state.success ? <FormMessage tone="success" message={state.success} /> : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("Race name")} name="title" defaultValue={race.title} />
-        <label className="grid gap-2 text-sm font-semibold text-gray-800">
-          {t("Race type")}
-          <select
-            name="raceType"
-            defaultValue={race.raceType}
-            className="h-11 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
-          >
-            <option value="ROAD">{t("Road race")}</option>
-            <option value="TRAIL">{t("Trail")}</option>
-            <option value="ULTRA_TRAIL">{t("Ultra trail")}</option>
-            <option value="MARATHON">{t("Marathon")}</option>
-            <option value="HALF_MARATHON">{t("Half marathon")}</option>
-            <option value="TEN_K">10K</option>
-            <option value="FIVE_K">5K</option>
-            <option value="KIDS">{t("Kids race")}</option>
-            <option value="CHARITY">{t("Charity race")}</option>
-            <option value="OTHER">{t("Other")}</option>
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
-          {t("Description")}
-          <textarea
-            name="description"
-            required
-            rows={5}
-            defaultValue={race.description}
-            className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
-          />
-        </label>
-        <Field label={t("Elevation gain")} name="elevationGainText" defaultValue={race.elevationGainText ?? ""} required={false} optionalLabel={t("optional")} />
-        <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
-          {t("Conditions")}
-          <textarea
-            name="conditions"
-            rows={4}
-            defaultValue={race.conditions ?? ""}
-            className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
-          />
-        </label>
-        <Field label={t("Start date and time")} name="startDate" type="datetime-local" defaultValue={toDateTimeLocal(race.startDate)} />
-        <Field
-          label={t("Registration deadline")}
-          name="registrationCloseAt"
-          type="datetime-local"
-          defaultValue={race.registrationCloseAt ? toDateTimeLocal(race.registrationCloseAt) : ""}
-          required={false}
-          optionalLabel={t("optional")}
-        />
-        <label className="grid gap-2 text-sm font-semibold text-gray-800">
-          {t("Wilaya")}
-          <select
-            name="wilaya"
-            defaultValue={race.wilaya}
-            className="h-11 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
-          >
-            {ALGERIA_WILAYAS.map((wilaya) => (
-              <option key={wilaya} value={wilaya}>
-                {wilaya}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Field label={t("City")} name="city" defaultValue={race.city} />
-        <Field label={t("Commune")} name="commune" defaultValue={race.commune ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("Address")} name="address" defaultValue={race.address ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={race.contactEmail ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={race.contactPhone ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("BaridiMob number")} name="baridiMobNumber" defaultValue={race.baridiMobNumber ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("CCP account")} name="ccpAccount" defaultValue={race.ccpAccount ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("CCP key")} name="ccpKey" defaultValue={race.ccpKey ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("Payment note (how runners should pay)")} name="paymentNote" defaultValue={race.paymentNote ?? ""} required={false} optionalLabel={t("optional")} />
-        <Field label={t("Total race capacity")} name="maxParticipants" type="number" defaultValue={race.maxParticipants?.toString() ?? ""} required={false} optionalLabel={t("optional")} />
-        <AutoCancelToggle defaultChecked={race.autoCancelUnpaidAfterHours === 48} t={t} />
-        <div className="sm:col-span-2">
-          <ImageUploadField label={t("Main race image")} name="mainImageUrl" scope="race" defaultValue={race.mainImageUrl} />
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Trophy className="size-5 text-brand-teal" aria-hidden="true" />
+          <h2 className="text-lg font-black text-gray-950">{t("Race details")}</h2>
         </div>
-      </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("Race name")} name="title" defaultValue={race.title} />
+          <label className="grid gap-2 text-sm font-semibold text-gray-800">
+            {t("Race type")}
+            <select
+              name="raceType"
+              defaultValue={race.raceType}
+              className="h-11 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            >
+              <option value="ROAD">{t("Road race")}</option>
+              <option value="TRAIL">{t("Trail")}</option>
+              <option value="ULTRA_TRAIL">{t("Ultra trail")}</option>
+              <option value="MARATHON">{t("Marathon")}</option>
+              <option value="HALF_MARATHON">{t("Half marathon")}</option>
+              <option value="TEN_K">10K</option>
+              <option value="FIVE_K">5K</option>
+              <option value="KIDS">{t("Kids race")}</option>
+              <option value="CHARITY">{t("Charity race")}</option>
+              <option value="OTHER">{t("Other")}</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
+            {t("Description")}
+            <textarea
+              name="description"
+              required
+              rows={5}
+              defaultValue={race.description}
+              className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            />
+          </label>
+          <Field label={t("Elevation gain")} name="elevationGainText" defaultValue={race.elevationGainText ?? ""} required={false} optionalLabel={t("optional")} />
+          <label className="grid gap-2 text-sm font-semibold text-gray-800 sm:col-span-2">
+            {t("Conditions")}
+            <textarea
+              name="conditions"
+              rows={4}
+              defaultValue={race.conditions ?? ""}
+              className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="size-5 text-brand-teal" aria-hidden="true" />
+          <h2 className="text-lg font-black text-gray-950">{t("Schedule")}</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("Start date and time")} name="startDate" type="datetime-local" defaultValue={toDateTimeLocal(race.startDate)} />
+          <Field
+            label={t("Registration deadline")}
+            name="registrationCloseAt"
+            type="datetime-local"
+            defaultValue={race.registrationCloseAt ? toDateTimeLocal(race.registrationCloseAt) : ""}
+            required={false}
+            optionalLabel={t("optional")}
+          />
+          <AutoCancelToggle defaultChecked={race.autoCancelUnpaidAfterHours === 48} t={t} />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <MapPin className="size-5 text-brand-teal" aria-hidden="true" />
+          <h2 className="text-lg font-black text-gray-950">{t("Location")}</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-2 text-sm font-semibold text-gray-800">
+            {t("Wilaya")}
+            <select
+              name="wilaya"
+              defaultValue={race.wilaya}
+              className="h-11 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            >
+              {ALGERIA_WILAYAS.map((wilaya) => (
+                <option key={wilaya} value={wilaya}>
+                  {wilaya}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Field label={t("City")} name="city" defaultValue={race.city} />
+          <Field label={t("Commune")} name="commune" defaultValue={race.commune ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("Address")} name="address" defaultValue={race.address ?? ""} required={false} optionalLabel={t("optional")} />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Route className="size-5 text-brand-teal" aria-hidden="true" />
+          <h2 className="text-lg font-black text-gray-950">{t("Capacity")}</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("Total race capacity")} name="maxParticipants" type="number" defaultValue={race.maxParticipants?.toString() ?? ""} required={false} optionalLabel={t("optional")} />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-black text-gray-950">{t("Contact")}</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("Contact email")} name="contactEmail" type="email" defaultValue={race.contactEmail ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("Contact phone")} name="contactPhone" type="tel" defaultValue={race.contactPhone ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("BaridiMob number")} name="baridiMobNumber" defaultValue={race.baridiMobNumber ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("CCP account")} name="ccpAccount" defaultValue={race.ccpAccount ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("CCP key")} name="ccpKey" defaultValue={race.ccpKey ?? ""} required={false} optionalLabel={t("optional")} />
+          <Field label={t("Payment note (how runners should pay)")} name="paymentNote" defaultValue={race.paymentNote ?? ""} required={false} optionalLabel={t("optional")} />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-black text-gray-950">{t("Race image")}</h2>
+        <ImageUploadField label={t("Main race image")} name="mainImageUrl" scope="race" defaultValue={race.mainImageUrl} />
+      </section>
 
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? t("Saving...") : t("Save race details")}
