@@ -16,7 +16,18 @@ import { AdminShell, EmptyState, FilterBar, SelectFilter, StatCard, StatusBadge,
 
 export const dynamic = "force-dynamic";
 
-const CATEGORY_OPTIONS = ["GENERAL", "BEGINNER", "HEAVY_WEIGHT", "EXPERIENCED", "MARATHON"].map((value) => ({
+const CATEGORY_OPTIONS = [
+  "GENERAL",
+  "BEGINNER",
+  "INTERMEDIATE",
+  "EXPERIENCED",
+  "HEAVY_WEIGHT",
+  "MARATHON",
+  "SPEED",
+  "TRAIL",
+  "FITNESS",
+  "INJURY_PRONE"
+].map((value) => ({
   value,
   label: formatEnumLabel(value)
 }));

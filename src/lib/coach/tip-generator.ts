@@ -36,9 +36,14 @@ export class TipGeneratorError extends Error {
 const CATEGORY_GUIDANCE: Record<TipCategory, string> = {
   GENERAL: "any runner, regardless of level or goal",
   BEGINNER: "brand-new runners building their first habit and base fitness",
-  HEAVY_WEIGHT: "heavier runners who need joint-friendly, low-impact, progressive advice",
+  INTERMEDIATE: "runners with a base who are adding structure: quality sessions, long runs, weekly mileage",
   EXPERIENCED: "advanced runners refining performance, pacing, and periodization",
-  MARATHON: "runners training for a marathon or half-marathon: long runs, fueling, tapering"
+  HEAVY_WEIGHT: "heavier runners who need joint-friendly, low-impact, progressive advice",
+  MARATHON: "runners training for a marathon or half-marathon: long runs, fueling, tapering",
+  SPEED: "runners training for 5K/10K speed: intervals, tempo, threshold, race pace",
+  TRAIL: "trail runners: technical terrain, hills, footing, gear, and safety",
+  FITNESS: "general-fitness runners focused on health, consistency, and weight management",
+  INJURY_PRONE: "injury-conscious runners who need prevention, prehab, and load-management advice (non-medical)"
 };
 
 export async function generateTipProposals(category: TipCategory, count: number): Promise<GeneratedTip[]> {

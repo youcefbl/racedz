@@ -424,7 +424,18 @@ export async function deleteUserAction(formData: FormData) {
 
 // --- Coach tips --------------------------------------------------------------
 
-const TIP_CATEGORY_VALUES = ["GENERAL", "BEGINNER", "HEAVY_WEIGHT", "EXPERIENCED", "MARATHON"] as const;
+const TIP_CATEGORY_VALUES = [
+  "GENERAL",
+  "BEGINNER",
+  "INTERMEDIATE",
+  "EXPERIENCED",
+  "HEAVY_WEIGHT",
+  "MARATHON",
+  "SPEED",
+  "TRAIL",
+  "FITNESS",
+  "INJURY_PRONE"
+] as const;
 type TipCategoryValue = (typeof TIP_CATEGORY_VALUES)[number];
 
 function getTipCategory(formData: FormData): TipCategoryValue {

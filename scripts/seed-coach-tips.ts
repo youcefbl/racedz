@@ -11,7 +11,18 @@ import { PrismaClient } from "@prisma/client";
 // Add --dry to preview without writing:
 //   DATABASE_URL="…" npx tsx scripts/seed-coach-tips.ts --dry
 
-const CATEGORIES = ["GENERAL", "BEGINNER", "HEAVY_WEIGHT", "EXPERIENCED", "MARATHON"] as const;
+const CATEGORIES = [
+  "GENERAL",
+  "BEGINNER",
+  "INTERMEDIATE",
+  "EXPERIENCED",
+  "HEAVY_WEIGHT",
+  "MARATHON",
+  "SPEED",
+  "TRAIL",
+  "FITNESS",
+  "INJURY_PRONE"
+] as const;
 type Category = (typeof CATEGORIES)[number];
 
 type Tip = { en: string; fr: string; ar: string };

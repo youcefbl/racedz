@@ -766,9 +766,14 @@ model CoachTip {
 enum CoachTipCategory {
   GENERAL
   BEGINNER
-  HEAVY_WEIGHT
+  INTERMEDIATE
   EXPERIENCED
+  HEAVY_WEIGHT
   MARATHON
+  SPEED
+  TRAIL
+  FITNESS
+  INJURY_PRONE
 }
 
 enum CoachTipStatus {

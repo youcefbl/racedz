@@ -745,7 +745,18 @@ export async function getAdminOrganizations(
 export type AdminTipRow = Prisma.CoachTipGetPayload<Record<string, never>>;
 
 const TIP_STATUS_VALUES = ["PROPOSED", "PUBLISHED", "REJECTED"] as const;
-const TIP_CATEGORY_VALUES = ["GENERAL", "BEGINNER", "HEAVY_WEIGHT", "EXPERIENCED", "MARATHON"] as const;
+const TIP_CATEGORY_VALUES = [
+  "GENERAL",
+  "BEGINNER",
+  "INTERMEDIATE",
+  "EXPERIENCED",
+  "HEAVY_WEIGHT",
+  "MARATHON",
+  "SPEED",
+  "TRAIL",
+  "FITNESS",
+  "INJURY_PRONE"
+] as const;
 
 export async function getAdminTips(
   filters: { q?: string; status?: string; category?: string },
