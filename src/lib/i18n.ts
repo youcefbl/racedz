@@ -178,7 +178,22 @@ export const dictionaries = {
         step3Title: "Get your plan",
         step3Text: "Receive a weekly plan and a review tuned to your progress.",
         ctaTitle: "Ready to run smarter?",
-        ctaText: "Try the AI coach free for a month and see your next workout today."
+        ctaText: "Try the AI coach free for a month and see your next workout today.",
+        personalizeTitle: "A plan built around you, not a template",
+        personalizeText: "The coach shapes every training week to who you are — your fitness, your body, your history, and your week — and keeps every session safe.",
+        factorLevelTitle: "Your level",
+        factorLevelText: "Whether you're building your first base or chasing a personal best, the plan meets you exactly where you are.",
+        factorBodyTitle: "Your body",
+        factorBodyText: "Weight, height, and resting heart rate tune your training load, easy pace, and recovery.",
+        factorInjuryTitle: "Your history",
+        factorInjuryText: "Past injuries, niggles, and health notes keep every session conservative and joint-friendly.",
+        factorScheduleTitle: "Your week",
+        factorScheduleText: "Tell it your available days and long-run day, and the plan fits around your real life.",
+        guidanceNote: "The coach keeps adjusting week after week — and reviews every run — until you reach the goal you set on day one.",
+        tipsTitle: "Daily tips that fit you",
+        tipsText: "Short, practical coaching tips matched to your level and goal — a fresh one whenever you need a nudge, never a generic feed.",
+        langTitle: "Coaching in your language",
+        langText: "Every plan, review, and tip in Arabic, French, or English — switch anytime, right-to-left included."
       },
       organizers: {
         eyebrow: "For organizers",
@@ -222,7 +237,14 @@ export const dictionaries = {
         appFeature1: "Record runs with live GPS — distance, pace, elevation, and a route map.",
         appFeature2: "Your training plan and next workout, always in your pocket.",
         appFeature3: "Push reminders for registration deadlines and race starts.",
-        appBadge: "Android now · iOS coming soon"
+        appBadge: "Android now · iOS coming soon",
+        trackTitle: "Record your runs",
+        trackText: "Track live with GPS — distance, pace, per-km splits, elevation, and your route on a map.",
+        rankTitle: "Climb the rankings",
+        rankText: "Share your runs and see the fastest paces and longest distances across your wilaya.",
+        appThemesNote: "Light, dark, or race mode — the app adapts to how you like it.",
+        appShotAltLight: "ZidRun app home screen in light mode, showing race search and open registrations.",
+        appShotAltDark: "ZidRun app home screen in dark mode, showing race search and open registrations."
       },
       rankings: {
         eyebrow: "Leaderboards",
@@ -726,7 +748,22 @@ export const dictionaries = {
         step3Title: "Recevez votre plan",
         step3Text: "Obtenez un plan hebdomadaire et une analyse adaptés à votre progression.",
         ctaTitle: "Prêt à courir plus intelligemment ?",
-        ctaText: "Essayez le coach IA gratuitement pendant un mois et découvrez votre prochaine séance dès aujourd'hui."
+        ctaText: "Essayez le coach IA gratuitement pendant un mois et découvrez votre prochaine séance dès aujourd'hui.",
+        personalizeTitle: "Un plan conçu pour vous, pas un modèle",
+        personalizeText: "Le coach adapte chaque semaine d'entraînement à qui vous êtes — votre forme, votre corps, votre passé et votre emploi du temps — en gardant chaque séance sûre.",
+        factorLevelTitle: "Votre niveau",
+        factorLevelText: "Que vous construisiez votre première base ou visiez un record, le plan vous rejoint là où vous êtes.",
+        factorBodyTitle: "Votre corps",
+        factorBodyText: "Poids, taille et fréquence cardiaque au repos ajustent la charge, l'allure facile et la récupération.",
+        factorInjuryTitle: "Votre historique",
+        factorInjuryText: "Blessures passées, gênes et notes de santé gardent chaque séance prudente et respectueuse des articulations.",
+        factorScheduleTitle: "Votre semaine",
+        factorScheduleText: "Indiquez vos jours disponibles et votre jour de sortie longue : le plan s'adapte à votre vie.",
+        guidanceNote: "Le coach ajuste votre plan semaine après semaine — et analyse chaque sortie — jusqu'à ce que vous atteigniez l'objectif fixé au départ.",
+        tipsTitle: "Des conseils quotidiens faits pour vous",
+        tipsText: "Des conseils courts et pratiques adaptés à votre niveau et à votre objectif — un nouveau dès que vous en avez besoin.",
+        langTitle: "Un coaching dans votre langue",
+        langText: "Chaque plan, analyse et conseil en arabe, français ou anglais — changez quand vous voulez, de droite à gauche inclus."
       },
       organizers: {
         eyebrow: "Pour les organisateurs",
@@ -771,7 +808,14 @@ export const dictionaries = {
         appFeature1: "Enregistrez vos sorties en GPS — distance, allure, dénivelé et carte du parcours.",
         appFeature2: "Votre plan d'entraînement et la prochaine séance, toujours dans la poche.",
         appFeature3: "Rappels push pour les dates limites d'inscription et les départs.",
-        appBadge: "Android maintenant · iOS bientôt"
+        appBadge: "Android maintenant · iOS bientôt",
+        trackTitle: "Enregistrez vos sorties",
+        trackText: "Suivez en direct par GPS — distance, allure, splits au km, dénivelé et votre parcours sur une carte.",
+        rankTitle: "Grimpez au classement",
+        rankText: "Partagez vos sorties et voyez les meilleures allures et distances de votre wilaya.",
+        appThemesNote: "Mode clair, sombre ou race — l'application s'adapte à vos préférences.",
+        appShotAltLight: "Écran d'accueil de l'app ZidRun en mode clair, avec la recherche de courses.",
+        appShotAltDark: "Écran d'accueil de l'app ZidRun en mode sombre, avec la recherche de courses."
       },
       rankings: {
         eyebrow: "Classements",
@@ -1275,7 +1319,22 @@ export const dictionaries = {
         step3Title: "احصل على خطتك",
         step3Text: "احصل على خطة أسبوعية ومراجعة مضبوطة على تقدّمك.",
         ctaTitle: "مستعد للجري بذكاء أكبر؟",
-        ctaText: "جرّب المدرب الذكي مجانًا لمدة شهر واطّلع على تمرينك القادم اليوم."
+        ctaText: "جرّب المدرب الذكي مجانًا لمدة شهر واطّلع على تمرينك القادم اليوم.",
+        personalizeTitle: "خطة مصمّمة لك أنت، لا قالب جاهز",
+        personalizeText: "يكيّف المدرب كل أسبوع تدريبي وفق شخصك — لياقتك وجسمك وتاريخك وجدول أسبوعك — مع الحفاظ على أمان كل حصة.",
+        factorLevelTitle: "مستواك",
+        factorLevelText: "سواء كنت تبني قاعدتك الأولى أو تسعى لرقم قياسي، تلتقي بك الخطة حيث أنت تمامًا.",
+        factorBodyTitle: "جسمك",
+        factorBodyText: "الوزن والطول ونبض الراحة تضبط حِمل التدريب والوتيرة السهلة والاستشفاء.",
+        factorInjuryTitle: "تاريخك",
+        factorInjuryText: "الإصابات السابقة والأوجاع والملاحظات الصحية تبقي كل حصة متحفّظة ولطيفة على المفاصل.",
+        factorScheduleTitle: "أسبوعك",
+        factorScheduleText: "أخبره بأيامك المتاحة ويوم جريك الطويل، فتتكيّف الخطة مع حياتك الواقعية.",
+        guidanceNote: "يواصل المدرب تعديل خطتك أسبوعًا بعد أسبوع — ويحلّل كل جري — حتى تبلغ الهدف الذي حدّدته منذ اليوم الأول.",
+        tipsTitle: "نصائح يومية تناسبك",
+        tipsText: "نصائح قصيرة وعملية مطابقة لمستواك وهدفك — واحدة جديدة كلما احتجت دفعة، لا محتوى عامًّا.",
+        langTitle: "تدريب بلغتك",
+        langText: "كل خطة ومراجعة ونصيحة بالعربية أو الفرنسية أو الإنجليزية — بدّل متى شئت، مع دعم الكتابة من اليمين لليسار."
       },
       organizers: {
         eyebrow: "للمنظّمين",
@@ -1319,7 +1378,14 @@ export const dictionaries = {
         appFeature1: "سجّل جرياتك عبر GPS — المسافة والوتيرة والارتفاع وخريطة المسار.",
         appFeature2: "خطة تدريبك وحصتك القادمة دائمًا في جيبك.",
         appFeature3: "تذكيرات فورية لمواعيد التسجيل وبدء السباقات.",
-        appBadge: "أندرويد الآن · iOS قريبًا"
+        appBadge: "أندرويد الآن · iOS قريبًا",
+        trackTitle: "سجّل جولاتك",
+        trackText: "تتبّع مباشرةً عبر GPS — المسافة والوتيرة ومقاطع كل كيلومتر والارتفاع ومسارك على الخريطة.",
+        rankTitle: "اصعد في الترتيب",
+        rankText: "شارك جولاتك وشاهد أسرع الوتيرات وأطول المسافات في ولايتك.",
+        appThemesNote: "وضع فاتح أو داكن أو race — يتكيّف التطبيق مع ما يناسبك.",
+        appShotAltLight: "الشاشة الرئيسية لتطبيق ZidRun في الوضع الفاتح، مع البحث عن السباقات.",
+        appShotAltDark: "الشاشة الرئيسية لتطبيق ZidRun في الوضع الداكن، مع البحث عن السباقات."
       },
       rankings: {
         eyebrow: "التصنيفات",

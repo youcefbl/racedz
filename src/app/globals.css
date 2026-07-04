@@ -868,3 +868,18 @@ textarea {
 .text-teal-700 { color: var(--primary) !important; }
 .text-teal-100 { color: #dcfce7 !important; }
 .text-teal-50 { color: #f0fdf4 !important; }
+
+/* ===== Theme-aware app screenshots (marketing device mock) =====
+   Show the light screenshot by default; swap to the dark capture under the
+   dark and race themes so the phone in the page always matches the site theme. */
+.rz-appshot-dark {
+  display: none;
+}
+[data-theme="dark"] .rz-appshot-light,
+[data-theme="race"] .rz-appshot-light {
+  display: none;
+}
+[data-theme="dark"] .rz-appshot-dark,
+[data-theme="race"] .rz-appshot-dark {
+  display: block;
+}
