@@ -7,6 +7,18 @@ zidrun.com, www.zidrun.com {
 	# /srv/uploads/avatar/x.jpg.
 	handle_path /uploads/* {
 		root * /srv/uploads
+		# User-supplied content served straight from disk. Even though uploads are
+		# validated by magic bytes on write, harden the response so a stored file can
+		# never be sniffed into an executable type or run script/plugins in the origin:
+		#   - nosniff pins the declared Content-Type (no MIME sniffing)
+		#   - the sandbox CSP strips scripts, forms, and same-origin privileges
+		#   - deny framing to block clickjacking via an uploaded page
+		header {
+			X-Content-Type-Options "nosniff"
+			Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+			X-Frame-Options "DENY"
+			Cache-Control "public, max-age=31536000, immutable"
+		}
 		file_server
 	}
 

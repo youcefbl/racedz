@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { isUploadScope, saveImageUpload, UploadError, type ImageUploadFile, type UploadScope } from "@/lib/storage";
 
 export async function POST(request: Request) {
@@ -8,6 +9,10 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Login is required" }, { status: 401 });
   }
+
+  // Throttle per user so a single account can't loop 5 MB uploads to exhaust disk.
+  const limited = enforceRateLimit(rateLimitKey("upload", session.user.id), 30, 10 * 60_000);
+  if (limited) return limited;
 
   let formData: FormData;
 

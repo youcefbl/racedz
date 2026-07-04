@@ -53,6 +53,17 @@ export async function loginAction(_previousState: LoginActionState, formData: Fo
     return { error: t.errInvalidInput };
   }
 
+  // Brute-force defense: throttle both per-IP (spray across accounts) and per-email
+  // (targeted guessing of one account). Either limit tripping returns a generic error.
+  const ip = clientIp(await headers());
+  const emailKey = parsed.data.email.toLowerCase();
+  const overLimit =
+    (ip && !checkRateLimit(`login-ip:${ip}`, 10, 10 * 60_000).ok) ||
+    !checkRateLimit(`login-email:${emailKey}`, 10, 10 * 60_000).ok;
+  if (overLimit) {
+    return { error: t.errInvalidCredentials };
+  }
+
   const user = await getPrisma().user.findUnique({
     where: { email: parsed.data.email },
     select: { role: true }
@@ -110,7 +121,10 @@ function getPostLoginUrl(role: UserRole | undefined, callbackUrl: FormDataEntryV
 }
 
 function getSafeCallbackUrl(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+  // Must be a same-origin absolute path. Reject protocol-relative ("//host") and
+  // backslash variants ("/\host", "/\\host") that browsers normalize into off-site
+  // redirects, and any value whose second character starts a new authority.
+  if (typeof value !== "string" || !value.startsWith("/") || /^\/[/\\]/.test(value)) {
     return null;
   }
 

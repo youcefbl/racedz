@@ -1,5 +1,16 @@
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { nudgeInactiveRunners } from "@/lib/coach/reminders";
+
+// Constant-time string compare so the secret can't be recovered via response timing.
+// Returns early only on length mismatch (which timingSafeEqual requires); the byte
+// comparison itself never short-circuits.
+function secretsMatch(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 // Scheduled job: nudge runners who have gone quiet to keep training. There is no in-process
 // scheduler, so an external trigger (host crontab, a cron container, or any uptime-cron service)
@@ -19,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   const provided = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? request.headers.get("x-cron-secret");
-  if (provided !== secret) {
+  if (!provided || !secretsMatch(provided, secret)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
