@@ -7,7 +7,7 @@ import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
 import { RunMap } from "@/components/coach/run-map";
 import { RunSummary, SplitsChart } from "@/components/coach/run-summary";
-import { computeSplits } from "@/lib/coach/run-stats";
+import { computeSplits, estimateCalories } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
@@ -20,11 +20,15 @@ import { isNativeRuntime, openLocationSettings } from "@/lib/native/geo";
 export function RunRecorder({
   locale,
   copy,
-  onSaved
+  onSaved,
+  weightKg
 }: {
   locale: CoachLocale;
   copy: CoachCopy;
   onSaved: (runId: string, analyze: boolean) => Promise<void>;
+  // Runner's weight (from their goal), used for the live calories estimate. Optional —
+  // estimateCalories falls back to a default when it's unknown.
+  weightKg?: number | null;
 }) {
   const [native, setNative] = useState(false);
   const [state, setState] = useState<RunEngineState>(() => runEngine.getState());
@@ -202,6 +206,17 @@ export function RunRecorder({
         : state.gpsAccuracy <= 25
           ? copy.gpsFair
           : copy.gpsWeak;
+  // Signal strength as 0–4 bars (like cellular reception): 0 while acquiring a fix.
+  const gpsLevel =
+    state.pointCount === 0 || state.gpsAccuracy == null
+      ? 0
+      : state.gpsAccuracy <= 12
+        ? 4
+        : state.gpsAccuracy <= 25
+          ? 3
+          : 2;
+  // Live calorie estimate from distance + moving time (falls back to a default weight).
+  const calories = estimateCalories(distanceKm, state.movingSec || state.elapsedSec, weightKg);
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -274,7 +289,8 @@ export function RunRecorder({
               <LiveStat label={copy.statAvgPace} value={formatPace(avgPace)} />
               <LiveStat label={copy.statMovingTime} value={formatDuration(state.movingSec)} />
               <LiveStat label={copy.statElevation} value={`${Math.round(state.elevationM)} m`} />
-              <LiveStat label={copy.statGps} value={state.pointCount > 0 ? gpsValue : copy.gpsAcquiring} />
+              <GpsSignalStat label={copy.statGps} status={state.pointCount > 0 ? gpsValue : copy.gpsAcquiring} level={gpsLevel} />
+              <LiveStat label={copy.statCalories} value={calories != null ? `${calories} kcal` : "-"} />
             </div>
             {liveSplits.length > 0 ? (
               <div>
@@ -359,6 +375,28 @@ function LiveStat({ label, value, big = false }: { label: string; value: string;
     <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-center">
       <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
       <p className={`mt-1 font-black text-gray-950 ${big ? "text-2xl" : "text-base"}`}>{value}</p>
+    </div>
+  );
+}
+
+// GPS reception shown as ascending signal bars (like a phone's cellular indicator).
+// level 0 = still acquiring a fix (bars pulse), 2 = weak, 3 = fair, 4 = strong.
+function GpsSignalStat({ label, status, level }: { label: string; status: string; level: number }) {
+  const tone = level >= 4 ? "bg-green-500" : level === 3 ? "bg-amber-500" : level > 0 ? "bg-red-500" : "bg-gray-300";
+  const heights = [6, 10, 14, 18];
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-center">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <div className="mt-1.5 flex h-[18px] items-end justify-center gap-1" aria-hidden="true">
+        {heights.map((height, index) => (
+          <span
+            key={height}
+            className={`w-1.5 rounded-sm ${index < level ? tone : "bg-gray-200"} ${level === 0 ? "animate-pulse" : ""}`}
+            style={{ height }}
+          />
+        ))}
+      </div>
+      <p className="mt-1 text-xs font-black text-gray-950">{status}</p>
     </div>
   );
 }

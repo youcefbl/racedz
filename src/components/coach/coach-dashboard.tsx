@@ -256,6 +256,7 @@ export function CoachDashboard({
             onAnalyze={(runId) => runInteraction("POST_RUN", { runId })}
             analyzedRuns={analyzedRuns}
             onViewAnalysis={viewAnalysis}
+            weightKg={goal.weightKg}
           />
         ) : null}
         {view === "coach" ? (

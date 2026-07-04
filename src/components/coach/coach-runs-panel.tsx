@@ -22,7 +22,8 @@ export function CoachRunsPanel({
   onSaved,
   onAnalyze,
   analyzedRuns,
-  onViewAnalysis
+  onViewAnalysis,
+  weightKg
 }: {
   runs: CoachRun[];
   plan: CoachPlan | null;
@@ -34,6 +35,8 @@ export function CoachRunsPanel({
   /** runId → id of the existing POST_RUN analysis, when the run has already been analyzed. */
   analyzedRuns?: Record<string, string>;
   onViewAnalysis?: (interactionId: string) => void;
+  /** Runner's weight, forwarded to the recorder for a live calorie estimate. */
+  weightKg?: number | null;
 }) {
   const [showForm, setShowForm] = useState(runs.length === 0);
   const [effort, setEffort] = useState(5);
@@ -100,7 +103,7 @@ export function CoachRunsPanel({
   return (
     <div className="space-y-5">
       {/* GPS run recorder — renders only inside the phone app */}
-      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} />
+      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} />
 
       <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
