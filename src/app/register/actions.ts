@@ -67,7 +67,8 @@ export async function registerAction(
     };
   }
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  // Cost 12 is the current OWASP baseline for bcrypt (2^12 rounds).
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   const user = await prisma.user.create({
     data: {
@@ -96,7 +97,9 @@ export async function registerAction(
 }
 
 function getSafeCallbackUrl(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+  // Same-origin absolute path only. Reject protocol-relative ("//host") and backslash
+  // variants ("/\host") that browsers normalize into off-site open redirects.
+  if (typeof value !== "string" || !value.startsWith("/") || /^\/[/\\]/.test(value)) {
     return null;
   }
 

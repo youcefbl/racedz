@@ -32,7 +32,8 @@ export async function resetPasswordAction(
     };
   }
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  // Cost 12 matches the registration path (OWASP baseline).
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   const result = await consumePasswordResetToken(token, passwordHash);
 
   if (!result.ok) {

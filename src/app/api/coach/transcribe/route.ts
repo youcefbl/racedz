@@ -4,12 +4,13 @@ import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import { CoachError } from "@/lib/coach/errors";
 import { coachErrorResponse } from "@/lib/coach/http";
 import { transcribeCoachVoiceNote } from "@/lib/coach/service";
-import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 // Voice input for the coach: accepts a short audio note (multipart form field "audio"),
 // transcribes it to text, and returns the transcript for the user to review/edit then send.
 // Restricted to PAID subscribers (not the free trial).
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // ~10 MB — a voice note is far smaller.
+const ALLOWED_AUDIO_TYPES = new Set(["audio/webm", "audio/mp4", "audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg"]);
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -17,16 +18,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Login is required." }, { status: 401 });
   }
 
-  const ip = clientIp(request.headers);
-  if (ip) {
-    const limit = checkRateLimit(`coach-transcribe:${ip}`, 30, 60_000);
-    if (!limit.ok) {
-      return NextResponse.json(
-        { error: "Too many requests. Please slow down.", code: "RATE_LIMITED" },
-        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
-      );
-    }
-  }
+  // Key the burst limiter on the (unspoofable) session id, not a client-supplied IP
+  // header. A hard per-user daily quota is enforced in transcribeCoachVoiceNote.
+  const limited = enforceRateLimit(rateLimitKey("coach-transcribe", session.user.id), 20, 60_000);
+  if (limited) return limited;
 
   try {
     const entitlement = await resolveCoachEntitlement(session.user.id);
@@ -41,6 +36,11 @@ export async function POST(request: Request) {
     }
     if (audio.size > MAX_AUDIO_BYTES) {
       throw new CoachError("That recording is too large. Keep voice notes short.", 413, "AUDIO_TOO_LARGE");
+    }
+    // Only accept real audio container types; reject anything else before spending a
+    // billed Whisper call on arbitrary uploaded bytes.
+    if (audio.type && !ALLOWED_AUDIO_TYPES.has(audio.type.split(";")[0].trim().toLowerCase())) {
+      throw new CoachError("Unsupported audio format.", 415, "AUDIO_UNSUPPORTED_TYPE");
     }
 
     const transcript = await transcribeCoachVoiceNote(session.user.id, audio);

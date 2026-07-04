@@ -227,11 +227,27 @@ export async function updateCoachGoalSettings(userId: string, goalId: string, ra
   return rows[0];
 }
 
+// Hard per-user daily cap on Whisper transcriptions. Unlike text chat (gated by the
+// interaction entitlement), voice notes had no usage cap — a single paid account could
+// issue unlimited billed transcription calls. This bounds the daily cost per user.
+const TRANSCRIBE_DAILY_LIMIT = 60;
+
 // Transcribe a voice note and record the OpenAI call in AiUsageLog (success and failure alike),
 // so audio failures are tracked next to text failures on the admin dashboard.
 export async function transcribeCoachVoiceNote(userId: string, file: File): Promise<string> {
   const prisma = getPrisma();
   const model = resolveTranscribeModel();
+
+  const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT COUNT(*)::bigint AS count
+    FROM "AiUsageLog"
+    WHERE "userId" = ${userId}
+      AND "model" = ${model}
+      AND "createdAt" >= NOW() - INTERVAL '24 hours'
+  `;
+  if (Number(count) >= TRANSCRIBE_DAILY_LIMIT) {
+    throw new CoachError("Daily voice-note limit reached. Try again tomorrow.", 429, "TRANSCRIBE_QUOTA_EXCEEDED");
+  }
 
   try {
     const transcript = await transcribeCoachAudio(file);

@@ -42,10 +42,21 @@ export async function GET(_request: Request, context: ExportContext) {
   });
 }
 
-function escapeCsv(value: string) {
-  if (value.includes(",") || value.includes("\"") || value.includes("\n")) {
-    return `"${value.replaceAll("\"", "\"\"")}"`;
-  }
+// Runner-controlled fields (name, email, phone) end up in a file an organizer opens
+// in Excel/Sheets. Neutralize two attack classes:
+//  1. Formula injection: a value starting with = + - @ (or a leading tab/CR) is treated
+//     as a formula by spreadsheets — prefix a single quote so it renders as literal text.
+//  2. CSV structure breakout: quote-wrap anything containing a delimiter, quote, or any
+//     newline (\n OR bare \r) so it can't inject extra rows/columns.
+const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
-  return value;
+function escapeCsv(value: string) {
+  let v = value ?? "";
+  if (CSV_FORMULA_PREFIX.test(v)) {
+    v = `'${v}`;
+  }
+  if (/[",\n\r]/.test(v)) {
+    v = `"${v.replaceAll("\"", "\"\"")}"`;
+  }
+  return v;
 }
