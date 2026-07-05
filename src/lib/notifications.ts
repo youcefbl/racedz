@@ -46,6 +46,11 @@ type RaceRegistrantRecipient = NotificationRecipient & {
 
 export const notificationPreferenceOptions = [
   {
+    type: "ADMIN_BROADCAST",
+    title: "ZidRun announcements",
+    description: "Product updates, new races, and news from the ZidRun team."
+  },
+  {
     type: "RACE_APPROVAL_PENDING",
     title: "Race approval pending",
     description: "Admins are notified when an organizer submits a race for review."

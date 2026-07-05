@@ -258,6 +258,32 @@ model AdminAuditLog {
   @@index([createdAt])
 }
 
+// First-party, privacy-conscious web analytics. One row per page view.
+// No raw IP is ever stored: `country` comes from Cloudflare's cf-ipcountry header,
+// and visitors are identified only by opaque first-party cookies (zr_vid / zr_sid).
+// Raw rows are pruned after PAGEVIEW_RETENTION_DAYS (see scripts/prune-pageviews.ts),
+// mirroring the AdminAuditLog retention model above.
+model PageView {
+  id           String   @id @default(cuid())
+  visitorId    String // opaque cookie (zr_vid) — stable ~1yr, powers unique-visitor counts
+  sessionId    String // opaque cookie (zr_sid) — 30-min rolling window, powers session counts
+  userId       String? // best-effort from the auth session; null for anonymous visitors
+  path         String // normalized route pattern, e.g. "/races/[id]" (keeps cardinality low)
+  referrerHost String? // referrer host only — no full URL or query string
+  locale       String? // en | fr | ar
+  device       String? // mobile | tablet | desktop
+  platform     String? // web | android (Capacitor native app)
+  browser      String? // coarse family: Chrome | Safari | Firefox | Edge | Other
+  country      String? // ISO-2 country from cf-ipcountry (no raw IP retained)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([sessionId])
+  @@index([userId, createdAt])
+}
+
 model RaceRegistration {
   id                    String             @id @default(cuid())
   userId                String
@@ -787,4 +813,104 @@ enum CoachTipStatus {
 enum CoachTipSource {
   MANUAL
   AI
+}
+
+// User-submitted moderation reports. Generic target (targetType/targetId) so races,
+// public runs, and profiles can all be reported without a schema change; v1 only
+// surfaces a report control on race pages. Admin triages via /admin/reports.
+enum ReportCategory {
+  SCAM
+  SPAM
+  OFFENSIVE
+  INCORRECT_INFO
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+model Report {
+  id             String         @id @default(cuid())
+  reporterId     String
+  targetType     String // "RaceEvent" | "RunnerRun" | "User" (extensible)
+  targetId       String
+  category       ReportCategory
+  details        String?
+  status         ReportStatus   @default(OPEN)
+  resolvedById   String? // admin who actioned/dismissed
+  resolutionNote String?
+  createdAt      DateTime       @default(now())
+  resolvedAt     DateTime?
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterId, createdAt])
+}
+
+// Admin broadcast/announcement to a user segment. Fan-out is resumable: recipients
+// are snapshotted into BroadcastRecipient rows and drained in batches (inline kick +
+// a CRON_SECRET-guarded dispatch endpoint) so a large send can't time out a request.
+enum BroadcastStatus {
+  DRAFT
+  SENDING
+  SENT
+  FAILED
+}
+
+model Broadcast {
+  id              String          @id @default(cuid())
+  title           String
+  body            String
+  href            String?
+  channels        String[] // subset of IN_APP | EMAIL | PUSH
+  audience        Json // segment filter descriptor (see src/lib/broadcasts.ts)
+  status          BroadcastStatus @default(DRAFT)
+  totalRecipients Int             @default(0)
+  sentCount       Int             @default(0)
+  failedCount     Int             @default(0)
+  createdById     String
+  createdAt       DateTime        @default(now())
+  sentAt          DateTime?
+
+  recipients BroadcastRecipient[]
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+model BroadcastRecipient {
+  id          String    @id @default(cuid())
+  broadcastId String
+  userId      String
+  status      String    @default("PENDING") // PENDING | SENT | FAILED
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, userId])
+  @@index([broadcastId, status])
+}
+
+// Race-search log powering the "zero-result search" report — the term lives in the
+// ?q= querystring that the PageView tracker deliberately drops, so it needs its own
+// table. Written server-side from the races page; deduped per visitor over 30 min.
+// Covered by retention pruning (scripts/prune-pageviews.ts).
+model SearchQuery {
+  id          String   @id @default(cuid())
+  term        String
+  wilaya      String?
+  raceType    String?
+  resultCount Int
+  visitorId   String?
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([term])
+  @@index([resultCount, createdAt])
 }

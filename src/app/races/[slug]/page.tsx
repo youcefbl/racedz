@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Building2, CalendarDays, Mail, MapPin, Megaphone, Phone, ReceiptText, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RaceMedia } from "@/components/races/race-media";
+import { ReportButton } from "@/components/reports/report-button";
 import { ButtonLink } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDateTime, formatDzd } from "@/lib/format";
@@ -75,6 +76,14 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
                   {dictionary.raceDetail.eventElevationGain}: {race.elevationGainText}
                 </p>
               ) : null}
+              <div className="pt-1">
+                <ReportButton
+                  targetType="RaceEvent"
+                  targetId={race.id}
+                  isAuthenticated={Boolean(currentUser)}
+                  loginHref={withLocale(`/login?callbackUrl=/races/${race.slug}`, locale)}
+                />
+              </div>
             </div>
           </div>
 

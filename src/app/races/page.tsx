@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
 import { ShowPastToggle } from "@/components/races/show-past-toggle";
+import { recordSearchQuery } from "@/lib/analytics/search";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { findRaceEvents } from "@/lib/race-repository";
 import type { EventRegistrationStatus, RaceType } from "@/types/race";
@@ -30,6 +31,10 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
   const locale = getLocale(filters.lang);
   const dictionary = getDictionary(locale);
   const races = await findRaceEvents(filters);
+  if (filters.q) {
+    // Log the search (zero-result and top-search insights); fail-soft, deduped per visitor.
+    await recordSearchQuery({ term: filters.q, wilaya: filters.wilaya, raceType: filters.type, resultCount: races.length });
+  }
   const hasActiveFilters = Boolean(
     filters.q || filters.wilaya || filters.type || filters.distance || filters.registrationStatus
   );
