@@ -3,6 +3,7 @@
 import { ImagePlus, Loader2, Maximize2, X } from "lucide-react";
 import { useId, useState, type ChangeEvent } from "react";
 import type { CoachCopy } from "@/components/coach/copy";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export function RunPhotoUploader({
   const inputId = useId();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const atLimit = value.length >= max;
 
   async function addPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -84,7 +86,7 @@ export function RunPhotoUploader({
             {!disabled ? (
               <button
                 type="button"
-                onClick={() => void removePhoto(url)}
+                onClick={() => setPendingRemove(url)}
                 aria-label={copy.removePhoto}
                 className="absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
@@ -116,6 +118,19 @@ export function RunPhotoUploader({
         />
       </div>
       {error ? <p role="alert" className="text-xs font-bold text-red-700">{error}</p> : null}
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        title={copy.deletePhotoTitle}
+        description={copy.deletePhotoText}
+        confirmLabel={copy.confirmDelete}
+        cancelLabel={copy.cancel}
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => {
+          const url = pendingRemove;
+          setPendingRemove(null);
+          if (url) void removePhoto(url);
+        }}
+      />
     </div>
   );
 }

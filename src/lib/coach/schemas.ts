@@ -120,6 +120,7 @@ export const createRunnerRunSchema = z.object({
   perceivedEffort: z.coerce.number().int().min(1).max(10),
   fatigueLevel: z.coerce.number().int().min(0).max(10).default(0),
   painLevel: z.coerce.number().int().min(0).max(10).default(0),
+  title: z.string().trim().max(120).nullable().optional(),
   symptoms: z.string().trim().max(500).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
   photos: runPhotosSchema.optional()

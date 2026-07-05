@@ -334,6 +334,28 @@ export function RunRecorder({
               copy={copy}
             />
             <label className="grid gap-2 text-sm font-bold text-gray-800">
+              <span>{copy.runTitle}</span>
+              <input
+                type="text"
+                value={state.title}
+                onChange={(event) => runEngine.setTitle(event.target.value)}
+                maxLength={120}
+                placeholder={copy.runTitlePlaceholder}
+                className="min-h-11 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-950 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-gray-800">
+              <span>{copy.description}</span>
+              <textarea
+                value={state.description}
+                onChange={(event) => runEngine.setDescription(event.target.value)}
+                maxLength={2000}
+                rows={3}
+                placeholder={copy.descriptionPlaceholder}
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-950 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-gray-800">
               <span className="flex items-center justify-between">
                 <span>{copy.effort}</span>
                 <strong className="text-brand-teal">{state.effort}/10</strong>

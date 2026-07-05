@@ -17,6 +17,8 @@ export type ActiveRunSnapshot = {
   lastPointTs: number;
   effort: number;
   share: boolean;
+  title?: string;
+  description?: string;
   route: RunRoutePoint[];
   updatedAt: number;
 };

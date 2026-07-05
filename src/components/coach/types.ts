@@ -44,6 +44,7 @@ export type CoachRun = {
   perceivedEffort: number;
   fatigueLevel: number;
   painLevel: number;
+  title: string | null;
   symptoms: string | null;
   notes: string | null;
   photos: string[] | null;

@@ -509,6 +509,7 @@ model RunnerRun {
   perceivedEffort         Int
   fatigueLevel            Int             @default(0)
   painLevel               Int             @default(0)
+  title                   String?
   symptoms                String?
   notes                   String?
   photos                  Json?

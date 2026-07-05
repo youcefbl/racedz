@@ -1,10 +1,11 @@
 "use client";
 
-import { Activity, AlertTriangle, CalendarDays, ChevronDown, Flame, Gauge, Globe, HeartPulse, Images, Lock, Plus, Route, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, ChevronDown, Flame, Gauge, Globe, HeartPulse, Images, Lock, Plus, Route, Sparkles, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RunRecorder } from "@/components/coach/run-recorder";
 import { RunPhotoUploader } from "@/components/coach/run-photos";
 import { RunRouteMap } from "@/components/coach/run-route-map";
@@ -50,6 +51,7 @@ export function CoachRunsPanel({
   // Local, per-run photo overrides so a photo added/removed on a history row shows instantly,
   // before the list refetches. Falls back to the run's server-side photos.
   const [photoOverrides, setPhotoOverrides] = useState<Record<string, string[]>>({});
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   // Open the most recent GPS run by default so its map + per-km splits show without a
@@ -79,6 +81,7 @@ export function CoachRunsPanel({
             fatigueLevel: fatigue,
             painLevel: pain,
             isPublic: share,
+            title: optionalString(formData, "title"),
             symptoms: optionalString(formData, "symptoms"),
             notes: optionalString(formData, "notes"),
             photos: formPhotos
@@ -104,6 +107,19 @@ export function CoachRunsPanel({
     startSaving(async () => {
       try {
         await coachRequest(`/api/coach/runs/${runId}`, { method: "PATCH", body: JSON.stringify({ isPublic: next }) });
+        await onSaved("", false);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
+      }
+    });
+  }
+
+  function deleteRun(runId: string) {
+    setError(null);
+    startSaving(async () => {
+      try {
+        await coachRequest(`/api/coach/runs/${runId}`, { method: "DELETE" });
+        setExpandedRun((current) => (current === runId ? null : current));
         await onSaved("", false);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
@@ -149,6 +165,11 @@ export function CoachRunsPanel({
 
         {showForm ? (
           <form action={submit} className="p-5">
+            <div className="mb-5">
+              <Field label={copy.runTitle}>
+                <input name="title" maxLength={120} placeholder={copy.runTitlePlaceholder} className={inputClass} />
+              </Field>
+            </div>
             <div className="grid gap-5 lg:grid-cols-2">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={copy.startedAt}>
@@ -189,8 +210,8 @@ export function CoachRunsPanel({
                 <Field label={copy.symptoms}>
                   <input name="symptoms" maxLength={500} className={inputClass} />
                 </Field>
-                <Field label={copy.notes}>
-                  <textarea name="notes" maxLength={2000} rows={3} className={inputClass} />
+                <Field label={copy.description}>
+                  <textarea name="notes" maxLength={2000} rows={3} placeholder={copy.descriptionPlaceholder} className={inputClass} />
                 </Field>
               </div>
             </div>
@@ -250,9 +271,17 @@ export function CoachRunsPanel({
                 ) : (
                   <span className="hidden size-12 md:block" aria-hidden="true" />
                 )}
-                <div>
-                  <p className="text-sm font-black text-gray-950">{formatCoachDateTime(run.startedAt, locale)}</p>
-                  <p className="mt-1 text-xs font-semibold text-gray-500">{run.notes || (run.route ? copy.gpsRunLabel : copy.manualRunLabel)}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-gray-950">
+                    {run.title || formatCoachDateTime(run.startedAt, locale)}
+                  </p>
+                  <p className="mt-1 truncate text-xs font-semibold text-gray-500">
+                    {run.title
+                      ? formatCoachDateTime(run.startedAt, locale)
+                      : run.route
+                        ? copy.gpsRunLabel
+                        : copy.manualRunLabel}
+                  </p>
                 </div>
                 <RunFact icon={Route} label={`${run.distanceKm} km`} />
                 <RunFact icon={Gauge} label={formatPace(run.averagePaceSecondsPerKm)} />
@@ -292,6 +321,9 @@ export function CoachRunsPanel({
               </article>
               {isOpen ? (
                 <div className="space-y-4 px-5 pb-5">
+                  {run.notes ? (
+                    <p className="whitespace-pre-line rounded-md bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-700">{run.notes}</p>
+                  ) : null}
                   {hasRoute && run.route ? (
                     <>
                       <RunMap points={run.route} className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
@@ -330,6 +362,17 @@ export function CoachRunsPanel({
                       {run.isPublic ? copy.publicLabel : copy.privateLabel}
                     </button>
                   </div>
+                  <div className="border-t border-gray-200 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(run.id)}
+                      disabled={saving}
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+                    >
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                      {copy.deleteRun}
+                    </button>
+                  </div>
                 </div>
               ) : null}
               </div>
@@ -338,6 +381,20 @@ export function CoachRunsPanel({
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={copy.deleteRunTitle}
+        description={copy.deleteRunText}
+        confirmLabel={copy.deleteRun}
+        cancelLabel={copy.cancel}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          const runId = pendingDelete;
+          setPendingDelete(null);
+          if (runId) deleteRun(runId);
+        }}
+      />
     </div>
   );
 }

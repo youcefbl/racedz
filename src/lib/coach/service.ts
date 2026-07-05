@@ -77,6 +77,7 @@ type RunRow = {
   perceivedEffort: number;
   fatigueLevel: number;
   painLevel: number;
+  title: string | null;
   symptoms: string | null;
   notes: string | null;
   photos: unknown;
@@ -328,12 +329,12 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       "id", "userId", "goalId", "workoutId", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "isPublic", "perceivedEffort",
-      "fatigueLevel", "painLevel", "symptoms", "notes", "photos", "source", "updatedAt"
+      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${input.workoutId ?? null}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
-      ${input.fatigueLevel}, ${input.painLevel}, ${input.symptoms ?? null},
+      ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
       ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource", NOW()
     )
     RETURNING *
@@ -380,6 +381,28 @@ export async function updateRun(
   `;
   if (!rows[0]) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   return rows[0];
+}
+
+// Permanently delete a run the caller owns. Any linked coach analysis rows have their runId
+// cleared by the schema (SetNull), so past feedback isn't lost. If the run completed a planned
+// workout, that workout is reopened so the plan reflects reality.
+export async function deleteRun(userId: string, runId: string) {
+  const prisma = getPrisma();
+  const rows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null; goalId: string | null }>>`
+    SELECT "id", "workoutId", "goalId" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+  `;
+  const run = rows[0];
+  if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+
+  await prisma.$executeRaw`DELETE FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId}`;
+
+  if (run.workoutId) {
+    await prisma.$executeRaw`
+      UPDATE "TrainingWorkout" SET "status" = 'PLANNED', "updatedAt" = NOW()
+      WHERE "id" = ${run.workoutId}
+    `;
+  }
+  return { id: run.id };
 }
 
 export async function getCoachDashboard(userId: string) {

@@ -36,6 +36,8 @@ export type RunEngineState = {
   pointCount: number;
   effort: number;
   share: boolean;
+  title: string;
+  description: string;
   avgCadence: number | null;
   errorCode: RunErrorCode;
 };
@@ -48,6 +50,8 @@ export type RunSavePayload = {
   elevationGainM: number;
   avgCadence?: number;
   perceivedEffort: number;
+  title?: string;
+  notes?: string;
   source: "GPS";
   isPublic: boolean;
   route: RunRoutePoint[];
@@ -71,6 +75,8 @@ class RunEngine {
   private lastSnapshotTs = 0;
   private effort = 5;
   private share = false;
+  private title = "";
+  private description = "";
   private elapsedSec = 0;
   private currentPace: number | null = null;
   private gpsAccuracy: number | null = null;
@@ -115,6 +121,8 @@ class RunEngine {
       pointCount: this.route.length,
       effort: this.effort,
       share: this.share,
+      title: this.title,
+      description: this.description,
       avgCadence: this.avgCadence,
       errorCode: this.errorCode
     };
@@ -158,6 +166,8 @@ class RunEngine {
     this.route = snapshot.route;
     this.effort = snapshot.effort;
     this.share = snapshot.share;
+    this.title = snapshot.title ?? "";
+    this.description = snapshot.description ?? "";
     const last = snapshot.route[snapshot.route.length - 1];
     this.lastPoint = last
       ? { lat: last.lat, lng: last.lng, ele: last.ele ?? null, t: last.t ?? snapshot.lastPointTs, speed: null, accuracy: null }
@@ -190,6 +200,8 @@ class RunEngine {
     this.currentPace = null;
     this.gpsAccuracy = null;
     this.avgCadence = null;
+    this.title = "";
+    this.description = "";
     try {
       await this.beginWatch();
       // Best-effort: start counting steps for cadence. Never blocks the run.
@@ -266,6 +278,16 @@ class RunEngine {
     this.emit();
   }
 
+  setTitle(value: string) {
+    this.title = value.slice(0, 120);
+    this.emit();
+  }
+
+  setDescription(value: string) {
+    this.description = value.slice(0, 2000);
+    this.emit();
+  }
+
   getSavePayload(): RunSavePayload {
     const distanceKm = this.distance / 1000;
     return {
@@ -276,6 +298,8 @@ class RunEngine {
       elevationGainM: Math.round(this.elevation),
       avgCadence: this.avgCadence ?? undefined,
       perceivedEffort: this.effort,
+      title: this.title.trim() || undefined,
+      notes: this.description.trim() || undefined,
       source: "GPS",
       isPublic: this.share,
       route: downsample(this.route, MAX_ROUTE_POINTS)
@@ -310,6 +334,8 @@ class RunEngine {
     this.currentPace = null;
     this.gpsAccuracy = null;
     this.avgCadence = null;
+    this.title = "";
+    this.description = "";
     this.errorCode = null;
   }
 
@@ -401,6 +427,8 @@ class RunEngine {
       lastPointTs: this.lastPointTs,
       effort: this.effort,
       share: this.share,
+      title: this.title,
+      description: this.description,
       route: this.route,
       updatedAt: Date.now()
     };
