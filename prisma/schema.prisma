@@ -511,6 +511,7 @@ model RunnerRun {
   painLevel               Int             @default(0)
   symptoms                String?
   notes                   String?
+  photos                  Json?
   source                  RunnerRunSource @default(MANUAL)
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt

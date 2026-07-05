@@ -107,11 +107,15 @@ export function smoothedElevationGainM(points: RunRoutePoint[] | null | undefine
   if (!points || points.length < 2) return 0;
   const eles = points.map((p) => (typeof p.ele === "number" ? p.ele : null));
 
-  // Moving-average smoothing (window 5) over available altitudes.
+  // Moving-average smoothing (window 9) over available altitudes. GPS altitude with no
+  // barometer is very noisy (±10-20 m per fix), so a wide window is needed to stop that
+  // jitter being summed as fake climb. The real fix is DEM correction (see lib/coach/elevation);
+  // this keeps the raw-GPS fallback from wildly over-counting.
+  const HALF_WINDOW = 4;
   const smoothed: (number | null)[] = eles.map((_, i) => {
     let sum = 0;
     let n = 0;
-    for (let k = Math.max(0, i - 2); k <= Math.min(eles.length - 1, i + 2); k += 1) {
+    for (let k = Math.max(0, i - HALF_WINDOW); k <= Math.min(eles.length - 1, i + HALF_WINDOW); k += 1) {
       const v = eles[k];
       if (v != null) {
         sum += v;
@@ -121,7 +125,7 @@ export function smoothedElevationGainM(points: RunRoutePoint[] | null | undefine
     return n ? sum / n : null;
   });
 
-  const THRESHOLD_M = 2; // ignore climbs smaller than this (noise)
+  const THRESHOLD_M = 5; // only count sustained climbs above this (rejects GPS noise)
   let gain = 0;
   let ref: number | null = null;
   for (const v of smoothed) {

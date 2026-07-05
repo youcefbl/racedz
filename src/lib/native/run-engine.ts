@@ -20,6 +20,10 @@ const SNAPSHOT_INTERVAL_MS = 4000;
 // Ignore the gap between two fixes when summing moving time if it's this long —
 // it usually means GPS was lost, not that the runner was moving the whole time.
 const MAX_MOVING_GAP_S = 15;
+// Auto-pause: once the runner has been stationary (no distance-producing GPS fix) for this
+// long, stop counting elapsed time so stops at lights / rests don't inflate the run — the
+// same behaviour a running watch has. Movement resuming counts again automatically.
+const AUTO_PAUSE_GRACE_MS = 12_000;
 
 export type RunEngineState = {
   status: RunStatus;
@@ -60,6 +64,10 @@ class RunEngine {
   private startTs = 0;
   private pausedAccum = 0;
   private pauseStart = 0;
+  // Auto-pause bookkeeping: wall-clock of the last movement, and total stationary time already
+  // committed out of elapsed. Both are in-memory only (a rare cold-start recovery just resets them).
+  private lastMoveTs = 0;
+  private autoPauseAccum = 0;
   private lastSnapshotTs = 0;
   private effort = 5;
   private share = false;
@@ -84,6 +92,15 @@ class RunEngine {
 
   private emit() {
     this.listeners.forEach((listener) => listener());
+  }
+
+  // Active elapsed time = wall time since start, minus manual pauses, minus auto-paused
+  // (stationary) stretches. While tracking, the current stationary run beyond the grace period
+  // is subtracted live; it's committed to autoPauseAccum the moment movement resumes.
+  private computeElapsedSec(): number {
+    if (this.startTs === 0) return 0;
+    const liveStationary = this.status === "tracking" ? Math.max(0, Date.now() - this.lastMoveTs - AUTO_PAUSE_GRACE_MS) : 0;
+    return Math.max(0, Math.floor((Date.now() - this.startTs - this.pausedAccum - this.autoPauseAccum - liveStationary) / 1000));
   }
 
   getState(): RunEngineState {
@@ -145,6 +162,8 @@ class RunEngine {
     this.lastPoint = last
       ? { lat: last.lat, lng: last.lng, ele: last.ele ?? null, t: last.t ?? snapshot.lastPointTs, speed: null, accuracy: null }
       : null;
+    this.lastMoveTs = Date.now();
+    this.autoPauseAccum = 0;
     this.elapsedSec = Math.floor((Date.now() - snapshot.startTs - snapshot.pausedAccum) / 1000);
     this.currentPace = null;
     // The original GPS watcher is gone; enter paused so resuming restarts it and the
@@ -164,6 +183,8 @@ class RunEngine {
     this.lastPointTs = 0;
     this.startTs = Date.now();
     this.pausedAccum = 0;
+    this.lastMoveTs = Date.now();
+    this.autoPauseAccum = 0;
     this.lastSnapshotTs = 0;
     this.elapsedSec = 0;
     this.currentPace = null;
@@ -208,7 +229,7 @@ class RunEngine {
     if (this.status === "paused") {
       this.pausedAccum += Date.now() - this.pauseStart;
     }
-    this.elapsedSec = Math.floor((Date.now() - this.startTs - this.pausedAccum) / 1000);
+    this.elapsedSec = this.computeElapsedSec();
     await this.stopWatch();
     // Average cadence = total steps / moving minutes (spm). Best-effort; null if the
     // step sensor wasn't available or captured nothing.
@@ -283,6 +304,8 @@ class RunEngine {
     this.lastPointTs = 0;
     this.startTs = 0;
     this.pausedAccum = 0;
+    this.lastMoveTs = 0;
+    this.autoPauseAccum = 0;
     this.elapsedSec = 0;
     this.currentPace = null;
     this.gpsAccuracy = null;
@@ -303,6 +326,12 @@ class RunEngine {
       const d = haversineMeters(prev, point);
       if (d >= 1 && d <= 60) {
         this.distance += d;
+        // Movement resumed: bank any stationary stretch (beyond the grace) as auto-paused time
+        // so it's excluded from elapsed, then mark now as the latest movement.
+        const moveNow = Date.now();
+        const stationary = Math.max(0, moveNow - this.lastMoveTs - AUTO_PAUSE_GRACE_MS);
+        if (stationary > 0) this.autoPauseAccum += stationary;
+        this.lastMoveTs = moveNow;
         // Moving time summed from GPS timestamps — survives screen-off throttling.
         const dt = (point.t - prev.t) / 1000;
         if (dt > 0 && dt < MAX_MOVING_GAP_S) this.moving += dt;
@@ -333,7 +362,7 @@ class RunEngine {
   // are derived from GPS timestamps, so a throttled ticker can't corrupt them.
   private tick = () => {
     if (this.status !== "tracking") return;
-    this.elapsedSec = Math.floor((Date.now() - this.startTs - this.pausedAccum) / 1000);
+    this.elapsedSec = this.computeElapsedSec();
     this.emit();
   };
 

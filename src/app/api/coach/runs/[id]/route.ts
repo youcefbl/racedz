@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
-import { setRunVisibility } from "@/lib/coach/service";
+import { updateRunnerRunSchema } from "@/lib/coach/schemas";
+import { updateRun } from "@/lib/coach/service";
 
 type RunRouteContext = { params: Promise<{ id: string }> };
-const updateRunSchema = z.object({ isPublic: z.boolean() });
 
 export async function PATCH(request: Request, context: RunRouteContext) {
   const session = await auth();
@@ -13,8 +12,8 @@ export async function PATCH(request: Request, context: RunRouteContext) {
 
   try {
     const { id } = await context.params;
-    const { isPublic } = updateRunSchema.parse(await readCoachJson(request));
-    const run = await setRunVisibility(session.user.id, id, isPublic);
+    const fields = updateRunnerRunSchema.parse(await readCoachJson(request));
+    const run = await updateRun(session.user.id, id, fields);
     return NextResponse.json({ data: run });
   } catch (error) {
     return coachErrorResponse(error);

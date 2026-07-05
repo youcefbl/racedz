@@ -194,8 +194,11 @@ export function RunRecorder({
   if (!native) return null;
 
   const distanceKm = state.distanceM / 1000;
-  // Average pace over the whole run so far — same basis (elapsed/distance) as the summary.
-  const avgPace = distanceKm > 0 ? Math.round(state.elapsedSec / distanceKm) : null;
+  // Average pace over the whole run so far, on MOVING time — this is the pace runners expect
+  // (it ignores stops and matches the per-km splits). Falls back to elapsed before the first
+  // moving seconds accrue.
+  const paceSeconds = state.movingSec > 0 ? state.movingSec : state.elapsedSec;
+  const avgPace = distanceKm > 0 ? Math.round(paceSeconds / distanceKm) : null;
   const permissionError = state.errorCode === "NOT_AUTHORIZED";
   const shownError = saveError ?? (state.errorCode ? copy.gpsError : null);
   const gpsValue =
@@ -325,7 +328,7 @@ export function RunRecorder({
               distanceKm={distanceKm}
               durationSeconds={state.elapsedSec}
               movingSeconds={state.movingSec}
-              avgPaceSecondsPerKm={distanceKm > 0 ? Math.round(state.elapsedSec / distanceKm) : null}
+              avgPaceSecondsPerKm={avgPace}
               elevationGainM={Math.round(state.elevationM)}
               avgCadence={state.avgCadence}
               copy={copy}

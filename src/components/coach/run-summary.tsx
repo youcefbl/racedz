@@ -58,7 +58,7 @@ export function RunSummary({
       ) : null}
 
       {elevation.length > 1 ? (
-        <Profile title={copy.profileElevation} series={elevation} mode="area" color="#15803D" unit="m" />
+        <Profile title={copy.profileElevation} series={elevation} mode="area" color="#15803D" unit="m" caption={`↑ ${elevGain} m`} />
       ) : null}
 
       {pace.length > 1 ? (
@@ -123,7 +123,8 @@ function Profile({
   color,
   unit,
   invert = false,
-  format
+  format,
+  caption
 }: {
   title: string;
   series: SeriesPoint[];
@@ -132,6 +133,9 @@ function Profile({
   unit?: string;
   invert?: boolean;
   format?: (v: number) => string;
+  // Overrides the default "max · min" readout. Used for elevation, where absolute GPS altitude
+  // is unreliable, so we show the (corrected) climb instead of a misleading min/max range.
+  caption?: string;
 }) {
   const W = 300;
   const H = 64;
@@ -159,7 +163,7 @@ function Profile({
     <div>
       <div className="mb-1 flex items-center justify-between text-xs font-bold text-gray-500">
         <span className="uppercase tracking-wide">{title}</span>
-        <span className="text-gray-400">{fmt(hi)} · {fmt(lo)}</span>
+        <span className="text-gray-400">{caption ?? `${fmt(hi)} · ${fmt(lo)}`}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-16 w-full" preserveAspectRatio="none" role="img" aria-label={title}>
         {mode === "area" ? <path d={area} fill={color} opacity={0.15} /> : null}

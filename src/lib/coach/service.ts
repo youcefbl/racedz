@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import type { RunRoutePoint } from "@/components/coach/types";
 import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
+import { resolveRunElevation } from "@/lib/coach/elevation";
 import { calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
@@ -78,6 +79,7 @@ type RunRow = {
   painLevel: number;
   symptoms: string | null;
   notes: string | null;
+  photos: unknown;
   source: "MANUAL" | "IMPORTED" | "GPS";
   createdAt: Date;
   updatedAt: Date;
@@ -295,27 +297,44 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   }
 
   const runId = randomUUID();
-  const pace = calculateAveragePaceSecondsPerKm(input.distanceKm, input.durationSeconds);
+  // Headline pace is moving-based (excludes stops) when we have a moving time — this is what
+  // runners expect and it stays consistent with the per-km splits. Manual runs without a
+  // moving time fall back to total duration.
+  const paceSeconds = input.movingTimeSeconds && input.movingTimeSeconds > 0 ? input.movingTimeSeconds : input.durationSeconds;
+  const pace = calculateAveragePaceSecondsPerKm(input.distanceKm, paceSeconds);
+
+  // Recompute elevation gain server-side from the GPS track (terrain-corrected when a DEM is
+  // configured, smoothed otherwise). Raw phone-GPS altitude over-counts climb badly, so the
+  // client-reported gain is treated as advisory only. Manual runs keep their reported value.
+  let routePoints = input.route ?? null;
+  let elevationGainM = input.elevationGainM ?? null;
+  if (routePoints && routePoints.length > 1) {
+    const resolved = await resolveRunElevation(routePoints);
+    routePoints = resolved.route;
+    elevationGainM = resolved.gainM;
+  }
+
   const calories =
     input.calories ??
     estimateRunCalories({
       weightKg: input.weightKg ?? goal.weightKg,
       distanceKm: input.distanceKm,
-      elevationGainM: input.elevationGainM
+      elevationGainM
     });
-  const routeJson = input.route && input.route.length > 0 ? JSON.stringify(input.route) : null;
+  const routeJson = routePoints && routePoints.length > 0 ? JSON.stringify(routePoints) : null;
+  const photosJson = input.photos && input.photos.length > 0 ? JSON.stringify(input.photos) : null;
   const rows = await prisma.$queryRaw<RunRow[]>`
     INSERT INTO "RunnerRun" (
       "id", "userId", "goalId", "workoutId", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "isPublic", "perceivedEffort",
-      "fatigueLevel", "painLevel", "symptoms", "notes", "source", "updatedAt"
+      "fatigueLevel", "painLevel", "symptoms", "notes", "photos", "source", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${input.workoutId ?? null}, ${input.startedAt}, ${input.distanceKm},
-      ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${input.elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
+      ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.symptoms ?? null},
-      ${input.notes ?? null}, ${input.source}::"RunnerRunSource", NOW()
+      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource", NOW()
     )
     RETURNING *
   `;
@@ -342,9 +361,20 @@ export async function getRunnerRuns(userId: string, limit = 50) {
   `;
 }
 
-export async function setRunVisibility(userId: string, runId: string, isPublic: boolean) {
+// Partial update of a run the caller owns: visibility and/or photos. Each field is only
+// touched when provided, so flipping visibility never clears photos and vice versa.
+export async function updateRun(
+  userId: string,
+  runId: string,
+  fields: { isPublic?: boolean; photos?: string[] }
+) {
+  const setPhotos = fields.photos !== undefined;
+  const photosJson = setPhotos ? JSON.stringify(fields.photos) : null;
   const rows = await getPrisma().$queryRaw<RunRow[]>`
-    UPDATE "RunnerRun" SET "isPublic" = ${isPublic}, "updatedAt" = NOW()
+    UPDATE "RunnerRun" SET
+      "isPublic" = COALESCE(${fields.isPublic ?? null}, "isPublic"),
+      "photos" = CASE WHEN ${setPhotos} THEN CAST(${photosJson} AS JSONB) ELSE "photos" END,
+      "updatedAt" = NOW()
     WHERE "id" = ${runId} AND "userId" = ${userId}
     RETURNING *
   `;

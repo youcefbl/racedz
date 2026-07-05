@@ -94,6 +94,14 @@ export const runRoutePointSchema = z.object({
   t: z.number().int().nonnegative().nullable().optional()
 });
 
+// Photos are stored as public URLs produced by our own uploads endpoint. Restricting to the
+// `/uploads/run/` prefix means a client can only attach images it actually uploaded here, not
+// paste an arbitrary external URL into the run record.
+export const runPhotosSchema = z
+  .array(z.string().trim().min(1).max(300).startsWith("/uploads/run/"))
+  .max(6)
+  .transform((urls) => Array.from(new Set(urls)));
+
 export const createRunnerRunSchema = z.object({
   goalId: z.string().min(1).max(64).nullable().optional(),
   workoutId: z.string().min(1).max(64).nullable().optional(),
@@ -113,8 +121,19 @@ export const createRunnerRunSchema = z.object({
   fatigueLevel: z.coerce.number().int().min(0).max(10).default(0),
   painLevel: z.coerce.number().int().min(0).max(10).default(0),
   symptoms: z.string().trim().max(500).nullable().optional(),
-  notes: z.string().trim().max(2000).nullable().optional()
+  notes: z.string().trim().max(2000).nullable().optional(),
+  photos: runPhotosSchema.optional()
 });
+
+// Partial update from the runs list: flip visibility and/or attach photos after the fact.
+export const updateRunnerRunSchema = z
+  .object({
+    isPublic: z.coerce.boolean().optional(),
+    photos: runPhotosSchema.optional()
+  })
+  .refine((input) => input.isPublic !== undefined || input.photos !== undefined, {
+    message: "Nothing to update."
+  });
 
 export const coachInteractionInputSchema = z
   .object({
@@ -156,6 +175,7 @@ export const coachResponseSchema = z.object({
 export type CoachLocale = z.infer<typeof coachLocaleSchema>;
 export type CreateCoachGoalInput = z.infer<typeof createCoachGoalSchema>;
 export type CreateRunnerRunInput = z.infer<typeof createRunnerRunSchema>;
+export type UpdateRunnerRunInput = z.infer<typeof updateRunnerRunSchema>;
 export type CoachInteractionInput = z.infer<typeof coachInteractionInputSchema>;
 export type CoachResponse = z.infer<typeof coachResponseSchema>;
 export type CoachWorkout = z.infer<typeof coachWorkoutSchema>;

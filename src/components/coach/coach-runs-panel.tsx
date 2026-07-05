@@ -1,11 +1,12 @@
 "use client";
 
-import { Activity, AlertTriangle, CalendarDays, Flame, Gauge, Globe, HeartPulse, Lock, Plus, Route, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, Flame, Gauge, Globe, HeartPulse, Images, Lock, Plus, Route, Sparkles } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
 import { RunRecorder } from "@/components/coach/run-recorder";
+import { RunPhotoUploader } from "@/components/coach/run-photos";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { RunMap } from "@/components/coach/run-map";
 import { RunSummary } from "@/components/coach/run-summary";
@@ -45,6 +46,10 @@ export function CoachRunsPanel({
   const [distance, setDistance] = useState(5);
   const [duration, setDuration] = useState(35);
   const [share, setShare] = useState(false);
+  const [formPhotos, setFormPhotos] = useState<string[]>([]);
+  // Local, per-run photo overrides so a photo added/removed on a history row shows instantly,
+  // before the list refetches. Falls back to the run's server-side photos.
+  const [photoOverrides, setPhotoOverrides] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   // Open the most recent GPS run by default so its map + per-km splits show without a
@@ -75,11 +80,13 @@ export function CoachRunsPanel({
             painLevel: pain,
             isPublic: share,
             symptoms: optionalString(formData, "symptoms"),
-            notes: optionalString(formData, "notes")
+            notes: optionalString(formData, "notes"),
+            photos: formPhotos
           })
         });
         const analyze = formData.get("analyzeNow") === "on";
         setSuccess(copy.runSaved);
+        setFormPhotos([]);
         setShowForm(false);
         try {
           await onSaved(payload.data.run.id, analyze);
@@ -102,6 +109,20 @@ export function CoachRunsPanel({
         setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
       }
     });
+  }
+
+  // Persist a run's photo list after an add/remove on its history row. The override is set
+  // first (instant feedback); on failure it's rolled back to the run's server value.
+  async function updatePhotos(run: CoachRun, next: string[]) {
+    const previous = photoOverrides[run.id] ?? run.photos ?? [];
+    setError(null);
+    setPhotoOverrides((prev) => ({ ...prev, [run.id]: next }));
+    try {
+      await coachRequest(`/api/coach/runs/${run.id}`, { method: "PATCH", body: JSON.stringify({ photos: next }) });
+    } catch (caught) {
+      setPhotoOverrides((prev) => ({ ...prev, [run.id]: previous }));
+      setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
+    }
   }
 
   return (
@@ -174,6 +195,12 @@ export function CoachRunsPanel({
               </div>
             </div>
 
+            <div className="mt-5 border-t border-gray-200 pt-5">
+              <p className="mb-1 text-sm font-bold text-gray-800">{copy.photos}</p>
+              <p className="mb-3 text-xs font-medium text-gray-500">{copy.photoHelp}</p>
+              <RunPhotoUploader value={formPhotos} onChange={setFormPhotos} copy={copy} />
+            </div>
+
             {pain >= 7 ? (
               <div className="mt-5 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -214,6 +241,7 @@ export function CoachRunsPanel({
             {runs.map((run) => {
               const isOpen = expandedRun === run.id;
               const hasRoute = Boolean(run.route && run.route.length > 1);
+              const photos = photoOverrides[run.id] ?? run.photos ?? [];
               return (
               <div key={run.id}>
               <article className="grid gap-4 px-5 py-4 md:grid-cols-[auto_minmax(150px,.8fr)_repeat(5,minmax(64px,.4fr))_auto] md:items-center">
@@ -256,6 +284,19 @@ export function CoachRunsPanel({
                     {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
                     {run.isPublic ? copy.publicLabel : copy.privateLabel}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedRun(isOpen ? null : run.id)}
+                    aria-expanded={isOpen}
+                    title={copy.photos}
+                    className={cn(
+                      "inline-flex min-h-11 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
+                      photos.length > 0 ? "border-brand-teal bg-teal-50 text-brand-teal" : "border-gray-200 text-gray-500 hover:border-brand-teal"
+                    )}
+                  >
+                    <Images className="size-3.5" aria-hidden="true" />
+                    {photos.length > 0 ? photos.length : copy.addPhoto}
+                  </button>
                   {analyzedRuns?.[run.id] && onViewAnalysis ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => onViewAnalysis(analyzedRuns[run.id])}>
                       <Sparkles className="size-4" aria-hidden="true" /> {copy.viewAnalysis}
@@ -267,20 +308,28 @@ export function CoachRunsPanel({
                   )}
                 </div>
               </article>
-              {isOpen && run.route && run.route.length > 1 ? (
-                <div className="px-5 pb-5">
-                  <RunMap points={run.route} className="mb-4 h-56 w-full overflow-hidden rounded-md border border-gray-200" />
-                  <RunSummary
-                    points={run.route}
-                    distanceKm={run.distanceKm}
-                    durationSeconds={run.durationSeconds}
-                    movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
-                    avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
-                    elevationGainM={run.elevationGainM}
-                    avgCadence={run.avgCadence}
-                    calories={run.calories}
-                    copy={copy}
-                  />
+              {isOpen ? (
+                <div className="space-y-4 px-5 pb-5">
+                  {hasRoute && run.route ? (
+                    <>
+                      <RunMap points={run.route} className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
+                      <RunSummary
+                        points={run.route}
+                        distanceKm={run.distanceKm}
+                        durationSeconds={run.durationSeconds}
+                        movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
+                        avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
+                        elevationGainM={run.elevationGainM}
+                        avgCadence={run.avgCadence}
+                        calories={run.calories}
+                        copy={copy}
+                      />
+                    </>
+                  ) : null}
+                  <div>
+                    <p className="mb-2 text-sm font-bold text-gray-800">{copy.photos}</p>
+                    <RunPhotoUploader value={photos} onChange={(next) => updatePhotos(run, next)} copy={copy} disabled={saving} />
+                  </div>
                 </div>
               ) : null}
               </div>

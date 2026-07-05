@@ -46,6 +46,7 @@ export type CoachRun = {
   painLevel: number;
   symptoms: string | null;
   notes: string | null;
+  photos: string[] | null;
 };
 
 export type RunRoutePoint = {
