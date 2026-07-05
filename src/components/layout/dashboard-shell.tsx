@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
+  BarChart3,
   Bot,
   Building2,
+  Flag,
   Settings,
   ClipboardList,
   History,
   LayoutDashboard,
   Lightbulb,
+  Megaphone,
   ShieldCheck,
   Trophy,
   UsersRound
@@ -30,10 +33,13 @@ type DashboardNavItem = {
 
 const adminNavItems: DashboardNavItem[] = [
   { href: "/admin", label: "Overview", description: "Platform health", icon: LayoutDashboard },
+  { href: "/admin/analytics", label: "Analytics", description: "Traffic and usage", icon: BarChart3 },
   { href: "/admin/users", label: "Users", description: "Accounts and roles", icon: UsersRound },
   { href: "/admin/organizations", label: "Organizations", description: "Organizer approvals", icon: Building2 },
   { href: "/admin/races", label: "Races", description: "Review and publish", icon: Trophy },
   { href: "/admin/registrations", label: "Registrations", description: "Runner entries", icon: ClipboardList },
+  { href: "/admin/reports", label: "Reports", description: "Flagged content", icon: Flag },
+  { href: "/admin/announcements", label: "Announcements", description: "Broadcast to users", icon: Megaphone },
   { href: "/admin/coach", label: "AI Coach", description: "Usage and subscriptions", icon: Bot },
   { href: "/admin/tips", label: "Coach tips", description: "Review and publish tips", icon: Lightbulb },
   { href: "/admin/audit", label: "Audit", description: "Admin action log", icon: History }

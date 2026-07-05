@@ -7,6 +7,7 @@ import { Suspense } from "react";
 // spacing/color, not extra fonts or heavy weights. (Logo wordmark is vector art.)
 // To try another face, swap `Manrope` for `Plus_Jakarta_Sans` or `DM_Sans` here.
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+import { AnalyticsTracker } from "@/components/analytics/analytics-tracker";
 import { HtmlLangDir } from "@/components/layout/html-lang-dir";
 import { NativeChrome } from "@/components/layout/native-chrome";
 import { NativeDeepLinks } from "@/components/layout/native-deep-links";
@@ -61,6 +62,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
         <Suspense fallback={null}>
           <HtmlLangDir />
+        </Suspense>
+        <Suspense fallback={null}>
+          <AnalyticsTracker />
         </Suspense>
         <Suspense fallback={null}>
           <SiteHeader />
