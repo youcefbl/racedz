@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, CalendarDays, Flame, Gauge, Globe, HeartPulse, Images, Lock, Plus, Route, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, ChevronDown, Flame, Gauge, Globe, HeartPulse, Images, Lock, Plus, Route, Sparkles } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -246,15 +246,7 @@ export function CoachRunsPanel({
               <div key={run.id}>
               <article className="grid gap-4 px-5 py-4 md:grid-cols-[auto_minmax(150px,.8fr)_repeat(5,minmax(64px,.4fr))_auto] md:items-center">
                 {hasRoute ? (
-                  <button
-                    type="button"
-                    onClick={() => setExpandedRun(isOpen ? null : run.id)}
-                    aria-expanded={isOpen}
-                    aria-label={copy.splitsLabel}
-                    className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
-                  >
-                    <RunRouteMap points={run.route} className="size-12 rounded-md" />
-                  </button>
+                  <RunRouteMap points={run.route} className="size-12 shrink-0 rounded-md" />
                 ) : (
                   <span className="hidden size-12 md:block" aria-hidden="true" />
                 )}
@@ -288,14 +280,20 @@ export function CoachRunsPanel({
                     type="button"
                     onClick={() => setExpandedRun(isOpen ? null : run.id)}
                     aria-expanded={isOpen}
-                    title={copy.photos}
+                    title={copy.details}
                     className={cn(
                       "inline-flex min-h-11 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
-                      photos.length > 0 ? "border-brand-teal bg-teal-50 text-brand-teal" : "border-gray-200 text-gray-500 hover:border-brand-teal"
+                      isOpen ? "border-brand-teal bg-teal-50 text-brand-teal" : "border-gray-200 text-gray-500 hover:border-brand-teal"
                     )}
                   >
-                    <Images className="size-3.5" aria-hidden="true" />
-                    {photos.length > 0 ? photos.length : copy.addPhoto}
+                    <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
+                    {copy.details}
+                    {photos.length > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-brand-teal">
+                        <Images className="size-3.5" aria-hidden="true" />
+                        {photos.length}
+                      </span>
+                    ) : null}
                   </button>
                   {analyzedRuns?.[run.id] && onViewAnalysis ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => onViewAnalysis(analyzedRuns[run.id])}>
