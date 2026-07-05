@@ -262,22 +262,6 @@ export function CoachRunsPanel({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => toggleVisibility(run.id, !run.isPublic)}
-                    disabled={saving}
-                    aria-pressed={run.isPublic}
-                    title={run.isPublic ? copy.publicLabel : copy.privateLabel}
-                    className={cn(
-                      "inline-flex min-h-11 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50",
-                      run.isPublic
-                        ? "border-brand-teal bg-teal-50 text-brand-teal"
-                        : "border-gray-200 text-gray-500 hover:border-brand-teal"
-                    )}
-                  >
-                    {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
-                    {run.isPublic ? copy.publicLabel : copy.privateLabel}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setExpandedRun(isOpen ? null : run.id)}
                     aria-expanded={isOpen}
                     title={copy.details}
@@ -327,6 +311,24 @@ export function CoachRunsPanel({
                   <div>
                     <p className="mb-2 text-sm font-bold text-gray-800">{copy.photos}</p>
                     <RunPhotoUploader value={photos} onChange={(next) => updatePhotos(run, next)} copy={copy} disabled={saving} />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-sm font-bold text-gray-800">{copy.visibility}</p>
+                    <button
+                      type="button"
+                      onClick={() => toggleVisibility(run.id, !run.isPublic)}
+                      disabled={saving}
+                      aria-pressed={run.isPublic}
+                      className={cn(
+                        "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50",
+                        run.isPublic
+                          ? "border-brand-teal bg-teal-50 text-brand-teal"
+                          : "border-gray-200 text-gray-500 hover:border-brand-teal"
+                      )}
+                    >
+                      {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
+                      {run.isPublic ? copy.publicLabel : copy.privateLabel}
+                    </button>
                   </div>
                 </div>
               ) : null}
