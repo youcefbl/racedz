@@ -1,7 +1,9 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import { Activity, BrainCircuit, CalendarRange, Gauge, Languages, Route, Sparkles, Target, TrendingUp } from "lucide-react";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { coachRequest } from "@/components/coach/api";
 import { getCoachCopy } from "@/components/coach/copy";
 import { CoachConversation } from "@/components/coach/coach-conversation";
@@ -31,8 +33,26 @@ export function CoachDashboard({
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [focusInteractionId, setFocusInteractionId] = useState<string | null>(null);
+  // On the phone app the bottom-nav "Runs" screen owns run recording/history, so the Runs
+  // tab here would be a duplicate — hide it on native, keep it on the web (no bottom nav).
+  // Resolved after mount to avoid a hydration mismatch (SSR always renders the web layout).
+  const [isNative, setIsNative] = useState(false);
   const [, startTransition] = useTransition();
+  const searchParams = useSearchParams();
   const copy = getCoachCopy(locale);
+
+  useEffect(() => {
+    setIsNative(Capacitor.isNativePlatform());
+  }, []);
+
+  // Cross-screen hand-off: the standalone Runs screen sends the runner here with
+  // ?focus=<interactionId> after analysing a run, so jump to the coach tab and scroll to it.
+  useEffect(() => {
+    const focus = searchParams.get("focus");
+    if (!focus) return;
+    setFocusInteractionId(focus);
+    setView("coach");
+  }, [searchParams]);
 
   const refresh = useCallback(async () => {
     const payload = await coachRequest<{ data: CoachDashboardData }>("/api/coach");
@@ -141,7 +161,8 @@ export function CoachDashboard({
   const views = [
     { id: "overview" as const, label: copy.overview, icon: Gauge },
     { id: "plan" as const, label: copy.plan, icon: CalendarRange },
-    { id: "runs" as const, label: copy.runs, icon: Activity },
+    // Runs tab is web-only; the phone app reaches runs through the bottom nav.
+    ...(isNative ? [] : [{ id: "runs" as const, label: copy.runs, icon: Activity }]),
     { id: "coach" as const, label: copy.coach, icon: BrainCircuit }
   ];
 
@@ -195,7 +216,13 @@ export function CoachDashboard({
           <Metric icon={Activity} label={copy.fatigue} value={`${metrics.maximumFatigueLast7Days}/10`} />
         </section>
 
-        <nav className="coach-tabs mb-5 grid grid-cols-4 rounded-lg border border-gray-200 bg-white p-1 shadow-sm" aria-label="Coach views">
+        <nav
+          className={cn(
+            "coach-tabs mb-5 grid rounded-lg border border-gray-200 bg-white p-1 shadow-sm",
+            views.length === 3 ? "grid-cols-3" : "grid-cols-4"
+          )}
+          aria-label="Coach views"
+        >
           {views.map(({ id, label, icon: Icon }) => (
             <button
               key={id}

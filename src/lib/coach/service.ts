@@ -3,7 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
-import { buildRunnerCoachContext } from "@/lib/coach/context";
+import type { RunRoutePoint } from "@/components/coach/types";
+import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
@@ -395,20 +396,34 @@ export async function getCoachDashboard(userId: string) {
   // 10-interaction window above. Without this, an already-analyzed run whose analysis
   // scrolled out of the recent list wrongly shows "Analyze run" again and re-analyzing
   // burns another AI credit.
-  const runIds = runs.map((run) => run.id);
-  const analysisRows = runIds.length
-    ? await prisma.$queryRaw<Array<{ runId: string; id: string }>>`
-        SELECT DISTINCT ON ("runId") "runId", "id"
-        FROM "CoachInteraction"
-        WHERE "userId" = ${userId} AND "type" = 'POST_RUN' AND "status" <> 'FAILED'
-          AND "runId" IN (${Prisma.join(runIds)})
-        ORDER BY "runId", "createdAt" DESC
-      `
-    : [];
-  const analyzedRuns: Record<string, string> = {};
-  for (const row of analysisRows) analyzedRuns[row.runId] = row.id;
+  const analyzedRuns = await getAnalyzedRunsMap(userId, runs.map((run) => run.id));
 
   return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns };
+}
+
+// runId → id of its latest non-failed POST_RUN analysis, for the given runs. Shared by the coach
+// dashboard and the standalone Runs screen so both show "Coach analysis" on already-analyzed runs.
+export async function getAnalyzedRunsMap(userId: string, runIds: string[]): Promise<Record<string, string>> {
+  if (runIds.length === 0) return {};
+  const rows = await getPrisma().$queryRaw<Array<{ runId: string; id: string }>>`
+    SELECT DISTINCT ON ("runId") "runId", "id"
+    FROM "CoachInteraction"
+    WHERE "userId" = ${userId} AND "type" = 'POST_RUN' AND "status" <> 'FAILED'
+      AND "runId" IN (${Prisma.join(runIds)})
+    ORDER BY "runId", "createdAt" DESC
+  `;
+  const map: Record<string, string> = {};
+  for (const row of rows) map[row.runId] = row.id;
+  return map;
+}
+
+// Everything the standalone Runs screen needs to reach parity with the coach's Runs tab:
+// the runs, their existing-analysis map (for the "Coach analysis" button), and the runner's
+// weight (for the live calorie estimate in the recorder).
+export async function getRunsScreenData(userId: string, limit = 50) {
+  const [runs, goal] = await Promise.all([getRunnerRuns(userId, limit), getActiveGoal(userId)]);
+  const analyzedRuns = await getAnalyzedRunsMap(userId, runs.map((run) => run.id));
+  return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null };
 }
 
 export async function createCoachInteraction(userId: string, rawInput: unknown) {
@@ -480,7 +495,50 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     sex: profileRows[0]?.gender ?? null,
     age: ageFromDateOfBirth(profileRows[0]?.dateOfBirth ?? null)
   };
-  const context = buildRunnerCoachContext({ goal, runs, metrics, skeleton, safety, interaction: input, profile });
+
+  // Recent exchanges (this runner only) so the coach can build on what was already asked and
+  // advised instead of repeating itself. The just-inserted PENDING row is excluded by status.
+  const historyRows = await prisma.$queryRaw<Array<Pick<InteractionRow, "type" | "userMessage" | "response" | "createdAt">>>`
+    SELECT "type", "userMessage", "response", "createdAt"
+    FROM "CoachInteraction"
+    WHERE "userId" = ${userId} AND "id" <> ${interactionId}
+      AND "status" IN ('COMPLETED', 'BLOCKED') AND "response" IS NOT NULL
+    ORDER BY "createdAt" DESC
+    LIMIT 6
+  `;
+  const recentConversation: ConversationTurn[] = historyRows
+    .reverse()
+    .map((row) => ({
+      type: row.type,
+      at: row.createdAt,
+      runnerQuestion: row.userMessage,
+      coachSummary: row.response?.summary ?? null
+    }));
+
+  // For post-run feedback, hand the coach the exact run under review (with per-km splits) so the
+  // reply is centred on that effort rather than inferred from the recent-runs list.
+  const targetRun = selectedRun
+    ? {
+        id: selectedRun.id,
+        startedAt: selectedRun.startedAt,
+        distanceKm: selectedRun.distanceKm,
+        durationSeconds: selectedRun.durationSeconds,
+        averagePaceSecondsPerKm: selectedRun.averagePaceSecondsPerKm,
+        movingTimeSeconds: selectedRun.movingTimeSeconds,
+        elevationGainM: selectedRun.elevationGainM,
+        averageHeartRate: selectedRun.averageHeartRate,
+        avgCadence: selectedRun.avgCadence,
+        calories: selectedRun.calories,
+        perceivedEffort: selectedRun.perceivedEffort,
+        fatigueLevel: selectedRun.fatigueLevel,
+        painLevel: selectedRun.painLevel,
+        symptoms: selectedRun.symptoms,
+        notes: selectedRun.notes,
+        route: Array.isArray(selectedRun.route) ? (selectedRun.route as RunRoutePoint[]) : null
+      }
+    : null;
+
+  const context = buildRunnerCoachContext({ goal, runs, metrics, skeleton, safety, interaction: input, profile, targetRun, recentConversation });
 
   try {
     const generated = await generateCoachResponse(context, interactionId);

@@ -2,17 +2,31 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { coachRequest } from "@/components/coach/api";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import { getCoachCopy } from "@/components/coach/copy";
 import type { CoachLocale, CoachRun } from "@/components/coach/types";
 import { withLocale } from "@/lib/i18n";
 
-// Standalone "Runs" tab: record a run and browse past runs. Reuses CoachRunsPanel
-// (recorder + list + route map); "Analyze" hands off to the AI coach.
-export function RunsView({ initialRuns, locale }: { initialRuns: CoachRun[]; locale: CoachLocale }) {
+// Standalone "Runs" tab (bottom-nav on the phone app): record a run and browse past runs.
+// Reuses CoachRunsPanel (recorder + list + route map). Since analysis is shown by the AI
+// coach on a separate screen, "Analyze"/"Coach analysis" hand off to /account/coach and
+// focus the relevant answer via the `focus` query param.
+export function RunsView({
+  initialRuns,
+  analyzedRuns: initialAnalyzedRuns = {},
+  weightKg = null,
+  locale
+}: {
+  initialRuns: CoachRun[];
+  analyzedRuns?: Record<string, string>;
+  weightKg?: number | null;
+  locale: CoachLocale;
+}) {
   const router = useRouter();
   const copy = getCoachCopy(locale);
   const [runs, setRuns] = useState<CoachRun[]>(initialRuns);
+  const [analyzedRuns, setAnalyzedRuns] = useState<Record<string, string>>(initialAnalyzedRuns);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -25,6 +39,33 @@ export function RunsView({ initialRuns, locale }: { initialRuns: CoachRun[]; loc
     }
   }, []);
 
+  // Land on the coach screen and scroll straight to the given answer.
+  const openAnalysis = useCallback(
+    (interactionId: string) => {
+      router.push(withLocale(`/account/coach?focus=${interactionId}`, locale));
+    },
+    [router, locale]
+  );
+
+  // Generate the run's analysis here (so it counts against the AI quota exactly like the
+  // coach tab), then hand off to the coach screen focused on the fresh answer.
+  const analyze = useCallback(
+    async (runId: string) => {
+      setPendingAction("POST_RUN");
+      try {
+        const created = await coachRequest<{ data: { id: string } }>("/api/coach/interactions", {
+          method: "POST",
+          body: JSON.stringify({ type: "POST_RUN", runId, message: null })
+        });
+        setAnalyzedRuns((prev) => ({ ...prev, [runId]: created.data.id }));
+        openAnalysis(created.data.id);
+      } finally {
+        setPendingAction(null);
+      }
+    },
+    [openAnalysis]
+  );
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <CoachRunsPanel
@@ -33,13 +74,14 @@ export function RunsView({ initialRuns, locale }: { initialRuns: CoachRun[]; loc
         locale={locale}
         copy={copy}
         pendingAction={pendingAction}
-        onSaved={async () => {
+        weightKg={weightKg}
+        analyzedRuns={analyzedRuns}
+        onViewAnalysis={openAnalysis}
+        onSaved={async (_runId, analyzeNow) => {
           await refresh();
+          if (analyzeNow && _runId) await analyze(_runId);
         }}
-        onAnalyze={async (runId) => {
-          setPendingAction(runId);
-          router.push(withLocale("/account/coach", locale));
-        }}
+        onAnalyze={analyze}
       />
     </div>
   );
