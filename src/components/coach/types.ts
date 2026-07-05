@@ -135,6 +135,8 @@ export type CoachDashboardData = {
   entitlement?: CoachEntitlement | null;
   // Published tips matched to the runner's profile and localized, ready to display.
   tips?: string[];
+  // runId -> its latest analysis interaction id, for every shown run (window-independent).
+  analyzedRuns?: Record<string, string>;
 };
 
 export type CoachApiError = {

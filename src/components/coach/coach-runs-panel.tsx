@@ -47,7 +47,11 @@ export function CoachRunsPanel({
   const [share, setShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  // Open the most recent GPS run by default so its map + per-km splits show without a
+  // tap; older runs stay collapsed to avoid mounting many maps at once.
+  const [expandedRun, setExpandedRun] = useState<string | null>(
+    () => runs.find((run) => run.route && run.route.length > 1)?.id ?? null
+  );
   const [saving, startSaving] = useTransition();
   const pace = useMemo(() => (distance > 0 && duration > 0 ? Math.round((duration * 60) / distance) : null), [distance, duration]);
   const plannedWorkouts = plan?.workouts.filter((workout) => workout.status !== "COMPLETED") ?? [];

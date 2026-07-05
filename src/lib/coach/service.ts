@@ -391,7 +391,24 @@ export async function getCoachDashboard(userId: string) {
   const locale = preferred === "fr" || preferred === "ar" ? preferred : "en";
   const tips = (await getTipsForProfile(goal, locale)).map((tip) => tip.text);
 
-  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips };
+  // Map each shown run to its latest non-failed POST_RUN analysis, independent of the
+  // 10-interaction window above. Without this, an already-analyzed run whose analysis
+  // scrolled out of the recent list wrongly shows "Analyze run" again and re-analyzing
+  // burns another AI credit.
+  const runIds = runs.map((run) => run.id);
+  const analysisRows = runIds.length
+    ? await prisma.$queryRaw<Array<{ runId: string; id: string }>>`
+        SELECT DISTINCT ON ("runId") "runId", "id"
+        FROM "CoachInteraction"
+        WHERE "userId" = ${userId} AND "type" = 'POST_RUN' AND "status" <> 'FAILED'
+          AND "runId" IN (${Prisma.join(runIds)})
+        ORDER BY "runId", "createdAt" DESC
+      `
+    : [];
+  const analyzedRuns: Record<string, string> = {};
+  for (const row of analysisRows) analyzedRuns[row.runId] = row.id;
+
+  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns };
 }
 
 export async function createCoachInteraction(userId: string, rawInput: unknown) {

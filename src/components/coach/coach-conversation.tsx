@@ -248,7 +248,6 @@ function InteractionMessage({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={interaction.status === "BLOCKED" || failed ? "red" : "teal"}>{formatEnum(interaction.type)}</Badge>
         <span className="text-xs font-semibold text-gray-500">{formatCoachDateTime(interaction.createdAt, locale)}</span>
-        {interaction.model ? <span className="text-xs text-gray-500">{interaction.model}</span> : null}
       </div>
 
       {interaction.userMessage ? (

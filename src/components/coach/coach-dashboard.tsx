@@ -61,13 +61,18 @@ export function CoachDashboard({
       new Promise<void>((resolve, reject) => {
         mutate(type, async () => {
           try {
-            await coachRequest("/api/coach/interactions", {
+            const created = await coachRequest<{ data: { id: string } }>("/api/coach/interactions", {
               method: "POST",
               body: JSON.stringify({ type, runId: options?.runId ?? null, message: options?.message ?? null })
             });
             await refresh();
-            if (type === "INITIAL_PLAN" || type === "WEEKLY_REVIEW") setView("plan");
-            if (type === "POST_RUN" || type === "CHAT") setView("coach");
+            if (type === "INITIAL_PLAN" || type === "WEEKLY_REVIEW") {
+              setView("plan");
+            } else if (type === "POST_RUN" || type === "CHAT") {
+              // Jump to the coach tab and scroll to the answer we just generated.
+              setView("coach");
+              setFocusInteractionId(created.data.id);
+            }
             resolve();
           } catch (caught) {
             reject(caught);
@@ -87,14 +92,16 @@ export function CoachDashboard({
   // to the existing analysis instead of generating a duplicate one. Interactions arrive
   // newest-first, so the first match per run is the most recent analysis.
   const analyzedRuns = useMemo(() => {
-    const map: Record<string, string> = {};
+    // Server map covers every shown run regardless of the interactions window; the scan
+    // below adds any just-created analysis that isn't in the server payload yet.
+    const map: Record<string, string> = { ...(dashboard.analyzedRuns ?? {}) };
     for (const interaction of dashboard.interactions) {
       if (interaction.type === "POST_RUN" && interaction.runId && interaction.status !== "FAILED" && !map[interaction.runId]) {
         map[interaction.runId] = interaction.id;
       }
     }
     return map;
-  }, [dashboard.interactions]);
+  }, [dashboard.analyzedRuns, dashboard.interactions]);
 
   const viewAnalysis = useCallback((interactionId: string) => {
     setFocusInteractionId(interactionId);
