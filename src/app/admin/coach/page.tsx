@@ -146,26 +146,30 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
                               <label className="grid gap-1 text-xs font-bold text-gray-600">
                                 Plan
                                 <select name="plan" defaultValue="MONTHLY" className={inputClass}>
-                                  <option value="MONTHLY">Monthly (500 DA)</option>
-                                  <option value="YEARLY">Yearly (4000 DA)</option>
+                                  <option value="MONTHLY">Monthly (790 DA)</option>
+                                  <option value="YEARLY">Yearly (4,900 DA)</option>
                                   <option value="CUSTOM">Custom</option>
                                 </select>
                               </label>
                               <label className="grid gap-1 text-xs font-bold text-gray-600">
-                                Months
-                                <input name="months" type="number" min="1" max="36" defaultValue="1" required className={inputClass} />
+                                Months (Custom only)
+                                <input name="months" type="number" min="1" max="36" defaultValue="1" className={inputClass} />
                               </label>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <label className="grid gap-1 text-xs font-bold text-gray-600">
-                                Amount (DA)
-                                <input name="amountDa" type="number" min="0" placeholder="500" className={inputClass} />
+                                Amount (DA) — blank = plan price
+                                <input name="amountDa" type="number" min="0" placeholder="auto" className={inputClass} />
                               </label>
                               <label className="grid gap-1 text-xs font-bold text-gray-600">
                                 Note
                                 <input name="note" maxLength={200} placeholder="optional" className={inputClass} />
                               </label>
                             </div>
+                            <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
+                              <input type="checkbox" name="student" className="size-4 accent-brand-teal" />
+                              Student −20% (DZstudent)
+                            </label>
                             <Button type="submit" size="sm" className="w-full">
                               Activate / Renew
                             </Button>

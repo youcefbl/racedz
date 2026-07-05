@@ -15,7 +15,7 @@ export type CoachEntitlement = {
   usage: { daily: number; monthly: number } | null;
 };
 
-export const COACH_TRIAL_DAYS = readPositiveLimit(process.env.COACH_TRIAL_DAYS, 30);
+export const COACH_TRIAL_DAYS = readPositiveLimit(process.env.COACH_TRIAL_DAYS, 7);
 
 const TIER_LIMITS: Record<Exclude<CoachTier, "NONE">, { daily: number; monthly: number }> = {
   SUBSCRIBED: {
@@ -39,8 +39,8 @@ type ActiveSubscriptionRow = {
  * Resolve a runner's current coach access tier and limits.
  *
  * - SUBSCRIBED: an admin-activated subscription is still within its paid window.
- * - TRIAL: still inside the 30-day window that starts at account signup.
- * - NONE: trial used up and no active subscription -> AI coach is blocked until renewed.
+ * - TRIAL: still inside the free coach window (COACH_TRIAL_DAYS, default 7) from account signup.
+ * - NONE: trial used up and no active subscription -> AI coach is blocked until subscribed.
  */
 export async function resolveCoachEntitlement(userId: string): Promise<CoachEntitlement> {
   const prisma = getPrisma();

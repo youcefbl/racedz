@@ -14,6 +14,7 @@ import {
   LogIn,
   Menu,
   Search,
+  Tag,
   Trophy,
   UserPlus,
   UserRound,
@@ -52,6 +53,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   const desktopNavItems = [
     { href: "/races", label: dictionary.nav.races, icon: CalendarDays },
     { href: "/coach", label: dictionary.nav.aiCoach, icon: BrainCircuit },
+    { href: "/pricing", label: dictionary.nav.pricing, icon: Tag },
     ...(isAdmin ? [{ href: "/rankings", label: dictionary.nav.rankings, icon: Trophy }] : []),
     { href: "/runners", label: dictionary.nav.forRunners, icon: Footprints },
     { href: "/organizers", label: dictionary.nav.organizers, icon: Building2 }
