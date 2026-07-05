@@ -1,20 +1,19 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
-import { Activity, BrainCircuit, CalendarRange, Gauge, Languages, Route, Sparkles, Target, TrendingUp } from "lucide-react";
+import { Activity, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Target } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { coachRequest } from "@/components/coach/api";
 import { getCoachCopy } from "@/components/coach/copy";
 import { CoachConversation } from "@/components/coach/coach-conversation";
 import { CoachGoalForm } from "@/components/coach/coach-goal-form";
-import { CoachMotivation } from "@/components/coach/coach-motivation";
 import { CoachOverview } from "@/components/coach/coach-overview";
 import { CoachPushPrompt } from "@/components/coach/coach-push-prompt";
 import { CoachPlanPanel } from "@/components/coach/coach-plan-panel";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import type { CoachCopy } from "@/components/coach/copy";
-import type { CoachDashboardData, CoachEntitlement, CoachLocale } from "@/components/coach/types";
+import type { CoachDashboardData, CoachEntitlement, CoachLocale, CoachRun } from "@/components/coach/types";
 import { cn } from "@/lib/utils";
 
 type CoachView = "overview" | "plan" | "runs" | "coach";
@@ -158,6 +157,9 @@ export function CoachDashboard({
 
   const goal = dashboard.goal;
   const metrics = dashboard.snapshot?.metrics ?? emptyMetrics;
+  const runTarget = Math.max(2, goal.availableTrainingDays.length);
+  const distanceTarget = Math.max(1, Math.round(goal.currentWeeklyDistanceKm));
+  const streak = weekStreak(dashboard.runs);
   const views = [
     { id: "overview" as const, label: copy.overview, icon: Gauge },
     { id: "plan" as const, label: copy.plan, icon: CalendarRange },
@@ -169,51 +171,48 @@ export function CoachDashboard({
   return (
     <div className="min-h-[70vh] bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <header className="mb-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl rz-hide-native">
-            <p className="inline-flex items-center gap-2 text-sm font-semibold text-brand-teal">
-              <Sparkles className="size-4 text-brand-orange" aria-hidden="true" />
-              {copy.eyebrow}
-            </p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950 sm:text-4xl">{copy.title}</h1>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{copy.intro}</p>
+        <header className="mb-5">
+          <div className="rz-hide-native mb-5 max-w-3xl">
+            <h1 className="text-2xl font-black text-balance text-gray-950 sm:text-3xl">{copy.title}</h1>
+            <p className="mt-1.5 text-sm leading-6 text-gray-600">{copy.intro}</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand-orange">
-                <Target className="size-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase text-gray-500">{copy.currentGoal}</p>
-                <p className="truncate text-sm font-black text-gray-950">{formatGoal(goal.goalType, goal.customGoal)}</p>
-              </div>
-            </div>
-            <label className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-brand-teal">
-                <Languages className="size-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <span className="block text-xs font-bold uppercase text-gray-500">{copy.responseLanguage}</span>
-                <select
-                  value={goal.preferredLocale}
-                  onChange={(event) => setCoachLanguage(event.target.value as CoachLocale)}
-                  disabled={pendingAction === "GOAL_SETTINGS"}
-                  className="mt-0.5 w-full cursor-pointer bg-transparent text-sm font-black text-gray-950 outline-none disabled:opacity-60"
-                >
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                  <option value="ar">العربية</option>
-                </select>
-              </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 shadow-sm">
+              <Target className="size-4 shrink-0 text-brand-orange" aria-hidden="true" />
+              <span className="truncate text-sm font-black text-gray-950">{formatGoal(goal.goalType, goal.customGoal)}</span>
+            </span>
+            <label className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 shadow-sm sm:ms-auto">
+              <Languages className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+              <span className="sr-only">{copy.responseLanguage}</span>
+              <select
+                value={goal.preferredLocale}
+                onChange={(event) => setCoachLanguage(event.target.value as CoachLocale)}
+                disabled={pendingAction === "GOAL_SETTINGS"}
+                className="cursor-pointer bg-transparent text-sm font-black text-gray-950 outline-none disabled:opacity-60"
+              >
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="ar">العربية</option>
+              </select>
             </label>
           </div>
         </header>
 
-        <section className="mb-5 grid grid-cols-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm lg:grid-cols-4">
-          <Metric icon={Route} label={copy.thisWeek} value={`${metrics.distanceLast7DaysKm.toFixed(1)} km`} />
-          <Metric icon={TrendingUp} label={copy.last28} value={`${metrics.distanceLast28DaysKm.toFixed(1)} km`} />
-          <Metric icon={Gauge} label={copy.avgPace} value={formatMetricPace(metrics.averagePaceLast28DaysSecondsPerKm)} />
-          <Metric icon={Activity} label={copy.fatigue} value={`${metrics.maximumFatigueLast7Days}/10`} />
+        {/* This week — the single home for weekly status: distance & runs vs target, pace, fatigue, streak */}
+        <section className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">{copy.thisWeek}</h2>
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black", streak > 0 ? "bg-orange-50 text-brand-orange" : "bg-gray-100 text-gray-500")}>
+              <Flame className="size-3.5" aria-hidden="true" />
+              {streak} {copy.streakLabel}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
+            <ProgressStat label={copy.challengeDistance} display={`${metrics.distanceLast7DaysKm.toFixed(1)} / ${distanceTarget} km`} value={metrics.distanceLast7DaysKm} target={distanceTarget} />
+            <ProgressStat label={copy.challengeRuns} display={`${metrics.runCountLast7Days} / ${runTarget}`} value={metrics.runCountLast7Days} target={runTarget} />
+            <PlainStat label={copy.avgPace} value={formatMetricPace(metrics.averagePaceLast28DaysSecondsPerKm)} />
+            <PlainStat label={copy.fatigue} value={`${metrics.maximumFatigueLast7Days}/10`} />
+          </div>
         </section>
 
         <nav
@@ -256,10 +255,7 @@ export function CoachDashboard({
         ) : null}
 
         {view === "overview" ? (
-          <>
-            <CoachMotivation goal={goal} runs={dashboard.runs} metrics={metrics} tips={dashboard.tips} copy={copy} />
-            <CoachOverview data={dashboard} latestPlan={latestPlan} locale={locale} copy={copy} onOpenPlan={() => setView("plan")} />
-          </>
+          <CoachOverview data={dashboard} latestPlan={latestPlan} locale={locale} copy={copy} tips={dashboard.tips} onOpenPlan={() => setView("plan")} />
         ) : null}
         {view === "plan" ? (
           <CoachPlanPanel
@@ -363,16 +359,43 @@ function formatBannerDate(iso: string, locale: CoachLocale) {
   });
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof Route; label: string; value: string }) {
+function ProgressStat({ label, display, value, target }: { label: string; display: string; value: number; target: number }) {
+  const percent = Math.min(100, Math.round((value / Math.max(target, 1)) * 100));
+  const complete = value >= target;
   return (
-    <div className="min-w-0 border-b border-e border-gray-200 p-4 last:border-e-0 lg:border-b-0">
-      <div className="flex items-center gap-2 text-gray-500">
-        <Icon className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
-        <span className="truncate text-xs font-bold uppercase">{label}</span>
+    <div className="min-w-0">
+      <p className="truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className={cn("mt-1 truncate text-lg font-black tabular-nums", complete ? "text-green-600" : "text-gray-950")}>{display}</p>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+        <div className={cn("h-full rounded-full transition-all", complete ? "bg-green-500" : "bg-brand-orange")} style={{ width: `${percent}%` }} />
       </div>
-      <p className="mt-2 truncate text-xl font-black text-gray-950 sm:text-2xl">{value}</p>
     </div>
   );
+}
+
+function PlainStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 truncate text-lg font-black tabular-nums text-gray-950">{value}</p>
+      <div className="mt-2 h-1.5" aria-hidden="true" />
+    </div>
+  );
+}
+
+// Consecutive 7-day windows (ending today) that each contain at least one run.
+const DAY_MS = 24 * 60 * 60 * 1000;
+function weekStreak(runs: CoachRun[], now = Date.now()) {
+  const times = runs.map((run) => new Date(run.startedAt).getTime()).filter((time) => Number.isFinite(time) && time <= now);
+  if (times.length === 0) return 0;
+  let streak = 0;
+  for (let week = 0; week < 52; week += 1) {
+    const end = now - week * 7 * DAY_MS;
+    const start = end - 7 * DAY_MS;
+    if (times.some((time) => time > start && time <= end)) streak += 1;
+    else break;
+  }
+  return streak;
 }
 
 function formatGoal(goalType: string, customGoal: string | null) {
