@@ -3,7 +3,8 @@
 Campaign: **Launch awareness** · Platforms: Instagram (IG), Facebook (FB), TikTok (TT)
 Phases: **Tease → Reveal → Prove → Sustain**
 
-> Legend — Pillars: 🏃 Inspire · 🔍 Enable · 🤖 Coach · 😄 Relatable · 📣 Organizer
+> Legend — Pillars: 🤖 **Coach (hero, ~35%)** · 🏃 Inspire · 🔍 Enable · 😄 Relatable · 📣 Organizer
+> **Coach-first:** the coach (💬 Coach Zid) is the hero pillar — aim for ≥1 coach post every 3 posts on every platform, not just in Week 4. Pull angles from the Coach content bank in `00-marketing-plan.md` §7b.
 > Copy for every item lives in [posts/instagram.md](posts/instagram.md), [posts/facebook.md](posts/facebook.md), [posts/tiktok.md](posts/tiktok.md).
 > Post times (Algeria, GMT+1): peak windows **12:30–14:00** and **19:00–22:30**. Best days: Sun–Thu + Fri evening.
 
@@ -109,13 +110,15 @@ Goal: prove traction publicly, set up evergreen rhythm.
 
 ---
 
-## Evergreen weekly rhythm (Week 7+)
-- **Mon:** Weekend race roundup (Enable)
-- **Tue:** Relatable/meme
-- **Wed:** Coach tip
-- **Thu:** Runner/organizer story
-- **Fri:** Race countdowns + organizer CTA
+## Evergreen weekly rhythm (Week 7+) — coach-weighted
+- **Mon:** 🤖 Coach: "plan your week" / Coach Zid tip of the week
+- **Tue:** 😄 Relatable/meme (end on the coach where natural)
+- **Wed:** 🤖 Coach: live-run/split demo OR "ask Coach Zid" reply video
+- **Thu:** 🏃 Runner/organizer story (featuring their coach plan)
+- **Fri:** 🔍 Race countdowns + organizer CTA
+- **Sat:** 🤖 Coach: profile-matched tip card (beginner / marathon / comeback)
 - **Daily:** Stories (polls, countdowns, UGC re-share) + 1–2 TikToks
+> ≈3 of 7 feed slots are coach — the hero pillar carries the evergreen rhythm.
 
 ## Production tips
 - **Batch:** one monthly shoot per city → 8–12 clips. Screen-record the app once for all demo content.
