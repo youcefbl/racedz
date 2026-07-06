@@ -15,6 +15,11 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
     <SectionPage eyebrow="ZidRun" title={content.title}>
       <div className="space-y-8">
         <p className="max-w-2xl text-base leading-7 text-gray-700">{content.intro}</p>
+        <section className="rounded-lg border border-gray-200 bg-gray-50 p-6">
+          <p className="text-xs font-bold uppercase tracking-normal text-brand-teal">{content.aboutTitle}</p>
+          <p className="mt-2 max-w-3xl text-lg font-black leading-8 text-gray-950">{content.aboutLead}</p>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-gray-700">{content.aboutText}</p>
+        </section>
         <dl className="divide-y divide-gray-200 border-t border-gray-200">
           <ContactRow
             icon={Mail}

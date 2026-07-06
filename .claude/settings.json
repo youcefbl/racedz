@@ -20,17 +20,14 @@
       "Bash(docker exec *)",
       "Bash(git stash *)",
       "Bash(docker cp *)",
-
-            "Bash(git push *)",
+      "Bash(git push *)",
       "Bash(git checkout *)",
       "Bash(git add *)",
-
       "Bash(npm run typecheck)",
       "Bash(npm run lint)",
       "Bash(npm run test:coach)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc --noEmit *)",
-
       "Bash(emulator -avd *)",
       "Bash(nohup emulator -avd *)",
       "Bash(emulator -list-avds)",
@@ -38,15 +35,12 @@
       "Bash(adb emu kill *)",
       "Bash($ADB emu kill)",
       "Bash($ADB emu kill *)",
-
       "Bash(adb shell am force-stop *)",
       "Bash($ADB shell am force-stop *)",
       "Bash(adb shell monkey *)",
       "Bash($ADB shell monkey *)",
-
       "Bash(adb logcat *)",
       "Bash($ADB logcat *)",
-
       "Bash(adb devices)",
       "Bash(adb devices *)",
       "Bash($ADB devices)",
@@ -57,7 +51,6 @@
       "Bash($ADB wait-for-device *)",
       "Bash(adb shell getprop *)",
       "Bash($ADB shell getprop *)",
-
       "Bash(adb exec-out screencap *)",
       "Bash($ADB exec-out screencap *)",
       "Bash(adb install *)",
@@ -74,7 +67,6 @@
       "Bash($ADB shell dumpsys *)",
       "Bash(adb shell cat *)",
       "Bash($ADB shell cat *)",
-
       "Bash(npx cap *)",
       "Bash(./gradlew *)",
       "Bash(node scripts/*)",
@@ -84,14 +76,35 @@
       "Bash(keytool *)",
       "Bash(cp *)",
       "Bash(curl *)",
-
       "Bash(npm run build)",
       "Bash(dig *)",
       "Bash(npx prisma generate)",
       "Bash(npx prisma migrate dev *)",
       "Bash(npx prisma migrate deploy)",
-      "Bash(npx prisma migrate status)"
+      "Bash(npx prisma migrate status)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('scripts',{}\\),indent=1\\)\\)\")",
+      "Bash(CAP_SERVER_URL=http://10.0.2.2:3003 npx cap sync android)",
+      "Bash(CAP_SERVER_URL=http://10.0.2.2:3003 npx cap run android --target emulator-5554)",
+      "Bash(/home/youcef/Android/Sdk/platform-tools/adb shell *)",
+      "Bash(/home/youcef/Android/Sdk/platform-tools/adb pull *)",
+      "Bash(/home/youcef/Android/Sdk/platform-tools/adb emu *)",
+      "Bash(break)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; for \\(const k of Object.keys\\(d\\).sort\\(\\)\\) if \\(/capacitor|next-auth|google-auth|jose|jsonwebtoken/.test\\(k\\)\\) console.log\\(k, d[k]\\);\")",
+      "Bash(npm view *)",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{try{const v=JSON.parse\\(s\\);console.log\\(v.slice\\(-12\\).join\\(', '\\)\\)}catch\\(e\\){console.log\\(s.slice\\(0,200\\)\\)}}\\)\")",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const v=JSON.parse\\(s\\);console.log\\(v.slice\\(-6\\).join\\(', '\\)\\)}\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('social-login:',p.dependencies['@capgo/capacitor-social-login']\\);console.log\\('google-auth-library:',p.dependencies['google-auth-library']\\)\")",
+      "Bash(node .claude/skills/impeccable/scripts/detect.mjs --json src/app src/components)",
+      "Bash(python3 -c 'import sys,json; d=json.load\\(sys.stdin\\); print\\('\\\\''TOTAL FINDINGS:'\\\\'',len\\(d\\)\\); *)",
+      "Bash(keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(./gradlew :app:assembleDebug -q)",
+      "Bash(node /home/youcef/Documents/work/racedz/.claude/skills/impeccable/scripts/context.mjs)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('FINDINGS:',len\\(d\\)\\); [print\\('  ',x['antipattern'],x['file'].split\\('racedz/'\\)[-1]+':'+str\\(x['line']\\),'\\('+x.get\\('snippet',''\\)+'\\)'\\) for x in d]\")",
+      "Bash(/home/youcef/Android/Sdk/platform-tools/adb devices *)",
+      "Bash(node -e \"const d=require\\('./prisma/data/coach-tips.json'\\);for\\(const[k,v]of Object.entries\\(d\\)\\)console.log\\(k, v.length,'tips'\\);const all=Object.values\\(d\\).flat\\(\\);console.log\\('total',all.length\\);console.log\\('any missing lang:', all.some\\(t=>!t.en||!t.fr||!t.ar\\)\\);console.log\\('dup EN:', all.length-new Set\\(all.map\\(t=>t.en\\)\\).size\\)\")",
+      "Bash(node -e \"const d=require\\('./prisma/data/coach-tips.json'\\);let tot=0;for\\(const[k,v]of Object.entries\\(d\\)\\){tot+=v.length;console.log\\(k.padEnd\\(14\\),v.length\\)}const all=Object.values\\(d\\).flat\\(\\);console.log\\('total',tot,'| missing lang:',all.some\\(t=>!t.en||!t.fr||!t.ar\\),'| dup EN:',all.length-new Set\\(all.map\\(t=>t.en\\)\\).size\\)\")",
+      "Bash(command -v caddy)",
+      "Bash(caddy validate *)"
     ]
   }
 }
-  

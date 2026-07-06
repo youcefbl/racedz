@@ -47,9 +47,11 @@ services:
       retries: 5
       start_period: 30s
 
-  # Scheduler for internal jobs (currently the coach inactivity nudge). Hits the app's
-  # CRON_SECRET-guarded internal route over the Docker network, so the request never leaves
-  # the host. Schedule/target are overridable via env; CRON_SECRET comes from the env file.
+  # Scheduler for internal jobs: the daily coach inactivity nudge and a frequent
+  # broadcast-dispatch tick that drains any in-flight admin broadcast. Both hit the
+  # app's CRON_SECRET-guarded internal routes over the Docker network, so the requests
+  # never leave the host. Schedules/targets are overridable via env; CRON_SECRET comes
+  # from the env file. The broadcast tick is a cheap no-op when nothing is sending.
   cron:
     image: alpine:3.20
     container_name: racedz_cron_prod
@@ -61,8 +63,10 @@ services:
       - ${RACEDZ_ENV_FILE:-.env.production}
     environment:
       TZ: ${CRON_TZ:-UTC}
-      CRON_SCHEDULE: ${COACH_NUDGE_CRON:-0 17 * * *}
-      CRON_TARGET_URL: ${COACH_NUDGE_URL:-http://app:3003/api/internal/cron/inactivity-nudge}
+      NUDGE_SCHEDULE: ${COACH_NUDGE_CRON:-0 17 * * *}
+      NUDGE_URL: ${COACH_NUDGE_URL:-http://app:3003/api/internal/cron/inactivity-nudge}
+      BROADCAST_SCHEDULE: ${BROADCAST_DISPATCH_CRON:-*/2 * * * *}
+      BROADCAST_URL: ${BROADCAST_DISPATCH_URL:-http://app:3003/api/internal/cron/broadcast-dispatch}
     # `$$` escapes Compose interpolation so the variable is resolved by the in-container shell.
     command:
       - /bin/sh
@@ -72,11 +76,18 @@ services:
         apk add --no-cache curl tzdata >/dev/null
         cat > /usr/local/bin/run-nudge <<EOF
         #!/bin/sh
-        curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${CRON_TARGET_URL}" || echo "coach nudge request failed"
+        curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${NUDGE_URL}" || echo "coach nudge request failed"
         EOF
-        chmod +x /usr/local/bin/run-nudge
-        echo "$${CRON_SCHEDULE} /usr/local/bin/run-nudge >/proc/1/fd/1 2>/proc/1/fd/2" > /etc/crontabs/root
-        echo "coach nudge cron scheduled: $${CRON_SCHEDULE} -> $${CRON_TARGET_URL}"
+        cat > /usr/local/bin/run-broadcast <<EOF
+        #!/bin/sh
+        curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${BROADCAST_URL}" || echo "broadcast dispatch request failed"
+        EOF
+        chmod +x /usr/local/bin/run-nudge /usr/local/bin/run-broadcast
+        {
+          echo "$${NUDGE_SCHEDULE} /usr/local/bin/run-nudge >/proc/1/fd/1 2>/proc/1/fd/2"
+          echo "$${BROADCAST_SCHEDULE} /usr/local/bin/run-broadcast >/proc/1/fd/1 2>/proc/1/fd/2"
+        } > /etc/crontabs/root
+        echo "cron scheduled: nudge [$${NUDGE_SCHEDULE}] broadcast [$${BROADCAST_SCHEDULE}]"
         crond -f -l 8
 
   caddy:

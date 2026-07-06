@@ -8,6 +8,7 @@ import { Suspense } from "react";
 // To try another face, swap `Manrope` for `Plus_Jakarta_Sans` or `DM_Sans` here.
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 import { AnalyticsTracker } from "@/components/analytics/analytics-tracker";
+import { GpsScrollTrailGate } from "@/components/layout/gps-scroll-trail-gate";
 import { HtmlLangDir } from "@/components/layout/html-lang-dir";
 import { NativeChrome } from "@/components/layout/native-chrome";
 import { NativeDeepLinks } from "@/components/layout/native-deep-links";
@@ -27,6 +28,18 @@ export const metadata: Metadata = {
   },
   description: "Discover races, register, and train with an AI coach across Algeria.",
   metadataBase: new URL("https://zidrun.com"),
+  openGraph: {
+    type: "website",
+    siteName: "ZidRun",
+    title: "ZidRun",
+    description: "Discover races, register, and train with an AI coach across Algeria.",
+    url: "https://zidrun.com"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ZidRun",
+    description: "Discover races, register, and train with an AI coach across Algeria."
+  },
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -68,6 +81,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </Suspense>
         <Suspense fallback={null}>
           <SiteHeader />
+        </Suspense>
+        <Suspense fallback={null}>
+          <GpsScrollTrailGate />
         </Suspense>
         <main className="flex-1">
           <NativeTransition>{children}</NativeTransition>
