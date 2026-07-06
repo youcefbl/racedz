@@ -18,6 +18,7 @@ export const dictionaries = {
   en: {
     nav: {
       races: "Races",
+      blog: "Blog",
       organizers: "Organizers",
       forRunners: "For Runners",
       aiCoach: "AI Coach",
@@ -137,6 +138,31 @@ export const dictionaries = {
       complete: "Complete Registration"
     },
     pages: {
+      blog: {
+        metaTitle: "Running Blog — Gear, Training & Racing in Algeria",
+        metaDescription:
+          "Guides, gear reviews, and training tips for runners in Algeria — the best shoes, watches, and accessories you can actually buy locally.",
+        eyebrow: "ZidRun Journal",
+        title: "The running blog for Algeria",
+        subtitle: "Gear guides, training advice, and race tips — written for runners on the ground in Algeria.",
+        featured: "Featured",
+        readMore: "Read article",
+        backToBlog: "All articles",
+        minRead: "{n} min read",
+        publishedOn: "Published",
+        updatedOn: "Updated",
+        by: "By",
+        relatedTitle: "Keep reading",
+        allCategories: "All",
+        empty: "No articles yet — check back soon.",
+        categories: {
+          gear: "Gear",
+          training: "Training",
+          racing: "Racing",
+          nutrition: "Nutrition",
+          beginner: "Beginner"
+        }
+      },
       about: {
         title: "About ZidRun",
         intro:
@@ -269,7 +295,11 @@ export const dictionaries = {
         phoneLabel: "Phone",
         phone: "+213 555 123 456",
         hoursLabel: "Office hours",
-        hours: "Saturday to Thursday, 9:00 AM to 5:00 PM Algeria time"
+        hours: "Saturday to Thursday, 9:00 AM to 5:00 PM Algeria time",
+        aboutTitle: "About us",
+        aboutLead: "We believe health is the most valuable asset anyone can own — and running is one of the best ways to protect it.",
+        aboutText:
+          "That belief is why ZidRun exists. We care about our community, and we want to see people who are healthier, more energetic, and full of good energy to share with those around them. So we built a home for runners: a place to stay motivated, find guidance, and learn from one another, one kilometer at a time."
       },
       terms: {
         title: "Terms of use",
@@ -589,6 +619,7 @@ export const dictionaries = {
   fr: {
     nav: {
       races: "Courses",
+      blog: "Blog",
       organizers: "Organisateurs",
       forRunners: "Pour les coureurs",
       aiCoach: "Coach IA",
@@ -708,6 +739,31 @@ export const dictionaries = {
       complete: "Finaliser l'inscription"
     },
     pages: {
+      blog: {
+        metaTitle: "Blog running — Équipement, entraînement & courses en Algérie",
+        metaDescription:
+          "Guides, tests d'équipement et conseils d'entraînement pour les coureurs en Algérie — les meilleures chaussures, montres et accessoires disponibles localement.",
+        eyebrow: "Journal ZidRun",
+        title: "Le blog running pour l'Algérie",
+        subtitle: "Guides d'équipement, conseils d'entraînement et astuces course — écrits pour les coureurs en Algérie.",
+        featured: "À la une",
+        readMore: "Lire l'article",
+        backToBlog: "Tous les articles",
+        minRead: "{n} min de lecture",
+        publishedOn: "Publié le",
+        updatedOn: "Mis à jour le",
+        by: "Par",
+        relatedTitle: "À lire aussi",
+        allCategories: "Tout",
+        empty: "Aucun article pour l'instant — revenez bientôt.",
+        categories: {
+          gear: "Équipement",
+          training: "Entraînement",
+          racing: "Courses",
+          nutrition: "Nutrition",
+          beginner: "Débutant"
+        }
+      },
       about: {
         title: "À propos de ZidRun",
         intro:
@@ -841,7 +897,11 @@ export const dictionaries = {
         phoneLabel: "Téléphone",
         phone: "+213 555 123 456",
         hoursLabel: "Heures d'ouverture",
-        hours: "Du samedi au jeudi, de 9h00 à 17h00 (heure de l'Algérie)"
+        hours: "Du samedi au jeudi, de 9h00 à 17h00 (heure de l'Algérie)",
+        aboutTitle: "À propos",
+        aboutLead: "Nous croyons que la santé est le bien le plus précieux qui soit — et que la course à pied est l'un des meilleurs moyens de la préserver.",
+        aboutText:
+          "C'est cette conviction qui donne vie à ZidRun. Nous tenons à notre communauté et nous voulons voir des personnes en meilleure santé, plus énergiques et pleines de bonne énergie à partager avec leur entourage. Nous avons donc créé un espace pour les coureurs : un lieu où rester motivé, trouver des conseils et apprendre les uns des autres, kilomètre après kilomètre."
       },
       terms: {
         title: "Conditions d'utilisation",
@@ -1161,6 +1221,7 @@ export const dictionaries = {
   ar: {
     nav: {
       races: "السباقات",
+      blog: "المدونة",
       organizers: "المنظمون",
       forRunners: "للعدائين",
       aiCoach: "المدرب الذكي",
@@ -1280,6 +1341,31 @@ export const dictionaries = {
       complete: "إتمام التسجيل"
     },
     pages: {
+      blog: {
+        metaTitle: "مدونة الجري — المعدات والتدريب والسباقات في الجزائر",
+        metaDescription:
+          "أدلة ومراجعات للمعدات ونصائح تدريب للعدّائين في الجزائر — أفضل الأحذية والساعات والإكسسوارات المتوفرة محليًا.",
+        eyebrow: "مجلة ZidRun",
+        title: "مدونة الجري في الجزائر",
+        subtitle: "أدلة المعدات ونصائح التدريب وحيل السباقات — مكتوبة للعدّائين في الجزائر.",
+        featured: "مميّز",
+        readMore: "اقرأ المقال",
+        backToBlog: "كل المقالات",
+        minRead: "{n} دقائق قراءة",
+        publishedOn: "نُشر في",
+        updatedOn: "حُدّث في",
+        by: "بقلم",
+        relatedTitle: "اقرأ أيضًا",
+        allCategories: "الكل",
+        empty: "لا توجد مقالات بعد — عد قريبًا.",
+        categories: {
+          gear: "المعدات",
+          training: "التدريب",
+          racing: "السباقات",
+          nutrition: "التغذية",
+          beginner: "المبتدئون"
+        }
+      },
       about: {
         title: "عن ZidRun",
         intro:
@@ -1412,7 +1498,11 @@ export const dictionaries = {
         phoneLabel: "الهاتف",
         phone: "+213 555 123 456",
         hoursLabel: "ساعات العمل",
-        hours: "من السبت إلى الخميس، من 9:00 صباحًا حتى 5:00 مساءً بتوقيت الجزائر"
+        hours: "من السبت إلى الخميس، من 9:00 صباحًا حتى 5:00 مساءً بتوقيت الجزائر",
+        aboutTitle: "من نحن",
+        aboutLead: "نؤمن بأن الصحة هي أثمن ما يملكه الإنسان، وأن الجري من أفضل الطرق للحفاظ عليها.",
+        aboutText:
+          "من هذا الإيمان وُلد ZidRun. نحرص على مجتمعنا، ونريد أن نرى أشخاصًا أوفر صحة وأكثر نشاطًا وطاقة إيجابية يشاركونها مع من حولهم. لذلك بنينا مساحة للعدّائين: مكانًا للبقاء متحفّزين، وإيجاد الإرشاد، والتعلّم من بعضهم البعض، كيلومترًا بعد كيلومتر."
       },
       terms: {
         title: "شروط الاستخدام",

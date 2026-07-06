@@ -12,6 +12,7 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
   const links = [
     { href: "/races", label: dictionary.nav.races },
+    { href: "/blog", label: dictionary.nav.blog },
     { href: "/pricing", label: dictionary.nav.pricing },
     { href: "/organizers", label: dictionary.nav.organizers },
     { href: "/contact", label: dictionary.nav.contact },

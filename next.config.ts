@@ -37,6 +37,14 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Blog posts are MDX files read from src/content at runtime (the blog + sitemap render
+  // dynamically for the ?lang param). Standalone tracing wouldn't copy these non-imported
+  // files, so include them explicitly for the routes that read them.
+  outputFileTracingIncludes: {
+    "/blog": ["./src/content/blog/**/*"],
+    "/blog/[slug]": ["./src/content/blog/**/*"],
+    "/sitemap.xml": ["./src/content/blog/**/*"]
+  },
   // User uploads live on a runtime volume served directly by Caddy at /uploads/*.
   // Disable the Next image optimizer so <Image> loads those sources directly instead
   // of proxying through /_next/image (which fetches from the app and would 404 on

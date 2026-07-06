@@ -383,6 +383,32 @@ Rules:
 - Registration resale marketplace.
 - Admin-approved marketplace for running goods.
 
+## Blog
+
+Shipped: file-backed trilingual MDX blog at `/blog` (posts in `src/content/blog/<slug>/{en,fr,ar}.mdx`), SEO (sitemap/robots/OG/JSON-LD/hreflang), 3 seed posts. See the `blog-mdx-conventions` memory.
+
+### Features to add
+- **Comments from registered runners.** Let signed-in runners comment on a post; guests can read only.
+  - Prisma `BlogComment` model: `id, postSlug, locale?, authorId (User), body, status (PENDING|PUBLISHED|HIDDEN), createdAt, @@index([postSlug, status])`.
+  - `POST /api/blog/[slug]/comments` — auth-gated (registered only), with rate limiting per the security-hardening conventions; validate/trim body length; reject empty.
+  - Moderation: reuse the existing Reports/moderation admin infra (see `admin-platform-management` memory) so comments are reportable and an admin can hide/delete. Decide pre-moderation (default PENDING) vs auto-publish + report-driven takedown.
+  - UI on the article page: published-comment list (server-rendered from DB) + a comment form (client component) for signed-in users; a "sign in to comment" prompt otherwise. Note: comments make the article page dynamic (DB-backed) rather than pure-static.
+  - Verify prices/TODO markers in seed posts are resolved before heavy promotion (owner to confirm Algerian retail).
+
+### Content backlog (planned posts — all need EN + FR + AR)
+Shipped for launch (7 posts total): best shoes, best watches, must-have accessories, heart-rate zones/Zone 2, what's a good 5K time, road vs trail shoes, race distances & records.
+
+Still to write:
+- Training
+  - Mental training during a run (focus, dealing with the "wall", motivation).
+  - Sports that pair well with running (cross-training: swimming, cycling, strength).
+- Nutrition
+  - Best timing for food before and after a run (what and when).
+- Gear
+  - Foot types (flat/neutral/high-arch, pronation) and the best shoe for each.
+- Health / recovery
+  - Best recovery methods (sleep, stretching, foam rolling, rest days, ice/heat).
+
 ## QA And Testing Requirements
 
 Add a full QA flow that behaves like a product tester checklist before release.

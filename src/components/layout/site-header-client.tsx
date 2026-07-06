@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Bell,
+  BookOpen,
   BrainCircuit,
   Building2,
   CalendarDays,
@@ -53,6 +54,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   const desktopNavItems = [
     { href: "/races", label: dictionary.nav.races, icon: CalendarDays },
     { href: "/coach", label: dictionary.nav.aiCoach, icon: BrainCircuit },
+    { href: "/blog", label: dictionary.nav.blog, icon: BookOpen },
     { href: "/pricing", label: dictionary.nav.pricing, icon: Tag },
     ...(isAdmin ? [{ href: "/rankings", label: dictionary.nav.rankings, icon: Trophy }] : []),
     { href: "/runners", label: dictionary.nav.forRunners, icon: Footprints },
