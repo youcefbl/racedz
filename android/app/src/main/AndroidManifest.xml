@@ -59,10 +59,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- GPS run tracking (background location) -->
+    <!-- GPS run tracking. We deliberately do NOT request ACCESS_BACKGROUND_LOCATION
+         ("Allow all the time") — Android 12+/16 flags it as a privacy risk. Instead the
+         run is recorded by a foreground service (the background-geolocation plugin's
+         persistent notification), which keeps reading GPS with the screen off using only
+         "While using the app" location, since the service always starts while the app is open. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

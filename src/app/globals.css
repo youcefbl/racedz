@@ -274,8 +274,21 @@ a {
 }
 
 [data-theme="dark"] .text-red-700,
-[data-theme="race"] .text-red-700 {
+[data-theme="race"] .text-red-700,
+[data-theme="dark"] .text-red-600,
+[data-theme="race"] .text-red-600,
+[data-theme="dark"] .text-red-800,
+[data-theme="race"] .text-red-800,
+[data-theme="dark"] .text-red-900,
+[data-theme="race"] .text-red-900 {
   color: var(--danger) !important;
+}
+
+/* The danger surface (bg-red-50 → --danger-soft) is dark in these themes, so the
+   deeper red text/border shades must remap too, otherwise it's dark-on-dark. */
+[data-theme="dark"] .border-red-200,
+[data-theme="race"] .border-red-200 {
+  border-color: var(--danger) !important;
 }
 
 [data-theme="dark"] .bg-blue-50,

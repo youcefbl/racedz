@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Target
 } from "lucide-react";
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { coachRequest } from "@/components/coach/api";
 import {
   chronicConditionOptions,
@@ -249,7 +249,7 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
                 </Field>
               </div>
               <Field label={copy.targetTime} hint={copy.optional}>
-                <input inputMode="numeric" placeholder="00:50:00" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" value={targetTime} onChange={(event) => setTargetTime(event.target.value)} className={inputClass} />
+                <DurationInput value={targetTime} onChange={setTargetTime} copy={copy} />
               </Field>
             </StepShell>
           ) : null}
@@ -269,7 +269,7 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
                   ) : null}
                   {needsBirthDate ? (
                     <Field label={copy.birthDate}>
-                      <input type="date" max={futureDate(0)} value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} className={inputClass} />
+                      <BirthDateInput value={dateOfBirth} onChange={setDateOfBirth} copy={copy} locale={locale} />
                     </Field>
                   ) : null}
                 </div>
@@ -562,6 +562,145 @@ const inputClass = "min-h-11 w-full rounded-md border border-gray-300 bg-white p
 function numberOrNull(value: string) {
   const trimmed = value.trim();
   return trimmed ? Number(trimmed) : null;
+}
+
+// Segmented HH:MM:SS entry: three numeric fields that only accept digits, clamp
+// each part, and auto-advance. Emits the same "HH:MM:SS" string the parser expects
+// (empty string when nothing is entered, so the field stays optional).
+function DurationInput({
+  value,
+  onChange,
+  copy
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  copy: CoachCopy;
+}) {
+  const [seg, setSeg] = useState(() => splitDuration(value));
+  const minuteRef = useRef<HTMLInputElement>(null);
+  const secondRef = useRef<HTMLInputElement>(null);
+
+  function commit(next: { h: string; m: string; s: string }) {
+    setSeg(next);
+    if (!next.h && !next.m && !next.s) {
+      onChange("");
+      return;
+    }
+    onChange(
+      `${(next.h || "0").padStart(2, "0")}:${(next.m || "0").padStart(2, "0")}:${(next.s || "0").padStart(2, "0")}`
+    );
+  }
+
+  function handle(field: "h" | "m" | "s", raw: string, max: number, nextRef?: RefObject<HTMLInputElement | null>) {
+    const digits = raw.replace(/\D/g, "").slice(0, 2);
+    const clamped = digits === "" ? "" : String(Math.min(Number(digits), max));
+    commit({ ...seg, [field]: clamped });
+    if (digits.length === 2 && nextRef?.current) nextRef.current.focus();
+  }
+
+  return (
+    // Force LTR so the HH:MM:SS order and colons read correctly even in Arabic.
+    <div dir="ltr" className="flex items-center gap-1.5">
+      <input
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={copy.hoursLabel}
+        placeholder="HH"
+        maxLength={2}
+        value={seg.h}
+        onChange={(event) => handle("h", event.target.value, 48, minuteRef)}
+        className={segmentClass}
+      />
+      <span aria-hidden="true" className="text-lg font-black text-gray-400">:</span>
+      <input
+        ref={minuteRef}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={copy.minutesLabel}
+        placeholder="MM"
+        maxLength={2}
+        value={seg.m}
+        onChange={(event) => handle("m", event.target.value, 59, secondRef)}
+        className={segmentClass}
+      />
+      <span aria-hidden="true" className="text-lg font-black text-gray-400">:</span>
+      <input
+        ref={secondRef}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={copy.secondsLabel}
+        placeholder="SS"
+        maxLength={2}
+        value={seg.s}
+        onChange={(event) => handle("s", event.target.value, 59)}
+        className={segmentClass}
+      />
+    </div>
+  );
+}
+
+// Day / Month / Year dropdowns for date of birth — far easier than a native date
+// picker for reaching a birth year on mobile. Emits an ISO "YYYY-MM-DD" string
+// (empty until all three parts are chosen). Years run from 5 to 90 years ago.
+function BirthDateInput({
+  value,
+  onChange,
+  copy,
+  locale
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  copy: CoachCopy;
+  locale: CoachLocale;
+}) {
+  const [seg, setSeg] = useState(() => splitISODate(value));
+  const currentYear = new Date().getFullYear();
+  const years: number[] = [];
+  for (let year = currentYear - 5; year >= currentYear - 90; year -= 1) years.push(year);
+  const days = Array.from({ length: 31 }, (_, index) => index + 1);
+
+  function commit(next: { y: string; m: string; d: string }) {
+    setSeg(next);
+    if (next.y && next.m && next.d) {
+      onChange(`${next.y}-${next.m.padStart(2, "0")}-${next.d.padStart(2, "0")}`);
+    } else {
+      onChange("");
+    }
+  }
+
+  return (
+    <div dir={locale === "ar" ? "rtl" : "ltr"} className="grid grid-cols-3 gap-2">
+      <select aria-label={copy.dobDay} value={seg.d} onChange={(event) => commit({ ...seg, d: event.target.value })} className={inputClass}>
+        <option value="">{copy.dobDay}</option>
+        {days.map((day) => <option key={day} value={String(day)}>{day}</option>)}
+      </select>
+      <select aria-label={copy.dobMonth} value={seg.m} onChange={(event) => commit({ ...seg, m: event.target.value })} className={inputClass}>
+        <option value="">{copy.dobMonth}</option>
+        {copy.months.map((name, index) => <option key={name} value={String(index + 1)}>{name}</option>)}
+      </select>
+      <select aria-label={copy.dobYear} value={seg.y} onChange={(event) => commit({ ...seg, y: event.target.value })} className={inputClass}>
+        <option value="">{copy.dobYear}</option>
+        {years.map((year) => <option key={year} value={String(year)}>{year}</option>)}
+      </select>
+    </div>
+  );
+}
+
+const segmentClass = "min-h-11 w-16 rounded-md border border-gray-300 bg-white px-2 py-2 text-center text-base font-bold tabular-nums text-gray-950 outline-none transition focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20";
+
+function splitDuration(value: string): { h: string; m: string; s: string } {
+  if (!value) return { h: "", m: "", s: "" };
+  const parts = value.split(":");
+  if (parts.length === 3) return { h: parts[0], m: parts[1], s: parts[2] };
+  if (parts.length === 2) return { h: "", m: parts[0], s: parts[1] };
+  return { h: "", m: "", s: "" };
+}
+
+function splitISODate(value: string): { y: string; m: string; d: string } {
+  if (!value) return { y: "", m: "", d: "" };
+  const [y = "", m = "", d = ""] = value.split("-");
+  // Strip leading zeros so the parts match the <option value> strings.
+  return { y, m: m ? String(Number(m)) : "", d: d ? String(Number(d)) : "" };
 }
 
 // Accepts HH:MM:SS or MM:SS. Returns total seconds, or null when the string is

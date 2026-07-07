@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.provider.Settings;
 
 import androidx.core.content.ContextCompat;
@@ -15,9 +14,14 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-// Reports whether the app has the "Allow all the time" (background) location grant
-// needed to keep recording a run while the screen is off, and opens the app's
-// settings so the user can change it. Exposed to JS via src/lib/native/location-permission.ts.
+// Reports whether the app can record a run (including with the screen off) and opens
+// the app's settings so the user can grant location. Exposed to JS via
+// src/lib/native/location-permission.ts.
+//
+// We intentionally do NOT use ACCESS_BACKGROUND_LOCATION ("Allow all the time") — the
+// background-geolocation plugin records via a foreground service (persistent
+// notification), which keeps GPS alive with the screen off using only "While using the
+// app" location. So "screen-off ready" is simply "fine location granted".
 @CapacitorPlugin(name = "BackgroundLocation")
 public class BackgroundLocationPlugin extends Plugin {
 
@@ -28,15 +32,12 @@ public class BackgroundLocationPlugin extends Plugin {
     @PluginMethod
     public void check(PluginCall call) {
         boolean fine = granted(Manifest.permission.ACCESS_FINE_LOCATION);
-        // Background location is a distinct grant on Android 10 (API 29)+. Below that,
-        // foreground location is sufficient to keep recording in the background.
-        boolean background = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-            ? fine
-            : granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
 
         JSObject result = new JSObject();
         result.put("fine", fine);
-        result.put("background", background);
+        // No separate background grant anymore: the foreground service covers screen-off,
+        // so recording is ready as soon as foreground location is granted.
+        result.put("background", fine);
         call.resolve(result);
     }
 

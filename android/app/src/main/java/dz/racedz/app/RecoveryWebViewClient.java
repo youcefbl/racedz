@@ -2,6 +2,7 @@ package dz.racedz.app;
 
 import android.annotation.TargetApi;
 import android.os.Build;
+import android.os.SystemClock;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebView;
 
@@ -12,9 +13,18 @@ import com.getcapacitor.BridgeWebViewClient;
 // Without this, Android terminates the whole app process. Extends Capacitor's
 // BridgeWebViewClient so all normal navigation/scheme handling is preserved.
 //
-// BETA: shows a friendly recovery page with a Reload button. To make recovery
-// silent later, replace the loadDataWithBaseURL(...) call with view.reload().
+// Recovery is SILENT: when the renderer dies we just reload the page the user was on
+// (a fresh renderer spins up), so they barely notice. Only if the renderer keeps dying
+// in quick succession — a persistent out-of-memory situation where auto-reloading would
+// just loop — do we fall back to the manual "reload" page to break the cycle.
 public class RecoveryWebViewClient extends BridgeWebViewClient {
+
+    // Allow this many silent reloads inside the window before showing the manual page.
+    private static final int MAX_SILENT_RELOADS = 2;
+    private static final long CRASH_WINDOW_MS = 60_000L;
+
+    private long windowStartedAt = 0L;
+    private int crashesInWindow = 0;
 
     public RecoveryWebViewClient(Bridge bridge) {
         super(bridge);
@@ -23,8 +33,23 @@ public class RecoveryWebViewClient extends BridgeWebViewClient {
     @Override
     @TargetApi(Build.VERSION_CODES.O)
     public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        long now = SystemClock.elapsedRealtime();
+        if (now - windowStartedAt > CRASH_WINDOW_MS) {
+            windowStartedAt = now;
+            crashesInWindow = 0;
+        }
+        crashesInWindow++;
+
         try {
-            view.loadDataWithBaseURL("https://zidrun.com", RECOVERY_HTML, "text/html", "utf-8", null);
+            if (crashesInWindow <= MAX_SILENT_RELOADS) {
+                // Silent recovery: respawn a renderer on the same page. The run engine
+                // persists in-progress runs, so an active recording survives this.
+                view.reload();
+            } else {
+                // Renderer is dying repeatedly (persistent OOM) — stop the reload loop
+                // and let the user decide, rather than thrashing.
+                view.loadDataWithBaseURL("https://zidrun.com", RECOVERY_HTML, "text/html", "utf-8", null);
+            }
         } catch (Exception ignored) {
             // If we somehow can't reload, returning true still prevents the crash.
         }
