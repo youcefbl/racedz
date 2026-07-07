@@ -22,6 +22,21 @@ zidrun.com, www.zidrun.com {
 		file_server
 	}
 
+	# Public Android app download. Served from a subfolder of the same uploads volume
+	# (so the ~7 MB APK stays out of git and the Docker image) with the correct Android
+	# package MIME type so phones install it directly. handle_path strips the prefix, so
+	# /app/downloads/zidrunapk.apk maps to /srv/uploads/app-downloads/zidrunapk.apk.
+	handle_path /app/downloads/* {
+		root * /srv/uploads/app-downloads
+		header {
+			Content-Type "application/vnd.android.package-archive"
+			Content-Disposition "attachment; filename=\"zidrunapk.apk\""
+			# Short cache so a re-uploaded APK propagates within the hour.
+			Cache-Control "public, max-age=3600"
+		}
+		file_server
+	}
+
 	# Everything else goes to the Next.js app.
 	handle {
 		reverse_proxy app:3003

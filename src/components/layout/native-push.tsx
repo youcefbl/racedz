@@ -7,12 +7,21 @@ import { useEffect } from "react";
 // an FCM registration token, so it flows through the SAME backend the web/PWA push
 // uses: POST /api/notifications/push-subscriptions (see firebase-provider.ts).
 //
-// Requires android/app/google-services.json for the dz.racedz.app Android app under
-// the existing Firebase project (racedz-625ae). Until that file is present,
-// register() raises registrationError and this silently no-ops.
+// IMPORTANT: this requires android/app/google-services.json for the dz.racedz.app
+// Android app. WITHOUT it, PushNotifications.register() calls FirebaseMessaging on an
+// uninitialized FirebaseApp, which throws a *native* IllegalStateException that the
+// JS try/catch below cannot catch — it crashes the whole app process. Because the
+// notification permission is already "granted" after the first prompt, every relaunch
+// re-runs this flow and crashes again (an unrecoverable open→crash loop).
+//
+// So this stays OFF until push is fully wired up. To enable it: add google-services.json,
+// rebuild the APK, and set NEXT_PUBLIC_NATIVE_PUSH_ENABLED=true.
+const NATIVE_PUSH_ENABLED = process.env.NEXT_PUBLIC_NATIVE_PUSH_ENABLED === "true";
+
 export function NativePush() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
+    if (!NATIVE_PUSH_ENABLED) return;
 
     let cleanup: (() => void) | undefined;
 

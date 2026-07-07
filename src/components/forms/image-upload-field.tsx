@@ -3,6 +3,7 @@
 import { useId, useState, type ChangeEvent } from "react";
 import { ImageIcon, Loader2, Maximize2, Upload } from "lucide-react";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { compressImage } from "@/lib/images/compress-image";
 import { cn } from "@/lib/utils";
 import type { UploadScope } from "@/lib/storage";
 
@@ -22,23 +23,27 @@ export function ImageUploadField({ label, name, scope, defaultValue, helpText }:
   const [uploading, setUploading] = useState(false);
 
   async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const picked = event.target.files?.[0];
 
-    if (!file) {
+    if (!picked) {
       return;
     }
 
     setError("");
+    setUploading(true);
+
+    // Shrink large phone photos so they fit the limit before we check/upload.
+    const file = await compressImage(picked);
 
     if (file.size > 5 * 1024 * 1024) {
       setError("Image must be 5 MB or smaller.");
       event.target.value = "";
+      setUploading(false);
       return;
     }
 
     const optimisticPreview = URL.createObjectURL(file);
     setPreviewUrl(optimisticPreview);
-    setUploading(true);
 
     try {
       const body = new FormData();

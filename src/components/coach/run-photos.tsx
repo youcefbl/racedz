@@ -5,6 +5,7 @@ import { useId, useState, type ChangeEvent } from "react";
 import type { CoachCopy } from "@/components/coach/copy";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { compressImage } from "@/lib/images/compress-image";
 import { cn } from "@/lib/utils";
 
 const MAX_CLIENT_BYTES = 5 * 1024 * 1024;
@@ -34,18 +35,20 @@ export function RunPhotoUploader({
   const atLimit = value.length >= max;
 
   async function addPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const picked = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!picked) return;
     setError(null);
-
-    if (file.size > MAX_CLIENT_BYTES) {
-      setError(copy.photoUploadFailed);
-      return;
-    }
-
     setUploading(true);
+
     try {
+      // Shrink large phone photos so they fit the limit before we check/upload.
+      const file = await compressImage(picked);
+      if (file.size > MAX_CLIENT_BYTES) {
+        setError(copy.photoUploadFailed);
+        return;
+      }
+
       const body = new FormData();
       body.set("scope", "run");
       body.set("file", file);
@@ -78,7 +81,7 @@ export function RunPhotoUploader({
           <div key={url} className="relative size-20 overflow-hidden rounded-md border border-gray-200 bg-gray-50">
             <ImageLightbox src={url} alt={copy.viewPhoto} triggerClassName="absolute inset-0 block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="size-full object-cover" />
+              <img src={url} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
               <span className="absolute bottom-1 right-1 inline-flex size-6 items-center justify-center rounded bg-black/60 text-white">
                 <Maximize2 className="size-3.5" aria-hidden="true" />
               </span>

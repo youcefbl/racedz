@@ -4,10 +4,13 @@ import { X } from "lucide-react";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
 import { ShowPastToggle } from "@/components/races/show-past-toggle";
+import { Pagination } from "@/components/ui/pagination";
 import { recordSearchQuery } from "@/lib/analytics/search";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { findRaceEvents } from "@/lib/race-repository";
 import type { EventRegistrationStatus, RaceType } from "@/types/race";
+
+const RACES_PER_PAGE = 10;
 
 export const metadata: Metadata = {
   title: "Races",
@@ -22,6 +25,7 @@ type RacesPageProps = {
     distance?: string;
     registrationStatus?: EventRegistrationStatus;
     past?: string;
+    page?: string;
     lang?: Locale;
   }>;
 };
@@ -38,6 +42,22 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
   const hasActiveFilters = Boolean(
     filters.q || filters.wilaya || filters.type || filters.distance || filters.registrationStatus
   );
+
+  // Paginate so the (mobile) WebView never renders the whole catalogue at once.
+  const totalPages = Math.max(1, Math.ceil(races.length / RACES_PER_PAGE));
+  const requestedPage = Number(filters.page);
+  const page = Number.isFinite(requestedPage) ? Math.min(Math.max(1, Math.floor(requestedPage)), totalPages) : 1;
+  const pageRaces = races.slice((page - 1) * RACES_PER_PAGE, page * RACES_PER_PAGE);
+  // Drop `lang` here — <Pagination> reapplies the locale via withLocale, so passing it
+  // through would produce a duplicate ?lang param.
+  const paginationParams = {
+    q: filters.q,
+    wilaya: filters.wilaya,
+    type: filters.type,
+    distance: filters.distance,
+    registrationStatus: filters.registrationStatus,
+    past: filters.past
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -72,10 +92,11 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
         </div>
       </div>
       <div className="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {races.map((race, index) => (
+        {pageRaces.map((race, index) => (
           <RaceCard key={race.id} race={race} viewLabel={dictionary.common.view} locale={locale} index={index} />
         ))}
       </div>
+      <Pagination basePath="/races" searchParams={paginationParams} page={page} totalPages={totalPages} locale={locale} />
       {races.length === 0 ? (
         <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
           <h2 className="text-lg font-bold text-gray-950">
