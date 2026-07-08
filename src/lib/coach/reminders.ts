@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPrisma } from "@/lib/db";
 import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
+import { ensureCurrentWeekPlan } from "@/lib/coach/service";
 import { fetchForecastConditions, resolveCoordinates } from "@/lib/coach/weather";
 import { localizeWorkout } from "@/lib/coach/workout-i18n";
 import type { CoachWorkout } from "@/lib/coach/schemas";
@@ -306,6 +307,109 @@ async function buildWeatherLine(
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Weekly plan auto-rollover: generate next week when the current one has ended.
+// ---------------------------------------------------------------------------
+
+type PlanRolloverRunner = {
+  userId: string;
+  email: string;
+  firstName: string;
+  preferredLocale: CoachLocale;
+};
+
+const planReadyCopy: Record<CoachLocale, { title: string; body: (name: string) => string; cta: string; preheader: string }> = {
+  en: {
+    title: "Your new training week is ready",
+    body: (name) =>
+      `Hi ${name}, your previous plan wrapped up, so we've generated your next week automatically — starting today. ` +
+      "Open the coach to see this week's runs, and ask your coach any time if you want to adjust it.",
+    cta: "See this week's plan",
+    preheader: "Your next training week has been generated automatically."
+  },
+  fr: {
+    title: "Votre nouvelle semaine d'entraînement est prête",
+    body: (name) =>
+      `Bonjour ${name}, votre plan précédent est terminé, nous avons donc généré votre semaine suivante automatiquement — à partir d'aujourd'hui. ` +
+      "Ouvrez le coach pour voir les séances de la semaine, et demandez-lui à tout moment pour l'ajuster.",
+    cta: "Voir le plan de la semaine",
+    preheader: "Votre prochaine semaine d'entraînement a été générée automatiquement."
+  },
+  ar: {
+    title: "أسبوع تدريبك الجديد جاهز",
+    body: (name) =>
+      `مرحبا ${name}، انتهت خطتك السابقة، لذا أنشأنا أسبوعك التالي تلقائياً — بدءاً من اليوم. ` +
+      "افتح المدرب لرؤية حصص هذا الأسبوع، واسأل مدربك في أي وقت إذا أردت تعديلها.",
+    cta: "عرض خطة الأسبوع",
+    preheader: "تم إنشاء أسبوع تدريبك التالي تلقائياً."
+  }
+};
+
+/**
+ * Keep every coached runner's plan rolling: for anyone whose active plan's week has ended (and who
+ * has no pending draft to accept), generate and activate the next week from the deterministic
+ * skeleton, then notify them. Only runners who already use plans and are subscribed/on trial are
+ * rolled over. Idempotent — a runner already covered this week is skipped. Meant to run daily,
+ * before the training reminder, so today's run exists when the reminder fires.
+ */
+export async function rolloverTrainingPlans(): Promise<{ generated: number; candidates: number }> {
+  const prisma = getPrisma();
+
+  const candidates = await prisma.$queryRaw<PlanRolloverRunner[]>`
+    SELECT u."id" AS "userId", u."email", u."firstName", COALESCE(g."preferredLocale", 'en') AS "preferredLocale"
+    FROM "RunnerGoal" g
+    JOIN "User" u ON u."id" = g."userId"
+    WHERE g."status" = 'ACTIVE'
+      AND u."blockedAt" IS NULL
+      AND EXISTS (SELECT 1 FROM "TrainingPlan" p0 WHERE p0."goalId" = g."id")
+      AND NOT EXISTS (
+        SELECT 1 FROM "TrainingPlan" p
+        WHERE p."goalId" = g."id"
+          AND ((p."status" = 'ACTIVE' AND p."endsOn" >= CURRENT_DATE) OR p."status" = 'DRAFT')
+      )
+  `;
+
+  const href = `${appUrl()}/account/coach`;
+  let generated = 0;
+
+  for (const runner of candidates) {
+    try {
+      // Only coached runners (subscribed or on their free trial) get an auto-rolled plan.
+      const entitlement = await resolveCoachEntitlement(runner.userId);
+      if (entitlement.tier === "NONE") continue;
+
+      const result = await ensureCurrentWeekPlan(runner.userId);
+      if (!result.created) continue;
+
+      const locale: CoachLocale = (["en", "fr", "ar"] as const).includes(runner.preferredLocale) ? runner.preferredLocale : "en";
+      const text = planReadyCopy[locale];
+      const name = runner.firstName?.trim() || (locale === "fr" ? "coureur" : locale === "ar" ? "العداء" : "runner");
+      const body = text.body(name);
+
+      await createNotification({
+        userId: runner.userId,
+        type: "TRAINING_PLAN_READY",
+        title: text.title,
+        body,
+        href,
+        channels: ["IN_APP", "EMAIL", "PUSH"],
+        email: {
+          to: runner.email,
+          subject: text.title,
+          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href } }),
+          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href } })
+        }
+      });
+      generated += 1;
+    } catch (error) {
+      // One runner's failure must not abort the batch.
+      console.error("Plan rollover failed", runner.userId, error);
+    }
+  }
+
+  return { generated, candidates: candidates.length };
 }
 
 function appUrl() {
