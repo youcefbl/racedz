@@ -15,6 +15,7 @@ export type CoachGoal = {
   recentRaceResult: string | null;
   restingHeartRate: number | null;
   weightKg: number | null;
+  heightCm: number | null;
   availableTrainingDays: number[];
   preferredLongRunDay: number | null;
   constraints: string | null;

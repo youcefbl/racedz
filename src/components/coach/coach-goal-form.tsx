@@ -18,7 +18,7 @@ import {
   localizedOption,
   type CoachCopy
 } from "@/components/coach/copy";
-import type { CoachLocale } from "@/components/coach/types";
+import type { CoachGoal, CoachLocale } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -27,52 +27,63 @@ type CoachGoalFormProps = {
   copy: CoachCopy;
   onCreated: () => Promise<void>;
   profileGaps?: { sex: boolean; birthDate: boolean };
+  // When set, the form edits this existing goal (PATCH) instead of creating a new one (POST),
+  // pre-filled with its current values. onCancel then backs out without saving.
+  initialGoal?: CoachGoal | null;
+  onCancel?: () => void;
 };
 
 const experienceValues = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
 const TOTAL_STEPS = 5;
 
-export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoalFormProps) {
+export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoal, onCancel }: CoachGoalFormProps) {
+  const goalToEdit = initialGoal ?? null;
+  const isEdit = Boolean(goalToEdit);
   const [step, setStep] = useState(0);
 
   // Core profile facts the coach needs (sex, age) — asked here only when the account lacks them.
+  // Never asked in edit mode (they're account-level and already set at onboarding).
   const needsSex = profileGaps?.sex ?? false;
   const needsBirthDate = profileGaps?.birthDate ?? false;
   const [sex, setSex] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
 
-  // Step 1 — goal
-  const [goalType, setGoalType] = useState("TEN_K");
-  const [customGoal, setCustomGoal] = useState("");
-  const [targetDate, setTargetDate] = useState(futureDate(84));
-  const [targetDistanceKm, setTargetDistanceKm] = useState("");
-  const [targetTime, setTargetTime] = useState("");
+  // Step 1 — goal (pre-filled from the goal being edited, or sensible defaults when creating)
+  const [goalType, setGoalType] = useState(goalToEdit?.goalType ?? "TEN_K");
+  const [customGoal, setCustomGoal] = useState(goalToEdit?.customGoal ?? "");
+  const [targetDate, setTargetDate] = useState(goalToEdit ? goalToEdit.targetDate.slice(0, 10) : futureDate(84));
+  const [targetDistanceKm, setTargetDistanceKm] = useState(numToStr(goalToEdit?.targetDistanceKm));
+  const [targetTime, setTargetTime] = useState(goalToEdit?.targetTimeSeconds != null ? secondsToDuration(goalToEdit.targetTimeSeconds) : "");
 
   // Step 2 — background
-  const [experience, setExperience] = useState<(typeof experienceValues)[number]>("BEGINNER");
-  const [yearsRunning, setYearsRunning] = useState("");
-  const [currentWeeklyDistanceKm, setCurrentWeeklyDistanceKm] = useState("10");
-  const [peakWeeklyDistanceKm, setPeakWeeklyDistanceKm] = useState("");
-  const [longestRecentRunKm, setLongestRecentRunKm] = useState("");
-  const [recentRaceResult, setRecentRaceResult] = useState("");
-  const [restingHeartRate, setRestingHeartRate] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [heightCm, setHeightCm] = useState("");
+  const [experience, setExperience] = useState<(typeof experienceValues)[number]>(
+    (goalToEdit?.experienceLevel as (typeof experienceValues)[number]) ?? "BEGINNER"
+  );
+  const [yearsRunning, setYearsRunning] = useState(numToStr(goalToEdit?.yearsRunning));
+  const [currentWeeklyDistanceKm, setCurrentWeeklyDistanceKm] = useState(goalToEdit ? numToStr(goalToEdit.currentWeeklyDistanceKm) : "10");
+  const [peakWeeklyDistanceKm, setPeakWeeklyDistanceKm] = useState(numToStr(goalToEdit?.peakWeeklyDistanceKm));
+  const [longestRecentRunKm, setLongestRecentRunKm] = useState(numToStr(goalToEdit?.longestRecentRunKm));
+  const [recentRaceResult, setRecentRaceResult] = useState(goalToEdit?.recentRaceResult ?? "");
+  const [restingHeartRate, setRestingHeartRate] = useState(numToStr(goalToEdit?.restingHeartRate));
+  const [weightKg, setWeightKg] = useState(numToStr(goalToEdit?.weightKg));
+  const [heightCm, setHeightCm] = useState(numToStr(goalToEdit?.heightCm));
 
   // Step 3 — availability
-  const [trainingDays, setTrainingDays] = useState<number[]>([2, 4, 6]);
-  const [preferredLongRunDay, setPreferredLongRunDay] = useState("6");
-  const [constraints, setConstraints] = useState("");
+  const [trainingDays, setTrainingDays] = useState<number[]>(goalToEdit?.availableTrainingDays?.length ? goalToEdit.availableTrainingDays : [2, 4, 6]);
+  const [preferredLongRunDay, setPreferredLongRunDay] = useState(
+    goalToEdit ? numToStr(goalToEdit.preferredLongRunDay) : "6"
+  );
+  const [constraints, setConstraints] = useState(goalToEdit?.constraints ?? "");
 
   // Step 4 — health
-  const [injuryNotes, setInjuryNotes] = useState("");
-  const [injuryHistory, setInjuryHistory] = useState("");
-  const [chronicConditions, setChronicConditions] = useState<string[]>([]);
-  const [healthNotes, setHealthNotes] = useState("");
+  const [injuryNotes, setInjuryNotes] = useState(goalToEdit?.injuryNotes ?? "");
+  const [injuryHistory, setInjuryHistory] = useState(goalToEdit?.injuryHistory ?? "");
+  const [chronicConditions, setChronicConditions] = useState<string[]>(goalToEdit?.chronicConditions ?? []);
+  const [healthNotes, setHealthNotes] = useState(goalToEdit?.healthNotes ?? "");
 
-  // Step 5 — review
-  const [preferredLocale, setPreferredLocale] = useState<CoachLocale>(locale);
-  const [consent, setConsent] = useState(false);
+  // Step 5 — review. Consent is implicit when editing (already agreed at onboarding).
+  const [preferredLocale, setPreferredLocale] = useState<CoachLocale>(goalToEdit?.preferredLocale ?? locale);
+  const [consent, setConsent] = useState(isEdit);
 
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -175,8 +186,8 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
     setError(null);
     startTransition(async () => {
       try {
-        await coachRequest("/api/coach/goals", {
-          method: "POST",
+        await coachRequest(isEdit ? `/api/coach/goals/${goalToEdit!.id}` : "/api/coach/goals", {
+          method: isEdit ? "PATCH" : "POST",
           body: JSON.stringify({
             goalType,
             customGoal: goalType === "OTHER" ? customGoal.trim() || null : null,
@@ -218,8 +229,8 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
           <ShieldCheck className="size-4" aria-hidden="true" />
           {copy.eyebrow}
         </div>
-        <h1 className="text-3xl font-black text-gray-950 sm:text-4xl">{copy.setupTitle}</h1>
-        <p className="mt-3 text-sm leading-6 text-gray-600 sm:text-base">{copy.setupText}</p>
+        <h1 className="text-3xl font-black text-gray-950 sm:text-4xl">{isEdit ? copy.editGoalTitle : copy.setupTitle}</h1>
+        <p className="mt-3 text-sm leading-6 text-gray-600 sm:text-base">{isEdit ? copy.editGoalText : copy.setupText}</p>
       </div>
 
       <Stepper labels={stepLabels} current={step} copy={copy} />
@@ -427,10 +438,12 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
                   <option value="ar">العربية</option>
                 </select>
               </Field>
-              <label className="flex items-start gap-3 rounded-md border border-gray-200 p-3 text-sm text-gray-700">
-                <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 accent-brand-teal" />
-                <span>{copy.consentLabel}</span>
-              </label>
+              {!isEdit ? (
+                <label className="flex items-start gap-3 rounded-md border border-gray-200 p-3 text-sm text-gray-700">
+                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 accent-brand-teal" />
+                  <span>{copy.consentLabel}</span>
+                </label>
+              ) : null}
             </StepShell>
           ) : null}
         </div>
@@ -444,14 +457,18 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps }: CoachGoa
                 <Button type="button" variant="outline" size="lg" onClick={goBack} disabled={pending}>
                   {copy.back}
                 </Button>
+              ) : isEdit && onCancel ? (
+                <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={pending}>
+                  {copy.cancel}
+                </Button>
               ) : null}
               {step < TOTAL_STEPS - 1 ? (
                 <Button type="button" size="lg" onClick={goNext}>
                   {copy.next}
                 </Button>
               ) : (
-                <Button type="button" size="lg" onClick={submit} disabled={pending || !consent}>
-                  {pending ? copy.saving : copy.saveGoal}
+                <Button type="button" size="lg" onClick={submit} disabled={pending || (!isEdit && !consent)}>
+                  {pending ? copy.saving : isEdit ? copy.saveChanges : copy.saveGoal}
                 </Button>
               )}
             </div>
@@ -562,6 +579,19 @@ const inputClass = "min-h-11 w-full rounded-md border border-gray-300 bg-white p
 function numberOrNull(value: string) {
   const trimmed = value.trim();
   return trimmed ? Number(trimmed) : null;
+}
+
+// A stored number → the string the form inputs use; null/undefined becomes an empty field.
+function numToStr(value: number | null | undefined) {
+  return value != null ? String(value) : "";
+}
+
+// Total seconds → the "HH:MM:SS" string the DurationInput expects, for pre-filling a target time.
+function secondsToDuration(total: number): string {
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 // Segmented HH:MM:SS entry: three numeric fields that only accept digits, clamp

@@ -234,6 +234,51 @@ export async function updateCoachGoalSettings(userId: string, goalId: string, ra
   return rows[0];
 }
 
+// Full edit of an existing goal: the runner can change any onboarding answer (target, times,
+// weight/height, training days, injuries, etc.). Sex and birth date are account-level and set once
+// at onboarding, so they are intentionally not touched here. Reuses the create schema (sex/date of
+// birth are optional there and simply ignored). The metrics snapshot is refreshed since weight
+// feeds calorie estimates, and the next generated plan will use the new answers.
+export async function updateCoachGoal(userId: string, goalId: string, rawInput: unknown) {
+  const input = createCoachGoalSchema.parse(rawInput);
+  const prisma = getPrisma();
+  await requireOwnedGoal(userId, goalId);
+
+  const chronicConditions = input.chronicConditions ?? [];
+  const rows = await prisma.$queryRaw<GoalRow[]>`
+    UPDATE "RunnerGoal" SET
+      "goalType" = ${input.goalType}::"CoachGoalType",
+      "customGoal" = ${input.customGoal ?? null},
+      "targetDate" = ${input.targetDate},
+      "targetDistanceKm" = ${input.targetDistanceKm ?? null},
+      "targetTimeSeconds" = ${input.targetTimeSeconds ?? null},
+      "experienceLevel" = ${input.experienceLevel}::"RunnerExperience",
+      "currentWeeklyDistanceKm" = ${input.currentWeeklyDistanceKm},
+      "yearsRunning" = ${input.yearsRunning ?? null},
+      "peakWeeklyDistanceKm" = ${input.peakWeeklyDistanceKm ?? null},
+      "longestRecentRunKm" = ${input.longestRecentRunKm ?? null},
+      "recentRaceResult" = ${input.recentRaceResult ?? null},
+      "restingHeartRate" = ${input.restingHeartRate ?? null},
+      "weightKg" = ${input.weightKg ?? null},
+      "heightCm" = ${input.heightCm ?? null},
+      "availableTrainingDays" = ARRAY[${Prisma.join(input.availableTrainingDays)}]::INTEGER[],
+      "preferredLongRunDay" = ${input.preferredLongRunDay ?? null},
+      "constraints" = ${input.constraints ?? null},
+      "injuryNotes" = ${input.injuryNotes ?? null},
+      "injuryHistory" = ${input.injuryHistory ?? null},
+      "chronicConditions" = ${chronicConditions.length > 0 ? Prisma.sql`ARRAY[${Prisma.join(chronicConditions)}]::TEXT[]` : Prisma.sql`ARRAY[]::TEXT[]`},
+      "healthNotes" = ${input.healthNotes ?? null},
+      "preferredLocale" = ${input.preferredLocale},
+      "updatedAt" = NOW()
+    WHERE "id" = ${goalId} AND "userId" = ${userId}
+    RETURNING *
+  `;
+  if (!rows[0]) throw new CoachError("Goal was not found.", 404, "GOAL_NOT_FOUND");
+
+  await refreshCoachSnapshot(userId, rows[0]);
+  return rows[0];
+}
+
 // Hard per-user daily cap on Whisper transcriptions. Unlike text chat (gated by the
 // interaction entitlement), voice notes had no usage cap — a single paid account could
 // issue unlimited billed transcription calls. This bounds the daily cost per user.
