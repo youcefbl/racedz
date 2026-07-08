@@ -114,6 +114,11 @@ export const notificationPreferenceOptions = [
     type: "TRAINING_REMINDER",
     title: "Daily training reminders",
     description: "A morning reminder on days your plan has a run — with the target, weather, and fuelling tips."
+  },
+  {
+    type: "TRAINING_PLAN_READY",
+    title: "New training week ready",
+    description: "We let you know when your next week's plan is generated automatically."
   }
 ] as const;
 

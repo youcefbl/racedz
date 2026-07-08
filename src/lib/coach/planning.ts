@@ -13,7 +13,10 @@ export function buildWeeklyPlanSkeleton(goal: PlanGoal, metrics: CoachMetrics, n
   const dates: Date[] = [];
   const cursor = startOfUtcDay(now);
 
-  for (let offset = 1; offset <= 7; offset += 1) {
+  // Cover the next 7 days starting from TODAY (offset 0), so if today is a training day it gets a
+  // workout — the plan starts on the day the runner generates it, not tomorrow, which is what they
+  // expect and what makes the same-day reminder fire.
+  for (let offset = 0; offset <= 6; offset += 1) {
     const date = new Date(cursor);
     date.setUTCDate(date.getUTCDate() + offset);
     if (availableDays.has(date.getUTCDay())) dates.push(date);

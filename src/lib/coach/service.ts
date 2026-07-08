@@ -9,6 +9,7 @@ import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
+import { localizeWorkout } from "@/lib/coach/workout-i18n";
 import {
   coachInteractionInputSchema,
   createCoachGoalSchema,
@@ -754,6 +755,80 @@ export async function updateTrainingPlanStatus(userId: string, planId: string, s
     if (!rows[0]) throw new CoachError("Training plan was not found or cannot be changed.", 404, "PLAN_NOT_FOUND");
     return rows[0];
   });
+}
+
+// Short, localized summary for an auto-generated (rule-based) weekly plan, so the plan card reads
+// naturally and points the runner at the coach if they want changes.
+const AUTO_PLAN_SUMMARY: Record<"en" | "fr" | "ar", string> = {
+  en: "Your training week, generated automatically to keep you consistent. Ask your coach any time to adjust it.",
+  fr: "Votre semaine d'entraînement, générée automatiquement pour rester régulier. Demandez à votre coach pour l'ajuster.",
+  ar: "أسبوع تدريبك، أُنشئ تلقائياً للحفاظ على انتظامك. اسأل مدربك في أي وقت لتعديله."
+};
+
+/**
+ * Make sure the runner has an ACTIVE plan whose week includes today. When their active plan's week
+ * has ended (and there's no pending draft), generate the next week from the deterministic safety
+ * skeleton — starting today — and activate it. No AI call, so it's free and safe to run daily.
+ * Returns whether a new plan was created. Leaves a pending DRAFT untouched (the runner may still
+ * want to accept their reviewed plan).
+ */
+export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: boolean }> {
+  const goal = await getActiveGoal(userId);
+  if (!goal) return { created: false };
+  const prisma = getPrisma();
+
+  // Skip when a current-week active plan already covers today, or a draft is awaiting acceptance.
+  const existing = await prisma.$queryRaw<Array<{ status: string }>>`
+    SELECT "status" FROM "TrainingPlan"
+    WHERE "goalId" = ${goal.id}
+      AND (("status" = 'ACTIVE' AND "endsOn" >= CURRENT_DATE) OR "status" = 'DRAFT')
+    LIMIT 1
+  `;
+  if (existing[0]) return { created: false };
+
+  const runs = await getRunsForMetrics(userId);
+  const metrics = calculateCoachMetrics(runs);
+  const skeleton = buildWeeklyPlanSkeleton(goal, metrics);
+  if (skeleton.length === 0) return { created: false };
+
+  const locale = goal.preferredLocale === "fr" || goal.preferredLocale === "ar" ? goal.preferredLocale : "en";
+  const workouts = skeleton.map((workout) => localizeWorkout(workout, locale));
+  const times = workouts.map((workout) => new Date(workout.scheduledFor).getTime());
+  const startsOn = new Date(Math.min(...times));
+  const endsOn = new Date(Math.max(...times));
+  const planId = randomUUID();
+
+  await prisma.$transaction(async (tx) => {
+    const versions = await tx.$queryRaw<Array<{ version: number }>>`
+      SELECT COALESCE(MAX("version"), 0)::INTEGER AS "version" FROM "TrainingPlan" WHERE "goalId" = ${goal.id}
+    `;
+    const version = (versions[0]?.version ?? 0) + 1;
+    // Retire the ended active plan; a rule-based week is activated immediately (no acceptance step).
+    await tx.$executeRaw`
+      UPDATE "TrainingPlan" SET "status" = 'SUPERSEDED', "updatedAt" = NOW()
+      WHERE "goalId" = ${goal.id} AND "status" = 'ACTIVE'
+    `;
+    await tx.$executeRaw`
+      INSERT INTO "TrainingPlan" (
+        "id", "userId", "goalId", "version", "startsOn", "endsOn", "status", "source", "summary", "updatedAt"
+      ) VALUES (
+        ${planId}, ${userId}, ${goal.id}, ${version}, ${startsOn}, ${endsOn}, 'ACTIVE', 'RULE_BASED', ${AUTO_PLAN_SUMMARY[locale]}, NOW()
+      )
+    `;
+    for (const workout of workouts) {
+      await tx.$executeRaw`
+        INSERT INTO "TrainingWorkout" (
+          "id", "trainingPlanId", "scheduledFor", "workoutType", "title", "targetDistanceKm",
+          "targetDurationMin", "intensity", "instructions", "status", "updatedAt"
+        ) VALUES (
+          ${randomUUID()}, ${planId}, ${new Date(workout.scheduledFor)}, ${workout.workoutType}::"CoachWorkoutType",
+          ${workout.title}, ${workout.targetDistanceKm}, ${workout.targetDurationMin}, ${workout.intensity},
+          ${workout.instructions}, 'PLANNED', NOW()
+        )
+      `;
+    }
+  });
+  return { created: true };
 }
 
 async function saveDraftPlan(userId: string, goalId: string, response: CoachResponse) {
