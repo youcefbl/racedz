@@ -47,11 +47,12 @@ services:
       retries: 5
       start_period: 30s
 
-  # Scheduler for internal jobs: the daily coach inactivity nudge and a frequent
-  # broadcast-dispatch tick that drains any in-flight admin broadcast. Both hit the
-  # app's CRON_SECRET-guarded internal routes over the Docker network, so the requests
-  # never leave the host. Schedules/targets are overridable via env; CRON_SECRET comes
-  # from the env file. The broadcast tick is a cheap no-op when nothing is sending.
+  # Scheduler for internal jobs: the daily coach inactivity nudge, the daily "don't forget your run
+  # today" training reminder, and a frequent broadcast-dispatch tick that drains any in-flight admin
+  # broadcast. All hit the app's CRON_SECRET-guarded internal routes over the Docker network, so the
+  # requests never leave the host. Schedules/targets are overridable via env; CRON_SECRET comes from
+  # the env file. The broadcast tick is a cheap no-op when nothing is sending; the reminder is a
+  # cheap no-op on days no one has a workout scheduled.
   cron:
     image: alpine:3.20
     container_name: racedz_cron_prod
@@ -67,6 +68,9 @@ services:
       NUDGE_URL: ${COACH_NUDGE_URL:-http://app:3003/api/internal/cron/inactivity-nudge}
       BROADCAST_SCHEDULE: ${BROADCAST_DISPATCH_CRON:-*/2 * * * *}
       BROADCAST_URL: ${BROADCAST_DISPATCH_URL:-http://app:3003/api/internal/cron/broadcast-dispatch}
+      # Default 10:00 in the container's TZ (UTC → 11:00 Africa/Algiers) — a late-morning reminder.
+      REMINDER_SCHEDULE: ${TRAINING_REMINDER_CRON:-0 10 * * *}
+      REMINDER_URL: ${TRAINING_REMINDER_URL:-http://app:3003/api/internal/cron/training-reminder}
     # `$$` escapes Compose interpolation so the variable is resolved by the in-container shell.
     command:
       - /bin/sh
@@ -82,12 +86,17 @@ services:
         #!/bin/sh
         curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${BROADCAST_URL}" || echo "broadcast dispatch request failed"
         EOF
-        chmod +x /usr/local/bin/run-nudge /usr/local/bin/run-broadcast
+        cat > /usr/local/bin/run-reminder <<EOF
+        #!/bin/sh
+        curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${REMINDER_URL}" || echo "training reminder request failed"
+        EOF
+        chmod +x /usr/local/bin/run-nudge /usr/local/bin/run-broadcast /usr/local/bin/run-reminder
         {
           echo "$${NUDGE_SCHEDULE} /usr/local/bin/run-nudge >/proc/1/fd/1 2>/proc/1/fd/2"
           echo "$${BROADCAST_SCHEDULE} /usr/local/bin/run-broadcast >/proc/1/fd/1 2>/proc/1/fd/2"
+          echo "$${REMINDER_SCHEDULE} /usr/local/bin/run-reminder >/proc/1/fd/1 2>/proc/1/fd/2"
         } > /etc/crontabs/root
-        echo "cron scheduled: nudge [$${NUDGE_SCHEDULE}] broadcast [$${BROADCAST_SCHEDULE}]"
+        echo "cron scheduled: nudge [$${NUDGE_SCHEDULE}] broadcast [$${BROADCAST_SCHEDULE}] reminder [$${REMINDER_SCHEDULE}]"
         crond -f -l 8
 
   caddy:
