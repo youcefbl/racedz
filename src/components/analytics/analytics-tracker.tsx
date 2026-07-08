@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
+import { readCookieConsent } from "@/lib/cookie-consent";
 import { getLocale } from "@/lib/i18n";
 
 // Fires one page-view beacon per route change (and per language switch) to
@@ -20,6 +21,9 @@ export function AnalyticsTracker() {
 
   useEffect(() => {
     if (!pathname) return;
+
+    // Honor an explicit cookie rejection — skip analytics (no zr_vid/zr_sid then).
+    if (readCookieConsent() === "rejected") return;
 
     const key = `${pathname}|${lang}`;
     if (lastKey.current === key) return;

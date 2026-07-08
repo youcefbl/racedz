@@ -8,7 +8,10 @@ import {
   Building2,
   ChevronRight,
   ClipboardList,
+  CreditCard,
+  HelpCircle,
   LogOut,
+  MessageCircle,
   Moon,
   ShieldCheck,
   Sparkles,
@@ -20,6 +23,7 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState, useTransition } from "react";
 import { LogIn, UserPlus } from "lucide-react";
 import { LOCALE_LABELS, LOCALE_NAMES, LOCALES, getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
+import { saveAppearanceAction } from "@/app/account/appearance-actions";
 import { tapHaptic } from "@/lib/native/haptics";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
@@ -30,6 +34,7 @@ type HubUser = {
   avatarUrl?: string | null;
   role: UserRole;
   unreadCount: number;
+  supportUnreadCount: number;
 };
 
 const THEMES = [
@@ -45,7 +50,8 @@ export function AccountHub({ user }: { user: HubUser | null }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const locale = getLocale(searchParams.get("lang"));
-  const t = getDictionary(locale).account;
+  const dict = getDictionary(locale);
+  const t = dict.account;
   const [signingOut, startSignOut] = useTransition();
 
   const isOrganizer = user?.role === "ORGANIZER" || user?.role === "ADMIN" || user?.role === "SUPERADMIN";
@@ -76,7 +82,15 @@ export function AccountHub({ user }: { user: HubUser | null }) {
               <Row href="/account/registrations" icon={ClipboardList} label={t.myRegistrations} />
               <Row href="/account/profile" icon={UserRound} label={t.profileSettings} />
               <Row href="/account/notifications" icon={Bell} label={t.notifications} badge={user.unreadCount} />
+              <Row href="/account/support" icon={MessageCircle} label={t.support} badge={user.supportUnreadCount} />
+              <Row href="/faq" icon={HelpCircle} label={dict.nav.faq} />
               <Row href="/account/notification-settings" icon={BellRing} label={t.notificationSettings} last />
+            </div>
+
+            <SectionLabel>{t.coach}</SectionLabel>
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <Row href="/account/coach" icon={Sparkles} label={t.coach} />
+              <Row href="/account/coach/subscribe" icon={CreditCard} label={t.coachSubscription} last />
             </div>
 
             <SectionLabel>{t.workspace}</SectionLabel>
@@ -116,10 +130,10 @@ export function AccountHub({ user }: { user: HubUser | null }) {
         )}
 
         <SectionLabel>{t.appearance}</SectionLabel>
-        <ThemePicker labels={t} />
+        <ThemePicker labels={t} loggedIn={Boolean(user)} />
 
         <SectionLabel>{t.language}</SectionLabel>
-        <LanguagePicker current={locale} pathname={pathname} searchParams={searchParams} />
+        <LanguagePicker current={locale} pathname={pathname} searchParams={searchParams} loggedIn={Boolean(user)} />
 
         {user ? (
           <button
@@ -186,7 +200,7 @@ function Row({
   );
 }
 
-function ThemePicker({ labels }: { labels: ReturnType<typeof getDictionary>["account"] }) {
+function ThemePicker({ labels, loggedIn }: { labels: ReturnType<typeof getDictionary>["account"]; loggedIn: boolean }) {
   const [theme, setTheme] = useState<ThemeMode>("light");
 
   useEffect(() => {
@@ -199,6 +213,8 @@ function ThemePicker({ labels }: { labels: ReturnType<typeof getDictionary>["acc
     setTheme(next);
     document.documentElement.dataset.theme = next;
     window.localStorage.setItem("racedz-theme", next);
+    // Signed-in: persist so the choice follows the runner to other devices.
+    if (loggedIn) void saveAppearanceAction({ theme: next });
   }
 
   return (
@@ -225,11 +241,13 @@ function ThemePicker({ labels }: { labels: ReturnType<typeof getDictionary>["acc
 function LanguagePicker({
   current,
   pathname,
-  searchParams
+  searchParams,
+  loggedIn
 }: {
   current: Locale;
   pathname: string;
   searchParams: URLSearchParams;
+  loggedIn: boolean;
 }) {
   return (
     <div className="grid grid-cols-3 gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
@@ -240,6 +258,8 @@ function LanguagePicker({
           onClick={() => {
             tapHaptic("light");
             document.cookie = `racedz-locale=${loc}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+            // Signed-in: persist so the language follows the runner to other devices.
+            if (loggedIn) void saveAppearanceAction({ language: loc });
           }}
           aria-current={current === loc ? "true" : undefined}
           className={cn(

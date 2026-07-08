@@ -660,10 +660,28 @@ export async function getAdminUserById(userId: string) {
           }
         }
       },
+      // Latest active coaching goal — surfaced in the admin detail as "target".
+      runnerGoals: {
+        where: { status: "ACTIVE" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          goalType: true,
+          customGoal: true,
+          targetDate: true,
+          targetDistanceKm: true,
+          targetTimeSeconds: true,
+          experienceLevel: true
+        }
+      },
       _count: {
         select: {
           registrations: true,
-          organizations: true
+          organizations: true,
+          // Recorded runs and AI coach prompts, for the admin overview stats.
+          runnerRuns: true,
+          coachInteractions: true
         }
       }
     }

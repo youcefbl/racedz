@@ -1,9 +1,11 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
-import { Activity, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Moon, Pencil, Target } from "lucide-react";
+import { Activity, ArrowRight, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Moon, Pencil, Sparkles, Target } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { withLocale } from "@/lib/i18n";
 import { coachRequest } from "@/components/coach/api";
 import { getCoachCopy } from "@/components/coach/copy";
 import { CoachConversation } from "@/components/coach/coach-conversation";
@@ -225,6 +227,12 @@ export function CoachDashboard({
           </div>
         </header>
 
+        {/* Free-trial nudge: while the runner is inside the free week, remind them how much is
+            left and push them to subscribe before the coach locks. Hidden once subscribed. */}
+        {dashboard.entitlement?.tier === "TRIAL" && dashboard.entitlement.trialEndsAt ? (
+          <TrialBanner endsAt={dashboard.entitlement.trialEndsAt} locale={locale} copy={copy} />
+        ) : null}
+
         {/* This week — the single home for weekly status: distance & runs vs target, pace, fatigue, streak */}
         <section className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex items-center justify-between gap-3">
@@ -332,6 +340,42 @@ export function CoachDashboard({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function TrialBanner({
+  endsAt,
+  locale,
+  copy
+}: {
+  endsAt: string;
+  locale: CoachLocale;
+  copy: ReturnType<typeof getCoachCopy>;
+}) {
+  const msLeft = new Date(endsAt).getTime() - Date.now();
+  const daysLeft = Math.max(0, Math.ceil(msLeft / DAY_MS));
+  const heading =
+    daysLeft <= 1 ? copy.trialBannerLastDay : copy.trialBannerDaysLeft.replace("{days}", String(daysLeft));
+
+  return (
+    <section className="mb-5 flex flex-col gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-orange text-white">
+          <Sparkles className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-gray-950">{heading}</p>
+          <p className="mt-0.5 text-sm leading-6 text-gray-700">{copy.trialBannerText}</p>
+        </div>
+      </div>
+      <Link
+        href={withLocale("/account/coach/subscribe", locale)}
+        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand-orange px-5 text-sm font-black text-white transition hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
+      >
+        {copy.trialBannerCta}
+        <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+      </Link>
+    </section>
   );
 }
 

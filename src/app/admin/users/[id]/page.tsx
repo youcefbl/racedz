@@ -93,6 +93,8 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
           <div className="mt-6 grid grid-cols-2 gap-3">
             <Stat label="Registrations" value={user._count.registrations} />
             <Stat label="Organizations" value={user._count.organizations} />
+            <Stat label="Runs recorded" value={user._count.runnerRuns} />
+            <Stat label="AI coach prompts" value={user._count.coachInteractions} />
           </div>
 
           <div className="mt-6 text-xs text-gray-500">
@@ -178,6 +180,48 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
           </section>
 
           <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-black text-gray-950">Coaching target</h2>
+            {user.runnerGoals.length === 0 ? (
+              <EmptyState
+                title="No active goal"
+                description="This user has not set up an AI coaching goal yet."
+              />
+            ) : (
+              (() => {
+                const goal = user.runnerGoals[0];
+                return (
+                  <div className="grid gap-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Goal</p>
+                      <p className="mt-1 font-bold text-gray-900">{formatGoalType(goal.goalType, goal.customGoal)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Target date</p>
+                      <p className="mt-1 text-gray-700">{formatDate(goal.targetDate)}</p>
+                    </div>
+                    {goal.targetDistanceKm ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Target distance</p>
+                        <p className="mt-1 text-gray-700">{goal.targetDistanceKm} km</p>
+                      </div>
+                    ) : null}
+                    {goal.targetTimeSeconds ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Target time</p>
+                        <p className="mt-1 text-gray-700">{formatDuration(goal.targetTimeSeconds)}</p>
+                      </div>
+                    ) : null}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-normal text-gray-500">Experience</p>
+                      <p className="mt-1 text-gray-700">{titleCase(goal.experienceLevel)}</p>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-black text-gray-950">Registrations</h2>
             {user.registrations.length === 0 ? (
               <EmptyState
@@ -260,6 +304,29 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-xs font-semibold text-gray-500">{label}</p>
     </div>
   );
+}
+
+function titleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatGoalType(goalType: string, customGoal: string | null) {
+  if (goalType === "OTHER" && customGoal) {
+    return customGoal;
+  }
+  return titleCase(goalType);
+}
+
+function formatDuration(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [minutes.toString().padStart(2, "0"), seconds.toString().padStart(2, "0")];
+  return hours > 0 ? `${hours}:${parts.join(":")}` : parts.join(":");
 }
 
 function getPaymentVariant(status: string) {

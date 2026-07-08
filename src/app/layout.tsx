@@ -8,6 +8,8 @@ import { Suspense } from "react";
 // To try another face, swap `Manrope` for `Plus_Jakarta_Sans` or `DM_Sans` here.
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 import { AnalyticsTracker } from "@/components/analytics/analytics-tracker";
+import { AppearanceSync } from "@/components/layout/appearance-sync";
+import { CookieConsent } from "@/components/layout/cookie-consent";
 import { GpsScrollTrailGate } from "@/components/layout/gps-scroll-trail-gate";
 import { HtmlLangDir } from "@/components/layout/html-lang-dir";
 import { NativeChrome } from "@/components/layout/native-chrome";
@@ -69,13 +71,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var t=localStorage.getItem('racedz-theme');document.documentElement.dataset.theme=(t==='dark'||t==='race'||t==='light')?t:'light'}catch(e){document.documentElement.dataset.theme='light'}" +
+              "try{var t=localStorage.getItem('racedz-theme');if(!(t==='dark'||t==='race'||t==='light')){var m=document.cookie.match(/(?:^|; )racedz-theme=([^;]*)/);t=m?decodeURIComponent(m[1]):null;}document.documentElement.dataset.theme=(t==='dark'||t==='race'||t==='light')?t:'light'}catch(e){document.documentElement.dataset.theme='light'}" +
               "try{var l=new URLSearchParams(location.search).get('lang');l=(l==='fr'||l==='ar')?l:'en';document.documentElement.lang=l;document.documentElement.dir=(l==='ar')?'rtl':'ltr';}catch(e){}"
           }}
         />
         <Suspense fallback={null}>
           <HtmlLangDir />
         </Suspense>
+        <AppearanceSync />
         <Suspense fallback={null}>
           <AnalyticsTracker />
         </Suspense>
@@ -98,6 +101,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <NativePush />
         <PullToRefresh />
         <Toaster />
+        <Suspense fallback={null}>
+          <CookieConsent />
+        </Suspense>
         <ServiceWorkerRegister />
       </body>
     </html>

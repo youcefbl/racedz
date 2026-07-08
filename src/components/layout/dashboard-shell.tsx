@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   Megaphone,
+  MessageCircle,
   ShieldCheck,
   Trophy,
   UsersRound
@@ -39,6 +40,7 @@ const adminNavItems: DashboardNavItem[] = [
   { href: "/admin/races", label: "Races", description: "Review and publish", icon: Trophy },
   { href: "/admin/registrations", label: "Registrations", description: "Runner entries", icon: ClipboardList },
   { href: "/admin/reports", label: "Reports", description: "Flagged content", icon: Flag },
+  { href: "/admin/support", label: "Support chat", description: "Runner conversations", icon: MessageCircle },
   { href: "/admin/announcements", label: "Announcements", description: "Broadcast to users", icon: Megaphone },
   { href: "/admin/coach", label: "AI Coach", description: "Usage and subscriptions", icon: Bot },
   { href: "/admin/tips", label: "Coach tips", description: "Review and publish tips", icon: Lightbulb },

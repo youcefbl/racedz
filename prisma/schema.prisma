@@ -27,6 +27,9 @@ model User {
   blockedAt       DateTime?
   firstLoginAt    DateTime?
   lastLoginAt     DateTime?
+  onboardedAt     DateTime? // set once the runner finishes (or skips) the first-login welcome step
+  language        String? // saved UI language ("en" | "fr" | "ar"), synced across devices
+  theme           String? // saved appearance ("light" | "dark" | "race"), synced across devices
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -51,6 +54,7 @@ model User {
   coachSubscriptions          CoachSubscription[]
   coachSubscriptionRequests   CoachSubscriptionRequest[]
   sleepLogs                   SleepLog[]
+  supportThreads              SupportThread[]
 }
 
 enum UserRole {
@@ -973,4 +977,46 @@ model SearchQuery {
   @@index([createdAt])
   @@index([term])
   @@index([resultCount, createdAt])
+}
+
+// One direct-message thread between a runner and the admin/support team. Kept as a single
+// open thread per user (created lazily on their first message). Read state is tracked with
+// two "last read" timestamps rather than per-message flags: unread = messages from the other
+// party created after the reader's own lastReadAt. Polling-based (no websockets on this stack).
+model SupportThread {
+  id              String              @id @default(cuid())
+  userId          String
+  subject         String?
+  status          SupportThreadStatus @default(OPEN)
+  lastMessageAt   DateTime            @default(now())
+  userLastReadAt  DateTime?
+  adminLastReadAt DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([userId])
+}
+
+model SupportMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  // The sender's user id. fromAdmin distinguishes a support reply from the runner's message
+  // without needing a join back to User just to render the bubble side.
+  authorId  String
+  fromAdmin Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  thread SupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+enum SupportThreadStatus {
+  OPEN
+  CLOSED
 }

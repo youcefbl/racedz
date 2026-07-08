@@ -129,6 +129,11 @@ export const notificationPreferenceOptions = [
     type: "COACH_EXPIRY_WARNING",
     title: "Coach access ending soon",
     description: "A heads-up a few days before your free trial or coach subscription ends."
+  },
+  {
+    type: "SUPPORT_REPLY",
+    title: "Support replies",
+    description: "We notify you when the ZidRun team replies to your support chat."
   }
 ] as const;
 
@@ -394,6 +399,53 @@ export async function notifyAdminsCoachSubscriptionRequest({ runnerName }: { run
     href: "/admin/coach",
     channels: ["IN_APP", "EMAIL", "PUSH"]
   });
+}
+
+// A runner sent a support message. Alert the admin team (in-app + push, no email — chat is
+// higher-frequency than the other admin alerts and per-message email would be noisy).
+export async function notifyAdminsSupportMessage({
+  threadId,
+  runnerName,
+  preview
+}: {
+  threadId: string;
+  runnerName: string;
+  preview: string;
+}) {
+  const admins = await getPrisma().user.findMany({
+    where: { role: { in: ["ADMIN", "SUPERADMIN"] } },
+    select: { id: true, email: true }
+  });
+  await notifyRecipients(admins, {
+    type: "ADMIN_SUPPORT_MESSAGE",
+    title: "New support message",
+    body: `${runnerName || "A runner"}: ${truncatePreview(preview)}`,
+    href: `/admin/support/${threadId}`,
+    channels: ["IN_APP", "PUSH"]
+  });
+}
+
+// The support team replied — nudge the runner back in-app + push.
+export async function notifyUserSupportReply({
+  userId,
+  preview
+}: {
+  userId: string;
+  preview: string;
+}) {
+  await createNotification({
+    userId,
+    type: "SUPPORT_REPLY",
+    title: "ZidRun support replied",
+    body: truncatePreview(preview),
+    href: "/account/support",
+    channels: ["IN_APP", "PUSH"]
+  });
+}
+
+function truncatePreview(text: string, max = 120) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
 export async function notifyOrganizerRaceStatusChanged({

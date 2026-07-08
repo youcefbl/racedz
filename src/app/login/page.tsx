@@ -8,7 +8,6 @@ import { ZidRunMark } from "@/components/layout/racedz-logo";
 import { ButtonLink } from "@/components/ui/button";
 import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import type { UserRole } from "@/types/race";
-import { DemoAccounts } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 import { ResendVerification } from "./resend-verification";
 
@@ -146,7 +145,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </>
           ) : null}
           <LoginForm callbackUrl={params?.callbackUrl} locale={locale} />
-          <DemoAccounts locale={locale} />
           <div className="mt-5 flex items-center justify-between gap-3 text-sm">
             <span className="text-gray-500">{t.newRunner}</span>
             <ButtonLink href={withLocale(registerHref, locale)} variant="outline" size="sm">

@@ -2,6 +2,7 @@
 
 import { Check, Moon, Sparkles, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { saveAppearanceAction } from "@/app/account/appearance-actions";
 import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,7 @@ const THEMES = [
 
 type ThemeMode = (typeof THEMES)[number]["value"];
 
-export function ThemeSwitcher() {
+export function ThemeSwitcher({ persist = false }: { persist?: boolean }) {
   const [theme, setTheme] = useState<ThemeMode>("light");
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -60,6 +61,7 @@ export function ThemeSwitcher() {
     setOpen(false);
     document.documentElement.dataset.theme = nextTheme;
     window.localStorage.setItem("racedz-theme", nextTheme);
+    if (persist) void saveAppearanceAction({ theme: nextTheme });
   }
 
   return (
