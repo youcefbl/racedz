@@ -118,6 +118,18 @@ export type CoachInteraction = {
   completedAt: string | null;
 };
 
+export type CoachSleepEntry = {
+  id: string;
+  // Calendar night the sleep is for, as an ISO date string (serialised from a DB DATE).
+  night: string;
+  durationMinutes: number;
+  bedTime: string | null;
+  wakeTime: string | null;
+  note: string | null;
+  source: "MANUAL" | "PARSED";
+  createdAt: string;
+};
+
 export type CoachEntitlement = {
   tier: "SUBSCRIBED" | "TRIAL" | "NONE";
   dailyLimit: number;
@@ -139,6 +151,8 @@ export type CoachDashboardData = {
   tips?: string[];
   // runId -> its latest analysis interaction id, for every shown run (window-independent).
   analyzedRuns?: Record<string, string>;
+  // Recent nights of logged sleep, newest first.
+  sleep?: CoachSleepEntry[];
 };
 
 export type CoachApiError = {

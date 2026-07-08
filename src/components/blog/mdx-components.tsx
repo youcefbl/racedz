@@ -1,6 +1,6 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Info, Lightbulb, MapPin, Star, Tag } from "lucide-react";
+import { AlertTriangle, ArrowRight, ExternalLink, Info, Lightbulb, MapPin, Star, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // MDX element + custom-component map for blog articles. Everything is styled with the
@@ -147,6 +147,8 @@ export function ProductPick({
   price,
   where,
   rating,
+  url,
+  urlLabel = "View",
   children
 }: {
   name: string;
@@ -154,6 +156,8 @@ export function ProductPick({
   price?: string;
   where?: string;
   rating?: number;
+  url?: string;
+  urlLabel?: string;
   children?: ReactNode;
 }) {
   return (
@@ -175,8 +179,8 @@ export function ProductPick({
 
       {children ? <div className="mt-2 text-[1rem] leading-7 text-[var(--text)]">{children}</div> : null}
 
-      {(price || where) ? (
-        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--border)] pt-3 text-sm">
+      {(price || where || url) ? (
+        <dl className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[var(--border)] pt-3 text-sm">
           {price ? (
             <div className="flex items-center gap-2">
               <Tag className="size-4 text-brand-teal" aria-hidden="true" />
@@ -190,6 +194,17 @@ export function ProductPick({
               <dt className="sr-only">Where to buy</dt>
               <dd className="text-[var(--text)]">{where}</dd>
             </div>
+          ) : null}
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="inline-flex items-center gap-1 font-semibold text-brand-teal underline-offset-2 hover:underline ms-auto"
+            >
+              {urlLabel}
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
           ) : null}
         </dl>
       ) : null}

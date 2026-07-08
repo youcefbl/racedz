@@ -1,4 +1,4 @@
-import { Mail, Phone } from "lucide-react";
+import { Mail, MessageCircle, Phone } from "lucide-react";
 import { SectionPage } from "@/components/layout/section-page";
 import { getDictionary, getLocale } from "@/lib/i18n";
 
@@ -27,7 +27,13 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
             value={content.email}
             href={`mailto:${content.email}`}
           />
-          <ContactRow icon={Phone} label={content.phoneLabel} value={content.phone} href={`tel:${content.phone}`} />
+          <ContactRow icon={Phone} label={content.phoneLabel} value={content.phone} href="tel:+213553191733" />
+          <ContactRow
+            icon={MessageCircle}
+            label={content.whatsappLabel}
+            value={content.whatsapp}
+            href="https://wa.me/213553191733"
+          />
         </dl>
       </div>
     </SectionPage>

@@ -6,13 +6,14 @@ import { getPrisma } from "@/lib/db";
 import type { RunRoutePoint } from "@/components/coach/types";
 import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
-import { calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
-import { generateCoachResponse, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
+import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
+import { generateCoachResponse, parseSleepText, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
 import {
   coachInteractionInputSchema,
   createCoachGoalSchema,
   createRunnerRunSchema,
+  createSleepLogSchema,
   updateCoachGoalSettingsSchema,
   updateCoachGoalStatusSchema,
   type CoachInteractionInput,
@@ -24,6 +25,7 @@ import { CoachError } from "@/lib/coach/errors";
 import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { getTipsForProfile } from "@/lib/coach/tips";
 import { buildOffTopicCoachResponse, evaluateTopicality } from "@/lib/coach/topicality";
+import { fetchForecastConditions, fetchRunWeather, resolveCoordinates, type ForecastConditions, type RunWeather } from "@/lib/coach/weather";
 
 export { CoachError };
 
@@ -73,6 +75,7 @@ type RunRow = {
   avgCadence: number | null;
   calories: number | null;
   route: unknown;
+  weather: unknown;
   isPublic: boolean;
   perceivedEffort: number;
   fatigueLevel: number;
@@ -304,6 +307,14 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   const paceSeconds = input.movingTimeSeconds && input.movingTimeSeconds > 0 ? input.movingTimeSeconds : input.durationSeconds;
   const pace = calculateAveragePaceSecondsPerKm(input.distanceKm, paceSeconds);
 
+  // Snapshot the weather at the time and place of the run, so post-run feedback can explain pace
+  // and effort in context (heat, humidity, wind) instead of reading a slow day as lost fitness.
+  // Kicked off here against the raw track (weather only needs the start coordinates, which the
+  // elevation pass below doesn't change) so it overlaps elevation resolution instead of adding
+  // latency. Best-effort: located from the GPS start or the runner's wilaya, and never allowed to
+  // block or fail the save — a null weather column is a fine outcome.
+  const weatherPromise = captureRunWeather(userId, { route: input.route ?? null, startedAt: input.startedAt });
+
   // Recompute elevation gain server-side from the GPS track (terrain-corrected when a DEM is
   // configured, smoothed otherwise). Raw phone-GPS altitude over-counts climb badly, so the
   // client-reported gain is treated as advisory only. Manual runs keep their reported value.
@@ -322,18 +333,22 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       distanceKm: input.distanceKm,
       elevationGainM
     });
+
+  const weather = await weatherPromise;
+  const weatherJson = weather ? JSON.stringify(weather) : null;
+
   const routeJson = routePoints && routePoints.length > 0 ? JSON.stringify(routePoints) : null;
   const photosJson = input.photos && input.photos.length > 0 ? JSON.stringify(input.photos) : null;
   const rows = await prisma.$queryRaw<RunRow[]>`
     INSERT INTO "RunnerRun" (
       "id", "userId", "goalId", "workoutId", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
-      "calories", "route", "isPublic", "perceivedEffort",
+      "calories", "route", "weather", "isPublic", "perceivedEffort",
       "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${input.workoutId ?? null}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
-      ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
+      ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
       ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource", NOW()
     )
@@ -410,7 +425,7 @@ export async function getCoachDashboard(userId: string) {
   // These six reads are independent — run them in parallel so the dashboard is a single
   // round-trip's worth of latency instead of six sequential ones (matters a lot when the
   // app talks to the origin over a high-latency link).
-  const [goal, runs, plans, interactions, snapshots, entitlement] = await Promise.all([
+  const [goal, runs, plans, interactions, snapshots, entitlement, sleep] = await Promise.all([
     getActiveGoal(userId),
     getRunnerRuns(userId, 10),
     prisma.$queryRaw<Array<Record<string, unknown>>>`
@@ -436,7 +451,8 @@ export async function getCoachDashboard(userId: string) {
     prisma.$queryRaw<Array<{ metrics: CoachMetrics; generatedAt: Date }>>`
       SELECT "metrics", "generatedAt" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
     `,
-    getCoachEntitlementWithUsage(userId)
+    getCoachEntitlementWithUsage(userId),
+    getSleepEntries(userId)
   ]);
 
   // Tip categories depend on the resolved goal, so this runs after the parallel reads.
@@ -451,7 +467,7 @@ export async function getCoachDashboard(userId: string) {
   // burns another AI credit.
   const analyzedRuns = await getAnalyzedRunsMap(userId, runs.map((run) => run.id));
 
-  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns };
+  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns, sleep };
 }
 
 // runId → id of its latest non-failed POST_RUN analysis, for the given runs. Shared by the coach
@@ -511,6 +527,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
   const runs = await getRunsForMetrics(userId);
   const metrics = calculateCoachMetrics(runs);
+  const consistency = assessConsistency(runs, goal.availableTrainingDays.length);
+  const intensity = assessIntensityDistribution(runs);
   const safetyRun = selectedRun ?? runs[0] ?? null;
   const safety = evaluateCoachSafety(
     safetyRun
@@ -541,13 +559,26 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     return { id: interactionId, status: "BLOCKED" as const, response, safety, plan: null };
   }
 
-  const profileRows = await prisma.$queryRaw<Array<{ gender: string | null; dateOfBirth: Date | null }>>`
-    SELECT "gender", "dateOfBirth" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  const profileRows = await prisma.$queryRaw<Array<{ gender: string | null; dateOfBirth: Date | null; wilaya: string | null; city: string | null }>>`
+    SELECT "gender", "dateOfBirth", "wilaya", "city" FROM "User" WHERE "id" = ${userId} LIMIT 1
   `;
   const profile = {
     sex: profileRows[0]?.gender ?? null,
     age: ageFromDateOfBirth(profileRows[0]?.dateOfBirth ?? null)
   };
+  const location = profileRows[0]?.wilaya || profileRows[0]?.city
+    ? { wilaya: profileRows[0]?.wilaya ?? null, city: profileRows[0]?.city ?? null }
+    : null;
+
+  // The linked target race (course, terrain, where/when) enriches every reply. Weather-aware
+  // forecast is only worth fetching where it changes advice — planning and open chat — so post-run
+  // feedback (which already carries the run's own historical weather) skips the extra round-trip.
+  const wantsForecast = input.type !== "POST_RUN";
+  const [targetRace, forecast, sleepEntries] = await Promise.all([
+    getTargetRace(goal.raceEventId),
+    wantsForecast ? resolveForecast(runs, profileRows[0]?.wilaya ?? null) : Promise.resolve(null),
+    getSleepEntries(userId, 14)
+  ]);
 
   // Recent exchanges (this runner only) so the coach can build on what was already asked and
   // advised instead of repeating itself. The just-inserted PENDING row is excluded by status.
@@ -587,11 +618,28 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         painLevel: selectedRun.painLevel,
         symptoms: selectedRun.symptoms,
         notes: selectedRun.notes,
+        weather: (selectedRun.weather as RunWeather | null) ?? null,
         route: Array.isArray(selectedRun.route) ? (selectedRun.route as RunRoutePoint[]) : null
       }
     : null;
 
-  const context = buildRunnerCoachContext({ goal, runs, metrics, skeleton, safety, interaction: input, profile, targetRun, recentConversation });
+  const context = buildRunnerCoachContext({
+    goal,
+    runs,
+    metrics,
+    skeleton,
+    safety,
+    interaction: input,
+    profile,
+    consistency,
+    intensity,
+    location,
+    targetRace,
+    forecast,
+    sleep: sleepEntries.map((entry) => ({ night: entry.night, durationMinutes: entry.durationMinutes })),
+    targetRun,
+    recentConversation
+  });
 
   try {
     const generated = await generateCoachResponse(context, interactionId);
@@ -724,6 +772,181 @@ async function requireOwnedRun(userId: string, runId: string) {
   `;
   if (!rows[0]) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   return rows[0];
+}
+
+type SleepRow = {
+  id: string;
+  night: Date;
+  durationMinutes: number;
+  bedTime: string | null;
+  wakeTime: string | null;
+  note: string | null;
+  source: "MANUAL" | "PARSED";
+  createdAt: Date;
+};
+
+// How far back the sleep history goes, for both the runner's own view and the coach context.
+const SLEEP_HISTORY_DAYS = 30;
+const CLOCK_TIME_PATTERN = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+// Minutes of sleep implied by a bed → wake clock range, wrapping past midnight (the normal case).
+function minutesBetweenClockTimes(bed: string, wake: string): number {
+  const [bedHour, bedMinute] = bed.split(":").map(Number);
+  const [wakeHour, wakeMinute] = wake.split(":").map(Number);
+  let minutes = wakeHour * 60 + wakeMinute - (bedHour * 60 + bedMinute);
+  if (minutes <= 0) minutes += 24 * 60;
+  return minutes;
+}
+
+// A JS Date reduced to a UTC "YYYY-MM-DD" string, so the night is stored as a stable calendar date
+// regardless of server timezone.
+function toDateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+// Log (or replace) a night's sleep. Accepts a duration in hours, a bed/wake clock range, or a
+// free-text note in any language that the AI turns into a duration. One row per night (upsert).
+export async function createSleepEntry(userId: string, rawInput: unknown) {
+  const input = createSleepLogSchema.parse(rawInput);
+  const prisma = getPrisma();
+
+  let durationMinutes: number;
+  let bedTime = input.bedTime ?? null;
+  let wakeTime = input.wakeTime ?? null;
+  let source: "MANUAL" | "PARSED" = "MANUAL";
+
+  if (input.durationHours !== null && input.durationHours !== undefined) {
+    durationMinutes = Math.round(input.durationHours * 60);
+  } else if (input.bedTime && input.wakeTime) {
+    durationMinutes = minutesBetweenClockTimes(input.bedTime, input.wakeTime);
+  } else if (input.text) {
+    const parsed = await parseSleepText(input.text);
+    // Track the billed parse call next to other AI usage (success or "not understood" alike).
+    await prisma.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status")
+      VALUES (${randomUUID()}, ${userId}, ${parsed.model}, 'SUCCEEDED')
+    `;
+    if (!parsed.result.understood || parsed.result.durationMinutes <= 0) {
+      throw new CoachError(
+        "Could not understand that. Try e.g. \"slept about 7 hours\" or use the time fields.",
+        422,
+        "SLEEP_PARSE_FAILED"
+      );
+    }
+    durationMinutes = parsed.result.durationMinutes;
+    bedTime = parsed.result.bedTime && CLOCK_TIME_PATTERN.test(parsed.result.bedTime) ? parsed.result.bedTime : null;
+    wakeTime = parsed.result.wakeTime && CLOCK_TIME_PATTERN.test(parsed.result.wakeTime) ? parsed.result.wakeTime : null;
+    source = "PARSED";
+  } else {
+    throw new CoachError("Provide sleep hours, bed and wake times, or a description.", 400, "SLEEP_INPUT_REQUIRED");
+  }
+
+  durationMinutes = Math.max(1, Math.min(24 * 60, durationMinutes));
+  const night = toDateOnly(input.night ?? new Date());
+
+  const rows = await prisma.$queryRaw<SleepRow[]>`
+    INSERT INTO "SleepLog" (
+      "id", "userId", "night", "durationMinutes", "bedTime", "wakeTime", "note", "source", "updatedAt"
+    ) VALUES (
+      ${randomUUID()}, ${userId}, ${night}::date, ${durationMinutes}, ${bedTime}, ${wakeTime},
+      ${input.note ?? null}, ${source}::"SleepLogSource", NOW()
+    )
+    ON CONFLICT ("userId", "night") DO UPDATE SET
+      "durationMinutes" = EXCLUDED."durationMinutes",
+      "bedTime" = EXCLUDED."bedTime",
+      "wakeTime" = EXCLUDED."wakeTime",
+      "note" = EXCLUDED."note",
+      "source" = EXCLUDED."source",
+      "updatedAt" = NOW()
+    RETURNING "id", "night", "durationMinutes", "bedTime", "wakeTime", "note", "source", "createdAt"
+  `;
+  return rows[0];
+}
+
+export async function getSleepEntries(userId: string, days = SLEEP_HISTORY_DAYS): Promise<SleepRow[]> {
+  const safeDays = Math.min(90, Math.max(1, days));
+  return getPrisma().$queryRaw<SleepRow[]>`
+    SELECT "id", "night", "durationMinutes", "bedTime", "wakeTime", "note", "source", "createdAt"
+    FROM "SleepLog"
+    WHERE "userId" = ${userId} AND "night" >= (CURRENT_DATE - ${safeDays}::int)
+    ORDER BY "night" DESC
+    LIMIT 90
+  `;
+}
+
+// Best-effort weather snapshot for a run. Prefers the GPS start point and only looks up the
+// runner's wilaya when there is no track (manual entry). Never throws — a null result just means
+// the run is stored without weather.
+async function captureRunWeather(
+  userId: string,
+  run: { route: RunRoutePoint[] | null; startedAt: Date }
+): Promise<RunWeather | null> {
+  try {
+    const wilaya = run.route?.length ? null : await getUserWilaya(userId);
+    const coordinates = resolveCoordinates({ route: run.route, wilaya });
+    if (!coordinates) return null;
+    return await fetchRunWeather({ coordinates, at: new Date(run.startedAt) });
+  } catch {
+    return null;
+  }
+}
+
+async function getUserWilaya(userId: string): Promise<string | null> {
+  const rows = await getPrisma().$queryRaw<Array<{ wilaya: string | null }>>`
+    SELECT "wilaya" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  `;
+  return rows[0]?.wilaya ?? null;
+}
+
+// The target race a goal is training toward, when one is linked. Surfaces the actual course and
+// location (elevation, terrain notes, where and when) so the coach can tailor prep, not just echo
+// the goal's copied date/distance. Never throws — coaching proceeds without it.
+type TargetRaceContext = {
+  title: string;
+  raceType: string;
+  startDate: Date;
+  wilaya: string;
+  city: string;
+  elevationGainText: string | null;
+  conditions: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+async function getTargetRace(raceEventId: string | null): Promise<TargetRaceContext | null> {
+  if (!raceEventId) return null;
+  try {
+    const rows = await getPrisma().$queryRaw<TargetRaceContext[]>`
+      SELECT "title", "raceType"::text AS "raceType", "startDate", "wilaya", "city",
+             "elevationGainText", "conditions", "latitude", "longitude"
+      FROM "RaceEvent"
+      WHERE "id" = ${raceEventId} AND "status" = 'PUBLISHED'
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Current + today's forecast for where the runner trains, so planning and daily chat can adapt to
+// heat, humidity and rain. Prefers the location of a recent GPS run, else the runner's wilaya.
+// Best-effort: null when weather is off, no location resolves, or the provider is slow.
+async function resolveForecast(
+  runs: RunRow[],
+  wilaya: string | null
+): Promise<ForecastConditions | null> {
+  try {
+    const recentRoute = runs.find((run) => Array.isArray(run.route) && (run.route as unknown[]).length > 0);
+    const coordinates = resolveCoordinates({
+      route: (recentRoute?.route as RunRoutePoint[] | undefined) ?? null,
+      wilaya
+    });
+    if (!coordinates) return null;
+    return await fetchForecastConditions(coordinates);
+  } catch {
+    return null;
+  }
 }
 
 async function getRunsForMetrics(userId: string) {

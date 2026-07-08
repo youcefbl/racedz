@@ -1,7 +1,7 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
-import { Activity, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Target } from "lucide-react";
+import { Activity, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Moon, Target } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { coachRequest } from "@/components/coach/api";
@@ -12,11 +12,12 @@ import { CoachOverview } from "@/components/coach/coach-overview";
 import { CoachPushPrompt } from "@/components/coach/coach-push-prompt";
 import { CoachPlanPanel } from "@/components/coach/coach-plan-panel";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
+import { CoachSleepPanel } from "@/components/coach/coach-sleep-panel";
 import type { CoachCopy } from "@/components/coach/copy";
 import type { CoachDashboardData, CoachEntitlement, CoachLocale, CoachRun } from "@/components/coach/types";
 import { cn } from "@/lib/utils";
 
-type CoachView = "overview" | "plan" | "runs" | "coach";
+type CoachView = "overview" | "plan" | "runs" | "sleep" | "coach";
 
 export function CoachDashboard({
   initialData,
@@ -165,6 +166,7 @@ export function CoachDashboard({
     { id: "plan" as const, label: copy.plan, icon: CalendarRange },
     // Runs tab is web-only; the phone app reaches runs through the bottom nav.
     ...(isNative ? [] : [{ id: "runs" as const, label: copy.runs, icon: Activity }]),
+    { id: "sleep" as const, label: copy.sleep, icon: Moon },
     { id: "coach" as const, label: copy.coach, icon: BrainCircuit }
   ];
 
@@ -218,7 +220,7 @@ export function CoachDashboard({
         <nav
           className={cn(
             "coach-tabs mb-5 grid rounded-lg border border-gray-200 bg-white p-1 shadow-sm",
-            views.length === 3 ? "grid-cols-3" : "grid-cols-4"
+            views.length >= 5 ? "grid-cols-5" : views.length === 4 ? "grid-cols-4" : "grid-cols-3"
           )}
           aria-label="Coach views"
         >
@@ -289,6 +291,15 @@ export function CoachDashboard({
             weightKg={goal.weightKg}
           />
         ) : null}
+        {view === "sleep" ? (
+          <CoachSleepPanel
+            entries={dashboard.sleep ?? []}
+            locale={locale}
+            copy={copy}
+            pendingAction={pendingAction}
+            onSaved={refresh}
+          />
+        ) : null}
         {view === "coach" ? (
           <CoachConversation
             interactions={dashboard.interactions}
@@ -334,7 +345,12 @@ function EntitlementBanner({
           <span className="me-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs font-black text-white">{copy.trialBadge}</span>
           {entitlement.trialEndsAt ? copy.trialEndsIn.replace("{date}", formatBannerDate(entitlement.trialEndsAt, locale)) : null}
         </p>
-        {usage ? <span className="text-xs font-bold text-blue-700">{usage}</span> : null}
+        <div className="flex items-center gap-3">
+          {usage ? <span className="text-xs font-bold text-blue-700">{usage}</span> : null}
+          <a href={`/account/coach/subscribe?lang=${locale}`} className="text-xs font-black text-blue-700 underline underline-offset-2 transition hover:text-blue-900">
+            {copy.manageSubscription}
+          </a>
+        </div>
       </div>
     );
   }
@@ -344,7 +360,12 @@ function EntitlementBanner({
       <p className="text-sm font-bold text-green-800">
         {entitlement.subscriptionEndsAt ? copy.subscribedUntil.replace("{date}", formatBannerDate(entitlement.subscriptionEndsAt, locale)) : null}
       </p>
-      {usage ? <span className="text-xs font-bold text-green-700">{usage}</span> : null}
+      <div className="flex items-center gap-3">
+        {usage ? <span className="text-xs font-bold text-green-700">{usage}</span> : null}
+        <a href={`/account/coach/subscribe?lang=${locale}`} className="text-xs font-black text-green-700 underline underline-offset-2 transition hover:text-green-900">
+          {copy.manageSubscription}
+        </a>
+      </div>
     </div>
   );
 }

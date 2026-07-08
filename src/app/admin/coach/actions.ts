@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin";
-import { activateCoachSubscription, deactivateCoachSubscription } from "@/lib/coach-admin";
+import {
+  activateCoachSubscription,
+  approveCoachSubscriptionRequest,
+  deactivateCoachSubscription,
+  rejectCoachSubscriptionRequest
+} from "@/lib/coach-admin";
 import { resolvePlanCharge, STUDENT_PROMO } from "@/lib/coach/plans";
 
 export async function activateCoachSubscriptionAction(formData: FormData) {
@@ -44,6 +49,21 @@ export async function deactivateCoachSubscriptionAction(formData: FormData) {
 
   await deactivateCoachSubscription({ actorId: session.user.id, userId });
 
+  revalidatePath("/admin/coach");
+}
+
+export async function approveCoachSubscriptionRequestAction(formData: FormData) {
+  const session = await requireAdmin();
+  const requestId = getFormString(formData, "requestId");
+  await approveCoachSubscriptionRequest({ actorId: session.user.id, requestId });
+  revalidatePath("/admin/coach");
+}
+
+export async function rejectCoachSubscriptionRequestAction(formData: FormData) {
+  const session = await requireAdmin();
+  const requestId = getFormString(formData, "requestId");
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+  await rejectCoachSubscriptionRequest({ actorId: session.user.id, requestId, reason });
   revalidatePath("/admin/coach");
 }
 

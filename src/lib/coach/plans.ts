@@ -12,6 +12,28 @@ export const COACH_PLANS = {
   YEARLY: { months: 12, priceDa: 4900 }
 } as const;
 
+// The two plans a runner can request from the subscribe page, in display order. CUSTOM is
+// admin-only (set at activation) so it isn't offered here.
+export const COACH_REQUESTABLE_PLANS = [
+  { id: "MONTHLY" as const, ...COACH_PLANS.MONTHLY },
+  { id: "YEARLY" as const, ...COACH_PLANS.YEARLY }
+];
+
+// Where a runner sends manual payment for a coach subscription. Sourced from env so the platform's
+// BaridiMob/CCP details aren't hard-coded; any field left unset is simply hidden on the page.
+export function getCoachPaymentDetails() {
+  const read = (value: string | undefined) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  };
+  return {
+    baridiMobNumber: read(process.env.COACH_PAYMENT_BARIDIMOB),
+    ccpAccount: read(process.env.COACH_PAYMENT_CCP),
+    ccpKey: read(process.env.COACH_PAYMENT_CCP_KEY),
+    note: read(process.env.COACH_PAYMENT_NOTE)
+  };
+}
+
 // Student discount, applied manually at activation (or shown on the pricing page as a promo).
 export const STUDENT_PROMO = { code: "DZstudent", percentOff: 20 } as const;
 
