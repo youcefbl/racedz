@@ -133,6 +133,8 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
     if (current === 0) {
       if (goalType === "OTHER" && customGoal.trim().length < 3) return required(copy.goalType);
       if (!targetDate) return required(copy.targetDate);
+      // ISO date strings compare correctly as strings; catch a past/today target before the server does.
+      if (targetDate < tomorrow()) return copy.targetDateFuture;
       if (badOptional(targetDistanceKm, 0.1, 500)) return invalid(copy.targetDistance);
       if (targetTime.trim() && parseDurationToSeconds(targetTime.trim()) === null) return invalid(copy.targetTime);
     }
@@ -170,6 +172,20 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
   function goBack() {
     setError(null);
     setStep((current) => Math.max(0, current - 1));
+  }
+
+  // Clicking a step in the stepper. Editing an existing goal is free navigation (every step is
+  // already filled and valid), so jump straight to any step. Creating is still guided: you can go
+  // back to a completed step freely, but moving forward only advances to the next step, validating
+  // the current one first (so a later step can't be reached with earlier steps left invalid).
+  function goToStep(index: number) {
+    if (index === step) return;
+    if (isEdit || index < step) {
+      setError(null);
+      setStep(index);
+      return;
+    }
+    goNext();
   }
 
   function submit() {
@@ -217,7 +233,9 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
         });
         await onCreated();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : copy.goalCreateFailed);
+        // Prefer the server's specific field message (e.g. which value is out of range) over the
+        // generic "invalid request" wrapper, so the runner knows exactly what to fix.
+        setError(fieldErrorMessage(caught) ?? (caught instanceof Error ? caught.message : copy.goalCreateFailed));
       }
     });
   }
@@ -233,7 +251,7 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
         <p className="mt-3 text-sm leading-6 text-gray-600 sm:text-base">{isEdit ? copy.editGoalText : copy.setupText}</p>
       </div>
 
-      <Stepper labels={stepLabels} current={step} copy={copy} />
+      <Stepper labels={stepLabels} current={step} copy={copy} onStepClick={goToStep} />
 
       <div className="mt-5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="p-5 sm:p-7">
@@ -479,7 +497,17 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
   );
 }
 
-function Stepper({ labels, current, copy }: { labels: string[]; current: number; copy: CoachCopy }) {
+function Stepper({
+  labels,
+  current,
+  copy,
+  onStepClick
+}: {
+  labels: string[];
+  current: number;
+  copy: CoachCopy;
+  onStepClick: (index: number) => void;
+}) {
   return (
     <div>
       <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
@@ -490,21 +518,25 @@ function Stepper({ labels, current, copy }: { labels: string[]; current: number;
           const done = index < current;
           const active = index === current;
           return (
-            <li
-              key={label}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-black transition",
-                active
-                  ? "border-brand-teal bg-teal-50 text-brand-teal"
-                  : done
-                    ? "border-brand-teal/40 bg-white text-brand-teal"
-                    : "border-gray-200 bg-white text-gray-500"
-              )}
-            >
-              <span className={cn("flex size-5 items-center justify-center rounded-full text-[10px]", active || done ? "bg-brand-teal text-white" : "bg-gray-100 text-gray-500")}>
-                {done ? <Check className="size-3" aria-hidden="true" /> : index + 1}
-              </span>
-              {label}
+            <li key={label}>
+              <button
+                type="button"
+                onClick={() => onStepClick(index)}
+                aria-current={active ? "step" : undefined}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
+                  active
+                    ? "border-brand-teal bg-teal-50 text-brand-teal"
+                    : done
+                      ? "border-brand-teal/40 bg-white text-brand-teal hover:bg-teal-50"
+                      : "border-gray-200 bg-white text-gray-500 hover:border-brand-teal"
+                )}
+              >
+                <span className={cn("flex size-5 items-center justify-center rounded-full text-[10px]", active || done ? "bg-brand-teal text-white" : "bg-gray-100 text-gray-500")}>
+                  {done ? <Check className="size-3" aria-hidden="true" /> : index + 1}
+                </span>
+                {label}
+              </button>
             </li>
           );
         })}
@@ -579,6 +611,17 @@ const inputClass = "min-h-11 w-full rounded-md border border-gray-300 bg-white p
 function numberOrNull(value: string) {
   const trimmed = value.trim();
   return trimmed ? Number(trimmed) : null;
+}
+
+// The first field-level validation message from a coach API error (coachRequest copies the
+// server's `fields` onto the thrown error), or null when there isn't one.
+function fieldErrorMessage(error: unknown): string | null {
+  const fields = (error as { fields?: Record<string, string[] | undefined> } | null)?.fields;
+  if (!fields) return null;
+  for (const messages of Object.values(fields)) {
+    if (messages && messages.length) return messages[0];
+  }
+  return null;
 }
 
 // A stored number → the string the form inputs use; null/undefined becomes an empty field.
