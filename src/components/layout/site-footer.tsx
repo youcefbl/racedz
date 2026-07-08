@@ -16,6 +16,7 @@ export function SiteFooter() {
     { href: "/pricing", label: dictionary.nav.pricing },
     { href: "/organizers", label: dictionary.nav.organizers },
     { href: "/contact", label: dictionary.nav.contact },
+    { href: "/faq", label: dictionary.nav.faq },
     { href: "/terms", label: dictionary.nav.terms },
     { href: "/privacy", label: dictionary.nav.privacy }
   ];

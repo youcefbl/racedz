@@ -5,6 +5,7 @@ import { Check, Globe, Moon, Settings, Sparkles, Sun } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LOCALE_NAMES, LOCALES, getDictionary, type Locale } from "@/lib/i18n";
+import { saveAppearanceAction } from "@/app/account/appearance-actions";
 import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ type ThemeMode = (typeof THEMES)[number]["value"];
 // One "Settings" popover that folds theme + language together, so the desktop
 // header reads as nav · notifications · account · Find race instead of five
 // competing controls. (The mobile drawer keeps the standalone switchers.)
-export function SettingsMenu({ currentLocale }: { currentLocale: Locale }) {
+export function SettingsMenu({ currentLocale, persist = false }: { currentLocale: Locale; persist?: boolean }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>("light");
   const menuRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,7 @@ export function SettingsMenu({ currentLocale }: { currentLocale: Locale }) {
     setTheme(next);
     document.documentElement.dataset.theme = next;
     window.localStorage.setItem("racedz-theme", next);
+    if (persist) void saveAppearanceAction({ theme: next });
   }
 
   function localeHref(locale: Locale) {
@@ -64,6 +66,7 @@ export function SettingsMenu({ currentLocale }: { currentLocale: Locale }) {
 
   function persistLocale(locale: Locale) {
     document.cookie = `racedz-locale=${locale}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    if (persist) void saveAppearanceAction({ language: locale });
   }
 
   return (

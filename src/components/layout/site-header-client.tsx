@@ -110,7 +110,7 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
 
         <div className="flex items-center gap-2 sm:gap-2.5">
           <div className="hidden items-center md:flex">
-            <SettingsMenu currentLocale={locale} />
+            <SettingsMenu currentLocale={locale} persist={Boolean(user)} />
           </div>
           <span className="hidden h-7 w-px bg-[var(--border)] md:block" aria-hidden="true" />
           {user ? (
@@ -186,8 +186,8 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
               ))}
             </nav>
             <div className="flex items-center gap-2 border-t border-[var(--border)] pt-4">
-              <ThemeSwitcher />
-              <LanguageSwitcher currentLocale={locale} />
+              <ThemeSwitcher persist={Boolean(user)} />
+              <LanguageSwitcher currentLocale={locale} persist={Boolean(user)} />
             </div>
           </div>
         </div>

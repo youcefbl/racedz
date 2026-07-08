@@ -5,10 +5,11 @@ import { Check, Globe } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LOCALE_LABELS, LOCALE_NAMES, LOCALES, getDictionary, type Locale } from "@/lib/i18n";
+import { saveAppearanceAction } from "@/app/account/appearance-actions";
 import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { cn } from "@/lib/utils";
 
-export function LanguageSwitcher({ currentLocale }: { currentLocale?: Locale }) {
+export function LanguageSwitcher({ currentLocale, persist = false }: { currentLocale?: Locale; persist?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selectedLocale = currentLocale ?? getCurrentLocale(searchParams.get("lang"));
@@ -62,6 +63,7 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale?: Locale }) 
               aria-checked={selectedLocale === locale}
               onClick={() => {
                 persistLocale(locale);
+                if (persist) void saveAppearanceAction({ language: locale });
                 setOpen(false);
               }}
               className={cn(

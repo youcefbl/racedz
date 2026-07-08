@@ -1,0 +1,69 @@
+# Staging clone of production for load testing.
+#
+# Mirrors docker-compose.prod.yml as closely as possible (same single app
+# container + Postgres 16 on the same box) so the numbers reflect production's
+# real ceiling. Differences vs prod, all deliberate:
+#   - separate container names + volumes (never touches prod data)
+#   - Postgres published to 127.0.0.1:5433 so the seed/monitor scripts can reach
+#     it from the host (loopback only — not exposed publicly)
+#   - app published to 127.0.0.1:3004 (Caddy on the staging box proxies to it)
+#   - the `cron` service is intentionally omitted: staging must not fire real
+#     broadcasts / nudges / reminders during a test run
+#
+# Run from the repo root:
+#   docker compose -f loadtest/docker-compose.staging.yml --env-file loadtest/.env.staging up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: racedz_postgres_staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-racedz}
+      POSTGRES_USER: ${POSTGRES_USER:-racedz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - racedz_staging_postgres_data:/var/lib/postgresql/data
+    # Loopback-only publish so host-side seeding/monitoring can connect. Do NOT
+    # bind to 0.0.0.0 (Docker port-publishing bypasses ufw).
+    ports:
+      - "127.0.0.1:${STAGING_PG_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-racedz} -d ${POSTGRES_DB:-racedz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      # Compose file lives in loadtest/, build context is the repo root.
+      context: ..
+      dockerfile: Dockerfile
+    image: racedz-app:staging
+    container_name: racedz_app_staging
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Point this at a staging env file with SANDBOX creds for every outbound
+    # side effect (email, push/VAPID, OpenAI, payment). See .env.staging.example.
+    env_file:
+      - ${RACEDZ_ENV_FILE:-.env.staging}
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-racedz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-racedz}
+    ports:
+      - "127.0.0.1:${STAGING_APP_PORT:-3004}:3003"
+    volumes:
+      - racedz_staging_uploads:/app/public/uploads
+    command: sh -c "npm run prisma:deploy && npm run start:docker"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3003/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  racedz_staging_postgres_data:
+  racedz_staging_uploads:
