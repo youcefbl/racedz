@@ -8,13 +8,20 @@ import {
   expireStaleCoachSubscriptions,
   getCoachUsageSummary,
   getCoachUserUsage,
+  getPendingCoachSubscriptionRequests,
   getRecentCoachErrors,
   type CoachErrorRow,
-  type CoachTierLabel
+  type CoachTierLabel,
+  type PendingCoachRequestRow
 } from "@/lib/coach-admin";
 import { parsePagination } from "@/lib/pagination";
 import { AdminShell, EmptyState, FilterBar, StatCard } from "../_components/admin-ui";
-import { activateCoachSubscriptionAction, deactivateCoachSubscriptionAction } from "./actions";
+import {
+  activateCoachSubscriptionAction,
+  approveCoachSubscriptionRequestAction,
+  deactivateCoachSubscriptionAction,
+  rejectCoachSubscriptionRequestAction
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +35,11 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
 
   const filters = await searchParams;
   const pagination = parsePagination({ page: filters?.page });
-  const [summary, usage, recentErrors] = await Promise.all([
+  const [summary, usage, recentErrors, pendingRequests] = await Promise.all([
     getCoachUsageSummary(),
     getCoachUserUsage({ search: filters?.q }, pagination),
-    getRecentCoachErrors()
+    getRecentCoachErrors(),
+    getPendingCoachSubscriptionRequests()
   ]);
 
   return (
@@ -75,6 +83,8 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
       </div>
 
       <RecentErrors errors={recentErrors} />
+
+      <PendingRequests requests={pendingRequests} />
 
       <FilterBar action="/admin/coach" searchPlaceholder="Search runner name or email" defaultSearch={filters?.q} />
 
@@ -234,6 +244,77 @@ function RecentErrors({ errors }: { errors: CoachErrorRow[] }) {
                 </td>
                 <td className="px-4 py-3 font-mono text-xs font-bold text-gray-700">{error.errorCode ?? "—"}</td>
                 <td className="px-4 py-3 text-gray-600">{error.errorMessage ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+function PendingRequests({ requests }: { requests: PendingCoachRequestRow[] }) {
+  if (requests.length === 0) return null;
+
+  return (
+    <details open className="mb-6 overflow-hidden rounded-lg border border-brand-teal/40 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-teal-100 bg-teal-50 px-5 py-3 text-sm font-black text-brand-teal">
+        <BadgeDollarSign className="size-4" aria-hidden={true} />
+        Pending subscription requests ({requests.length})
+      </summary>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="border-b border-gray-200 bg-gray-50 text-xs font-bold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Requested</th>
+              <th className="px-4 py-3">Runner</th>
+              <th className="px-4 py-3">Plan</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Method</th>
+              <th className="px-4 py-3">Proof</th>
+              <th className="px-4 py-3">Review</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {requests.map((request) => (
+              <tr key={request.id} className="align-top">
+                <td className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDateTime(request.createdAt)}</td>
+                <td className="px-4 py-3">
+                  <p className="font-black text-gray-950">{request.name.trim() || "—"}</p>
+                  <p className="break-all text-xs text-gray-500">{request.email}</p>
+                </td>
+                <td className="px-4 py-3 font-semibold text-gray-800">{request.plan}</td>
+                <td className="px-4 py-3 font-semibold tabular-nums text-gray-700">
+                  {request.amountDa != null ? `${formatNumber(request.amountDa)} DA` : "—"}
+                </td>
+                <td className="px-4 py-3 text-gray-600">{request.paymentMethod ?? "—"}</td>
+                <td className="px-4 py-3">
+                  <a
+                    href={request.paymentProofUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:border-brand-teal hover:text-brand-teal"
+                  >
+                    View proof
+                  </a>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <form action={approveCoachSubscriptionRequestAction}>
+                      <input type="hidden" name="requestId" value={request.id} />
+                      <Button type="submit" size="sm">
+                        Approve
+                      </Button>
+                    </form>
+                    <form action={rejectCoachSubscriptionRequestAction} className="flex items-center gap-1.5">
+                      <input type="hidden" name="requestId" value={request.id} />
+                      <input name="reason" maxLength={200} placeholder="Reason (optional)" className={inputClass} />
+                      <Button type="submit" size="sm" variant="outline">
+                        Reject
+                      </Button>
+                    </form>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

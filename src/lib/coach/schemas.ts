@@ -136,6 +136,52 @@ export const updateRunnerRunSchema = z
     message: "Nothing to update."
   });
 
+// A clock time as "HH:MM" in 24-hour form, e.g. "23:30" or "06:15".
+export const sleepClockTimeSchema = z
+  .string()
+  .trim()
+  .regex(/^([01]?\d|2[0-3]):[0-5]\d$/, "Use a 24-hour HH:MM time.");
+
+// Three ways to log a night's sleep: a plain duration in hours, bed + wake clock times, or a
+// free-text description in any language that the AI turns into a duration. At least one must be
+// provided; the service resolves them all down to durationMinutes.
+export const createSleepLogSchema = z
+  .object({
+    // The night this sleep is for. Defaults to last night (resolved server-side) when omitted.
+    night: z.coerce.date().nullable().optional(),
+    durationHours: z.coerce.number().min(0).max(24).nullable().optional(),
+    bedTime: sleepClockTimeSchema.nullable().optional(),
+    wakeTime: sleepClockTimeSchema.nullable().optional(),
+    text: z.string().trim().min(1).max(300).nullable().optional(),
+    note: z.string().trim().max(300).nullable().optional()
+  })
+  .superRefine((input, context) => {
+    const hasDuration = input.durationHours !== null && input.durationHours !== undefined;
+    const hasBoth = Boolean(input.bedTime) && Boolean(input.wakeTime);
+    const hasOneTime = Boolean(input.bedTime) !== Boolean(input.wakeTime);
+    const hasText = Boolean(input.text);
+
+    if (hasOneTime) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [input.bedTime ? "wakeTime" : "bedTime"],
+        message: "Provide both bed time and wake time."
+      });
+    }
+
+    if (!hasDuration && !hasBoth && !hasText) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["durationHours"],
+        message: "Enter hours slept, bed and wake times, or describe your sleep."
+      });
+    }
+
+    if (input.night && input.night.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["night"], message: "Night cannot be in the future." });
+    }
+  });
+
 export const coachInteractionInputSchema = z
   .object({
     type: z.enum(["INITIAL_PLAN", "POST_RUN", "WEEKLY_REVIEW", "CHAT"]),
@@ -177,6 +223,7 @@ export type CoachLocale = z.infer<typeof coachLocaleSchema>;
 export type CreateCoachGoalInput = z.infer<typeof createCoachGoalSchema>;
 export type CreateRunnerRunInput = z.infer<typeof createRunnerRunSchema>;
 export type UpdateRunnerRunInput = z.infer<typeof updateRunnerRunSchema>;
+export type CreateSleepLogInput = z.infer<typeof createSleepLogSchema>;
 export type CoachInteractionInput = z.infer<typeof coachInteractionInputSchema>;
 export type CoachResponse = z.infer<typeof coachResponseSchema>;
 export type CoachWorkout = z.infer<typeof coachWorkoutSchema>;

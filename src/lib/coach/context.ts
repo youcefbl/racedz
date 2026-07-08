@@ -1,8 +1,24 @@
 import type { RunRoutePoint } from "@/components/coach/types";
-import type { CoachMetrics, MetricRun } from "@/lib/coach/metrics";
+import type { CoachMetrics, ConsistencyAssessment, IntensityDistribution, MetricRun } from "@/lib/coach/metrics";
 import { computeSplits } from "@/lib/coach/run-stats";
 import type { CoachInteractionInput, CoachWorkout } from "@/lib/coach/schemas";
 import type { CoachSafetyDecision } from "@/lib/coach/safety";
+import type { ForecastConditions, RunWeather } from "@/lib/coach/weather";
+
+// The runner's home region and, when a goal targets a real race, that race's course and setting.
+// Both let the coach ground advice in where the runner trains and races — heat, terrain, timing.
+type ContextLocation = { wilaya: string | null; city: string | null };
+type ContextTargetRace = {
+  title: string;
+  raceType: string;
+  startDate: Date;
+  wilaya: string;
+  city: string;
+  elevationGainText: string | null;
+  conditions: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
 
 type ContextGoal = {
   id: string;
@@ -38,6 +54,8 @@ type ContextRun = MetricRun & {
   avgCadence: number | null;
   symptoms: string | null;
   notes: string | null;
+  // Persisted as JSONB, so it arrives untyped from the DB; describeWeather validates the shape.
+  weather?: unknown;
 };
 
 type TargetRun = ContextRun & {
@@ -72,6 +90,12 @@ export function buildRunnerCoachContext(input: {
   safety: CoachSafetyDecision;
   interaction: CoachInteractionInput;
   profile?: { sex: string | null; age: number | null };
+  consistency?: ConsistencyAssessment | null;
+  intensity?: IntensityDistribution | null;
+  location?: ContextLocation | null;
+  targetRace?: ContextTargetRace | null;
+  forecast?: ForecastConditions | null;
+  sleep?: Array<{ night: Date | string; durationMinutes: number }>;
   targetRun?: TargetRun | null;
   recentConversation?: ConversationTurn[];
 }) {
@@ -83,7 +107,9 @@ export function buildRunnerCoachContext(input: {
     },
     runner: {
       sex: input.profile?.sex ?? null,
-      age: input.profile?.age ?? null
+      age: input.profile?.age ?? null,
+      // Where the runner is based, so the coach can factor in local climate and time of day.
+      location: input.location ? { wilaya: input.location.wilaya, city: input.location.city } : null
     },
     goal: {
       type: input.goal.goalType,
@@ -110,6 +136,21 @@ export function buildRunnerCoachContext(input: {
       healthNotes: input.goal.healthNotes
     },
     computedMetrics: input.metrics,
+    // Whether the runner is keeping to their committed cadence, so the coach can nudge them back to
+    // consistency when sessions are being skipped and acknowledge it when they're on track.
+    consistency: input.consistency ?? null,
+    // Easy/grey-zone/hard split of recent efforts, so the coach can hold the runner to the 80/20
+    // principle — keep easy days easy — instead of letting them drift into the moderate grey zone.
+    intensityDistribution: input.intensity ?? null,
+    // Recent sleep the runner logged, so the coach can factor rest into recovery and load advice
+    // (short or erratic sleep → prioritise recovery; consistent good sleep → affirm it).
+    sleep: describeSleep(input.sleep ?? []),
+    // The actual race being trained for (course, terrain, where and when), when the goal links one,
+    // plus how many days remain — lets the coach tailor course prep instead of echoing the goal.
+    targetRace: input.targetRace ? describeTargetRace(input.targetRace) : null,
+    // Current + today's forecast where the runner trains, so planning and chat can adapt to heat,
+    // humidity and rain (move a hard session earlier, swap to easy, hydrate). Null for post-run.
+    environment: input.forecast ? describeForecast(input.forecast) : null,
     // The specific run this feedback is about, when the runner asked to analyse one. Given its
     // own block (with per-km splits) so the coach centres the reply on it instead of guessing.
     analysedRun: input.targetRun ? describeTargetRun(input.targetRun) : null,
@@ -142,8 +183,83 @@ function describeRun(run: ContextRun) {
     perceivedEffort: run.perceivedEffort,
     fatigueLevel: run.fatigueLevel,
     painLevel: run.painLevel,
+    // Conditions the run was performed in, so a slow/hard day in heat isn't misread as lost fitness.
+    weather: describeWeather(run.weather),
     symptoms: truncate(run.symptoms, MAX_NOTE_CHARS),
     notes: truncate(run.notes, MAX_NOTE_CHARS)
+  };
+}
+
+// Normalise the JSONB weather snapshot into a compact, model-friendly block. Tolerant of null or
+// malformed rows (returns null), and flags wilaya-centroid readings as approximate so the coach
+// can hedge on location.
+function describeWeather(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const weather = value as Partial<RunWeather>;
+  if (weather.temperatureC == null && !weather.label) return null;
+  return {
+    temperatureC: weather.temperatureC ?? null,
+    feelsLikeC: weather.apparentTemperatureC ?? null,
+    humidityPct: weather.humidityPct ?? null,
+    windKph: weather.windKph ?? null,
+    precipitationMm: weather.precipitationMm ?? null,
+    conditions: weather.label ?? null,
+    approxLocation: weather.source === "wilaya"
+  };
+}
+
+// Whole days from now until a date, floored; negative if already past.
+function daysUntil(date: Date): number {
+  return Math.floor((new Date(date).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function describeTargetRace(race: ContextTargetRace) {
+  return {
+    title: race.title,
+    raceType: race.raceType,
+    startDate: new Date(race.startDate).toISOString(),
+    daysUntilRace: daysUntil(race.startDate),
+    location: [race.city, race.wilaya].filter(Boolean).join(", ") || null,
+    courseElevation: race.elevationGainText,
+    courseConditions: truncate(race.conditions, MAX_NOTE_CHARS)
+  };
+}
+
+// Summarise recent sleep into what the coach actually needs: the average over the last week, the
+// most recent night, and a short per-night trace (hours, one decimal). Null when nothing is logged.
+function describeSleep(entries: Array<{ night: Date | string; durationMinutes: number }>) {
+  if (entries.length === 0) return null;
+  const sorted = [...entries].sort((a, b) => new Date(b.night).getTime() - new Date(a.night).getTime());
+  const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
+  const lastSeven = sorted.slice(0, 7);
+  const averageHoursLast7 =
+    lastSeven.length > 0
+      ? Math.round((lastSeven.reduce((total, entry) => total + entry.durationMinutes, 0) / lastSeven.length / 60) * 10) /
+        10
+      : null;
+
+  return {
+    nightsLoggedLast7: lastSeven.length,
+    averageHoursLast7,
+    lastNightHours: toHours(sorted[0].durationMinutes),
+    recentNights: sorted.slice(0, 7).map((entry) => ({
+      night: new Date(entry.night).toISOString().slice(0, 10),
+      hours: toHours(entry.durationMinutes)
+    }))
+  };
+}
+
+function describeForecast(forecast: ForecastConditions) {
+  return {
+    conditions: forecast.label,
+    currentTemperatureC: forecast.currentTemperatureC,
+    feelsLikeC: forecast.apparentTemperatureC,
+    humidityPct: forecast.humidityPct,
+    windKph: forecast.windKph,
+    todayHighC: forecast.todayHighC,
+    todayLowC: forecast.todayLowC,
+    precipitationChancePct: forecast.precipitationChancePct,
+    approxLocation: forecast.source === "wilaya"
   };
 }
 

@@ -3,6 +3,7 @@ import { getPrisma } from "@/lib/db";
 import { recordAdminAuditLog, AdminError } from "@/lib/admin";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { COACH_TRIAL_DAYS } from "@/lib/coach/entitlement";
+import { getPendingCoachRequestCharge, markCoachRequestReviewed } from "@/lib/coach/subscription";
 
 export type CoachTierLabel = "SUBSCRIBED" | "TRIAL" | "EXPIRED";
 
@@ -286,6 +287,70 @@ export async function activateCoachSubscription(input: {
     targetId: input.userId,
     summary: `Activated ${input.plan} coach subscription for ${months} month(s)`,
     metadata: { plan: input.plan, months, amountDa: input.amountDa }
+  });
+}
+
+export type PendingCoachRequestRow = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  plan: string;
+  amountDa: number | null;
+  paymentMethod: string | null;
+  paymentProofUrl: string;
+  createdAt: Date;
+};
+
+/** Runner-submitted subscription requests awaiting review, newest first, with the requester. */
+export async function getPendingCoachSubscriptionRequests(): Promise<PendingCoachRequestRow[]> {
+  return getPrisma().$queryRaw<PendingCoachRequestRow[]>`
+    SELECT request."id", request."userId",
+           CONCAT(u."firstName", ' ', u."lastName") AS "name", u."email",
+           request."plan"::text AS "plan", request."amountDa", request."paymentMethod",
+           request."paymentProofUrl", request."createdAt"
+    FROM "CoachSubscriptionRequest" request
+    INNER JOIN "User" u ON u."id" = request."userId"
+    WHERE request."status" = 'PENDING'
+    ORDER BY request."createdAt" ASC
+  `;
+}
+
+// Approve a pending request: mint the real subscription via activateCoachSubscription (reusing its
+// cancel-existing + audit-log logic) and mark the request APPROVED. Rejects invalid/stale ids.
+export async function approveCoachSubscriptionRequest(input: { actorId: string; requestId: string }) {
+  const charge = await getPendingCoachRequestCharge(input.requestId);
+  if (!charge) throw new AdminError("Subscription request not found or already reviewed.");
+
+  await activateCoachSubscription({
+    actorId: input.actorId,
+    userId: charge.userId,
+    plan: charge.plan,
+    months: charge.months,
+    amountDa: charge.amountDa,
+    note: "From subscription request"
+  });
+
+  await markCoachRequestReviewed({ requestId: input.requestId, status: "APPROVED", reviewerId: input.actorId });
+}
+
+export async function rejectCoachSubscriptionRequest(input: { actorId: string; requestId: string; reason?: string | null }) {
+  const charge = await getPendingCoachRequestCharge(input.requestId);
+  if (!charge) throw new AdminError("Subscription request not found or already reviewed.");
+
+  await markCoachRequestReviewed({
+    requestId: input.requestId,
+    status: "REJECTED",
+    reviewerId: input.actorId,
+    reviewNote: input.reason ?? null
+  });
+
+  await recordAdminAuditLog({
+    actorId: input.actorId,
+    action: "coach.subscription_request_rejected",
+    targetType: "User",
+    targetId: charge.userId,
+    summary: "Rejected coach subscription request"
   });
 }
 

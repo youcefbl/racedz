@@ -60,8 +60,9 @@ function isUploadedFile(value: FormDataEntryValue | null) {
 }
 
 function canUploadToScope(role: string | undefined, scope: UploadScope) {
-  // Avatars, payment proofs, and run photos are uploaded by ordinary runners; race/org images by staff.
-  if (scope === "avatar" || scope === "payment" || scope === "run") {
+  // Avatars, payment proofs (race + coach), and run photos are uploaded by ordinary runners;
+  // race/org images by staff.
+  if (scope === "avatar" || scope === "payment" || scope === "run" || scope === "coach-payment") {
     return true;
   }
 

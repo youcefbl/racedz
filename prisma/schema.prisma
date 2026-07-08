@@ -49,6 +49,8 @@ model User {
   coachInteractions           CoachInteraction[]
   aiUsageLogs                 AiUsageLog[]
   coachSubscriptions          CoachSubscription[]
+  coachSubscriptionRequests   CoachSubscriptionRequest[]
+  sleepLogs                   SleepLog[]
 }
 
 enum UserRole {
@@ -531,6 +533,7 @@ model RunnerRun {
   avgCadence              Int?
   calories                Int?
   route                   Json?
+  weather                 Json?
   isPublic                Boolean         @default(false)
   perceivedEffort         Int
   fatigueLevel            Int             @default(0)
@@ -608,6 +611,28 @@ model CoachSnapshot {
   @@index([goalId])
 }
 
+// One night's sleep for a runner, one row per calendar night (upserted). durationMinutes is the
+// canonical value the coach reads; bedTime/wakeTime are optional "HH:MM" strings kept for display
+// when the runner entered times rather than a duration. `source` records whether it was entered
+// directly or parsed from free text by the AI.
+model SleepLog {
+  id              String         @id @default(cuid())
+  userId          String
+  night           DateTime       @db.Date
+  durationMinutes Int
+  bedTime         String?
+  wakeTime        String?
+  note            String?
+  source          SleepLogSource @default(MANUAL)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, night])
+  @@index([userId, night])
+}
+
 model CoachInteraction {
   id            String                 @id @default(cuid())
   userId        String
@@ -681,10 +706,40 @@ model CoachSubscription {
   @@index([status, expiresAt])
 }
 
+// A runner-submitted subscription request with uploaded payment proof, awaiting admin review.
+// Kept separate from CoachSubscription so that model keeps meaning "an actual paid entitlement":
+// approving a request calls activateCoachSubscription() to mint the real subscription row.
+model CoachSubscriptionRequest {
+  id               String                         @id @default(cuid())
+  userId           String
+  plan             CoachSubscriptionPlan
+  amountDa         Int?
+  paymentMethod    String?
+  paymentProofUrl  String
+  note             String?
+  status           CoachSubscriptionRequestStatus @default(PENDING)
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  reviewNote       String?
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
 enum CoachSubscriptionPlan {
   MONTHLY
   YEARLY
   CUSTOM
+}
+
+enum CoachSubscriptionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum CoachSubscriptionStatus {
@@ -720,6 +775,11 @@ enum RunnerRunSource {
   MANUAL
   IMPORTED
   GPS
+}
+
+enum SleepLogSource {
+  MANUAL
+  PARSED
 }
 
 enum TrainingPlanStatus {

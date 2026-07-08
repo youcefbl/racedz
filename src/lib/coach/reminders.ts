@@ -1,6 +1,10 @@
 import "server-only";
 
 import { getPrisma } from "@/lib/db";
+import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
+import { fetchForecastConditions, resolveCoordinates } from "@/lib/coach/weather";
+import { localizeWorkout } from "@/lib/coach/workout-i18n";
+import type { CoachWorkout } from "@/lib/coach/schemas";
 import { createNotification } from "@/lib/notifications";
 import { renderRaceDzEmailHtml, renderRaceDzEmailText } from "@/lib/notifications/email-template";
 
@@ -111,6 +115,197 @@ export async function nudgeInactiveRunners(): Promise<{ nudged: number; candidat
   }
 
   return { nudged, candidates: candidates.length };
+}
+
+// ---------------------------------------------------------------------------
+// Daily "don't forget your run today" reminder.
+// ---------------------------------------------------------------------------
+
+// A runner who has a run planned for today, plus what they need to see: the workout to do, their
+// wilaya (for a local weather note) and locale.
+type TodaysWorkoutRunner = {
+  userId: string;
+  email: string;
+  firstName: string;
+  wilaya: string | null;
+  preferredLocale: CoachLocale;
+  title: string;
+  workoutType: string;
+  targetDistanceKm: number | null;
+  targetDurationMin: number | null;
+  intensity: string;
+  instructions: string;
+};
+
+// Localized fragments assembled into the reminder body. Kept as small pieces so the message stays
+// natural in each language while the dynamic parts (target, weather) are filled in per runner.
+const reminderCopy: Record<
+  CoachLocale,
+  {
+    title: string;
+    intro: (name: string) => string;
+    target: (detail: string) => string;
+    weather: (highC: number) => string;
+    weatherHot: string;
+    weatherRain: string;
+    fuel: string;
+    askCoach: string;
+    cta: string;
+    preheader: string;
+  }
+> = {
+  en: {
+    title: "Don't forget your run today 🏃",
+    intro: (name) => `Hi ${name}, you have a run on your plan today.`,
+    target: (detail) => `Today's session: ${detail}.`,
+    weather: (highC) => `Where you run it should reach about ${highC}°C today.`,
+    weatherHot: "It's going to be hot — run early or after sunset and carry extra water.",
+    weatherRain: "Rain is likely, so plan your timing and dress for it.",
+    fuel: "Hydrate well through the day and eat something light a couple of hours before you head out.",
+    askCoach: "Any questions about today's session? Ask your coach in the app.",
+    cta: "Open my coach",
+    preheader: "Your run for today, the weather, and how to fuel it."
+  },
+  fr: {
+    title: "N'oubliez pas votre sortie aujourd'hui 🏃",
+    intro: (name) => `Bonjour ${name}, votre plan prévoit une sortie aujourd'hui.`,
+    target: (detail) => `Séance du jour : ${detail}.`,
+    weather: (highC) => `Là où vous courez, il devrait faire environ ${highC}°C aujourd'hui.`,
+    weatherHot: "Il va faire chaud — courez tôt ou après le coucher du soleil et emportez de l'eau.",
+    weatherRain: "De la pluie est probable, prévoyez votre horaire et habillez-vous en conséquence.",
+    fuel: "Hydratez-vous bien dans la journée et mangez léger une à deux heures avant de partir.",
+    askCoach: "Des questions sur la séance du jour ? Demandez à votre coach dans l'application.",
+    cta: "Ouvrir mon coach",
+    preheader: "Votre sortie du jour, la météo et comment vous préparer."
+  },
+  ar: {
+    title: "لا تنسَ جريتك اليوم 🏃",
+    intro: (name) => `مرحبا ${name}، لديك جري مبرمج في خطتك اليوم.`,
+    target: (detail) => `حصة اليوم: ${detail}.`,
+    weather: (highC) => `في المكان الذي تجري فيه ستصل الحرارة إلى حوالي ${highC}° اليوم.`,
+    weatherHot: "سيكون الجو حاراً — اجرِ باكراً أو بعد الغروب واحمل ماءً إضافياً.",
+    weatherRain: "الأمطار محتملة، فخطّط لتوقيتك وارتدِ ما يناسب.",
+    fuel: "اشرب الماء جيداً خلال اليوم وتناول وجبة خفيفة قبل ساعة أو ساعتين من الخروج.",
+    askCoach: "هل لديك أسئلة عن حصة اليوم؟ اسأل مدربك في التطبيق.",
+    cta: "افتح مدربي",
+    preheader: "جريتك اليوم، حالة الطقس، وكيف تستعد لها."
+  }
+};
+
+/**
+ * Remind runners who have a run scheduled for today (a PLANNED, non-REST workout on their ACTIVE
+ * plan) not to skip it — with the target, a local weather note, fuelling advice, and a nudge to
+ * ask their coach. Only subscribed / trial runners are reminded. Idempotent per day (dedupes on a
+ * same-day TRAINING_REMINDER notification), so it is safe to run daily and safe to re-run.
+ */
+export async function remindTodaysWorkouts(): Promise<{ reminded: number; candidates: number }> {
+  const prisma = getPrisma();
+
+  // One reminder per runner: the earliest non-rest workout planned for today, on an active plan,
+  // for a non-blocked user who hasn't already been reminded today.
+  const candidates = await prisma.$queryRaw<TodaysWorkoutRunner[]>`
+    SELECT DISTINCT ON (u."id")
+      u."id" AS "userId", u."email", u."firstName", u."wilaya",
+      COALESCE(g."preferredLocale", 'en') AS "preferredLocale",
+      w."title", w."workoutType"::text AS "workoutType",
+      w."targetDistanceKm", w."targetDurationMin", w."intensity", w."instructions"
+    FROM "TrainingWorkout" w
+    JOIN "TrainingPlan" plan ON plan."id" = w."trainingPlanId" AND plan."status" = 'ACTIVE'
+    JOIN "User" u ON u."id" = plan."userId"
+    JOIN "RunnerGoal" g ON g."id" = plan."goalId"
+    WHERE w."status" = 'PLANNED'
+      AND w."workoutType"::text <> 'REST'
+      AND w."scheduledFor"::date = CURRENT_DATE
+      AND u."blockedAt" IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM "Notification" n
+        WHERE n."userId" = u."id" AND n."type" = 'TRAINING_REMINDER'
+          AND n."createdAt" >= CURRENT_DATE
+      )
+    ORDER BY u."id", w."scheduledFor" ASC
+  `;
+
+  const href = `${appUrl()}/account/coach`;
+  let reminded = 0;
+
+  for (const runner of candidates) {
+    try {
+      // Only coached runners (subscribed or on their free trial) get the reminder.
+      const entitlement = await resolveCoachEntitlement(runner.userId);
+      if (entitlement.tier === "NONE") continue;
+
+      const locale: CoachLocale = (["en", "fr", "ar"] as const).includes(runner.preferredLocale) ? runner.preferredLocale : "en";
+      const text = reminderCopy[locale];
+      const name = runner.firstName?.trim() || (locale === "fr" ? "coureur" : locale === "ar" ? "العداء" : "runner");
+
+      // Translate the fixed workout strings, then describe the target (title + distance/duration).
+      const workout: CoachWorkout = {
+        scheduledFor: new Date().toISOString(),
+        workoutType: runner.workoutType as CoachWorkout["workoutType"],
+        title: runner.title,
+        targetDistanceKm: runner.targetDistanceKm,
+        targetDurationMin: runner.targetDurationMin,
+        intensity: runner.intensity,
+        instructions: runner.instructions
+      };
+      const localized = localizeWorkout(workout, locale);
+      const metric =
+        runner.targetDistanceKm != null
+          ? `${runner.targetDistanceKm} km`
+          : runner.targetDurationMin != null
+            ? `${runner.targetDurationMin} min`
+            : null;
+      const detail = metric ? `${localized.title} · ${metric}` : localized.title;
+
+      const parts = [text.intro(name), text.target(detail)];
+      const weatherLine = await buildWeatherLine(runner.wilaya, text);
+      if (weatherLine) parts.push(weatherLine);
+      parts.push(text.fuel, text.askCoach);
+      const body = parts.join(" ");
+
+      await createNotification({
+        userId: runner.userId,
+        type: "TRAINING_REMINDER",
+        title: text.title,
+        body,
+        href,
+        channels: ["IN_APP", "EMAIL", "PUSH"],
+        email: {
+          to: runner.email,
+          subject: text.title,
+          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href } }),
+          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href } })
+        }
+      });
+      reminded += 1;
+    } catch (error) {
+      // One bad recipient must not abort the whole batch.
+      console.error("Training reminder failed", runner.userId, error);
+    }
+  }
+
+  return { reminded, candidates: candidates.length };
+}
+
+// A localized one-line weather note for the runner's wilaya, or null when weather is unavailable
+// (disabled, no location, or the provider is slow). Never throws — the reminder sends without it.
+async function buildWeatherLine(
+  wilaya: string | null,
+  text: (typeof reminderCopy)[CoachLocale]
+): Promise<string | null> {
+  try {
+    const coordinates = resolveCoordinates({ wilaya });
+    if (!coordinates) return null;
+    const forecast = await fetchForecastConditions(coordinates);
+    if (!forecast || forecast.todayHighC == null) return null;
+    const high = Math.round(forecast.todayHighC);
+    let line = text.weather(high);
+    if (high >= 30) line += ` ${text.weatherHot}`;
+    else if ((forecast.precipitationChancePct ?? 0) >= 40) line += ` ${text.weatherRain}`;
+    return line;
+  } catch {
+    return null;
+  }
 }
 
 function appUrl() {

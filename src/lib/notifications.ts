@@ -109,6 +109,11 @@ export const notificationPreferenceOptions = [
     type: "RUNNER_INACTIVITY_NUDGE",
     title: "Coach activity reminders",
     description: "The AI coach reminds you to keep moving when you haven't logged a run in a while."
+  },
+  {
+    type: "TRAINING_REMINDER",
+    title: "Daily training reminders",
+    description: "A morning reminder on days your plan has a run — with the target, weather, and fuelling tips."
   }
 ] as const;
 

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building2, BrainCircuit } from "lucide-react";
+import { Bell, LogOut, Settings, UserRound, ClipboardList, ShieldCheck, Building2, BrainCircuit, CreditCard } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -127,6 +127,7 @@ export function AccountMenu({ user, locale = "en" }: { user: HeaderUser; locale?
             <MenuLink href={withLocale("/account", locale)} icon={UserRound} label={t.accountOverview} onSelect={() => setOpen(false)} />
             <MenuLink href={withLocale("/account/coach", locale)} icon={BrainCircuit} label={t.coach} onSelect={() => setOpen(false)} />
             <MenuLink href={withLocale("/account/profile", locale)} icon={Settings} label={t.profileSettings} onSelect={() => setOpen(false)} />
+            <MenuLink href={withLocale("/account/coach/subscribe", locale)} icon={CreditCard} label={t.coachSubscription} onSelect={() => setOpen(false)} />
             <MenuLink href={withLocale("/account/notification-settings", locale)} icon={Bell} label={t.notificationSettings} onSelect={() => setOpen(false)} />
             <MenuLink href={withLocale("/account/registrations", locale)} icon={ClipboardList} label={t.myRegistrations} onSelect={() => setOpen(false)} />
             {user.role === "RUNNER" ? (
