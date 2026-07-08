@@ -192,20 +192,23 @@ export function CoachDashboard({
             <h1 className="text-2xl font-black text-balance text-gray-950 sm:text-3xl">{copy.title}</h1>
             <p className="mt-1.5 text-sm leading-6 text-gray-600">{copy.intro}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+            {/* Your goal + its edit action, grouped: the goal is the identity (icon + name),
+                editing is a secondary action attached to it — not a third equal-weight button. */}
+            <span className="inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full border border-gray-200 bg-white ps-4 pe-2 shadow-sm">
               <Target className="size-4 shrink-0 text-brand-orange" aria-hidden="true" />
               <span className="truncate text-sm font-black text-gray-950">{formatGoal(goal.goalType, goal.customGoal)}</span>
+              <span className="h-5 w-0 shrink-0 self-center border-s border-gray-200" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="-me-1.5 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-bold text-brand-teal transition hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+              >
+                <Pencil className="size-3.5 shrink-0" aria-hidden="true" />
+                {copy.editGoal}
+              </button>
             </span>
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-sm font-bold text-brand-teal shadow-sm transition hover:border-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
-            >
-              <Pencil className="size-4 shrink-0" aria-hidden="true" />
-              {copy.editGoal}
-            </button>
-            <label className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 shadow-sm sm:ms-auto">
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 shadow-sm sm:ms-auto">
               <Languages className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
               <span className="sr-only">{copy.responseLanguage}</span>
               <select

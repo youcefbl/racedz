@@ -39,7 +39,9 @@ export const createCoachGoalSchema = z
     availableTrainingDays: z
       .array(z.coerce.number().int().min(0).max(6))
       .min(2)
-      .max(6)
+      // Up to all 7 weekdays — a runner may choose to train every day (the value 0–6 is the
+      // weekday; the array length is how many days). Matches the 7-day picker in the form.
+      .max(7)
       .refine((days) => new Set(days).size === days.length, "Training days must be unique."),
     preferredLongRunDay: z.coerce.number().int().min(0).max(6).nullable().optional(),
     constraints: z.string().trim().max(1000).nullable().optional(),
