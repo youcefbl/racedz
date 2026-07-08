@@ -16,7 +16,9 @@ export function LoginForm({ callbackUrl, locale }: { callbackUrl?: string; local
 
   return (
     <form action={formAction} className="grid gap-4">
-      <input type="hidden" name="callbackUrl" value={callbackUrl ?? "/account/registrations"} />
+      {/* Empty when there's no explicit destination, so the server routes by role
+          (admins -> /admin, organizers -> /organizer, runners -> /account/registrations). */}
+      <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
       <input type="hidden" name="lang" value={locale} />
       <div aria-live="polite" className="empty:hidden">
         {state.error ? (

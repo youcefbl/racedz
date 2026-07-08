@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SupportChat } from "@/components/support/support-chat";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import { markNotificationsReadByType } from "@/lib/notifications";
 import { getUserSupportView } from "@/lib/support";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,12 @@ export default async function AccountSupportPage({ searchParams }: { searchParam
 
   const locale = getLocale((await searchParams)?.lang);
   const t = getDictionary(locale).account;
-  const initial = await getUserSupportView(session.user.id);
+  // Opening the chat clears any unread "support replied" alerts — tapping the notification
+  // (which links here) or just visiting the page both mark the whole batch read.
+  const [initial] = await Promise.all([
+    getUserSupportView(session.user.id),
+    markNotificationsReadByType(session.user.id, "SUPPORT_REPLY")
+  ]);
 
   return (
     <div className="bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>

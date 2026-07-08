@@ -352,6 +352,19 @@ export async function markAllNotificationsRead(userId: string) {
   `;
 }
 
+// Mark every unread notification of one type read at once. Used when opening a surface that
+// "consumes" a whole class of alerts — e.g. opening the support chat clears all SUPPORT_REPLY
+// notifications, not just the one that was tapped.
+export async function markNotificationsReadByType(userId: string, type: string) {
+  await getPrisma().$executeRaw`
+    UPDATE "Notification"
+    SET "readAt" = COALESCE("readAt", NOW())
+    WHERE "userId" = ${userId}
+      AND "type" = ${type}
+      AND "readAt" IS NULL
+  `;
+}
+
 export async function notifyAdminsRacePendingReview({
   raceId,
   raceTitle,

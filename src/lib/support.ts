@@ -158,10 +158,25 @@ export async function postUserSupportMessage(
   return getUserSupportView(userId);
 }
 
-/** Admin inbox: every thread newest-first with the runner, unread count, and last message. */
-export async function getAdminSupportThreads(): Promise<AdminSupportThreadRow[]> {
+/**
+ * Admin inbox: threads ordered by most-recent message first, with the runner, unread count, and
+ * last message. An optional query filters by the runner's name or email.
+ */
+export async function getAdminSupportThreads(query?: string): Promise<AdminSupportThreadRow[]> {
   const prisma = getPrisma();
+  const q = query?.trim();
   const threads = await prisma.supportThread.findMany({
+    where: q
+      ? {
+          user: {
+            OR: [
+              { firstName: { contains: q, mode: "insensitive" } },
+              { lastName: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } }
+            ]
+          }
+        }
+      : undefined,
     orderBy: { lastMessageAt: "desc" },
     include: {
       user: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } },

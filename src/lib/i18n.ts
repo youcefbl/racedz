@@ -525,6 +525,13 @@ export const dictionaries = {
         reject: "Reject non-essential",
         learnMore: "Cookie details"
       },
+      blocked: {
+        title: "Your account is blocked",
+        message:
+          "Your access to ZidRun has been suspended. If you think this is a mistake, please contact support and we'll take a look.",
+        contactCta: "Contact support",
+        backHome: "Back to home"
+      },
       footerTagline: "Discover races, register, and train with an AI coach across Algeria.",
       footerRights: "All rights reserved.",
       footerDevelopedBy: "Developed by"
@@ -1340,6 +1347,13 @@ export const dictionaries = {
         reject: "Refuser les non essentiels",
         learnMore: "Détails des cookies"
       },
+      blocked: {
+        title: "Votre compte est bloqué",
+        message:
+          "Votre accès à ZidRun a été suspendu. Si vous pensez qu'il s'agit d'une erreur, veuillez contacter le support et nous vérifierons.",
+        contactCta: "Contacter le support",
+        backHome: "Retour à l'accueil"
+      },
       footerTagline: "Découvrez des courses, inscrivez-vous et entraînez-vous avec un coach IA partout en Algérie.",
       footerRights: "Tous droits réservés.",
       footerDevelopedBy: "Développé par"
@@ -2153,6 +2167,13 @@ export const dictionaries = {
         accept: "قبول",
         reject: "رفض غير الأساسية",
         learnMore: "تفاصيل الملفات"
+      },
+      blocked: {
+        title: "حسابك محظور",
+        message:
+          "تم تعليق وصولك إلى ZidRun. إذا كنت تعتقد أنّ هذا خطأ، يُرجى التواصل مع الدعم وسنراجع الأمر.",
+        contactCta: "تواصل مع الدعم",
+        backHome: "العودة إلى الرئيسية"
       },
       footerTagline: "اكتشف السباقات، سجّل، وتدرّب مع مدرب ذكي في الجزائر.",
       footerRights: "جميع الحقوق محفوظة.",

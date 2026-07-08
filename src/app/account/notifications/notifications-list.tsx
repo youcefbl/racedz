@@ -78,6 +78,11 @@ export function NotificationsList({ notifications, locale }: { notifications: No
                   {notification.href ? (
                     <Link
                       href={notification.href}
+                      onClick={() => {
+                        // Opening a notification marks it read — so tapping through to the
+                        // support chat (or anywhere) clears it instead of leaving it unread.
+                        if (!notification.readAt) markOne(notification.id);
+                      }}
                       className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:border-brand-teal hover:text-brand-teal"
                     >
                       {t.open}

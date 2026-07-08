@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle, UserRound } from "lucide-react";
+import { MessageCircle, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
 import { requireAdmin } from "@/lib/admin";
@@ -9,14 +9,33 @@ import { AdminShell, EmptyState } from "../_components/admin-ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSupportPage() {
+export default async function AdminSupportPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
   await requireAdmin();
-  const threads = await getAdminSupportThreads();
+  const q = (await searchParams)?.q?.trim() ?? "";
+  const threads = await getAdminSupportThreads(q);
 
   return (
-    <AdminShell title="Support chat" description="Direct conversations with runners.">
+    <AdminShell title="Support chat" description="Direct conversations with runners, most recent first.">
+      <form method="get" className="mb-4 flex gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Search by runner name or email"
+            className="h-11 w-full rounded-lg border border-gray-300 ps-9 pe-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+          />
+        </div>
+        <button type="submit" className="inline-flex h-11 items-center justify-center rounded-lg bg-brand-teal px-4 text-sm font-bold text-white transition active:scale-95">
+          Search
+        </button>
+      </form>
       {threads.length === 0 ? (
-        <EmptyState title="No conversations" description="Runner support messages will appear here." />
+        <EmptyState
+          title={q ? "No matches" : "No conversations"}
+          description={q ? `No runners match "${q}".` : "Runner support messages will appear here."}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           {threads.map((thread, index) => (
