@@ -1,7 +1,7 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
-import { Activity, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Moon, Target } from "lucide-react";
+import { Activity, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Moon, Pencil, Target } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { coachRequest } from "@/components/coach/api";
@@ -13,8 +13,7 @@ import { CoachPushPrompt } from "@/components/coach/coach-push-prompt";
 import { CoachPlanPanel } from "@/components/coach/coach-plan-panel";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import { CoachSleepPanel } from "@/components/coach/coach-sleep-panel";
-import type { CoachCopy } from "@/components/coach/copy";
-import type { CoachDashboardData, CoachEntitlement, CoachLocale, CoachRun } from "@/components/coach/types";
+import type { CoachDashboardData, CoachLocale, CoachRun } from "@/components/coach/types";
 import { cn } from "@/lib/utils";
 
 type CoachView = "overview" | "plan" | "runs" | "sleep" | "coach";
@@ -30,6 +29,7 @@ export function CoachDashboard({
 }) {
   const [dashboard, setDashboard] = useState(initialData);
   const [view, setView] = useState<CoachView>("overview");
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [focusInteractionId, setFocusInteractionId] = useState<string | null>(null);
@@ -146,17 +146,31 @@ export function CoachDashboard({
   if (!dashboard.goal) {
     return (
       <div dir={locale === "ar" ? "rtl" : "ltr"}>
-        {dashboard.entitlement ? (
-          <div className="mx-auto max-w-3xl px-4 pt-6 sm:px-6 lg:px-8">
-            <EntitlementBanner entitlement={dashboard.entitlement} copy={copy} locale={locale} />
-          </div>
-        ) : null}
         <CoachGoalForm locale={locale} copy={copy} onCreated={refresh} profileGaps={profileGaps} />
       </div>
     );
   }
 
   const goal = dashboard.goal;
+
+  // Editing the goal reuses the onboarding wizard, pre-filled and in PATCH mode. It takes over the
+  // whole surface so the runner focuses on the change, then returns to the dashboard on save/cancel.
+  if (editing) {
+    return (
+      <div className="min-h-[70vh] bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
+        <CoachGoalForm
+          locale={locale}
+          copy={copy}
+          initialGoal={goal}
+          onCreated={async () => {
+            await refresh();
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      </div>
+    );
+  }
   const metrics = dashboard.snapshot?.metrics ?? emptyMetrics;
   const runTarget = Math.max(2, goal.availableTrainingDays.length);
   const distanceTarget = Math.max(1, Math.round(goal.currentWeeklyDistanceKm));
@@ -183,6 +197,14 @@ export function CoachDashboard({
               <Target className="size-4 shrink-0 text-brand-orange" aria-hidden="true" />
               <span className="truncate text-sm font-black text-gray-950">{formatGoal(goal.goalType, goal.customGoal)}</span>
             </span>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-sm font-bold text-brand-teal shadow-sm transition hover:border-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            >
+              <Pencil className="size-4 shrink-0" aria-hidden="true" />
+              {copy.editGoal}
+            </button>
             <label className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 shadow-sm sm:ms-auto">
               <Languages className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
               <span className="sr-only">{copy.responseLanguage}</span>
@@ -240,12 +262,6 @@ export function CoachDashboard({
             </button>
           ))}
         </nav>
-
-        {dashboard.entitlement ? (
-          <div className="mb-5">
-            <EntitlementBanner entitlement={dashboard.entitlement} copy={copy} locale={locale} />
-          </div>
-        ) : null}
 
         <CoachPushPrompt copy={copy} />
 
@@ -314,70 +330,6 @@ export function CoachDashboard({
       </div>
     </div>
   );
-}
-
-function EntitlementBanner({
-  entitlement,
-  copy,
-  locale
-}: {
-  entitlement: CoachEntitlement;
-  copy: CoachCopy;
-  locale: CoachLocale;
-}) {
-  const usage = entitlement.usage
-    ? copy.dailyUsageLabel.replace("{used}", String(entitlement.usage.daily)).replace("{limit}", String(entitlement.dailyLimit))
-    : null;
-
-  if (entitlement.tier === "NONE") {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-        <p className="text-sm font-black text-red-800">{copy.subscriptionRequiredTitle}</p>
-        <p className="mt-1 text-sm leading-6 text-red-700">{copy.subscriptionRequiredText}</p>
-      </div>
-    );
-  }
-
-  if (entitlement.tier === "TRIAL") {
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-        <p className="text-sm font-bold text-blue-800">
-          <span className="me-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs font-black text-white">{copy.trialBadge}</span>
-          {entitlement.trialEndsAt ? copy.trialEndsIn.replace("{date}", formatBannerDate(entitlement.trialEndsAt, locale)) : null}
-        </p>
-        <div className="flex items-center gap-3">
-          {usage ? <span className="text-xs font-bold text-blue-700">{usage}</span> : null}
-          <a href={`/account/coach/subscribe?lang=${locale}`} className="text-xs font-black text-blue-700 underline underline-offset-2 transition hover:text-blue-900">
-            {copy.manageSubscription}
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
-      <p className="text-sm font-bold text-green-800">
-        {entitlement.subscriptionEndsAt ? copy.subscribedUntil.replace("{date}", formatBannerDate(entitlement.subscriptionEndsAt, locale)) : null}
-      </p>
-      <div className="flex items-center gap-3">
-        {usage ? <span className="text-xs font-bold text-green-700">{usage}</span> : null}
-        <a href={`/account/coach/subscribe?lang=${locale}`} className="text-xs font-black text-green-700 underline underline-offset-2 transition hover:text-green-900">
-          {copy.manageSubscription}
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function formatBannerDate(iso: string, locale: CoachLocale) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(locale === "ar" ? "ar" : locale === "fr" ? "fr" : "en", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
 }
 
 function ProgressStat({ label, display, value, target }: { label: string; display: string; value: number; target: number }) {
