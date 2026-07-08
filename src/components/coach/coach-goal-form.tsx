@@ -233,9 +233,9 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
         });
         await onCreated();
       } catch (caught) {
-        // Prefer the server's specific field message (e.g. which value is out of range) over the
-        // generic "invalid request" wrapper, so the runner knows exactly what to fix.
-        setError(fieldErrorMessage(caught) ?? (caught instanceof Error ? caught.message : copy.goalCreateFailed));
+        // Prefer a localized message for the failing field (the server's own messages are English)
+        // over the generic "invalid request" wrapper, so the runner knows exactly what to fix.
+        setError(fieldErrorMessage(caught, copy) ?? (caught instanceof Error ? caught.message : copy.goalCreateFailed));
       }
     });
   }
@@ -613,13 +613,20 @@ function numberOrNull(value: string) {
   return trimmed ? Number(trimmed) : null;
 }
 
-// The first field-level validation message from a coach API error (coachRequest copies the
-// server's `fields` onto the thrown error), or null when there isn't one.
-function fieldErrorMessage(error: unknown): string | null {
+// A localized message for the first field the server rejected (coachRequest copies the server's
+// `fields` onto the thrown error). The server's own messages are English, so map by field name to
+// localized copy; fall back to a generic localized message, then to null.
+function fieldErrorMessage(error: unknown, copy: CoachCopy): string | null {
   const fields = (error as { fields?: Record<string, string[] | undefined> } | null)?.fields;
   if (!fields) return null;
-  for (const messages of Object.values(fields)) {
-    if (messages && messages.length) return messages[0];
+  const byField: Record<string, string> = {
+    targetDate: copy.targetDateFuture,
+    customGoal: copy.customGoalRequired,
+    availableTrainingDays: copy.trainingDaysInvalid,
+    preferredLongRunDay: copy.longRunDayInvalid
+  };
+  for (const key of Object.keys(fields)) {
+    if (fields[key]?.length) return byField[key] ?? copy.fieldInvalid;
   }
   return null;
 }

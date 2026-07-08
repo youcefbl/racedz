@@ -7,7 +7,7 @@ import type { RunRoutePoint } from "@/components/coach/types";
 import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
-import { generateCoachResponse, parseSleepText, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
+import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
 import { localizeWorkout } from "@/lib/coach/workout-i18n";
 import {
@@ -123,6 +123,13 @@ export async function createCoachGoal(userId: string, rawInput: unknown) {
       UPDATE "RunnerGoal"
       SET "status" = 'PAUSED', "updatedAt" = NOW()
       WHERE "userId" = ${userId} AND "status" = 'ACTIVE'
+    `;
+    // Retire the previous goal's plans too, so their workouts stop driving reminders/rollover once
+    // the runner has moved on to a new goal.
+    await tx.$executeRaw`
+      UPDATE "TrainingPlan"
+      SET "status" = 'SUPERSEDED', "updatedAt" = NOW()
+      WHERE "userId" = ${userId} AND "status" IN ('ACTIVE', 'DRAFT')
     `;
 
     const chronicConditions = input.chronicConditions ?? [];
@@ -339,7 +346,7 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       FROM "TrainingWorkout" workout
       INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
       LEFT JOIN "RunnerRun" completed_run ON completed_run."workoutId" = workout."id"
-      WHERE workout."id" = ${input.workoutId} AND plan."userId" = ${userId}
+      WHERE workout."id" = ${input.workoutId} AND plan."userId" = ${userId} AND plan."status" = 'ACTIVE'
       LIMIT 1
     `;
     if (!workouts[0]) throw new CoachError("Training workout was not found.", 404, "WORKOUT_NOT_FOUND");
@@ -775,6 +782,10 @@ const AUTO_PLAN_SUMMARY: Record<"en" | "fr" | "ar", string> = {
 export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: boolean }> {
   const goal = await getActiveGoal(userId);
   if (!goal) return { created: false };
+  // Don't keep generating weeks once the target race has passed — the goal is effectively done.
+  const todayUtcMidnight = new Date();
+  todayUtcMidnight.setUTCHours(0, 0, 0, 0);
+  if (new Date(goal.targetDate).getTime() < todayUtcMidnight.getTime()) return { created: false };
   const prisma = getPrisma();
 
   // Skip when a current-week active plan already covers today, or a draft is awaiting acceptance.
@@ -926,6 +937,25 @@ function toDateOnly(date: Date): string {
 
 // Log (or replace) a night's sleep. Accepts a duration in hours, a bed/wake clock range, or a
 // free-text note in any language that the AI turns into a duration. One row per night (upsert).
+// Per-user daily ceiling on billed free-text sleep parses (the manual hours/time fields are free
+// and uncapped). Bounds cost even for an entitled account looping the AI parser.
+const SLEEP_PARSE_DAILY_LIMIT = 30;
+
+async function enforceSleepParseDailyLimit(userId: string) {
+  const model = resolveCoachModel();
+  // Sleep parses are the coach-model AiUsageLog rows with no interactionId (coach chats carry one,
+  // transcription uses a different model), so this counts only sleep parses.
+  const rows = await getPrisma().$queryRaw<Array<{ count: bigint }>>`
+    SELECT COUNT(*)::bigint AS count
+    FROM "AiUsageLog"
+    WHERE "userId" = ${userId} AND "model" = ${model} AND "interactionId" IS NULL
+      AND "createdAt" >= NOW() - INTERVAL '24 hours'
+  `;
+  if (Number(rows[0]?.count ?? 0) >= SLEEP_PARSE_DAILY_LIMIT) {
+    throw new CoachError("Daily sleep-description limit reached. Use the hours or time fields instead.", 429, "SLEEP_PARSE_QUOTA_EXCEEDED");
+  }
+}
+
 export async function createSleepEntry(userId: string, rawInput: unknown) {
   const input = createSleepLogSchema.parse(rawInput);
   const prisma = getPrisma();
@@ -940,11 +970,24 @@ export async function createSleepEntry(userId: string, rawInput: unknown) {
   } else if (input.bedTime && input.wakeTime) {
     durationMinutes = minutesBetweenClockTimes(input.bedTime, input.wakeTime);
   } else if (input.text) {
+    // The free-text path calls the LLM, so it costs money: gate it exactly like a coach chat
+    // (blocks NONE-tier / over-limit users) and add a per-user daily cap on parses.
+    await enforceCoachEntitlement(userId);
+    await enforceSleepParseDailyLimit(userId);
+
     const parsed = await parseSleepText(input.text);
-    // Track the billed parse call next to other AI usage (success or "not understood" alike).
+    // Track the billed parse call next to other AI usage, WITH token counts so the admin cost
+    // dashboard doesn't undercount sleep-parse spend. Sleep parses carry no interactionId, which is
+    // how they're told apart from coach interactions on the coach model.
     await prisma.$executeRaw`
-      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status")
-      VALUES (${randomUUID()}, ${userId}, ${parsed.model}, 'SUCCEEDED')
+      INSERT INTO "AiUsageLog" (
+        "id", "userId", "model", "status", "inputTokens", "cachedInputTokens", "outputTokens",
+        "reasoningTokens", "estimatedCostMicroUsd"
+      ) VALUES (
+        ${randomUUID()}, ${userId}, ${parsed.model}, 'SUCCEEDED', ${parsed.usage.inputTokens},
+        ${parsed.usage.cachedInputTokens}, ${parsed.usage.outputTokens}, ${parsed.usage.reasoningTokens},
+        ${parsed.usage.estimatedCostMicroUsd}
+      )
     `;
     if (!parsed.result.understood || parsed.result.durationMinutes <= 0) {
       throw new CoachError(

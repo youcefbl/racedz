@@ -1,14 +1,18 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { unlink } from "node:fs/promises";
 import { getPrisma } from "@/lib/db";
 import { CoachError } from "@/lib/coach/errors";
 import { resolveCoachEntitlement, type CoachEntitlement } from "@/lib/coach/entitlement";
 import { COACH_PLANS, resolvePlanCharge } from "@/lib/coach/plans";
+import { notifyAdminsCoachSubscriptionRequest } from "@/lib/notifications";
+import { resolveCoachPaymentProofPath } from "@/lib/storage";
 
-// Payment proof must be an image the runner actually uploaded to the coach-payment scope — mirrors
-// the race-registration proof check, preventing arbitrary URLs from being stored.
-const PROOF_PATH = /^\/uploads\/coach-payment\/[0-9]{4}-[0-9]{2}\/[a-f0-9-]+\.(jpg|png|webp|gif)$/;
+// Payment proof must be an image the runner actually uploaded to the coach-payment scope. That
+// scope returns an authenticated app-route URL (not a public /uploads path), which this validates —
+// preventing arbitrary URLs from being stored.
+const PROOF_PATH = /^\/api\/coach\/subscription\/proof\/[0-9]{4}-[0-9]{2}\/[a-f0-9-]+\.(jpg|png|webp|gif)$/;
 const REQUESTABLE_PLANS = ["MONTHLY", "YEARLY"] as const;
 type RequestablePlan = (typeof REQUESTABLE_PLANS)[number];
 
@@ -67,6 +71,12 @@ export async function submitCoachSubscriptionRequest(
   const amountDa = COACH_PLANS[input.plan].priceDa;
   const prisma = getPrisma();
 
+  // Capture any prior pending proof so its file can be removed when this resubmit replaces it.
+  const prior = await prisma.$queryRaw<Array<{ paymentProofUrl: string }>>`
+    SELECT "paymentProofUrl" FROM "CoachSubscriptionRequest"
+    WHERE "userId" = ${userId} AND "status" = 'PENDING' LIMIT 1
+  `;
+
   const updated = await prisma.$executeRaw`
     UPDATE "CoachSubscriptionRequest"
     SET "plan" = ${input.plan}::"CoachSubscriptionPlan", "amountDa" = ${amountDa},
@@ -85,6 +95,19 @@ export async function submitCoachSubscriptionRequest(
     `;
   }
 
+  // Best-effort: delete the replaced proof file (don't accumulate financial screenshots) and ping
+  // admins that there's a payment to review. Neither should block or fail the submit.
+  const priorUrl = prior[0]?.paymentProofUrl;
+  if (priorUrl && priorUrl !== proofUrl) await deleteProofFile(priorUrl);
+
+  const users = await prisma.$queryRaw<Array<{ firstName: string; lastName: string }>>`
+    SELECT "firstName", "lastName" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  `;
+  const runnerName = `${users[0]?.firstName ?? ""} ${users[0]?.lastName ?? ""}`.trim();
+  await notifyAdminsCoachSubscriptionRequest({ runnerName }).catch((error) => {
+    console.error("Coach payment admin notification failed", error);
+  });
+
   const rows = await prisma.$queryRaw<CoachSubscriptionRequestRow[]>`
     SELECT "id", "plan"::text AS "plan", "amountDa", "paymentMethod", "paymentProofUrl",
            "status"::text AS "status", "reviewNote", "reviewedAt", "createdAt"
@@ -94,6 +117,38 @@ export async function submitCoachSubscriptionRequest(
     LIMIT 1
   `;
   return rows[0];
+}
+
+// Remove a coach-payment proof image from disk (best-effort — a missing file is fine).
+async function deleteProofFile(url: string | null | undefined) {
+  if (!url) return;
+  const filePath = resolveCoachPaymentProofPath(url);
+  if (filePath) await unlink(filePath).catch(() => {});
+}
+
+// Withdraw the runner's own pending request (they picked the wrong plan/screenshot), deleting the
+// proof file. Only affects a PENDING row owned by the caller.
+export async function withdrawCoachSubscriptionRequest(userId: string): Promise<{ withdrawn: boolean }> {
+  const prisma = getPrisma();
+  const rows = await prisma.$queryRaw<Array<{ paymentProofUrl: string }>>`
+    DELETE FROM "CoachSubscriptionRequest"
+    WHERE "userId" = ${userId} AND "status" = 'PENDING'
+    RETURNING "paymentProofUrl"
+  `;
+  if (!rows[0]) return { withdrawn: false };
+  await deleteProofFile(rows[0].paymentProofUrl);
+  return { withdrawn: true };
+}
+
+// Runner cancels their own active coach subscription (billing is manual, so this just stops the
+// entitlement). Scoped to the caller's own userId.
+export async function cancelOwnCoachSubscription(userId: string): Promise<{ cancelled: boolean }> {
+  const result = await getPrisma().$executeRaw`
+    UPDATE "CoachSubscription"
+    SET "status" = 'CANCELLED', "cancelledAt" = NOW(), "updatedAt" = NOW()
+    WHERE "userId" = ${userId} AND "status" = 'ACTIVE'
+  `;
+  return { cancelled: result > 0 };
 }
 
 // Everything the subscribe page shows: current access (tier + trial/subscription dates), any

@@ -1,6 +1,14 @@
 zidrun.com, www.zidrun.com {
 	encode zstd gzip
 
+	# Coach payment proofs are financial PII (BaridiMob/CCP screenshots). They live in the same
+	# uploads volume but must NEVER be served publicly — only the app's authenticated route
+	# /api/coach/subscription/proof/* serves them, to the owner or an admin. This block comes first
+	# so it wins over the general /uploads/* handler below.
+	handle /uploads/coach-payment/* {
+		respond 403
+	}
+
 	# User uploads are written to a runtime volume by the app and served straight
 	# from disk here (next start won't serve runtime-written public/ files).
 	# handle_path strips the /uploads prefix, so /uploads/avatar/x.jpg maps to

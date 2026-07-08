@@ -2,7 +2,12 @@
 
 import { useActionState, useState } from "react";
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock, Sparkles, Wallet } from "lucide-react";
-import { submitCoachSubscriptionAction, type SubscribeState } from "@/app/account/coach/subscribe/actions";
+import {
+  cancelCoachSubscriptionAction,
+  submitCoachSubscriptionAction,
+  withdrawCoachSubscriptionAction,
+  type SubscribeState
+} from "@/app/account/coach/subscribe/actions";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDate } from "@/components/coach/format";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
@@ -87,11 +92,22 @@ export function CoachSubscribeView({
           </a>
         ) : null}
 
+        {entitlement.tier === "SUBSCRIBED" ? (
+          <form action={cancelCoachSubscriptionAction} className="mb-6 ms-4 inline">
+            <button
+              type="submit"
+              className="text-sm font-bold text-gray-500 transition hover:text-red-600 focus-visible:outline-none focus-visible:underline"
+            >
+              {copy.cancelSubscription}
+            </button>
+          </form>
+        ) : null}
+
         {/* Submitted / under review */}
         {underReview ? (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <div className="mb-6 flex flex-wrap items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
             <Clock className="mt-0.5 size-5 shrink-0 text-blue-600" aria-hidden="true" />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-blue-800">{copy.requestUnderReview}</p>
               {pendingRequest ? (
                 <p className="mt-1 text-xs font-semibold text-blue-700">
@@ -101,6 +117,17 @@ export function CoachSubscribeView({
                 </p>
               ) : null}
             </div>
+            {pendingRequest ? (
+              // Let the runner withdraw a wrong plan/screenshot and resubmit instead of being frozen.
+              <form action={withdrawCoachSubscriptionAction} className="shrink-0">
+                <button
+                  type="submit"
+                  className="inline-flex min-h-9 items-center rounded-full border border-blue-300 bg-white px-3 text-xs font-bold text-blue-700 transition hover:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {copy.withdrawRequest}
+                </button>
+              </form>
+            ) : null}
           </div>
         ) : (
           <SubscribeForm

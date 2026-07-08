@@ -68,16 +68,29 @@ export async function saveImageUpload(file: ImageUploadFile, scope: UploadScope)
   const directory = path.join(process.cwd(), "public", "uploads", scope, month);
   const filename = `${randomUUID()}.${detected.extension}`;
   const absolutePath = path.join(directory, filename);
-  const publicUrl = `/uploads/${scope}/${month}/${filename}`;
 
   await mkdir(directory, { recursive: true });
   await writeFile(absolutePath, bytes);
 
   return {
-    url: publicUrl,
+    // Payment proofs are financial PII: they live in the same volume but are never served by the
+    // public /uploads/* handler (Caddy 403s that path). Their URL is an authenticated app route
+    // that only the owner or an admin can read. Every other scope keeps the fast static URL.
+    url:
+      scope === "coach-payment"
+        ? `/api/coach/subscription/proof/${month}/${filename}`
+        : `/uploads/${scope}/${month}/${filename}`,
     size: file.size,
     contentType: detected.mimeType
   };
+}
+
+// Resolve a coach-payment proof URL (/api/coach/subscription/proof/<month>/<file>) back to its file
+// on disk, or null if the URL is malformed. Used by the authenticated serving route and by cleanup.
+export function resolveCoachPaymentProofPath(proofUrl: string): string | null {
+  const match = /^\/api\/coach\/subscription\/proof\/(\d{4}-\d{2})\/([a-f0-9-]+\.(?:jpg|png|webp|gif))$/.exec(proofUrl);
+  if (!match) return null;
+  return path.join(process.cwd(), "public", "uploads", "coach-payment", match[1], match[2]);
 }
 
 // Identify an image strictly by its magic bytes (file signature). Returns null for

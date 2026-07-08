@@ -216,6 +216,52 @@ The first useful version must let:
    - Add API authorization integration tests, prompt/output evaluations, and data deletion/export rules.
    - Release first to a closed beta of 50 to 100 runners; defer GPS, wearables, live voice, medical guidance, fine-tuning, and vector search.
 
+## Coach — deferred items & required infra actions (from 2026-07-08 gap-fix pass)
+
+A multi-agent audit of the coach subsystem was fixed in code (correctness, payment-proof security,
+sleep-parse cost gate, payment/expiry notifications, self-service cancel/withdraw, safety-reason +
+goal-form + email i18n, Sentry in cron, FCM android block). See the `coach-subscription-flow`
+memory. These were **deliberately deferred** and still need doing:
+
+### Deferred (code work, not done yet)
+- **Race/organizer notification i18n.** All race/approval/announcement/registration notifications in
+  `src/lib/notifications.ts` are English-only for every recipient. Needs a `User.locale` field
+  (there is none today — coach uses `RunnerGoal.preferredLocale`). Add `User.locale`, backfill, and
+  thread it into every `notify*` builder (title/body/subject).
+- **GDPR self-service account/data deletion.** A runner cannot delete their account or coach data
+  (goals, runs+GPS, sleep logs, payment proofs). Only admin-initiated deletion exists. Payment-proof
+  files in particular persist. Build a self-service purge (DB rows + upload artifacts).
+- **workout-i18n completeness test.** No test runner is configured in the repo, so a guard that every
+  literal `planning.ts`/`safety.ts` emits has an fr/ar entry in `workout-i18n.ts` was skipped. Add
+  it when a test runner (vitest/jest) is set up. The map is currently complete.
+- **Native FCM payload polish.** An `android` block was added; verify tap-routing once native tokens
+  exist, and add native crash reporting (see below).
+
+### Required infra actions (cannot be done in code — owner must do)
+- **Android push:** ship `android/app/google-services.json` (from Firebase console), rebuild the APK
+  with it present, get users onto that APK, THEN set `NEXT_PUBLIC_NATIVE_PUSH_ENABLED=true` in the
+  server `.env.production` and `./deploy.sh`. Enabling the flag before the APK has google-services.json
+  crash-loops `register()`. Server also needs `FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY`.
+- **Email:** confirm `RESEND_API_KEY` + `EMAIL_FROM` set in prod (else all email silently fails).
+- **Deploy:** the `Caddyfile` changed (403s `/uploads/coach-payment/*`). After `git pull && ./deploy.sh`,
+  reload Caddy: `docker compose --env-file .env.production -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile` (a bind-mounted Caddyfile is NOT auto-reloaded by `up -d`).
+- **Mobile crash reporting:** add `@sentry/capacitor` for native crash + device details (see below).
+
+### Mobile crash reporting
+Decision (Sentry's paid floor isn't worth it): **Firebase Crashlytics for native crashes; web/JS
+error capture deferred.**
+- **Native crashes → Firebase Crashlytics (WIRED, free/unlimited).** `firebase-crashlytics-gradle`
+  classpath in `android/build.gradle`; `firebase-crashlytics` dependency + `com.google.firebase.crashlytics`
+  plugin (applied only when `google-services.json` exists) in `android/app/build.gradle`. Auto-inits,
+  no app code. **Activates automatically once `google-services.json` is added (the same file as push)
+  and the APK is rebuilt.** Captures native + JVM crashes, ANRs, device context, logs — viewable in
+  the Firebase console → Crashlytics. Force a test crash from native code to confirm ingestion.
+- **Web/JS (webview) errors → deferred.** `@sentry/nextjs` is still in the repo but dormant (no DSN).
+  When wanted, add a small custom `/api/log/error` endpoint into the app DB + an admin view (free), or
+  self-host GlitchTip (Sentry-compatible) if a full dashboard is worth the hosting.
+- Server-side cron/AI errors currently log to stdout (docker logs) + call `Sentry.captureException`
+  (no-op without a DSN; lights up free if GlitchTip is ever self-hosted).
+
 ## Public Website
 
 - Keep the design clean, minimalist, mobile-first, and easy to scan.

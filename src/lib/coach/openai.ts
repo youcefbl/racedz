@@ -126,12 +126,25 @@ const sleepParseSchema = z.object({
 
 export type ParsedSleep = z.infer<typeof sleepParseSchema>;
 
+export type SleepParseUsage = {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  estimatedCostMicroUsd: number;
+};
+
+/** The model the coach (and the sleep free-text parser) run on. Exposed for usage accounting. */
+export function resolveCoachModel(): string {
+  return process.env.OPENAI_COACH_MODEL?.trim() || DEFAULT_MODEL;
+}
+
 // Parse a short, free-text sleep note in ANY language ("slept about 7h", "دمت من 11 لـ 6",
 // "dormi de 23h à 6h30") into a total sleep duration in minutes, plus bed/wake clock times when the
 // runner gave a range. Returns understood=false when the text isn't about sleep at all.
-export async function parseSleepText(text: string): Promise<{ result: ParsedSleep; model: string }> {
+export async function parseSleepText(text: string): Promise<{ result: ParsedSleep; model: string; usage: SleepParseUsage }> {
   const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_COACH_MODEL?.trim() || DEFAULT_MODEL;
+  const model = resolveCoachModel();
 
   if (!apiKey) {
     throw new CoachError("Sleep parsing is not configured.", 503, "OPENAI_NOT_CONFIGURED");
@@ -160,7 +173,21 @@ export async function parseSleepText(text: string): Promise<{ result: ParsedSlee
     if (!result.output_parsed) {
       throw new CoachError("Could not understand the sleep description.", 422, "SLEEP_PARSE_FAILED");
     }
-    return { result: result.output_parsed, model: result.model };
+    const usage = result.usage;
+    const inputTokens = usage?.input_tokens ?? 0;
+    const cachedInputTokens = usage?.input_tokens_details.cached_tokens ?? 0;
+    const outputTokens = usage?.output_tokens ?? 0;
+    return {
+      result: result.output_parsed,
+      model: result.model,
+      usage: {
+        inputTokens,
+        cachedInputTokens,
+        outputTokens,
+        reasoningTokens: usage?.output_tokens_details.reasoning_tokens ?? 0,
+        estimatedCostMicroUsd: estimateCostMicroUsd(result.model, inputTokens, cachedInputTokens, outputTokens)
+      }
+    };
   } catch (error) {
     if (error instanceof CoachError) throw error;
     const code = error instanceof OpenAI.APIError ? `OPENAI_${error.status ?? "ERROR"}` : "OPENAI_REQUEST_FAILED";

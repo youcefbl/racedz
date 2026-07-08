@@ -1,7 +1,8 @@
 import "server-only";
 
+import * as Sentry from "@sentry/nextjs";
 import { getPrisma } from "@/lib/db";
-import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
+import { COACH_TRIAL_DAYS, resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import { ensureCurrentWeekPlan } from "@/lib/coach/service";
 import { fetchForecastConditions, resolveCoordinates } from "@/lib/coach/weather";
 import { localizeWorkout } from "@/lib/coach/workout-i18n";
@@ -104,14 +105,15 @@ export async function nudgeInactiveRunners(): Promise<{ nudged: number; candidat
         email: {
           to: runner.email,
           subject: text.title,
-          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href } }),
-          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href } })
+          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href }, locale }),
+          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href }, locale })
         }
       });
       nudged += 1;
     } catch (error) {
       // One bad recipient must not abort the whole batch.
       console.error("Inactivity nudge failed", runner.userId, error);
+      Sentry.captureException(error);
     }
   }
 
@@ -213,15 +215,25 @@ export async function remindTodaysWorkouts(): Promise<{ reminded: number; candid
     FROM "TrainingWorkout" w
     JOIN "TrainingPlan" plan ON plan."id" = w."trainingPlanId" AND plan."status" = 'ACTIVE'
     JOIN "User" u ON u."id" = plan."userId"
-    JOIN "RunnerGoal" g ON g."id" = plan."goalId"
+    -- Only the runner's CURRENT goal: a plan whose goal was paused/replaced must not still remind.
+    JOIN "RunnerGoal" g ON g."id" = plan."goalId" AND g."status" = 'ACTIVE'
+    -- CURRENT_DATE is UTC; the cron runs mid-morning UTC (well clear of the local midnight boundary),
+    -- and workouts are stored at UTC midnight, so the UTC day is the right "today" here.
     WHERE w."status" = 'PLANNED'
       AND w."workoutType"::text <> 'REST'
       AND w."scheduledFor"::date = CURRENT_DATE
+      -- Stop reminding once the goal's target race has passed.
+      AND g."targetDate" >= CURRENT_DATE
       AND u."blockedAt" IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM "Notification" n
         WHERE n."userId" = u."id" AND n."type" = 'TRAINING_REMINDER'
           AND n."createdAt" >= CURRENT_DATE
+      )
+      -- Don't nag a runner who already logged a run today, even one not linked to the workout.
+      AND NOT EXISTS (
+        SELECT 1 FROM "RunnerRun" r
+        WHERE r."userId" = u."id" AND r."startedAt"::date = CURRENT_DATE
       )
     ORDER BY u."id", w."scheduledFor" ASC
   `;
@@ -274,14 +286,15 @@ export async function remindTodaysWorkouts(): Promise<{ reminded: number; candid
         email: {
           to: runner.email,
           subject: text.title,
-          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href } }),
-          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href } })
+          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href }, locale }),
+          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href }, locale })
         }
       });
       reminded += 1;
     } catch (error) {
       // One bad recipient must not abort the whole batch.
       console.error("Training reminder failed", runner.userId, error);
+      Sentry.captureException(error);
     }
   }
 
@@ -363,6 +376,8 @@ export async function rolloverTrainingPlans(): Promise<{ generated: number; cand
     JOIN "User" u ON u."id" = g."userId"
     WHERE g."status" = 'ACTIVE'
       AND u."blockedAt" IS NULL
+      -- Don't keep rolling plans forward once the goal's target race has passed.
+      AND g."targetDate" >= CURRENT_DATE
       AND EXISTS (SELECT 1 FROM "TrainingPlan" p0 WHERE p0."goalId" = g."id")
       AND NOT EXISTS (
         SELECT 1 FROM "TrainingPlan" p
@@ -398,18 +413,147 @@ export async function rolloverTrainingPlans(): Promise<{ generated: number; cand
         email: {
           to: runner.email,
           subject: text.title,
-          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href } }),
-          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href } })
+          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href }, locale }),
+          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href }, locale })
         }
       });
       generated += 1;
     } catch (error) {
       // One runner's failure must not abort the batch.
       console.error("Plan rollover failed", runner.userId, error);
+      Sentry.captureException(error);
     }
   }
 
   return { generated, candidates: candidates.length };
+}
+
+// ---------------------------------------------------------------------------
+// Coach access expiry warning (trial or subscription ending soon).
+// ---------------------------------------------------------------------------
+
+type ExpiringRunner = {
+  userId: string;
+  email: string;
+  firstName: string;
+  preferredLocale: CoachLocale;
+  expiresAt: Date;
+  kind: "SUB" | "TRIAL";
+};
+
+// Warn this many days before coach access lapses, so a mid-plan runner isn't cut off with no notice.
+const EXPIRY_WARN_DAYS = 3;
+
+const expiryCopy: Record<
+  CoachLocale,
+  { title: string; body: (kind: "SUB" | "TRIAL", when: string) => string; cta: string; preheader: string }
+> = {
+  en: {
+    title: "Your coach access is ending soon",
+    body: (kind, when) =>
+      kind === "TRIAL"
+        ? `Your free coach trial ends on ${when}. Subscribe to keep your training plan and daily reminders going.`
+        : `Your coach subscription ends on ${when}. Renew to keep your training plan and daily reminders going.`,
+    cta: "Manage subscription",
+    preheader: "Renew to keep your plan and reminders."
+  },
+  fr: {
+    title: "Votre accès coach se termine bientôt",
+    body: (kind, when) =>
+      kind === "TRIAL"
+        ? `Votre essai gratuit du coach se termine le ${when}. Abonnez-vous pour conserver votre plan et vos rappels.`
+        : `Votre abonnement coach se termine le ${when}. Renouvelez pour conserver votre plan et vos rappels.`,
+    cta: "Gérer l'abonnement",
+    preheader: "Renouvelez pour garder votre plan et vos rappels."
+  },
+  ar: {
+    title: "وصولك إلى المدرب ينتهي قريباً",
+    body: (kind, when) =>
+      kind === "TRIAL"
+        ? `تنتهي فترتك التجريبية المجانية للمدرب في ${when}. اشترك للحفاظ على خطتك وتذكيراتك اليومية.`
+        : `ينتهي اشتراكك في المدرب في ${when}. جدّد للحفاظ على خطتك وتذكيراتك اليومية.`,
+    cta: "إدارة الاشتراك",
+    preheader: "جدّد للحفاظ على خطتك وتذكيراتك."
+  }
+};
+
+function formatExpiryDate(date: Date, locale: CoachLocale): string {
+  const intlLocale = locale === "ar" ? "ar" : locale === "fr" ? "fr" : "en";
+  return new Date(date).toLocaleDateString(intlLocale, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/**
+ * Warn coached runners a few days before their free trial or paid subscription lapses, so nobody is
+ * cut off mid-plan without notice. One warning per runner per window (deduped on a recent
+ * COACH_EXPIRY_WARNING). Meant to run daily alongside the rollover job.
+ */
+export async function notifyExpiringCoachAccess(): Promise<{ warned: number; candidates: number }> {
+  const prisma = getPrisma();
+
+  const candidates = await prisma.$queryRaw<ExpiringRunner[]>`
+    SELECT c."userId", c."email", c."firstName", c."preferredLocale", c."expiresAt", c."kind"
+    FROM (
+      SELECT s."userId" AS "userId", u."email" AS "email", u."firstName" AS "firstName",
+             COALESCE(g."preferredLocale", 'en') AS "preferredLocale", s."expiresAt" AS "expiresAt", 'SUB' AS "kind"
+      FROM "CoachSubscription" s
+      JOIN "User" u ON u."id" = s."userId"
+      LEFT JOIN "RunnerGoal" g ON g."userId" = u."id" AND g."status" = 'ACTIVE'
+      WHERE s."status" = 'ACTIVE' AND u."blockedAt" IS NULL
+        AND s."expiresAt" > NOW()
+        AND s."expiresAt" <= NOW() + (${EXPIRY_WARN_DAYS} * INTERVAL '1 day')
+      UNION ALL
+      SELECT u."id" AS "userId", u."email" AS "email", u."firstName" AS "firstName",
+             COALESCE(g."preferredLocale", 'en') AS "preferredLocale",
+             (u."createdAt" + (${COACH_TRIAL_DAYS} * INTERVAL '1 day')) AS "expiresAt", 'TRIAL' AS "kind"
+      FROM "User" u
+      LEFT JOIN "RunnerGoal" g ON g."userId" = u."id" AND g."status" = 'ACTIVE'
+      WHERE u."blockedAt" IS NULL
+        AND EXISTS (SELECT 1 FROM "RunnerGoal" gg WHERE gg."userId" = u."id")
+        AND (u."createdAt" + (${COACH_TRIAL_DAYS} * INTERVAL '1 day')) > NOW()
+        AND (u."createdAt" + (${COACH_TRIAL_DAYS} * INTERVAL '1 day')) <= NOW() + (${EXPIRY_WARN_DAYS} * INTERVAL '1 day')
+        AND NOT EXISTS (
+          SELECT 1 FROM "CoachSubscription" s
+          WHERE s."userId" = u."id" AND s."status" = 'ACTIVE' AND s."expiresAt" > NOW()
+        )
+    ) c
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "Notification" n
+      WHERE n."userId" = c."userId" AND n."type" = 'COACH_EXPIRY_WARNING'
+        AND n."createdAt" >= NOW() - (${EXPIRY_WARN_DAYS} * INTERVAL '1 day')
+    )
+  `;
+
+  const href = `${appUrl()}/account/coach/subscribe`;
+  let warned = 0;
+
+  for (const runner of candidates) {
+    try {
+      const locale: CoachLocale = (["en", "fr", "ar"] as const).includes(runner.preferredLocale) ? runner.preferredLocale : "en";
+      const text = expiryCopy[locale];
+      const body = text.body(runner.kind, formatExpiryDate(runner.expiresAt, locale));
+
+      await createNotification({
+        userId: runner.userId,
+        type: "COACH_EXPIRY_WARNING",
+        title: text.title,
+        body,
+        href,
+        channels: ["IN_APP", "EMAIL", "PUSH"],
+        email: {
+          to: runner.email,
+          subject: text.title,
+          html: renderRaceDzEmailHtml({ preheader: text.preheader, title: text.title, body, action: { label: text.cta, href }, locale }),
+          text: renderRaceDzEmailText({ title: text.title, body, action: { label: text.cta, href }, locale })
+        }
+      });
+      warned += 1;
+    } catch (error) {
+      console.error("Coach expiry warning failed", runner.userId, error);
+      Sentry.captureException(error);
+    }
+  }
+
+  return { warned, candidates: candidates.length };
 }
 
 function appUrl() {
