@@ -1,0 +1,4 @@
+.env.staging
+k6/data/users.json
+results/*.csv
+results/*.json
