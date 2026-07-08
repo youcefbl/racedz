@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "crypto";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
-import { rolloverTrainingPlans } from "@/lib/coach/reminders";
+import { notifyExpiringCoachAccess, rolloverTrainingPlans } from "@/lib/coach/reminders";
+import { expireStaleCoachSubscriptions } from "@/lib/coach-admin";
 
 // Constant-time string compare so the secret can't be recovered via response timing.
 function secretsMatch(provided: string, expected: string): boolean {
@@ -33,10 +35,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await rolloverTrainingPlans();
-    return NextResponse.json({ data: result });
+    // Daily coach maintenance, in order: flip lapsed subscriptions to EXPIRED (so entitlement and
+    // reporting are accurate), roll plans forward for anyone whose week ended, then warn runners
+    // whose access is ending soon.
+    await expireStaleCoachSubscriptions();
+    const rollover = await rolloverTrainingPlans();
+    const expiryWarnings = await notifyExpiringCoachAccess();
+    return NextResponse.json({ data: { rollover, expiryWarnings } });
   } catch (error) {
     console.error("Plan rollover job failed", error);
+    Sentry.captureException(error, { tags: { cron: "plan-rollover" } });
     return NextResponse.json({ error: "Rollover job failed." }, { status: 500 });
   }
 }

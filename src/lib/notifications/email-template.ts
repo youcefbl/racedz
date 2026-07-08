@@ -14,7 +14,28 @@ type RaceDzEmailTemplateInput = {
   body: string;
   action?: RaceDzEmailAction;
   meta?: RaceDzEmailMeta[];
+  // Recipient language, for the html lang/dir and the footer chrome. Defaults to English.
+  locale?: "en" | "fr" | "ar";
 };
+
+// Localized email chrome (footer + helper line). The body/title/CTA are localized by the caller.
+const EMAIL_CHROME = {
+  en: {
+    tagline: "ZidRun — Discover races, register, and train with an AI coach across Algeria.",
+    why: "You received this email because you have a ZidRun account. Manage notifications anytime from your account settings.",
+    linkHelp: "Button not working? Copy and paste this link:"
+  },
+  fr: {
+    tagline: "ZidRun — Découvrez des courses, inscrivez-vous et entraînez-vous avec un coach IA en Algérie.",
+    why: "Vous recevez cet e-mail car vous avez un compte ZidRun. Gérez vos notifications à tout moment dans les paramètres de votre compte.",
+    linkHelp: "Le bouton ne fonctionne pas ? Copiez-collez ce lien :"
+  },
+  ar: {
+    tagline: "ZidRun — اكتشف السباقات، سجّل، وتدرّب مع مدرب ذكي في الجزائر.",
+    why: "لقد تلقيت هذا البريد لأن لديك حساباً في ZidRun. يمكنك إدارة الإشعارات في أي وقت من إعدادات حسابك.",
+    linkHelp: "الزر لا يعمل؟ انسخ هذا الرابط:"
+  }
+} as const;
 
 function getAppUrl() {
   const raw =
@@ -25,11 +46,13 @@ function getAppUrl() {
   return raw.replace(/\/+$/, "");
 }
 
-export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [] }: RaceDzEmailTemplateInput) {
+export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [], locale = "en" }: RaceDzEmailTemplateInput) {
   const appUrl = getAppUrl();
   const logoUrl = `${appUrl}/icon-192.png`;
   const year = new Date().getFullYear();
   const bodyHtml = escapeHtml(body).replaceAll("\n", "<br />");
+  const chrome = EMAIL_CHROME[locale] ?? EMAIL_CHROME.en;
+  const dir = locale === "ar" ? "rtl" : "ltr";
 
   const metaHtml = meta.length
     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;border:1px solid #e5e7eb;border-radius:12px;border-collapse:separate;overflow:hidden">
@@ -56,12 +79,12 @@ export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [
           </td>
         </tr>
       </table>
-      <p style="margin:16px 0 0;color:#6b7280;font-size:12px;line-height:1.6">Button not working? Copy and paste this link:<br /><a href="${escapeHtml(action.href)}" style="color:#15803D;word-break:break-all">${escapeHtml(action.href)}</a></p>`
+      <p style="margin:16px 0 0;color:#6b7280;font-size:12px;line-height:1.6">${escapeHtml(chrome.linkHelp)}<br /><a href="${escapeHtml(action.href)}" style="color:#15803D;word-break:break-all">${escapeHtml(action.href)}</a></p>`
     : "";
 
   return `
     <!doctype html>
-    <html lang="en">
+    <html lang="${locale}" dir="${dir}">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -122,9 +145,9 @@ export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [
 
                 <!-- Footer -->
                 <tr>
-                  <td class="rz-footer" style="padding:22px 8px 0;color:#6b7280;font-size:12px;line-height:1.7">
-                    <div style="font-weight:700;color:#4b5563">ZidRun — Discover races, register, and train with an AI coach across Algeria.</div>
-                    <div style="margin-top:6px;color:#6b7280">You received this email because you have a ZidRun account or race registration. Manage notifications anytime from your account settings.</div>
+                  <td class="rz-footer" dir="${dir}" style="padding:22px 8px 0;color:#6b7280;font-size:12px;line-height:1.7">
+                    <div style="font-weight:700;color:#4b5563">${escapeHtml(chrome.tagline)}</div>
+                    <div style="margin-top:6px;color:#6b7280">${escapeHtml(chrome.why)}</div>
                     <div style="margin-top:12px;color:#6b7280">© ${year} ZidRun · <a href="${escapeHtml(appUrl)}" style="color:#15803D;text-decoration:none">zidrun.com</a></div>
                   </td>
                 </tr>
@@ -139,10 +162,10 @@ export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [
   `;
 }
 
-export function renderRaceDzEmailText({ title, body, action, meta = [] }: RaceDzEmailTemplateInput) {
+export function renderRaceDzEmailText({ title, body, action, meta = [], locale = "en" }: RaceDzEmailTemplateInput) {
   const appUrl = getAppUrl();
   return [
-    "ZidRun — Discover races, register, and train with an AI coach across Algeria.",
+    (EMAIL_CHROME[locale] ?? EMAIL_CHROME.en).tagline,
     "",
     title,
     body,

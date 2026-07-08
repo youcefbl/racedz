@@ -51,6 +51,15 @@ export async function sendFirebasePush(input: SendFirebasePushInput): Promise<Se
             link: input.href ? new URL(input.href, getAppUrl()).toString() : getAppUrl()
           }
         },
+        // Native Android delivery. High priority so reminders arrive promptly; the app reads
+        // data.href on tap to route (Capacitor pushNotificationActionPerformed). Harmless for
+        // web tokens, which ignore the android block.
+        android: {
+          priority: "high",
+          notification: {
+            default_sound: true
+          }
+        },
         data: {
           href: input.href ?? ""
         }

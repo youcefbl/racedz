@@ -119,6 +119,16 @@ export const notificationPreferenceOptions = [
     type: "TRAINING_PLAN_READY",
     title: "New training week ready",
     description: "We let you know when your next week's plan is generated automatically."
+  },
+  {
+    type: "COACH_SUBSCRIPTION_REVIEW",
+    title: "Subscription payment result",
+    description: "We tell you when your coach subscription payment is approved or needs another look."
+  },
+  {
+    type: "COACH_EXPIRY_WARNING",
+    title: "Coach access ending soon",
+    description: "A heads-up a few days before your free trial or coach subscription ends."
   }
 ] as const;
 
@@ -366,6 +376,22 @@ export async function notifyAdminsRacePendingReview({
     metadata: {
       raceId
     },
+    channels: ["IN_APP", "EMAIL", "PUSH"]
+  });
+}
+
+// Ping admins when a runner submits a coach subscription payment for review, so a paying runner
+// isn't waiting on an admin who has no signal to check /admin/coach.
+export async function notifyAdminsCoachSubscriptionRequest({ runnerName }: { runnerName: string }) {
+  const admins = await getPrisma().user.findMany({
+    where: { role: { in: ["ADMIN", "SUPERADMIN"] } },
+    select: { id: true, email: true }
+  });
+  await notifyRecipients(admins, {
+    type: "PAYMENT_PROOF_REVIEW",
+    title: "Coach payment to review",
+    body: `${runnerName || "A runner"} submitted a coach subscription payment for review.`,
+    href: "/admin/coach",
     channels: ["IN_APP", "EMAIL", "PUSH"]
   });
 }

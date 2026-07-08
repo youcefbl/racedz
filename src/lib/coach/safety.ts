@@ -58,6 +58,45 @@ export function evaluateCoachSafety(run: SafetyRun, metrics: CoachMetrics, profi
   };
 }
 
+// Safety reasons are generated in English (stored on the interaction for admin/debug), but the
+// runner sees them as warningSignals — so translate them for display. Keyed by the exact English
+// string each check pushes; unknown strings fall back to English.
+const SAFETY_REASON_I18N: Record<string, { fr: string; ar: string }> = {
+  "A reported symptom requires professional assessment.": {
+    fr: "Un symptôme signalé nécessite une évaluation professionnelle.",
+    ar: "عرض مُبلَّغ عنه يتطلب تقييماً من مختص."
+  },
+  "The reported pain level is severe.": {
+    fr: "Le niveau de douleur signalé est sévère.",
+    ar: "مستوى الألم المُبلَّغ عنه شديد."
+  },
+  "A reported heart condition requires medical clearance before intense training.": {
+    fr: "Un problème cardiaque signalé nécessite un avis médical avant un entraînement intense.",
+    ar: "حالة قلبية مُبلَّغ عنها تتطلب موافقة طبية قبل التدريب المكثّف."
+  },
+  "An ongoing health condition was reported; keep training conservative.": {
+    fr: "Un problème de santé persistant a été signalé ; gardez un entraînement prudent.",
+    ar: "تم الإبلاغ عن حالة صحية مستمرة؛ حافظ على تدريب متحفّظ."
+  },
+  "Pain was reported during recent training.": {
+    fr: "De la douleur a été signalée lors d'entraînements récents.",
+    ar: "تم الإبلاغ عن ألم خلال التدريبات الأخيرة."
+  },
+  "Recent fatigue is high.": {
+    fr: "La fatigue récente est élevée.",
+    ar: "التعب الأخير مرتفع."
+  },
+  "Recent weekly distance increased sharply.": {
+    fr: "La distance hebdomadaire a fortement augmenté récemment.",
+    ar: "ازدادت المسافة الأسبوعية بشكل حاد مؤخراً."
+  }
+};
+
+function localizeReasons(reasons: string[], locale: CoachLocale): string[] {
+  if (locale === "en") return reasons;
+  return reasons.map((reason) => SAFETY_REASON_I18N[reason]?.[locale] ?? reason);
+}
+
 export function enforceCoachSafety(
   response: CoachResponse,
   decision: CoachSafetyDecision,
@@ -69,7 +108,7 @@ export function enforceCoachSafety(
     return localizeWorkout(workout, locale);
   });
 
-  const warningSignals = [...new Set([...decision.reasons, ...response.warningSignals])].slice(0, 6);
+  const warningSignals = [...new Set([...localizeReasons(decision.reasons, locale), ...response.warningSignals])].slice(0, 6);
 
   return {
     ...response,
@@ -91,7 +130,7 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
     summary: copy,
     progressAssessment: copy,
     positiveSignals: [],
-    warningSignals: decision.reasons,
+    warningSignals: localizeReasons(decision.reasons, locale),
     nextWorkout: null,
     upcomingWorkouts: [],
     recoveryAdvice: [copy],

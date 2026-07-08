@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "crypto";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { remindTodaysWorkouts } from "@/lib/coach/reminders";
 
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: result });
   } catch (error) {
     console.error("Training reminder job failed", error);
+    Sentry.captureException(error, { tags: { cron: "training-reminder" } });
     return NextResponse.json({ error: "Reminder job failed." }, { status: 500 });
   }
 }

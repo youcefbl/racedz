@@ -4,6 +4,7 @@ import { recordAdminAuditLog, AdminError } from "@/lib/admin";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { COACH_TRIAL_DAYS } from "@/lib/coach/entitlement";
 import { getPendingCoachRequestCharge, markCoachRequestReviewed } from "@/lib/coach/subscription";
+import { createNotification } from "@/lib/notifications";
 
 export type CoachTierLabel = "SUBSCRIBED" | "TRIAL" | "EXPIRED";
 
@@ -63,9 +64,11 @@ type UsageQueryRow = {
 
 /** Flip ACTIVE subscriptions whose window has passed to EXPIRED so admin views stay accurate. */
 export async function expireStaleCoachSubscriptions() {
+  // Natural expiry is NOT a cancellation — leave cancelledAt null so "was this cancelled early?"
+  // reporting stays accurate.
   await getPrisma().$executeRaw`
     UPDATE "CoachSubscription"
-    SET "status" = 'EXPIRED', "cancelledAt" = COALESCE("cancelledAt", NOW()), "updatedAt" = NOW()
+    SET "status" = 'EXPIRED', "updatedAt" = NOW()
     WHERE "status" = 'ACTIVE' AND "expiresAt" <= NOW()
   `;
 }
@@ -332,6 +335,7 @@ export async function approveCoachSubscriptionRequest(input: { actorId: string; 
   });
 
   await markCoachRequestReviewed({ requestId: input.requestId, status: "APPROVED", reviewerId: input.actorId });
+  await notifyRunnerRequestReviewed(charge.userId, "APPROVED", null);
 }
 
 export async function rejectCoachSubscriptionRequest(input: { actorId: string; requestId: string; reason?: string | null }) {
@@ -352,6 +356,62 @@ export async function rejectCoachSubscriptionRequest(input: { actorId: string; r
     targetId: charge.userId,
     summary: "Rejected coach subscription request"
   });
+  await notifyRunnerRequestReviewed(charge.userId, "REJECTED", input.reason ?? null);
+}
+
+// Tell the runner their payment was approved or declined (localized to their coach language), so
+// they don't have to revisit the subscribe page to find out. Best-effort — never blocks the review.
+const REVIEW_NOTIFY_COPY = {
+  en: {
+    approvedTitle: "Your coach subscription is active",
+    approvedBody: "Your payment was approved — your AI coach is now active. Enjoy your training!",
+    rejectedTitle: "Coach payment needs another look",
+    rejectedBody: (note: string | null) =>
+      `We couldn't confirm your payment${note ? `: ${note}` : "."} Please submit a new payment on the subscribe page.`
+  },
+  fr: {
+    approvedTitle: "Votre abonnement coach est actif",
+    approvedBody: "Votre paiement a été approuvé — votre coach IA est maintenant actif. Bon entraînement !",
+    rejectedTitle: "Votre paiement coach doit être revérifié",
+    rejectedBody: (note: string | null) =>
+      `Nous n'avons pas pu confirmer votre paiement${note ? ` : ${note}` : "."} Veuillez soumettre un nouveau paiement.`
+  },
+  ar: {
+    approvedTitle: "اشتراك مدربك مُفعّل",
+    approvedBody: "تمت الموافقة على دفعتك — مدربك الذكي مُفعّل الآن. تدريباً موفقاً!",
+    rejectedTitle: "دفعة المدرب تحتاج إلى مراجعة",
+    rejectedBody: (note: string | null) =>
+      `تعذر تأكيد دفعتك${note ? `: ${note}` : "."} يرجى إرسال دفعة جديدة من صفحة الاشتراك.`
+  }
+} as const;
+
+async function notifyRunnerRequestReviewed(userId: string, decision: "APPROVED" | "REJECTED", reviewNote: string | null) {
+  try {
+    const rows = await getPrisma().$queryRaw<Array<{ email: string; preferredLocale: string | null }>>`
+      SELECT u."email", g."preferredLocale"
+      FROM "User" u
+      LEFT JOIN "RunnerGoal" g ON g."userId" = u."id" AND g."status" = 'ACTIVE'
+      WHERE u."id" = ${userId}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return;
+    const locale = row.preferredLocale === "fr" || row.preferredLocale === "ar" ? row.preferredLocale : "en";
+    const copy = REVIEW_NOTIFY_COPY[locale];
+    const title = decision === "APPROVED" ? copy.approvedTitle : copy.rejectedTitle;
+    const body = decision === "APPROVED" ? copy.approvedBody : copy.rejectedBody(reviewNote);
+    await createNotification({
+      userId,
+      type: "COACH_SUBSCRIPTION_REVIEW",
+      title,
+      body,
+      href: "/account/coach",
+      channels: ["IN_APP", "EMAIL", "PUSH"],
+      email: { to: row.email, subject: title }
+    });
+  } catch (error) {
+    console.error("Coach review notification failed", userId, error);
+  }
 }
 
 export async function deactivateCoachSubscription(input: { actorId: string; userId: string }) {
