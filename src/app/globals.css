@@ -864,6 +864,41 @@ textarea {
   height: 100%;
   width: 100%;
 }
+
+/* Animated native boot splash — the bouncing ZidRun Z on the brand teal panel. Hidden on the
+   website; shown only inside the native app (where NativeChrome adds `.native-app`). */
+.rz-native-splash {
+  display: none;
+  transition: opacity 0.45s ease;
+}
+.native-app .rz-native-splash {
+  display: flex;
+}
+.rz-native-splash--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.rz-splash-mark svg {
+  display: block;
+  height: auto;
+  width: 100%;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.25));
+  animation: rz-splash-bounce 1s ease-in-out infinite;
+}
+@keyframes rz-splash-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rz-splash-mark svg {
+    animation: none;
+  }
+}
 [data-theme="race"] .zid-logo {
   --zid-green: #39ff14;
   --zid-orange: #ff7a1a;

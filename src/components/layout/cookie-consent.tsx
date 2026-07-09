@@ -1,5 +1,6 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -16,7 +17,9 @@ export function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Defer to the client so we never flash the banner for users who already chose.
+    // The native app isn't a third-party-cookie browser context, so there's no consent banner
+    // there. On the web, defer to the client so we never flash the banner for users who chose.
+    if (Capacitor.isNativePlatform()) return;
     setVisible(readCookieConsent() === null);
   }, []);
 

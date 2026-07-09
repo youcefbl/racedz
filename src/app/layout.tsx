@@ -14,6 +14,7 @@ import { GpsScrollTrailGate } from "@/components/layout/gps-scroll-trail-gate";
 import { HtmlLangDir } from "@/components/layout/html-lang-dir";
 import { NativeChrome } from "@/components/layout/native-chrome";
 import { NativeDeepLinks } from "@/components/layout/native-deep-links";
+import { NativeSplash } from "@/components/layout/native-splash";
 import { NativePush } from "@/components/layout/native-push";
 import { NativeTransition } from "@/components/layout/native-transition";
 import { PullToRefresh } from "@/components/layout/pull-to-refresh";
@@ -104,6 +105,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <CookieConsent />
         </Suspense>
+        <NativeSplash />
         <ServiceWorkerRegister />
       </body>
     </html>
