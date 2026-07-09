@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { revalidateRacesCache } from "@/lib/race-repository";
 
 type AdminRaceActionContext = {
   params: Promise<{ id: string }>;
@@ -22,6 +23,8 @@ export async function PATCH(_request: Request, context: AdminRaceActionContext) 
       status: "REJECTED"
     }
   });
+
+  revalidateRacesCache();
 
   return NextResponse.json({
     data: race

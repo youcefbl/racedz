@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { AdminError, createPlatformRace, requireAdmin } from "@/lib/admin";
+import { revalidateRacesCache } from "@/lib/race-repository";
 
 export type PlatformRaceActionState = {
   error?: string;
@@ -60,6 +61,7 @@ export async function createPlatformRaceAction(
 
   revalidatePath("/admin/races");
   revalidatePath("/races");
+  revalidateRacesCache();
   redirect(`/admin/races?created=${slug}`);
 }
 

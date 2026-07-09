@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/db";
+import { revalidateRacesCache } from "@/lib/race-repository";
 import { generateTipProposals } from "@/lib/coach/tip-generator";
 import { invalidatePublishedTipsCache } from "@/lib/coach/tips";
 import { notifyOrganizerRaceStatusChanged } from "@/lib/notifications";
@@ -127,6 +128,7 @@ export async function approveRaceAction(formData: FormData) {
 
   revalidateAdmin();
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 export async function publishRaceAction(formData: FormData) {
@@ -162,6 +164,7 @@ export async function publishRaceAction(formData: FormData) {
 
   revalidateAdmin();
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 export async function rejectRaceAction(formData: FormData) {
@@ -232,6 +235,7 @@ export async function unpublishRaceAction(formData: FormData) {
 
   revalidateAdmin();
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 export async function updateUserRoleAction(formData: FormData) {
@@ -324,6 +328,7 @@ export async function cancelRegistrationAction(formData: FormData) {
 
   revalidateAdmin();
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 // --- User management ---------------------------------------------------------

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { AnnouncementError, createAdminRaceAnnouncement } from "@/lib/announcements";
+import { revalidateRacesCache } from "@/lib/race-repository";
 import { AdminError, requireAdmin, updateAdminRace } from "@/lib/admin";
 
 export type AdminRaceEditActionState = {
@@ -55,6 +56,7 @@ export async function updateAdminRaceAction(
   revalidatePath(`/admin/races/${raceId}/edit`);
   revalidatePath("/admin/audit");
   revalidatePath("/races");
+  revalidateRacesCache();
 
   return { success: "Race updated." };
 }
@@ -83,6 +85,7 @@ export async function createAdminAnnouncementAction(formData: FormData) {
   revalidatePath("/admin/races");
   revalidatePath(`/admin/races/${raceId}/edit`);
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 function getString(formData: FormData, key: string) {

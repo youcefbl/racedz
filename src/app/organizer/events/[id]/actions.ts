@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { AnnouncementError, createOrganizerRaceAnnouncement } from "@/lib/announcements";
+import { revalidateRacesCache } from "@/lib/race-repository";
 import {
   cancelOrganizerRaceRegistration,
   confirmOrganizerRegistrationPayment,
@@ -32,6 +33,7 @@ export async function updateRegistrationStatusAction(formData: FormData) {
   revalidatePath("/organizer/events");
   revalidatePath(`/organizer/events/${raceId}`);
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 export async function createOrganizerAnnouncementAction(formData: FormData) {
@@ -59,6 +61,7 @@ export async function createOrganizerAnnouncementAction(formData: FormData) {
   revalidatePath("/organizer/events");
   revalidatePath(`/organizer/events/${raceId}`);
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 export async function confirmOrganizerRegistrationPaymentAction(formData: FormData) {
@@ -86,6 +89,7 @@ export async function cancelOrganizerRegistrationAction(formData: FormData) {
   revalidatePath(`/organizer/events/${raceId}/registrations`);
   revalidatePath(`/organizer/events/${raceId}`);
   revalidatePath("/races");
+  revalidateRacesCache();
 }
 
 function getString(formData: FormData, key: string) {

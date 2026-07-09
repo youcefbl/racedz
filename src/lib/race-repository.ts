@@ -1,7 +1,20 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { getPrisma } from "@/lib/db";
 import { getRaceOptionalDetails } from "@/lib/race-optional-details";
 import { filterRaces, getRaceById as getMockRaceById, getRaceBySlug as getMockRaceBySlug, getUpcomingRaces as getMockUpcomingRaces, sortRaceEvents, startOfToday, type RaceFilters } from "@/lib/races";
 import type { RaceAnnouncement, RaceCategory, RaceEvent } from "@/types/race";
+
+// Public race reads are cached in Next's data cache so the remote-loaded app stops hitting
+// Postgres on every page view. Entries are tagged so a publish/edit/delete flushes them
+// immediately; the revalidate window is a safety net for anything not explicitly flushed
+// (e.g. availablePlaces ticking down — the register action still validates availability live).
+export const RACES_CACHE_TAG = "public-races";
+const RACES_REVALIDATE_SECONDS = 60;
+
+/** Flush all cached public race reads. Call from any action that changes published race data. */
+export function revalidateRacesCache() {
+  revalidateTag(RACES_CACHE_TAG);
+}
 
 type PrismaRaceEvent = {
   id: string;
@@ -63,7 +76,7 @@ const raceInclude = {
   }
 };
 
-export async function getUpcomingRaceEvents(limit?: number) {
+async function fetchUpcomingRaceEvents(limit?: number) {
   if (!canUseDatabase()) {
     return getMockUpcomingRaces(limit);
   }
@@ -87,7 +100,12 @@ export async function getUpcomingRaceEvents(limit?: number) {
   }
 }
 
-export async function getRaceEventBySlug(slug: string) {
+export const getUpcomingRaceEvents = unstable_cache(fetchUpcomingRaceEvents, ["public-upcoming-race-events"], {
+  tags: [RACES_CACHE_TAG],
+  revalidate: RACES_REVALIDATE_SECONDS
+});
+
+async function fetchRaceEventBySlug(slug: string) {
   if (!canUseDatabase()) {
     return getMockRaceBySlug(slug);
   }
@@ -106,6 +124,11 @@ export async function getRaceEventBySlug(slug: string) {
     return getMockRaceBySlug(slug);
   }
 }
+
+export const getRaceEventBySlug = unstable_cache(fetchRaceEventBySlug, ["public-race-event-by-slug"], {
+  tags: [RACES_CACHE_TAG],
+  revalidate: RACES_REVALIDATE_SECONDS
+});
 
 export async function getRaceEventById(id: string) {
   if (!canUseDatabase()) {
@@ -127,7 +150,7 @@ export async function getRaceEventById(id: string) {
   }
 }
 
-export async function findRaceEvents(filters: RaceFilters) {
+async function fetchRaceEvents(filters: RaceFilters) {
   if (!canUseDatabase()) {
     return filterRaces(filters);
   }
@@ -181,6 +204,11 @@ export async function findRaceEvents(filters: RaceFilters) {
     return filterRaces(filters);
   }
 }
+
+export const findRaceEvents = unstable_cache(fetchRaceEvents, ["public-find-race-events"], {
+  tags: [RACES_CACHE_TAG],
+  revalidate: RACES_REVALIDATE_SECONDS
+});
 
 function mapRaceEvent(race: PrismaRaceEvent): RaceEvent {
   return {
