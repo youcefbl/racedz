@@ -30,6 +30,11 @@ model User {
   onboardedAt     DateTime? // set once the runner finishes (or skips) the first-login welcome step
   language        String? // saved UI language ("en" | "fr" | "ar"), synced across devices
   theme           String? // saved appearance ("light" | "dark" | "race"), synced across devices
+  profilePrivate  Boolean   @default(false) // opt-in: hide from public leaderboards, others' feeds, and following
+  mfaEnabled      Boolean   @default(false) // TOTP two-factor active (opt-in; primarily for admins)
+  mfaSecret       String? // base32 TOTP secret, server-only; set while enrolled
+  mfaBackupCodes  String[]  @default([]) // sha256 hashes of one-time recovery codes
+  mfaEnabledAt    DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -158,6 +163,7 @@ model RaceEvent {
   description                String
   elevationGainText          String?
   conditions                 String?
+  shirtEnabled               Boolean                 @default(false) // organizer offers a race shirt; sizes captured at registration
   raceType                   RaceType
   status                     RaceStatus              @default(DRAFT)
   registrationStatus         EventRegistrationStatus @default(NOT_OPEN)

@@ -6,7 +6,7 @@ import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
-import { getOrganizerRaceById, getOrganizerRaceRegistrations, requireApprovedOrganizer } from "@/lib/organizer";
+import { getOrganizerRaceById, getOrganizerRaceRegistrations, getOrganizerRaceShirtTotals, requireApprovedOrganizer } from "@/lib/organizer";
 import { parsePagination } from "@/lib/pagination";
 import { getLocale, withLocale } from "@/lib/i18n";
 import { translateOrganizer, translateOrganizerEnum } from "@/lib/organizer-i18n";
@@ -33,7 +33,7 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
   const t = (text: string) => translateOrganizer(locale, text);
   const pagination = parsePagination({ page: filters?.page });
   const { organization } = await requireApprovedOrganizer();
-  const [race, registrationResult] = await Promise.all([
+  const [race, registrationResult, shirtTotals] = await Promise.all([
     getOrganizerRaceById(organization.id, id),
     getOrganizerRaceRegistrations(
       organization.id,
@@ -44,7 +44,8 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
         paymentState: filters?.paymentState
       },
       pagination
-    )
+    ),
+    getOrganizerRaceShirtTotals(organization.id, id)
   ]);
 
   if (!race) {
@@ -65,6 +66,30 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
             {t("Export CSV")}
           </ButtonLink>
         </div>
+
+        {race.shirtEnabled ? (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-black text-gray-950">{t("Shirts to order")}</p>
+            {shirtTotals.total > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {shirtTotals.bySize.map((entry) => (
+                  <span key={entry.size} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm">
+                    <span className="font-black text-gray-950">{entry.size === "XXXL" ? "3XL" : entry.size}</span>
+                    <span className="font-bold tabular-nums text-brand-teal">{entry.count}</span>
+                  </span>
+                ))}
+                {shirtTotals.unspecified > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-500">
+                    {t("No size chosen")}
+                    <span className="font-bold tabular-nums">{shirtTotals.unspecified}</span>
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-gray-500">{t("No registrations yet.")}</p>
+            )}
+          </div>
+        ) : null}
 
         <form
           action={`/organizer/events/${race.id}/registrations`}

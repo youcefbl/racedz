@@ -1,26 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
 import { getPrisma } from "@/lib/db";
-import { isEmailVerified } from "@/lib/email-verification";
+import { verifyLoginCredentials, verifyMfaCode } from "@/lib/auth-credentials";
 import { consumeNativeAuthToken } from "@/lib/native-auth";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
-
-type DatabaseUser = {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  passwordHash: string | null;
-  role: UserRole;
-  blockedAt?: Date | null;
-  firstLoginAt?: Date | null;
-  organizations?: Array<{
-    organizationId: string;
-  }>;
-};
 
 type AuthUser = {
   id: string;
@@ -53,7 +38,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: "Email and password",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        totp: { label: "Authenticator code", type: "text" }
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
@@ -62,39 +48,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const prisma = getPrisma();
-        const user = (await prisma.user.findUnique({
-          where: { email: parsed.data.email.toLowerCase() },
-          include: {
-            organizations: {
-              select: {
-                organizationId: true
-              }
-            }
+        const user = await verifyLoginCredentials(parsed.data.email, parsed.data.password);
+
+        if (!user) {
+          return null;
+        }
+
+        // Second factor: when the account has MFA enabled, a valid TOTP or recovery code is
+        // required here — this gate is authoritative and cannot be skipped by calling the
+        // credentials endpoint directly (the login action's two-step prompt is only the UX).
+        if (user.mfaEnabled) {
+          const totp = typeof credentials?.totp === "string" ? credentials.totp : "";
+          if (!(await verifyMfaCode(user, totp))) {
+            return null;
           }
-        })) as DatabaseUser | null;
-
-        if (!user?.passwordHash) {
-          return null;
-        }
-
-        // Blocked accounts cannot sign in.
-        if (user.blockedAt) {
-          return null;
-        }
-
-        if (!(await isEmailVerified(user.email))) {
-          return null;
-        }
-
-        const passwordMatches = await bcrypt.compare(parsed.data.password, user.passwordHash);
-
-        if (!passwordMatches) {
-          return null;
         }
 
         const now = new Date();
-        await prisma.user.update({
+        await getPrisma().user.update({
           where: { id: user.id },
           data: { lastLoginAt: now, firstLoginAt: user.firstLoginAt ?? now }
         });
@@ -104,7 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: `${user.firstName} ${user.lastName}`,
           role: user.role,
-          organizationIds: user.organizations?.map((member) => member.organizationId) ?? []
+          organizationIds: user.organizationIds
         };
       }
     }),
@@ -237,13 +208,27 @@ async function getOrCreateGoogleUser({
     const picture = getOAuthPicture(profile);
     const now = new Date();
     // Track sign-in activity (lastLoginAt always, firstLoginAt on the first one).
-    const updateData: { emailVerifiedAt?: Date; avatarUrl?: string; lastLoginAt: Date; firstLoginAt?: Date } = {
+    const updateData: {
+      emailVerifiedAt?: Date;
+      avatarUrl?: string;
+      lastLoginAt: Date;
+      firstLoginAt?: Date;
+      passwordHash?: null;
+    } = {
       lastLoginAt: now,
       firstLoginAt: existing.firstLoginAt ?? now
     };
 
     if (!existing.emailVerifiedAt) {
       updateData.emailVerifiedAt = now;
+
+      // Account-takeover guard: linking Google verifies this email for the first time. If the
+      // account also carries a credentials passwordHash that was set while unverified, an attacker
+      // could have pre-registered it — clear the password so the real owner must reset it before
+      // any credentials login works again. (No-op when there was never a password.)
+      if (existing.passwordHash) {
+        updateData.passwordHash = null;
+      }
     }
 
     if (!existing.avatarUrl && picture) {

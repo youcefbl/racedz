@@ -22,6 +22,7 @@ type PrismaRaceEvent = {
   title: string;
   slug: string;
   description: string;
+  shirtEnabled: boolean;
   raceType: string;
   status: string;
   registrationStatus: string;
@@ -217,6 +218,7 @@ function mapRaceEvent(race: PrismaRaceEvent): RaceEvent {
     title: race.title,
     slug: race.slug,
     description: race.description,
+    shirtEnabled: race.shirtEnabled,
     raceType: race.raceType as RaceEvent["raceType"],
     status: race.status as RaceEvent["status"],
     registrationStatus: race.registrationStatus as RaceEvent["registrationStatus"],

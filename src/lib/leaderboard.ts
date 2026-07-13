@@ -45,7 +45,7 @@ export async function getWilayaLeaderboards(options: { wilaya?: string; monthly?
           r."startedAt" AS "startedAt"
         FROM "RunnerRun" r
         INNER JOIN "User" u ON u."id" = r."userId"
-        WHERE r."isPublic" = true AND r."distanceKm" >= ${MIN_PACE_DISTANCE_KM}
+        WHERE r."isPublic" = true AND u."profilePrivate" = false AND r."distanceKm" >= ${MIN_PACE_DISTANCE_KM}
           ${wilayaCondition}
           ${monthCondition}
         ORDER BY r."userId", r."averagePaceSecondsPerKm" ASC
@@ -65,7 +65,7 @@ export async function getWilayaLeaderboards(options: { wilaya?: string; monthly?
           r."startedAt" AS "startedAt"
         FROM "RunnerRun" r
         INNER JOIN "User" u ON u."id" = r."userId"
-        WHERE r."isPublic" = true
+        WHERE r."isPublic" = true AND u."profilePrivate" = false
           ${wilayaCondition}
           ${monthCondition}
         ORDER BY r."userId", r."distanceKm" DESC

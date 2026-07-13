@@ -117,6 +117,7 @@ export const organizerRaceSchema = z.object({
   description: z.string().min(1),
   elevationGainText: z.string().max(500).optional(),
   conditions: z.string().max(5000).optional(),
+  shirtEnabled: z.boolean().optional(),
   raceType: raceTypeSchema,
   startDate: z.string().min(10),
   registrationCloseAt: z.string().optional(),
@@ -148,6 +149,7 @@ export const organizerRaceUpdateSchema = z.object({
   description: z.string().min(1),
   elevationGainText: z.string().max(500).optional(),
   conditions: z.string().max(5000).optional(),
+  shirtEnabled: z.boolean().optional(),
   raceType: z.enum([
     "ROAD",
     "TRAIL",

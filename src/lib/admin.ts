@@ -239,6 +239,7 @@ export async function createPlatformRace(input: unknown) {
         contactEmail: parsed.data.contactEmail,
         contactPhone: parsed.data.contactPhone,
         mainImageUrl: parsed.data.mainImageUrl,
+        shirtEnabled: parsed.data.shirtEnabled ?? false,
         maxParticipants,
         availablePlaces: maxParticipants
       }
@@ -295,6 +296,7 @@ export type AdminRaceForEdit = {
   maxParticipants: number | null;
   autoCancelUnpaidAfterHours: number | null;
   mainImageUrl: string | null;
+  shirtEnabled: boolean;
   slug: string;
 };
 
@@ -322,6 +324,7 @@ export async function getAdminRaceForEdit(raceEventId: string) {
       contactPhone: true,
       maxParticipants: true,
       mainImageUrl: true,
+      shirtEnabled: true,
       slug: true
     }
   });
@@ -374,6 +377,7 @@ export async function updateAdminRace({
     organizerUrl: parsed.data.organizerUrl ?? null,
     contactEmail: parsed.data.contactEmail ?? null,
     contactPhone: parsed.data.contactPhone ?? null,
+    shirtEnabled: parsed.data.shirtEnabled ?? false,
     maxParticipants: parsed.data.maxParticipants ?? null,
     mainImageUrl: parsed.data.mainImageUrl ?? null
   };

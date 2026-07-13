@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { AlertCircle, CheckCircle2, ImageIcon, MapPin, UserRound } from "lucide-react";
+import { AlertCircle, CheckCircle2, ImageIcon, MapPin, ShieldCheck, UserRound } from "lucide-react";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
@@ -24,6 +24,7 @@ type ProfileFormProps = {
     wilaya?: string | null;
     city?: string | null;
     commune?: string | null;
+    profilePrivate?: boolean;
   };
   locale: Locale;
 };
@@ -119,6 +120,25 @@ export function ProfileForm({ user, locale }: ProfileFormProps) {
           <h2 className="text-lg font-black text-gray-950">{t.avatar}</h2>
         </div>
         <ImageUploadField label={t.avatarImage} name="avatarUrl" scope="avatar" defaultValue={user.avatarUrl} />
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="size-5 text-brand-teal" aria-hidden="true" />
+          <h2 className="text-lg font-black text-gray-950">{t.privacyTitle}</h2>
+        </div>
+        <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-4">
+          <input
+            type="checkbox"
+            name="profilePrivate"
+            defaultChecked={user.profilePrivate ?? false}
+            className="mt-0.5 size-4 shrink-0 rounded border-gray-300 text-brand-teal focus:ring-brand-teal"
+          />
+          <span className="grid gap-1">
+            <span className="text-sm font-semibold text-gray-900">{t.privacyToggle}</span>
+            <span className="text-sm font-normal text-gray-600">{t.privacyHint}</span>
+          </span>
+        </label>
       </section>
 
       <Button type="submit" size="lg" disabled={pending}>

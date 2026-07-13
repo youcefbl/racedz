@@ -315,24 +315,37 @@ function NotificationDropdown({
   }, [open]);
 
   function openNotifications() {
-    setOpen((current) => {
-      const next = !current;
+    // Opening no longer marks anything read — the user triages per item (or uses "Mark all read").
+    setOpen((current) => !current);
+  }
 
-      if (next && localCount > 0) {
-        // Optimistic: mark all read immediately, then roll back if the request fails.
-        const previousCount = localCount;
-        const previousItems = items;
-        const readAt = new Date().toISOString();
-        setLocalCount(0);
-        setItems((currentItems) => currentItems.map((item) => ({ ...item, readAt: item.readAt ?? readAt })));
-        void fetch("/api/notifications/read-all", { method: "POST" }).catch(() => {
-          setLocalCount(previousCount);
-          setItems(previousItems);
-          toast(t.markReadError, "error");
-        });
-      }
+  function markItemRead(id: string) {
+    const target = items.find((item) => item.id === id);
+    if (!target || target.readAt) return; // already read — nothing to do
 
-      return next;
+    const previousItems = items;
+    const previousCount = localCount;
+    const readAt = new Date().toISOString();
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, readAt: item.readAt ?? readAt } : item)));
+    setLocalCount((current) => Math.max(0, current - 1));
+    void fetch(`/api/notifications/${id}/read`, { method: "POST" }).catch(() => {
+      setItems(previousItems);
+      setLocalCount(previousCount);
+      toast(t.markReadError, "error");
+    });
+  }
+
+  function markAllRead() {
+    if (localCount === 0) return;
+    const previousItems = items;
+    const previousCount = localCount;
+    const readAt = new Date().toISOString();
+    setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })));
+    setLocalCount(0);
+    void fetch("/api/notifications/read-all", { method: "POST" }).catch(() => {
+      setItems(previousItems);
+      setLocalCount(previousCount);
+      toast(t.markReadError, "error");
     });
   }
 
@@ -364,17 +377,32 @@ function NotificationDropdown({
           aria-label={t.panelTitle}
           onKeyDown={onKeyDown}
         >
-          <div className="border-b border-[var(--border)] px-4 py-3">
-            <p className="text-sm font-semibold text-[var(--text-strong)]">{t.panelTitle}</p>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{items.length > 0 ? t.panelSubtitle : t.panelEmpty}</p>
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-strong)]">{t.panelTitle}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{items.length > 0 ? t.panelSubtitle : t.panelEmpty}</p>
+            </div>
+            {localCount > 0 ? (
+              <button
+                type="button"
+                onClick={markAllRead}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-brand-teal transition hover:bg-[var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+              >
+                {t.markAllRead.replace("{count}", String(localCount))}
+              </button>
+            ) : null}
           </div>
           {items.length > 0 ? (
             <div className="max-h-96 overflow-y-auto">
               {items.map((item) => {
+                const unread = !item.readAt;
                 const content = (
                   <>
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-semibold text-[var(--text-strong)]">{item.title}</p>
+                      <p className="text-sm font-semibold text-[var(--text-strong)]">
+                        {unread ? <span className="me-1.5 inline-block size-2 rounded-full bg-brand-orange align-middle" aria-hidden="true" /> : null}
+                        {item.title}
+                      </p>
                       {item.href ? <ExternalLink className="mt-0.5 size-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" /> : null}
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--text)]">{item.body}</p>
@@ -387,15 +415,24 @@ function NotificationDropdown({
                     key={item.id}
                     href={item.href}
                     role="menuitem"
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      markItemRead(item.id);
+                      setOpen(false);
+                    }}
                     className="block border-b border-[var(--border)] px-4 py-3 transition last:border-b-0 hover:bg-[var(--surface-soft)]"
                   >
                     {content}
                   </Link>
                 ) : (
-                  <div key={item.id} role="menuitem" className="border-b border-[var(--border)] px-4 py-3 last:border-b-0">
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => markItemRead(item.id)}
+                    className="block w-full border-b border-[var(--border)] px-4 py-3 text-start transition last:border-b-0 hover:bg-[var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-teal"
+                  >
                     {content}
-                  </div>
+                  </button>
                 );
               })}
             </div>

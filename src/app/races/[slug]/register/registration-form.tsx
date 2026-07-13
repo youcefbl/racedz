@@ -122,21 +122,24 @@ export function RegistrationForm({ race, user, canRegister, existingCategoryIds,
               ))}
             </select>
           </label>
-          <label className="grid gap-2 text-sm font-semibold text-gray-800">
-            {t.tshirtSize}
-            <select
-              name="tshirtSize"
-              className="h-11 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
-            >
-              <option value="">{t.noPreference}</option>
-              <option value="XS">XS</option>
-              <option value="S">S</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-              <option value="XL">XL</option>
-              <option value="XXL">XXL</option>
-            </select>
-          </label>
+          {race.shirtEnabled ? (
+            <label className="grid gap-2 text-sm font-semibold text-gray-800">
+              {t.tshirtSize}
+              <select
+                name="tshirtSize"
+                className="h-11 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+              >
+                <option value="">{t.noPreference}</option>
+                <option value="XS">XS</option>
+                <option value="S">S</option>
+                <option value="M">M</option>
+                <option value="L">L</option>
+                <option value="XL">XL</option>
+                <option value="XXL">XXL</option>
+                <option value="XXXL">3XL</option>
+              </select>
+            </label>
+          ) : null}
           <Field label={t.emergencyName} name="emergencyContactName" autoComplete="name" />
           <Field label={t.emergencyPhone} name="emergencyContactPhone" type="tel" autoComplete="tel" />
           <Field label={t.club} name="clubName" required={false} optionalLabel={optionalLabel} />

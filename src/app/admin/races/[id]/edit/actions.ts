@@ -25,6 +25,7 @@ export async function updateAdminRaceAction(
         title: getString(formData, "title"),
         description: getString(formData, "description"),
         elevationGainText: getOptionalString(formData, "elevationGainText"),
+        shirtEnabled: formData.get("shirtEnabled") === "on",
         conditions: getOptionalString(formData, "conditions"),
         raceType: getString(formData, "raceType"),
         status: getString(formData, "status"),

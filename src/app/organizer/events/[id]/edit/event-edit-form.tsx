@@ -32,6 +32,7 @@ type EditableRace = {
   maxParticipants: number | null;
   mainImageUrl: string | null;
   autoCancelUnpaidAfterHours: number | null;
+  shirtEnabled: boolean;
 };
 
 export function EventEditForm({ race }: { race: EditableRace }) {
@@ -92,6 +93,10 @@ export function EventEditForm({ race }: { race: EditableRace }) {
               defaultValue={race.conditions ?? ""}
               className="rounded-lg border border-gray-300 px-3 py-2 font-normal outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
             />
+          </label>
+          <label className="flex items-center gap-3 text-sm font-semibold text-gray-800 sm:col-span-2">
+            <input type="checkbox" name="shirtEnabled" defaultChecked={race.shirtEnabled} className="size-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal" />
+            {t("Offer a race shirt (runners pick a size at registration)")}
           </label>
         </div>
       </section>
