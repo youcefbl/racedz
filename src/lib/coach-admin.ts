@@ -253,6 +253,7 @@ export async function activateCoachSubscription(input: {
   months: number;
   amountDa: number | null;
   note: string | null;
+  humanCoaching?: boolean;
 }) {
   const months = Math.trunc(input.months);
   if (!Number.isFinite(months) || months < 1 || months > 36) {
@@ -273,11 +274,11 @@ export async function activateCoachSubscription(input: {
     `;
     await tx.$executeRaw`
       INSERT INTO "CoachSubscription" (
-        "id", "userId", "plan", "status", "months", "amountDa", "note",
+        "id", "userId", "plan", "status", "months", "amountDa", "note", "humanCoaching",
         "startedAt", "expiresAt", "createdByUserId", "updatedAt"
       ) VALUES (
         ${randomUUID()}, ${input.userId}, ${input.plan}::"CoachSubscriptionPlan", 'ACTIVE',
-        ${months}, ${input.amountDa ?? null}, ${input.note ?? null},
+        ${months}, ${input.amountDa ?? null}, ${input.note ?? null}, ${input.humanCoaching ?? false},
         NOW(), NOW() + (${`${months} months`})::interval, ${input.actorId}, NOW()
       )
     `;
@@ -288,9 +289,69 @@ export async function activateCoachSubscription(input: {
     action: "coach.subscription_activated",
     targetType: "User",
     targetId: input.userId,
-    summary: `Activated ${input.plan} coach subscription for ${months} month(s)`,
-    metadata: { plan: input.plan, months, amountDa: input.amountDa }
+    summary: `Activated ${input.plan} coach subscription for ${months} month(s)${input.humanCoaching ? " (human coaching)" : ""}`,
+    metadata: { plan: input.plan, months, amountDa: input.amountDa, humanCoaching: input.humanCoaching ?? false }
   });
+}
+
+export type HumanCoachNote = {
+  id: string;
+  message: string;
+  createdAt: Date;
+};
+
+// Post a personal note from a real coach to a runner (the "human coaching" tier). Stored as a
+// HUMAN_NOTE coach interaction so it lives alongside the AI history, and delivered as an in-app
+// notification carrying the full text.
+export async function postHumanCoachNote(input: { actorId: string; userId: string; message: string }) {
+  const message = input.message.trim();
+  if (message.length < 1 || message.length > 2000) {
+    throw new AdminError("A coaching note must be between 1 and 2000 characters.");
+  }
+  const prisma = getPrisma();
+  const user = await prisma.$queryRaw<Array<{ id: string; email: string }>>`
+    SELECT "id", "email" FROM "User" WHERE "id" = ${input.userId} LIMIT 1
+  `;
+  if (!user[0]) throw new AdminError("User not found.");
+
+  await prisma.$executeRaw`
+    INSERT INTO "CoachInteraction" (
+      "id", "userId", "type", "status", "response", "safety", "authorId", "promptVersion",
+      "createdAt", "completedAt"
+    ) VALUES (
+      ${randomUUID()}, ${input.userId}, 'HUMAN_NOTE'::"CoachInteractionType", 'COMPLETED'::"CoachInteractionStatus",
+      ${JSON.stringify({ summary: message })}::jsonb, '{}'::jsonb, ${input.actorId}, 'human-note',
+      NOW(), NOW()
+    )
+  `;
+
+  await createNotification({
+    userId: input.userId,
+    type: "COACH_NOTE",
+    title: "Message from your coach",
+    body: message.length > 140 ? `${message.slice(0, 140)}…` : message,
+    href: "/account/coach/notes"
+  });
+
+  await recordAdminAuditLog({
+    actorId: input.actorId,
+    action: "coach.human_note_sent",
+    targetType: "User",
+    targetId: input.userId,
+    summary: "Sent a human coaching note"
+  });
+}
+
+// A runner's human-coach notes, newest first, for the notes screen.
+export async function getHumanCoachNotes(userId: string, limit = 50): Promise<HumanCoachNote[]> {
+  const rows = await getPrisma().$queryRaw<Array<{ id: string; response: { summary?: string } | null; createdAt: Date }>>`
+    SELECT "id", "response", "createdAt"
+    FROM "CoachInteraction"
+    WHERE "userId" = ${userId} AND "type" = 'HUMAN_NOTE' AND "status" = 'COMPLETED'
+    ORDER BY "createdAt" DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((row) => ({ id: row.id, message: row.response?.summary ?? "", createdAt: row.createdAt }));
 }
 
 export type PendingCoachRequestRow = {

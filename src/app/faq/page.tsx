@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { ChevronDown } from "lucide-react";
 import { SectionPage } from "@/components/layout/section-page";
-import { getDictionary, getLocale } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n";
+import { getContentDictionary } from "@/lib/i18n-content";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -14,7 +15,7 @@ type FaqPageProps = {
 
 export default async function FaqPage({ searchParams }: FaqPageProps) {
   const locale = getLocale((await searchParams)?.lang);
-  const content = getDictionary(locale).pages.faq;
+  const content = getContentDictionary(locale).faq;
 
   return (
     <div dir={locale === "ar" ? "rtl" : "ltr"}>

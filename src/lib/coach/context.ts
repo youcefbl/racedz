@@ -96,6 +96,7 @@ export function buildRunnerCoachContext(input: {
   targetRace?: ContextTargetRace | null;
   forecast?: ForecastConditions | null;
   sleep?: Array<{ night: Date | string; durationMinutes: number }>;
+  nutrition?: string | null;
   targetRun?: TargetRun | null;
   recentConversation?: ConversationTurn[];
 }) {
@@ -145,6 +146,9 @@ export function buildRunnerCoachContext(input: {
     // Recent sleep the runner logged, so the coach can factor rest into recovery and load advice
     // (short or erratic sleep → prioritise recovery; consistent good sleep → affirm it).
     sleep: describeSleep(input.sleep ?? []),
+    // Recent fuel/hydration averages the runner logged, so the coach can advise on fueling around
+    // long runs and race week. Null when nothing is logged.
+    nutrition: input.nutrition ?? null,
     // The actual race being trained for (course, terrain, where and when), when the goal links one,
     // plus how many days remain — lets the coach tailor course prep instead of echoing the goal.
     targetRace: input.targetRace ? describeTargetRace(input.targetRace) : null,

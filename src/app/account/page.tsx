@@ -15,13 +15,16 @@ export default async function AccountPage() {
     return <AccountHub user={null} />;
   }
 
-  const [user, unreadCount, supportUnreadCount] = await Promise.all([
+  const [user, unreadCount, supportUnreadCount, humanCoachingCount] = await Promise.all([
     getPrisma().user.findUnique({
       where: { id: session.user.id },
       select: { firstName: true, lastName: true, email: true, avatarUrl: true, role: true, onboardedAt: true }
     }),
     getUnreadNotificationCount(session.user.id),
-    getUserSupportUnreadCount(session.user.id)
+    getUserSupportUnreadCount(session.user.id),
+    getPrisma().coachSubscription.count({
+      where: { userId: session.user.id, status: "ACTIVE", humanCoaching: true, expiresAt: { gt: new Date() } }
+    })
   ]);
 
   if (!user) {
@@ -41,7 +44,8 @@ export default async function AccountPage() {
         avatarUrl: user.avatarUrl,
         role: user.role,
         unreadCount,
-        supportUnreadCount
+        supportUnreadCount,
+        humanCoaching: humanCoachingCount > 0
       }}
     />
   );

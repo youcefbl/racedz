@@ -9,6 +9,9 @@ import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
+import { computePersonalRecords, type PersonalRecords } from "@/lib/coach/records";
+import { computeBadges, type Badge } from "@/lib/coach/badges";
+import { getNutritionCoachSummary } from "@/lib/coach/nutrition";
 import { localizeWorkout } from "@/lib/coach/workout-i18n";
 import {
   coachInteractionInputSchema,
@@ -420,6 +423,14 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   return { run: rows[0], metrics, safety };
 }
 
+// A single run the caller owns, with the fields needed to build a GPX export.
+export async function getRunnerRunForExport(userId: string, runId: string) {
+  return getPrisma().runnerRun.findFirst({
+    where: { id: runId, userId },
+    select: { id: true, startedAt: true, title: true, route: true }
+  });
+}
+
 export async function getRunnerRuns(userId: string, limit = 50) {
   const safeLimit = Math.min(100, Math.max(1, limit));
   return getPrisma().$queryRaw<RunRow[]>`
@@ -542,10 +553,72 @@ export async function getAnalyzedRunsMap(userId: string, runIds: string[]): Prom
 // Everything the standalone Runs screen needs to reach parity with the coach's Runs tab:
 // the runs, their existing-analysis map (for the "Coach analysis" button), and the runner's
 // weight (for the live calorie estimate in the recorder).
+// Personal records & streaks are derived over the runner's ENTIRE history (not just the
+// recent page shown on the Runs screen), so the "best ever" claims stay true as the list scrolls.
+export async function getRunnerRecords(userId: string): Promise<PersonalRecords> {
+  const runs = await getPrisma().runnerRun.findMany({
+    where: { userId },
+    select: { id: true, startedAt: true, distanceKm: true, durationSeconds: true, averagePaceSecondsPerKm: true },
+    orderBy: { startedAt: "desc" }
+  });
+  return computePersonalRecords(runs);
+}
+
+// The next still-to-do workout from the runner's ACTIVE plan, from today onward. Powers the
+// "Start guided workout" affordance on the Runs screen. Only the fields the recorder needs to
+// derive a runnable structure are returned.
+export type TodayWorkout = {
+  id: string;
+  workoutType: string;
+  title: string;
+  targetDistanceKm: number | null;
+  targetDurationMin: number | null;
+  intensity: string;
+  instructions: string;
+  scheduledFor: string;
+};
+
+export async function getTodayGuidedWorkout(userId: string): Promise<TodayWorkout | null> {
+  const rows = await getPrisma().$queryRaw<Array<Omit<TodayWorkout, "scheduledFor"> & { scheduledFor: Date }>>`
+    SELECT workout."id", workout."workoutType", workout."title", workout."targetDistanceKm",
+           workout."targetDurationMin", workout."intensity", workout."instructions", workout."scheduledFor"
+    FROM "TrainingWorkout" workout
+    INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
+    WHERE plan."userId" = ${userId} AND plan."status" = 'ACTIVE' AND workout."status" = 'PLANNED'
+      AND workout."scheduledFor" >= date_trunc('day', NOW())
+      AND workout."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
+    ORDER BY workout."scheduledFor" ASC
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  return { ...row, scheduledFor: row.scheduledFor.toISOString() };
+}
+
+// Earned + locked achievement badges for the runner, derived from their records and race finishes.
+export async function getRunnerBadges(userId: string, records: PersonalRecords): Promise<Badge[]> {
+  const raceFinishes = await getPrisma().raceResult.count({ where: { userId, status: "FINISHED" } });
+  return computeBadges({
+    totalRuns: records.totalRuns,
+    totalDistanceKm: records.totalDistanceKm,
+    longestRunKm: records.longestRunKm,
+    longestStreakWeeks: records.longestStreakWeeks,
+    raceFinishes
+  });
+}
+
 export async function getRunsScreenData(userId: string, limit = 50) {
-  const [runs, goal] = await Promise.all([getRunnerRuns(userId, limit), getActiveGoal(userId)]);
-  const analyzedRuns = await getAnalyzedRunsMap(userId, runs.map((run) => run.id));
-  return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null };
+  const [runs, goal, records, todayWorkout] = await Promise.all([
+    getRunnerRuns(userId, limit),
+    getActiveGoal(userId),
+    getRunnerRecords(userId),
+    getTodayGuidedWorkout(userId)
+  ]);
+  const [analyzedRuns, badges] = await Promise.all([
+    getAnalyzedRunsMap(userId, runs.map((run) => run.id)),
+    getRunnerBadges(userId, records)
+  ]);
+  return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null, records, todayWorkout, badges };
 }
 
 export async function createCoachInteraction(userId: string, rawInput: unknown) {
@@ -627,10 +700,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // forecast is only worth fetching where it changes advice — planning and open chat — so post-run
   // feedback (which already carries the run's own historical weather) skips the extra round-trip.
   const wantsForecast = input.type !== "POST_RUN";
-  const [targetRace, forecast, sleepEntries] = await Promise.all([
+  const [targetRace, forecast, sleepEntries, nutrition] = await Promise.all([
     getTargetRace(goal.raceEventId),
     wantsForecast ? resolveForecast(runs, profileRows[0]?.wilaya ?? null) : Promise.resolve(null),
-    getSleepEntries(userId, 14)
+    getSleepEntries(userId, 14),
+    getNutritionCoachSummary(userId)
   ]);
 
   // Recent exchanges (this runner only) so the coach can build on what was already asked and
@@ -690,6 +764,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     targetRace,
     forecast,
     sleep: sleepEntries.map((entry) => ({ night: entry.night, durationMinutes: entry.durationMinutes })),
+    nutrition,
     targetRun,
     recentConversation
   });

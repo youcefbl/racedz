@@ -20,7 +20,8 @@ import {
   activateCoachSubscriptionAction,
   approveCoachSubscriptionRequestAction,
   deactivateCoachSubscriptionAction,
-  rejectCoachSubscriptionRequestAction
+  rejectCoachSubscriptionRequestAction,
+  sendCoachNoteAction
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -180,17 +181,33 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
                               <input type="checkbox" name="student" className="size-4 accent-brand-teal" />
                               Student −20% (DZstudent)
                             </label>
+                            <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
+                              <input type="checkbox" name="humanCoaching" className="size-4 accent-brand-teal" />
+                              Include human coaching
+                            </label>
                             <Button type="submit" size="sm" className="w-full">
                               Activate / Renew
                             </Button>
                           </form>
                           {row.subscriptionPlan ? (
-                            <form action={deactivateCoachSubscriptionAction}>
-                              <input type="hidden" name="userId" value={row.userId} />
-                              <Button type="submit" size="sm" variant="outline" className="w-full">
-                                Cancel subscription
-                              </Button>
-                            </form>
+                            <>
+                              <form action={sendCoachNoteAction} className="space-y-2 border-t border-gray-200 pt-3">
+                                <input type="hidden" name="userId" value={row.userId} />
+                                <label className="grid gap-1 text-xs font-bold text-gray-600">
+                                  Send coaching note
+                                  <textarea name="message" rows={3} maxLength={2000} placeholder="Personal note to this runner…" className={`${inputClass} h-auto py-2`} />
+                                </label>
+                                <Button type="submit" size="sm" variant="secondary" className="w-full">
+                                  Send note
+                                </Button>
+                              </form>
+                              <form action={deactivateCoachSubscriptionAction}>
+                                <input type="hidden" name="userId" value={row.userId} />
+                                <Button type="submit" size="sm" variant="outline" className="w-full">
+                                  Cancel subscription
+                                </Button>
+                              </form>
+                            </>
                           ) : null}
                         </div>
                       </details>

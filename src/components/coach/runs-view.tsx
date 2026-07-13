@@ -5,7 +5,12 @@ import { useCallback, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import { getCoachCopy } from "@/components/coach/copy";
+import { BadgesStrip } from "@/components/coach/badges-strip";
+import { GpxImport } from "@/components/coach/gpx-import";
+import { RecordsSummary, type RecordsSummary as RecordsSummaryData } from "@/components/coach/records-summary";
+import type { GuidedWorkout } from "@/components/coach/run-recorder";
 import type { CoachLocale, CoachRun } from "@/components/coach/types";
+import type { Badge } from "@/lib/coach/badges";
 import { withLocale } from "@/lib/i18n";
 
 // Standalone "Runs" tab (bottom-nav on the phone app): record a run and browse past runs.
@@ -16,11 +21,17 @@ export function RunsView({
   initialRuns,
   analyzedRuns: initialAnalyzedRuns = {},
   weightKg = null,
+  records = null,
+  badges = [],
+  guidedWorkout = null,
   locale
 }: {
   initialRuns: CoachRun[];
   analyzedRuns?: Record<string, string>;
   weightKg?: number | null;
+  records?: RecordsSummaryData | null;
+  badges?: Badge[];
+  guidedWorkout?: GuidedWorkout | null;
   locale: CoachLocale;
 }) {
   const router = useRouter();
@@ -68,6 +79,15 @@ export function RunsView({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
+      {records ? <RecordsSummary records={records} locale={locale} /> : null}
+      {badges.length > 0 ? <BadgesStrip badges={badges} locale={locale} /> : null}
+      <GpxImport
+        locale={locale}
+        onImported={async () => {
+          await refresh();
+          router.refresh();
+        }}
+      />
       <CoachRunsPanel
         runs={runs}
         plan={null}
@@ -75,6 +95,7 @@ export function RunsView({
         copy={copy}
         pendingAction={pendingAction}
         weightKg={weightKg}
+        guidedWorkout={guidedWorkout}
         analyzedRuns={analyzedRuns}
         onViewAnalysis={openAnalysis}
         onSaved={async (_runId, analyzeNow) => {

@@ -55,6 +55,11 @@ model User {
   coachSubscriptionRequests   CoachSubscriptionRequest[]
   sleepLogs                   SleepLog[]
   supportThreads              SupportThread[]
+  following                   Follow[]                   @relation("Following")
+  followers                   Follow[]                   @relation("Followers")
+  runKudos                    RunKudos[]
+  raceResults                 RaceResult[]
+  nutritionEntries            NutritionEntry[]
 }
 
 enum UserRole {
@@ -189,6 +194,7 @@ model RaceEvent {
   editHistory   RaceEditHistory[]
   announcements RaceAnnouncement[]
   coachGoals    RunnerGoal[]
+  results       RaceResult[]
 }
 
 enum RaceSource {
@@ -312,6 +318,7 @@ model RaceRegistration {
   user         User         @relation(fields: [userId], references: [id])
   raceEvent    RaceEvent    @relation(fields: [raceEventId], references: [id])
   raceCategory RaceCategory @relation(fields: [raceCategoryId], references: [id])
+  result       RaceResult?
 
   @@unique([userId, raceCategoryId])
 }
@@ -554,6 +561,7 @@ model RunnerRun {
   goal         RunnerGoal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
   workout      TrainingWorkout?   @relation(fields: [workoutId], references: [id], onDelete: SetNull)
   interactions CoachInteraction[]
+  kudos        RunKudos[]
 
   @@index([userId, startedAt])
   @@index([goalId, startedAt])
@@ -647,6 +655,8 @@ model CoachInteraction {
   userMessage   String?
   response      Json?
   safety        Json
+  // For HUMAN_NOTE interactions: the admin/coach who wrote the note (null for AI-generated ones).
+  authorId      String?
   model         String?
   promptVersion String
   errorCode     String?
@@ -697,6 +707,9 @@ model CoachSubscription {
   months          Int
   amountDa        Int?
   note            String?
+  // Whether this subscription includes human-coach review (a real coach posts personal notes),
+  // on top of the AI coach. Granted by an admin when activating/editing the subscription.
+  humanCoaching   Boolean                 @default(false)
   startedAt       DateTime                @default(now())
   expiresAt       DateTime
   createdByUserId String?
@@ -823,6 +836,7 @@ enum CoachInteractionType {
   POST_RUN
   WEEKLY_REVIEW
   CHAT
+  HUMAN_NOTE
 }
 
 enum CoachInteractionStatus {
@@ -841,16 +855,16 @@ enum AiRequestStatus {
 // (textEn/textFr/textAr) following the app's sibling-column localization convention.
 // AI-proposed tips land as PROPOSED for an admin to review, edit, then PUBLISH.
 model CoachTip {
-  id              String        @id @default(cuid())
+  id              String           @id @default(cuid())
   category        CoachTipCategory
-  status          CoachTipStatus @default(PROPOSED)
-  source          CoachTipSource @default(MANUAL)
+  status          CoachTipStatus   @default(PROPOSED)
+  source          CoachTipSource   @default(MANUAL)
   textEn          String
   textFr          String
   textAr          String
   proposedByModel String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([status, category])
 }
@@ -1019,4 +1033,85 @@ model SupportMessage {
 enum SupportThreadStatus {
   OPEN
   CLOSED
+}
+
+// A directed follow edge: `follower` follows `following`. Powers the activity feed (public runs
+// from people you follow) and follower/following counts on profiles.
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+// A "kudos" (like) on a public run. One per (run, user). Deleting the row un-kudos.
+model RunKudos {
+  id        String   @id @default(cuid())
+  runId     String
+  userId    String
+  createdAt DateTime @default(now())
+
+  run  RunnerRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, userId])
+  @@index([userId])
+}
+
+// The outcome of a race for one registered runner: finish time, status, and rankings. Recorded by
+// the organizer/admin after the event. Closes the race loop — turns a registration into a
+// permanent finisher record on the runner's profile.
+model RaceResult {
+  id                String           @id @default(cuid())
+  registrationId    String           @unique
+  eventId           String
+  userId            String
+  finishTimeSeconds Int?
+  status            RaceResultStatus @default(FINISHED)
+  overallRank       Int?
+  categoryRank      Int?
+  notes             String?
+  recordedById      String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  registration RaceRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  event        RaceEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([userId])
+}
+
+enum RaceResultStatus {
+  FINISHED
+  DNF // did not finish
+  DNS // did not start
+  DSQ // disqualified
+}
+
+// A fuel/hydration log entry for a given day. Feeds the AI coach's context (fueling around long
+// runs, race week) and a simple daily-intake view. Deliberately light: free-text meal + optional
+// calories, or a hydration amount.
+model NutritionEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  loggedFor   DateTime // the day the entry applies to (date-only semantics, stored at UTC midnight)
+  kind        String   @default("MEAL") // MEAL | HYDRATION
+  mealType    String? // BREAKFAST | LUNCH | DINNER | SNACK (for MEAL)
+  description String?
+  calories    Int?
+  waterMl     Int? // for HYDRATION
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loggedFor])
 }

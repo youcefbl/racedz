@@ -1,12 +1,12 @@
 "use client";
 
-import { Activity, AlertTriangle, ChevronDown, Flame, Footprints, Globe, Images, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { RunRecorder } from "@/components/coach/run-recorder";
+import { RunRecorder, type GuidedWorkout } from "@/components/coach/run-recorder";
 import { RunPhotoUploader } from "@/components/coach/run-photos";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { RunMap } from "@/components/coach/run-map";
@@ -25,7 +25,8 @@ export function CoachRunsPanel({
   onAnalyze,
   analyzedRuns,
   onViewAnalysis,
-  weightKg
+  weightKg,
+  guidedWorkout
 }: {
   runs: CoachRun[];
   plan: CoachPlan | null;
@@ -39,6 +40,8 @@ export function CoachRunsPanel({
   onViewAnalysis?: (interactionId: string) => void;
   /** Runner's weight, forwarded to the recorder for a live calorie estimate. */
   weightKg?: number | null;
+  /** Next planned workout, offered as a guided (structured) session in the recorder. */
+  guidedWorkout?: GuidedWorkout | null;
 }) {
   const [showForm, setShowForm] = useState(runs.length === 0);
   const [effort, setEffort] = useState(5);
@@ -144,7 +147,7 @@ export function CoachRunsPanel({
   return (
     <div className="space-y-6">
       {/* GPS run recorder — the record hero; renders only inside the phone app */}
-      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} />
+      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} />
 
       <section>
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -369,6 +372,15 @@ export function CoachRunsPanel({
                           {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
                           {run.isPublic ? copy.publicLabel : copy.privateLabel}
                         </button>
+                        {run.route && run.route.length > 1 ? (
+                          <a
+                            href={`/api/coach/runs/${run.id}/gpx`}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+                          >
+                            <Download className="size-3.5" aria-hidden="true" />
+                            GPX
+                          </a>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setPendingDelete(run.id)}

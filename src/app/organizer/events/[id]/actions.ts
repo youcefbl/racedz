@@ -7,8 +7,10 @@ import {
   cancelOrganizerRaceRegistration,
   confirmOrganizerRegistrationPayment,
   requireApprovedOrganizer,
+  saveOrganizerRaceResult,
   updateOrganizerRaceRegistrationStatus
 } from "@/lib/organizer";
+import { isRaceResultStatus, parseFinishTime } from "@/lib/race-results";
 
 export async function updateRegistrationStatusAction(formData: FormData) {
   const { organization } = await requireApprovedOrganizer();
@@ -90,6 +92,27 @@ export async function cancelOrganizerRegistrationAction(formData: FormData) {
   revalidatePath(`/organizer/events/${raceId}`);
   revalidatePath("/races");
   revalidateRacesCache();
+}
+
+export async function saveRaceResultAction(formData: FormData) {
+  const { organization, session } = await requireApprovedOrganizer();
+  const raceId = getString(formData, "raceId");
+  const status = getString(formData, "status");
+
+  if (!isRaceResultStatus(status)) {
+    throw new Error("Invalid race result status");
+  }
+
+  await saveOrganizerRaceResult({
+    organizationId: organization.id,
+    registrationId: getString(formData, "id"),
+    recordedById: session.user.id,
+    finishTimeSeconds: parseFinishTime(getString(formData, "finishTime")),
+    status,
+    notes: getString(formData, "notes")
+  });
+
+  revalidatePath(`/organizer/events/${raceId}/registrations`);
 }
 
 function getString(formData: FormData, key: string) {

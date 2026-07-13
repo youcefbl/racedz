@@ -1,9 +1,10 @@
 import { Gauge, Medal, Route as RouteIcon, Trophy } from "lucide-react";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { FollowButton } from "@/components/social/follow-button";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ALGERIA_WILAYAS } from "@/lib/algeria";
+import { getPrisma } from "@/lib/db";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { getWilayaLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 
@@ -14,13 +15,6 @@ type RankingsPageProps = {
 };
 
 export default async function RankingsPage({ searchParams }: RankingsPageProps) {
-  // Leaderboards are admin-only for now (feature hidden from the public).
-  const session = await auth();
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPERADMIN") {
-    redirect("/");
-  }
-
   const params = await searchParams;
   const locale = getLocale(params?.lang);
   const dictionary = getDictionary(locale);
@@ -30,6 +24,20 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
   const wilaya = params?.wilaya && (ALGERIA_WILAYAS as readonly string[]).includes(params.wilaya) ? params.wilaya : "";
   const monthly = params?.window === "month";
   const { pace, distance } = await getWilayaLeaderboards({ wilaya, monthly });
+
+  // Let logged-in runners follow people straight from the board. Resolve who the viewer already
+  // follows among the ranked runners in one query so each row renders the right button state.
+  const session = await auth();
+  const viewerId = session?.user?.id ?? null;
+  let followingIds = new Set<string>();
+  if (viewerId) {
+    const rankedIds = [...new Set([...pace, ...distance].map((entry) => entry.userId))];
+    const rows = await getPrisma().follow.findMany({
+      where: { followerId: viewerId, followingId: { in: rankedIds } },
+      select: { followingId: true }
+    });
+    followingIds = new Set(rows.map((row) => row.followingId));
+  }
 
   const tabHref = (window: "all" | "month") =>
     withLocale(`/rankings?${new URLSearchParams({ ...(wilaya ? { wilaya } : {}), ...(window === "month" ? { window: "month" } : {}) }).toString()}`, locale);
@@ -71,8 +79,8 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
       </section>
 
       <section className="mx-auto grid max-w-5xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:px-8">
-        <Board title={content.bestPace} icon={Gauge} entries={pace} metric="pace" emptyText={content.empty} locale={locale} />
-        <Board title={content.longestDistance} icon={RouteIcon} entries={distance} metric="distance" emptyText={content.empty} locale={locale} />
+        <Board title={content.bestPace} icon={Gauge} entries={pace} metric="pace" emptyText={content.empty} locale={locale} viewerId={viewerId} followingIds={followingIds} />
+        <Board title={content.longestDistance} icon={RouteIcon} entries={distance} metric="distance" emptyText={content.empty} locale={locale} viewerId={viewerId} followingIds={followingIds} />
       </section>
     </div>
   );
@@ -96,7 +104,9 @@ function Board({
   entries,
   metric,
   emptyText,
-  locale
+  locale,
+  viewerId,
+  followingIds
 }: {
   title: string;
   icon: typeof Gauge;
@@ -104,7 +114,10 @@ function Board({
   metric: "pace" | "distance";
   emptyText: string;
   locale: Locale;
+  viewerId: string | null;
+  followingIds: Set<string>;
 }) {
+  const coachLocale = locale === "ar" ? "ar" : locale === "fr" ? "fr" : "en";
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-4">
@@ -134,6 +147,9 @@ function Board({
               <span className="shrink-0 text-sm font-black tabular-nums text-brand-teal">
                 {metric === "pace" ? formatPace(entry.paceSecondsPerKm) : `${entry.distanceKm.toFixed(1)} km`}
               </span>
+              {viewerId && entry.userId !== viewerId ? (
+                <FollowButton userId={entry.userId} initialFollowing={followingIds.has(entry.userId)} locale={coachLocale} />
+              ) : null}
             </li>
           ))}
         </ol>

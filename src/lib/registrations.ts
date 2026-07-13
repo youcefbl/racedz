@@ -98,10 +98,35 @@ export async function getUserRegistrations(userId: string) {
           distanceKm: true,
           priceDzd: true
         }
+      },
+      result: {
+        select: {
+          finishTimeSeconds: true,
+          status: true,
+          overallRank: true,
+          categoryRank: true
+        }
       }
     },
     orderBy: {
       createdAt: "desc"
+    }
+  });
+}
+
+// One registration owned by the user, with its finisher result + the data a certificate needs.
+export async function getUserRegistrationForCertificate(userId: string, registrationId: string) {
+  return getPrisma().raceRegistration.findFirst({
+    where: { id: registrationId, userId },
+    select: {
+      id: true,
+      bibNumber: true,
+      user: { select: { firstName: true, lastName: true, arabicFullName: true } },
+      raceEvent: { select: { title: true, startDate: true, wilaya: true, city: true } },
+      raceCategory: { select: { name: true, distanceKm: true } },
+      result: {
+        select: { finishTimeSeconds: true, status: true, overallRank: true, categoryRank: true }
+      }
     }
   });
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, MapPin, ReceiptText, Route } from "lucide-react";
+import { Award, CalendarDays, MapPin, Medal, ReceiptText, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { getUserRegistrations } from "@/lib/registrations";
+import { formatFinishTime } from "@/lib/race-results";
 import type { PaymentStatus, RegistrationStatus } from "@/types/race";
 import { PaymentPanel } from "./payment-panel";
 
@@ -44,6 +45,12 @@ export default async function AccountRegistrationsPage({ searchParams }: Account
   const t = getDictionary(locale).registrations;
   const statusLabels = getDictionary(locale).status;
   const payLabels = getDictionary(locale).pay;
+  const resultStatusLabels: Record<string, string> = {
+    FINISHED: t.resultFinished,
+    DNF: t.resultDnf,
+    DNS: t.resultDns,
+    DSQ: t.resultDsq
+  };
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account/registrations");
@@ -119,6 +126,40 @@ export default async function AccountRegistrationsPage({ searchParams }: Account
                         {formatDzd(registration.raceCategory.priceDzd ?? undefined)}
                       </p>
                     </div>
+                    {registration.result ? (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3">
+                        <span className="inline-flex items-center gap-2 text-sm font-black text-brand-teal">
+                          <Medal className="size-4 shrink-0" aria-hidden="true" />
+                          {t.resultLabel}
+                        </span>
+                        {registration.result.status === "FINISHED" ? (
+                          <span className="text-sm font-bold text-gray-800">
+                            {t.finishTime}: <span className="tabular-nums">{formatFinishTime(registration.result.finishTimeSeconds)}</span>
+                          </span>
+                        ) : (
+                          <span className="text-sm font-bold text-gray-800">{resultStatusLabels[registration.result.status]}</span>
+                        )}
+                        {registration.result.overallRank ? (
+                          <span className="text-sm font-semibold text-gray-600">
+                            {t.overallRank}: #{registration.result.overallRank}
+                          </span>
+                        ) : null}
+                        {registration.result.categoryRank ? (
+                          <span className="text-sm font-semibold text-gray-600">
+                            {t.categoryRank}: #{registration.result.categoryRank}
+                          </span>
+                        ) : null}
+                        {registration.result.status === "FINISHED" ? (
+                          <Link
+                            href={`/account/registrations/${registration.id}/certificate`}
+                            className="ms-auto inline-flex items-center gap-1 text-sm font-black text-brand-teal hover:underline"
+                          >
+                            <Award className="size-4" aria-hidden="true" />
+                            {t.certificate}
+                          </Link>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:w-44 lg:grid-cols-1">
                     <ButtonLink href={`/races/${registration.raceEvent.slug}`} variant="outline" size="sm">

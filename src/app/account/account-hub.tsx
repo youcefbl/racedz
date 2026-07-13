@@ -12,11 +12,15 @@ import {
   HelpCircle,
   LogOut,
   MessageCircle,
+  MessageSquareHeart,
   Moon,
   ShieldCheck,
   Sparkles,
   Sun,
-  UserRound
+  Trophy,
+  UserRound,
+  Users,
+  UtensilsCrossed
 } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -35,6 +39,7 @@ type HubUser = {
   role: UserRole;
   unreadCount: number;
   supportUnreadCount: number;
+  humanCoaching?: boolean;
 };
 
 const THEMES = [
@@ -79,6 +84,8 @@ export function AccountHub({ user }: { user: HubUser | null }) {
 
             <SectionLabel>{t.account}</SectionLabel>
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <Row href="/account/feed" icon={Users} label={t.feed} />
+              <Row href="/rankings" icon={Trophy} label={t.leaderboards} />
               <Row href="/account/registrations" icon={ClipboardList} label={t.myRegistrations} />
               <Row href="/account/profile" icon={UserRound} label={t.profileSettings} />
               <Row href="/account/notifications" icon={Bell} label={t.notifications} badge={user.unreadCount} />
@@ -90,6 +97,8 @@ export function AccountHub({ user }: { user: HubUser | null }) {
             <SectionLabel>{t.coach}</SectionLabel>
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <Row href="/account/coach" icon={Sparkles} label={t.coach} />
+              {user.humanCoaching ? <Row href="/account/coach/notes" icon={MessageSquareHeart} label={t.coachMessages} /> : null}
+              <Row href="/account/nutrition" icon={UtensilsCrossed} label={t.nutrition} />
               <Row href="/account/coach/subscribe" icon={CreditCard} label={t.coachSubscription} last />
             </div>
 

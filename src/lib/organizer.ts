@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
+import type { RaceResultStatusValue } from "@/lib/race-results";
 import { getRaceOptionalDetails, setRaceOptionalDetails } from "@/lib/race-optional-details";
 import {
   cancelExpiredUnpaidRegistrations,
@@ -48,6 +49,7 @@ type OrganizerRegistrationRow = Prisma.RaceRegistrationGetPayload<{
         priceDzd: true;
       };
     };
+    result: true;
   };
 }>;
 
@@ -284,7 +286,8 @@ export async function getOrganizerRaceRegistrations(
             distanceKm: true,
             priceDzd: true
           }
-        }
+        },
+        result: true
       },
       orderBy: {
         createdAt: "desc"
@@ -335,6 +338,55 @@ export async function confirmOrganizerRegistrationPayment({
     },
     data: {
       paymentStatus: "PAID"
+    }
+  });
+}
+
+// Record (or update) the race result for one registration the organizer owns. Passing a null
+// finish time with status FINISHED clears any recorded time; other statuses (DNF/DNS/DSQ) are
+// kept without a time. Upserts so re-saving edits the existing result.
+export async function saveOrganizerRaceResult({
+  organizationId,
+  registrationId,
+  recordedById,
+  finishTimeSeconds,
+  status,
+  notes
+}: {
+  organizationId: string;
+  registrationId: string;
+  recordedById: string;
+  finishTimeSeconds: number | null;
+  status: RaceResultStatusValue;
+  notes?: string | null;
+}) {
+  const registration = await getPrisma().raceRegistration.findFirst({
+    where: { id: registrationId, raceEvent: { organizationId } },
+    select: { id: true, userId: true, raceEventId: true }
+  });
+
+  if (!registration) {
+    throw new OrganizerError("Registration not found for this organization.");
+  }
+
+  const timeSeconds = status === "FINISHED" ? finishTimeSeconds : null;
+
+  return getPrisma().raceResult.upsert({
+    where: { registrationId },
+    create: {
+      registrationId,
+      eventId: registration.raceEventId,
+      userId: registration.userId,
+      finishTimeSeconds: timeSeconds,
+      status,
+      notes: notes?.trim() || null,
+      recordedById
+    },
+    update: {
+      finishTimeSeconds: timeSeconds,
+      status,
+      notes: notes?.trim() || null,
+      recordedById
     }
   });
 }

@@ -50,13 +50,12 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const desktopNavItems = [
     { href: "/races", label: dictionary.nav.races, icon: CalendarDays },
     { href: "/coach", label: dictionary.nav.aiCoach, icon: BrainCircuit },
     { href: "/blog", label: dictionary.nav.blog, icon: BookOpen },
     { href: "/pricing", label: dictionary.nav.pricing, icon: Tag },
-    ...(isAdmin ? [{ href: "/rankings", label: dictionary.nav.rankings, icon: Trophy }] : []),
+    { href: "/rankings", label: dictionary.nav.rankings, icon: Trophy },
     { href: "/runners", label: dictionary.nav.forRunners, icon: Footprints },
     { href: "/organizers", label: dictionary.nav.organizers, icon: Building2 }
   ];

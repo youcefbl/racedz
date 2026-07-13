@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2, Mail, Phone, Receipt, Route, Search, UserRound, Users, XCircle } from "lucide-react";
+import { CheckCircle2, Mail, Phone, Receipt, Route, Search, Timer, UserRound, Users, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
@@ -10,7 +10,8 @@ import { getOrganizerRaceById, getOrganizerRaceRegistrations, requireApprovedOrg
 import { parsePagination } from "@/lib/pagination";
 import { getLocale, withLocale } from "@/lib/i18n";
 import { translateOrganizer, translateOrganizerEnum } from "@/lib/organizer-i18n";
-import { cancelOrganizerRegistrationAction, confirmOrganizerRegistrationPaymentAction } from "../actions";
+import { formatFinishTime, RACE_RESULT_STATUSES } from "@/lib/race-results";
+import { cancelOrganizerRegistrationAction, confirmOrganizerRegistrationPaymentAction, saveRaceResultAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,7 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                       <th className="px-4 py-3">{t("Status")}</th>
                       <th className="px-4 py-3">{t("Payment")}</th>
                       <th className="px-4 py-3">{t("Registered")}</th>
+                      <th className="px-4 py-3">{t("Result")}</th>
                       <th className="px-4 py-3">{t("Actions")}</th>
                     </tr>
                   </thead>
@@ -190,6 +192,34 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                           </td>
                           <td className="px-4 py-4 text-gray-600">{formatDateTime(registration.createdAt)}</td>
                           <td className="px-4 py-4">
+                            <form action={saveRaceResultAction} className="flex min-w-40 flex-col gap-1.5">
+                              <input type="hidden" name="id" value={registration.id} />
+                              <input type="hidden" name="raceId" value={race.id} />
+                              <input
+                                name="finishTime"
+                                defaultValue={formatFinishTimeInput(registration.result?.finishTimeSeconds ?? null)}
+                                placeholder="H:MM:SS"
+                                inputMode="numeric"
+                                className="h-9 w-full rounded-lg border border-gray-300 px-2 text-sm tabular-nums outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+                              />
+                              <select
+                                name="status"
+                                defaultValue={registration.result?.status ?? "FINISHED"}
+                                className="h-9 w-full rounded-lg border border-gray-300 px-2 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+                              >
+                                {RACE_RESULT_STATUSES.map((value) => (
+                                  <option key={value} value={value}>
+                                    {t(RESULT_STATUS_LABELS[value])}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button type="submit" variant="outline" size="sm">
+                                <Timer className="size-4" aria-hidden="true" />
+                                {registration.result ? t("Update result") : t("Save result")}
+                              </Button>
+                            </form>
+                          </td>
+                          <td className="px-4 py-4">
                             <div className="flex min-w-44 flex-wrap gap-2">
                               <form action={confirmOrganizerRegistrationPaymentAction}>
                                 <input type="hidden" name="id" value={registration.id} />
@@ -236,6 +266,18 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
       </div>
     </div>
   );
+}
+
+const RESULT_STATUS_LABELS: Record<(typeof RACE_RESULT_STATUSES)[number], string> = {
+  FINISHED: "Finished",
+  DNF: "DNF (did not finish)",
+  DNS: "DNS (did not start)",
+  DSQ: "Disqualified"
+};
+
+// Empty (not "—") when there's no recorded time, so the input starts blank and editable.
+function formatFinishTimeInput(seconds: number | null): string {
+  return seconds === null || seconds === undefined ? "" : formatFinishTime(seconds);
 }
 
 function SelectFilter({

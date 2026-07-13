@@ -6,6 +6,7 @@ import {
   activateCoachSubscription,
   approveCoachSubscriptionRequest,
   deactivateCoachSubscription,
+  postHumanCoachNote,
   rejectCoachSubscriptionRequest
 } from "@/lib/coach-admin";
 import { resolvePlanCharge, STUDENT_PROMO } from "@/lib/coach/plans";
@@ -37,9 +38,18 @@ export async function activateCoachSubscriptionAction(formData: FormData) {
     plan,
     months: charge.months,
     amountDa: amountRaw ? Number(amountRaw) : charge.amountDa,
-    note: noteRaw || (student ? STUDENT_PROMO.code : null)
+    note: noteRaw || (student ? STUDENT_PROMO.code : null),
+    humanCoaching: String(formData.get("humanCoaching") ?? "") === "on"
   });
 
+  revalidatePath("/admin/coach");
+}
+
+export async function sendCoachNoteAction(formData: FormData) {
+  const session = await requireAdmin();
+  const userId = getFormString(formData, "userId");
+  const message = String(formData.get("message") ?? "").trim();
+  await postHumanCoachNote({ actorId: session.user.id, userId, message });
   revalidatePath("/admin/coach");
 }
 
