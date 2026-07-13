@@ -123,6 +123,27 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 - [ ] **Blog** — registered-runner comments (`BlogComment` + moderation); remaining posts (mental training,
       cross-training, nutrition timing, foot types, recovery) EN+FR+AR. — L
 
+### Scale / infrastructure — ~1000 concurrent (do in order, before the next big race)
+Context: run recording is **client-side** (one `POST /api/coach/runs` at run-end + offline retry, not a live
+stream), so raw throughput isn't the risk. The real bottleneck is the **registration thundering-herd** on
+registration-open, and the single-host stack (one app container + local-volume uploads) that can't scale out.
+Target ~€40/mo on Hetzner (CPX41 + object storage), no AWS needed at this size.
+- [ ] ❌ **(1) Make the registration transaction atomic** — `createRegistration` (`src/lib/registrations.ts:160`)
+      does `count()` then `create` inside a `$transaction`; under registration-open load, 1000 requests contend
+      on the same category counter and serialize/deadlock. Replace count-then-insert with an atomic
+      `UPDATE ... WHERE registeredCount < maxParticipants` (or a DB constraint) + retry. **Highest priority —
+      this falls over first.** Optionally front the open moment with a Cloudflare waiting room. — M
+- [ ] ❌ **(2) Externalize uploads to R2** — uploads currently write to a **local** Docker volume
+      (`racedz_uploads`, `src/lib/storage.ts`), which pins the app to one host. Move to Cloudflare R2 / Hetzner
+      Object Storage (S3 API) so the app tier becomes stateless and horizontally scalable. (Note: P3 already lists
+      "S3 upload migration" — this is the same work, promoted.) — M
+- [ ] ❌ **(3) PgBouncer + 3–4 app replicas on a CPX41** — bump to a Hetzner CPX41 (8 vCPU/16GB), run 3–4 `app`
+      replicas behind Caddy/LB, and put **PgBouncer** in front of Postgres so replicas don't exhaust
+      `max_connections` (default 100). Requires (2) done first. After this, "add a node" is a ~5-min op. — M
+- [ ] ❌ **(4) Load-test before the next big race** — use the existing `loadtest/k6` harness to simulate the
+      registration thundering-herd against the real endpoint and validate the atomic fix + replica setup under
+      ~1000 concurrent. — S
+
 ---
 
 ## P3 — Later 🟢
