@@ -1,3 +1,5 @@
+import "server-only";
+
 type SendEmailInput = {
   to: string;
   subject: string;

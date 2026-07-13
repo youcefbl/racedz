@@ -30,6 +30,10 @@ model User {
   onboardedAt     DateTime? // set once the runner finishes (or skips) the first-login welcome step
   language        String? // saved UI language ("en" | "fr" | "ar"), synced across devices
   theme           String? // saved appearance ("light" | "dark" | "race"), synced across devices
+  mfaEnabled      Boolean   @default(false) // TOTP two-factor active (opt-in; primarily for admins)
+  mfaSecret       String? // base32 TOTP secret, server-only; set while enrolled
+  mfaBackupCodes  String[]  @default([]) // sha256 hashes of one-time recovery codes
+  mfaEnabledAt    DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

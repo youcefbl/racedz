@@ -295,6 +295,10 @@ export async function updateCoachGoal(userId: string, goalId: string, rawInput: 
 // issue unlimited billed transcription calls. This bounds the daily cost per user.
 const TRANSCRIBE_DAILY_LIMIT = 60;
 
+// Off-topic CHAT refusals are persisted for audit, but they bypass the entitlement/quota gate,
+// so cap how many we store per user per day to keep repeated off-topic spam from bloating the table.
+const OFF_TOPIC_DAILY_LOG_CAP = 30;
+
 // Transcribe a voice note and record the OpenAI call in AiUsageLog (success and failure alike),
 // so audio failures are tracked next to text failures on the admin dashboard.
 export async function transcribeCoachVoiceNote(userId: string, file: File): Promise<string> {
@@ -632,21 +636,35 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     throw new CoachError("The selected run does not belong to the active goal.", 409, "RUN_GOAL_MISMATCH");
   }
 
-  // Off-topic chat is refused before spending the runner's quota or any AI call.
+  // Off-topic chat is refused before spending the runner's quota or any AI call. Because it skips
+  // the entitlement/quota gate, persist these BLOCKED rows only up to a small daily cap per user so
+  // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
+  // per-user route rate limit, but that alone still allows thousands of rows/day).
   if (input.type === "CHAT" && !evaluateTopicality(input.message).onTopic) {
-    const offTopicId = randomUUID();
     const response = buildOffTopicCoachResponse(goal.preferredLocale);
     const offTopicSafety = { level: "CLEAR" as const, reasons: [], requiresProfessionalAdvice: false };
-    await prisma.$executeRaw`
-      INSERT INTO "CoachInteraction" (
-        "id", "userId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
-      ) VALUES (
-        ${offTopicId}, ${userId}, ${goal.id}, ${null}, 'CHAT'::"CoachInteractionType",
-        'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
-        CAST(${JSON.stringify(offTopicSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
-      )
+    const [logged] = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS count FROM "CoachInteraction"
+      WHERE "userId" = ${userId}
+        AND "type" = 'CHAT'::"CoachInteractionType"
+        AND "status" = 'BLOCKED'
+        AND "createdAt" >= NOW() - INTERVAL '1 day'
     `;
-    return { id: offTopicId, status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
+    if (Number(logged?.count ?? 0) < OFF_TOPIC_DAILY_LOG_CAP) {
+      const offTopicId = randomUUID();
+      await prisma.$executeRaw`
+        INSERT INTO "CoachInteraction" (
+          "id", "userId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+        ) VALUES (
+          ${offTopicId}, ${userId}, ${goal.id}, ${null}, 'CHAT'::"CoachInteractionType",
+          'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
+          CAST(${JSON.stringify(offTopicSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
+        )
+      `;
+      return { id: offTopicId, status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
+    }
+    // Over the daily log cap: still refuse gracefully, just don't write another row.
+    return { id: randomUUID(), status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
   }
 
   await enforceCoachEntitlement(userId);

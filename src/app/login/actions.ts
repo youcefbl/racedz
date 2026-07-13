@@ -5,8 +5,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { getPrisma } from "@/lib/db";
-import { createEmailVerificationToken, isEmailVerified, sendAccountVerificationEmail } from "@/lib/email-verification";
+import { createEmailVerificationToken, sendAccountVerificationEmail } from "@/lib/email-verification";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import { verifyLoginCredentials } from "@/lib/auth-credentials";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
@@ -40,6 +41,9 @@ export async function resendVerificationAction(email: string, lang?: string | nu
 
 export type LoginActionState = {
   error?: string;
+  // True once the password is confirmed but the account needs a second factor: the form then
+  // reveals the authenticator-code input and the user resubmits with the code included.
+  mfaRequired?: boolean;
 };
 
 export async function loginAction(_previousState: LoginActionState, formData: FormData): Promise<LoginActionState> {
@@ -64,31 +68,47 @@ export async function loginAction(_previousState: LoginActionState, formData: Fo
     return { error: t.errInvalidCredentials };
   }
 
-  const user = await getPrisma().user.findUnique({
-    where: { email: parsed.data.email },
-    select: { role: true }
-  });
+  const totp = typeof formData.get("totp") === "string" ? (formData.get("totp") as string).trim() : "";
 
-  if (user && !(await isEmailVerified(parsed.data.email))) {
-    return { error: t.errNotActivated };
+  // Confirm the password up front (same check `authorize` runs). This lets us decide whether to
+  // prompt for a second factor and surface the "not activated" hint without leaking either fact on
+  // a wrong password.
+  const user = await verifyLoginCredentials(parsed.data.email, parsed.data.password);
+
+  if (!user) {
+    const existing = await getPrisma().user.findUnique({
+      where: { email: parsed.data.email },
+      select: { emailVerifiedAt: true }
+    });
+    if (existing && !existing.emailVerifiedAt) {
+      return { error: t.errNotActivated };
+    }
+    return { error: t.errInvalidCredentials };
   }
 
-  const redirectTo = getPostLoginUrl(user?.role as UserRole | undefined, formData.get("callbackUrl"));
+  // Password is correct. If MFA is on and no code was supplied yet, prompt for one.
+  if (user.mfaEnabled && !totp) {
+    return { mfaRequired: true };
+  }
+
+  const redirectTo = getPostLoginUrl(user.role as UserRole | undefined, formData.get("callbackUrl"));
 
   try {
     const result = await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
+      totp,
       redirect: false,
       redirectTo
     });
 
     if (typeof result === "string" && new URL(result, "http://127.0.0.1:3003").searchParams.has("error")) {
-      return { error: t.errInvalidCredentials };
+      // Password already validated above, so a failure here is a bad/expired second factor.
+      return user.mfaEnabled ? { error: t.errInvalidCode, mfaRequired: true } : { error: t.errInvalidCredentials };
     }
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: t.errInvalidCredentials };
+      return user.mfaEnabled ? { error: t.errInvalidCode, mfaRequired: true } : { error: t.errInvalidCredentials };
     }
 
     throw error;

@@ -88,6 +88,7 @@ export function AccountHub({ user }: { user: HubUser | null }) {
               <Row href="/rankings" icon={Trophy} label={t.leaderboards} />
               <Row href="/account/registrations" icon={ClipboardList} label={t.myRegistrations} />
               <Row href="/account/profile" icon={UserRound} label={t.profileSettings} />
+              <Row href="/account/security" icon={ShieldCheck} label={t.security} />
               <Row href="/account/notifications" icon={Bell} label={t.notifications} badge={user.unreadCount} />
               <Row href="/account/support" icon={MessageCircle} label={t.support} badge={user.supportUnreadCount} />
               <Row href="/faq" icon={HelpCircle} label={dict.nav.faq} />

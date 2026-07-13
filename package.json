@@ -13,6 +13,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "test:coach": "tsx scripts/test-coach.ts",
     "test:workout": "tsx scripts/test-workout-structure.ts",
+    "test:mfa": "tsx scripts/test-mfa.ts",
     "test:e2e:coach": "playwright test coach.e2e.spec.ts",
     "audit:prune": "tsx scripts/prune-admin-audit.ts",
     "analytics:prune": "tsx scripts/prune-pageviews.ts",

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createSign } from "crypto";
 
 type SendFirebasePushInput = {

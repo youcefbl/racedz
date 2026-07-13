@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, EyeOff, Mail, LockKeyhole } from "lucide-react";
+import { Eye, EyeOff, Mail, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getDictionary, withLocale, type Locale } from "@/lib/i18n";
@@ -63,11 +63,31 @@ export function LoginForm({ callbackUrl, locale }: { callbackUrl?: string; local
           </button>
         </span>
       </label>
-      <div className="-mt-1 flex justify-end">
-        <Link href={withLocale("/forgot-password", locale)} className="text-sm font-semibold text-brand-teal hover:underline">
-          {t.forgotLink}
-        </Link>
-      </div>
+      {state.mfaRequired ? (
+        <label className="grid gap-2 text-sm font-semibold text-gray-800">
+          {t.mfaCodeLabel}
+          <span className="relative">
+            <ShieldCheck className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <input
+              name="totp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder={t.mfaCodePlaceholder}
+              autoFocus
+              required
+              className="h-11 w-full rounded-lg border border-gray-300 ps-9 pe-3 font-normal tracking-widest outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+            />
+          </span>
+          <span className="text-xs font-normal text-gray-500">{t.mfaPrompt}</span>
+        </label>
+      ) : (
+        <div className="-mt-1 flex justify-end">
+          <Link href={withLocale("/forgot-password", locale)} className="text-sm font-semibold text-brand-teal hover:underline">
+            {t.forgotLink}
+          </Link>
+        </div>
+      )}
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? t.signingIn : t.login}
       </Button>
