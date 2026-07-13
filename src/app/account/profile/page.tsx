@@ -31,7 +31,8 @@ export default async function AccountProfilePage({ searchParams }: { searchParam
       avatarUrl: true,
       wilaya: true,
       city: true,
-      commune: true
+      commune: true,
+      profilePrivate: true
     }
   });
 

@@ -58,7 +58,8 @@ export async function updateProfileAction(
         avatarUrl: parsed.data.avatarUrl,
         wilaya: parsed.data.wilaya,
         city: parsed.data.city,
-        commune: parsed.data.commune
+        commune: parsed.data.commune,
+        profilePrivate: formData.get("profilePrivate") === "on"
       }
     });
   } catch (error) {

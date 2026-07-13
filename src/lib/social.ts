@@ -45,9 +45,9 @@ export async function toggleFollow(followerId: string, followingId: string): Pro
     await prisma.follow.delete({ where: { id: existing.id } });
     return { following: false };
   }
-  // Guard against following a ghost id.
-  const target = await prisma.user.findUnique({ where: { id: followingId }, select: { id: true } });
-  if (!target) return { following: false };
+  // Guard against following a ghost id, and don't allow following a private profile.
+  const target = await prisma.user.findUnique({ where: { id: followingId }, select: { id: true, profilePrivate: true } });
+  if (!target || target.profilePrivate) return { following: false };
   await prisma.follow.create({ data: { followerId, followingId } });
   return { following: true };
 }
@@ -122,7 +122,8 @@ export async function getFeed(
   const rows = await prisma.runnerRun.findMany({
     where: {
       userId: { in: authorIds },
-      OR: [{ isPublic: true }, { userId }] // own runs show even when private; others' only when public
+      // Own runs always show; others' runs only when public AND the author's profile isn't private.
+      OR: [{ userId }, { AND: [{ isPublic: true }, { user: { profilePrivate: false } }] }]
     },
     orderBy: { startedAt: "desc" },
     take: limit + 1, // fetch one extra to derive nextCursor

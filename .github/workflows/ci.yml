@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: racedz_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/racedz_ci
+      # Non-secret placeholders so the app can boot in CI. Real values live in deploy env.
+      AUTH_SECRET: ci-not-a-real-secret-ci-not-a-real-secret
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3003
+      RACEDZ_BASE_URL: http://127.0.0.1:3003
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run prisma:generate
+
+      # Quality gates.
+      - run: npm run lint # eslint + i18n key-parity
+      - run: npm run typecheck
+      - run: npm run test:coach
+      - run: npm run test:workout
+      - run: npm run test:mfa
+
+      # Apply migrations to the CI database, then build.
+      - run: npx prisma migrate deploy
+      - run: npm run build
+
+      # Boot the production server and run the smoke checks against it.
+      - name: Start server and smoke-test
+        run: |
+          npx next start -H 127.0.0.1 -p 3003 &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3003/ >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          npm run smoke
+          kill $SERVER_PID

@@ -135,6 +135,7 @@ export function RegistrationForm({ race, user, canRegister, existingCategoryIds,
               <option value="L">L</option>
               <option value="XL">XL</option>
               <option value="XXL">XXL</option>
+              <option value="XXXL">3XL</option>
             </select>
           </label>
           <Field label={t.emergencyName} name="emergencyContactName" autoComplete="name" />
