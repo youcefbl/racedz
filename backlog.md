@@ -18,4 +18,15 @@ on admin panel , list of users, on dark mode,  hovering the user is making it wh
 
 
 if the user ask AI coach in arabic or in fresh ,  is it possible to answer in that langue , and keep the plan and setting in that langue ? 
-also be able in the seeting of the coach to change the langue if the user want that 
+also be able in the seeting of the coach to change the langue if the user want that.
+
+- when register from google take also the profile picture from google and use it on the platfrom
+- make my profile private in the profile settings
+
+
+- race params , ask users for urgent contact name and phone  , club name (optional)
+- on race creation add shirt option , and user will select size from XS to 3XL 
+- allow orgnization to use pictures of the race to be checked on registration 
+
+- 
+
