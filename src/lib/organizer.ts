@@ -238,6 +238,37 @@ export async function getOrganizerRaceById(organizationId: string, raceEventId: 
   };
 }
 
+// Shirt tally across ALL active registrations for a race (not just the current page), grouped by
+// size, so organizers know how many of each to order. Scoped to the org that owns the race.
+const SHIRT_SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
+
+export async function getOrganizerRaceShirtTotals(organizationId: string, raceEventId: string) {
+  const rows = await getPrisma().raceRegistration.groupBy({
+    by: ["tshirtSize"],
+    where: { raceEventId, raceEvent: { organizationId }, status: { not: "CANCELLED" } },
+    _count: { _all: true }
+  });
+
+  const counts = new Map<string, number>();
+  let unspecified = 0;
+  let total = 0;
+  for (const row of rows) {
+    const n = row._count._all;
+    total += n;
+    if (row.tshirtSize && (SHIRT_SIZE_ORDER as readonly string[]).includes(row.tshirtSize)) {
+      counts.set(row.tshirtSize, (counts.get(row.tshirtSize) ?? 0) + n);
+    } else {
+      unspecified += n;
+    }
+  }
+
+  return {
+    total,
+    unspecified,
+    bySize: SHIRT_SIZE_ORDER.filter((size) => counts.has(size)).map((size) => ({ size, count: counts.get(size)! }))
+  };
+}
+
 export async function getOrganizerRaceRegistrations(
   organizationId: string,
   raceEventId: string,
@@ -886,6 +917,7 @@ export async function createOrganizerRace({
         ccpKey: parsed.data.ccpKey,
         paymentNote: parsed.data.paymentNote,
         mainImageUrl: parsed.data.mainImageUrl,
+        shirtEnabled: parsed.data.shirtEnabled ?? false,
         maxParticipants,
         availablePlaces: maxParticipants
       }
@@ -1064,6 +1096,7 @@ export async function updateOrganizerRace({
       ccpAccount: parsed.data.ccpAccount ?? null,
       ccpKey: parsed.data.ccpKey ?? null,
       paymentNote: parsed.data.paymentNote ?? null,
+      shirtEnabled: parsed.data.shirtEnabled ?? false,
       maxParticipants: parsed.data.maxParticipants ?? null,
       mainImageUrl: parsed.data.mainImageUrl ?? null
     };

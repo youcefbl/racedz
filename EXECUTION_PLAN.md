@@ -66,32 +66,30 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 
 ## P1 — Launch-blocking UX & product gaps 🟠
 
-- [ ] ❌ **Private profile toggle** — no profile-wide privacy control (User has no `isPublic`/`visibility`
-      field; profile form has none). Per-run `isPublic` exists, but not a "make my profile private" setting.
-      Add the field + form control + honor it in social/public views. — M
-- [ ] ◐ **Notification i18n** — `User.locale` field **exists** but `src/lib/notifications.ts` is entirely
-      English-only for every recipient (race/approval/announcement/registration titles/bodies/subjects).
-      Read recipient `User.locale` and thread it into every `notify*` builder. — M
-- [ ] ◐ **Shirt option** — captured at registration (`RaceRegistration.tshirtSize`) but (a) sizes stop at XXL,
-      add **3XL**; (b) **no race-side config** — organizers can't enable a shirt or define offered sizes; the
-      selector always shows. Add a shirt config on the race/category + gate the field on it. — M
-- [ ] ❌ **Photo verification at registration** — no such feature anywhere. Let organizers require/upload a
-      race photo to be checked at registration. *(needs a short spec)* — L
-- [ ] **Races sort control** *(decision, then S)* — "Upcoming only" default is DONE; backend sort
-      (date/distance/price) exists but **no UI selector**. Backlog said "remove sort"; UI audit said "add sort".
-      **Decide:** expose a sort dropdown in `race-search-form.tsx`, or leave soonest-first only. — S
-- [ ] ❌ **i18n key-parity check** — no script/CI enforcing en/fr/ar key parity in `i18n.ts` + `coach/copy.ts`
-      (all three locales exist but nothing guards drift). Add a tiny parity script, wire into `lint`/CI. — S
-- [ ] **Notifications auto-mark-read** *(product decision)* — opening the bell still POSTs read-all
-      (`site-header-client.tsx:317–337`). Decide mark-on-click vs an explicit "Mark all read", then implement. — S
-- [ ] **Remaining UI polish** (UI_AUDIT P3 + cross-cutting sweeps A–F: focus-visible rings, 44px targets,
-      RTL icon mirroring, physical→logical props, gray-400 contrast, menu-behavior consolidation) and
-      UI_TODO homepage/race-detail/listing polish. *(P1/P2 audit items already fixed)* — L
-- [ ] ◐ **CI pipeline** — the pieces exist as separate npm scripts (`lint`/`typecheck`/`build`/`smoke`) but
-      nothing chains them against a started server, and there's no `.github/` workflow. Add one command +
-      a CI workflow. — M
-- [ ] ◐ **Playwright organizer/admin journeys** — auth + coach e2e exist with fixtures; **add positive
-      organizer (create→manage) and admin (approve) browser journeys** + a seed/reset fixture command. — M
+### Progress log
+- **2026-07-13 — P1 pass.** Shipped: i18n parity gate, private profile, per-item notification read, CI
+  workflow, shirt 3XL + full organizer shirt config. Decisions: races-sort → keep soonest-first only;
+  notifications → per-item read. All pass typecheck/lint(+parity)/build.
+
+- [x] ✅ **Private profile toggle** — `User.profilePrivate` opt-in in profile settings; honored in
+      leaderboards, activity feed, and follow. Migration `20260713130000_add_profile_privacy`.
+- [x] ✅ **Shirt option** — 3XL added; organizer per-race enable (all 4 create/edit forms); registration
+      selector gated on `race.shirtEnabled`; shirt totals-by-size on the organizer registrations page.
+      Migration `20260713140000_add_race_shirt`.
+- [x] ✅ **Notifications mark-read** — bell no longer marks-all-on-open; per-item read on click
+      (`POST /api/notifications/[id]/read`) + "Mark all read" button + unread dots.
+- [x] ✅ **i18n key-parity check** — `scripts/check-i18n-parity.ts`, fails `npm run lint` on en/fr/ar drift.
+- [x] ✅ **CI pipeline** — `.github/workflows/ci.yml`: postgres service, lint+typecheck+unit tests+build+smoke.
+- [x] ✅ **Races sort** — decided: keep soonest-first only (no UI selector). Resolved.
+- [ ] ◐ **Notification i18n** — `User.locale` **exists** but `src/lib/notifications.ts` is English-only for
+      every recipient. Read recipient `User.locale` and thread it into every `notify*` builder
+      (title/body/subject). **← the remaining P1 item.** — M
+- [ ] ❌ **Photo verification at registration** — no such feature. Let organizers require/upload a race photo
+      to be checked at registration. *(needs a short spec)* — L
+- [ ] **Remaining UI polish** (UI_AUDIT P3 + cross-cutting sweeps A–F) and UI_TODO homepage/race-detail/
+      listing polish. — L
+- [ ] ◐ **Playwright organizer/admin journeys** — auth + coach e2e exist; add positive organizer
+      (create→manage) and admin (approve) browser journeys + a seed/reset fixture command. — M
 
 ---
 

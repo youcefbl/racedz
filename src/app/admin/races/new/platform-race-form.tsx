@@ -70,6 +70,10 @@ export function PlatformRaceForm() {
               placeholder="Optional terrain, weather, equipment, or participation conditions"
             />
           </label>
+          <label className="flex items-center gap-3 text-sm font-semibold text-gray-800 sm:col-span-2">
+            <input type="checkbox" name="shirtEnabled" className="size-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal" />
+            Offer a race shirt (runners pick a size at registration)
+          </label>
         </div>
       </section>
 

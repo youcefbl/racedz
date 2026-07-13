@@ -68,6 +68,7 @@ export type RaceEvent = {
   description: string;
   elevationGainText?: string;
   conditions?: string;
+  shirtEnabled?: boolean;
   raceType: RaceType;
   status: RaceStatus;
   registrationStatus: EventRegistrationStatus;

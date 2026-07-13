@@ -26,6 +26,7 @@ export async function createPlatformRaceAction(
       title: getString(formData, "title"),
       description: getString(formData, "description"),
       elevationGainText: getOptionalString(formData, "elevationGainText"),
+      shirtEnabled: formData.get("shirtEnabled") === "on",
       conditions: getOptionalString(formData, "conditions"),
       raceType: getString(formData, "raceType"),
       registrationStatus: getString(formData, "registrationStatus"),

@@ -163,6 +163,7 @@ model RaceEvent {
   description                String
   elevationGainText          String?
   conditions                 String?
+  shirtEnabled               Boolean                 @default(false) // organizer offers a race shirt; sizes captured at registration
   raceType                   RaceType
   status                     RaceStatus              @default(DRAFT)
   registrationStatus         EventRegistrationStatus @default(NOT_OPEN)

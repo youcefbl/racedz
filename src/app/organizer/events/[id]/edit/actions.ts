@@ -29,6 +29,7 @@ export async function updateOrganizerRaceAction(
         title: getString(formData, "title"),
         description: getString(formData, "description"),
         elevationGainText: getOptionalString(formData, "elevationGainText"),
+        shirtEnabled: formData.get("shirtEnabled") === "on",
         conditions: getOptionalString(formData, "conditions"),
         raceType: getString(formData, "raceType"),
         startDate: getString(formData, "startDate"),
