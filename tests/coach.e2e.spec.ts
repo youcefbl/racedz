@@ -8,18 +8,15 @@ test("runner creates a goal, accepts a plan, logs a run, and receives coaching",
 
   const setupHeading = page.getByRole("heading", { name: "Create your running goal" });
   if (await setupHeading.isVisible().catch(() => false)) {
-    await page.locator('select[name="goalType"]').selectOption("TEN_K");
-    await page.locator('input[name="targetDistanceKm"]').fill("10");
-    await page.locator('input[name="targetTime"]').fill("00:55:00");
-    await page.locator('input[name="currentWeeklyDistanceKm"]').fill("15");
-    await page.getByRole("button", { name: "Create goal" }).click();
+    await completeCoachGoalWizard(page);
   }
 
   await expect(page.getByRole("heading", { name: "Train with a clear next step" })).toBeVisible();
   await assertNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("coach-desktop-overview.png"), fullPage: true });
 
-  await page.getByRole("button", { name: "Plan", exact: true }).click();
+  const coachViews = page.getByRole("navigation", { name: "Coach views" });
+  await coachViews.getByRole("button", { name: "Plan", exact: true }).click();
   const generate = page.getByRole("button", { name: /Generate weekly plan|Prepare next week/ });
   if (await generate.isVisible().catch(() => false)) {
     await generate.click();
@@ -32,14 +29,14 @@ test("runner creates a goal, accepts a plan, logs a run, and receives coaching",
     await expect(page.getByText("Active plan", { exact: true })).toBeVisible();
   }
 
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await coachViews.getByRole("button", { name: "Runs", exact: true }).click();
   const logRunForm = page.getByLabel("Distance (km)");
   if (!(await logRunForm.isVisible().catch(() => false))) {
     await page.getByRole("button", { name: "Log a run" }).click();
   }
   await page.getByLabel("Distance (km)").fill("5");
   await page.getByLabel("Duration (minutes)").fill("31");
-  await page.getByLabel("Run notes").fill("Comfortable evening run for the coach E2E check.");
+  await page.getByLabel("Description").fill("Comfortable evening run for the coach E2E check.");
   await page.getByRole("button", { name: "Save run" }).click();
 
   await expect(page.getByText("Run saved.", { exact: true })).toBeVisible();
@@ -51,7 +48,9 @@ test("runner creates a goal, accepts a plan, logs a run, and receives coaching",
       type: "provider",
       description: "Run persistence passed; live AI feedback was unavailable. Run with RACEDZ_REQUIRE_LIVE_AI=1 to require OpenAI success."
     });
-    await expect(page.getByRole("article").filter({ hasText: "Comfortable evening run for the coach E2E check." }).first()).toBeVisible();
+    const latestRun = page.getByRole("article").first();
+    await latestRun.getByRole("button", { name: "Details" }).click();
+    await expect(latestRun).toContainText("Comfortable evening run for the coach E2E check.");
     await page.setViewportSize({ width: 390, height: 844 });
     await assertNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("coach-mobile-provider-failure.png"), fullPage: true });
@@ -103,6 +102,25 @@ async function signInAsDemoRunner(page: import("@playwright/test").Page) {
   });
 
   expect(signInResponse.ok()).toBeTruthy();
+}
+
+async function completeCoachGoalWizard(page: import("@playwright/test").Page) {
+  await page.locator("select").first().selectOption("TEN_K");
+  await page.getByLabel("Target distance (km)").fill("10");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+
+  await page.getByLabel("Sex").selectOption("MALE");
+  await page.getByLabel("Day", { exact: true }).selectOption("1");
+  await page.getByLabel("Month", { exact: true }).selectOption("1");
+  await page.getByLabel("Year", { exact: true }).selectOption(String(new Date().getFullYear() - 30));
+  await page.getByLabel("Current weekly distance (km)").fill("15");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Create goal", exact: true }).click();
 }
 
 async function getSessionEmail(page: import("@playwright/test").Page) {

@@ -13,7 +13,8 @@ import {
   deleteUserByEmail,
   getUserByEmail,
   latestEmailVerificationToken,
-  latestPasswordResetToken
+  latestPasswordResetToken,
+  markUserOnboarded
 } from "./db";
 
 // Users created during the run, cleaned up afterwards.
@@ -109,6 +110,7 @@ test("A3b shows an error for a wrong password and stays on /login", async ({ pag
 test("A4 signs out from the account menu and resets the header", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await signInViaApi(page, DEMO.runner);
+  await markUserOnboarded(DEMO.runner);
   await page.goto("/account");
 
   await page.getByRole("button", { name: "Account menu" }).click();
@@ -159,7 +161,7 @@ test("A5b unknown email reports success without revealing the account", async ({
 // A6 — Route guards ------------------------------------------------------------
 test("A6 redirects protected routes to login when logged out", async ({ page }) => {
   await page.context().clearCookies();
-  for (const path of ["/account", "/account/coach", "/organizer", "/admin"]) {
+  for (const path of ["/account/coach", "/organizer", "/admin"]) {
     await page.goto(path);
     await expect(page, `${path} should redirect to login`).toHaveURL(/\/login/);
   }

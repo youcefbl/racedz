@@ -34,8 +34,8 @@ export async function signInViaApi(
 
 export async function getSessionEmail(page: Page): Promise<string | null> {
   const res = await page.request.get("/api/auth/session");
-  const session = (await res.json()) as { user?: { email?: string } };
-  return session.user?.email ?? null;
+  const session = (await res.json()) as { user?: { email?: string } } | null;
+  return session?.user?.email ?? null;
 }
 
 export async function signOutViaApi(page: Page) {

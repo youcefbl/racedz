@@ -9,6 +9,11 @@ export async function getUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }
 
+/** Put a seeded account past the one-time welcome screen for account-menu tests. */
+export async function markUserOnboarded(email: string) {
+  await prisma.user.update({ where: { email }, data: { onboardedAt: new Date() } });
+}
+
 /** Latest unused email-verification token for a user, or null. */
 export async function latestEmailVerificationToken(userId: string): Promise<string | null> {
   const rows = await prisma.$queryRaw<Array<{ token: string }>>`

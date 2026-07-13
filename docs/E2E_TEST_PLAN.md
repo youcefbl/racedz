@@ -10,11 +10,11 @@ organizer/admin lifecycle. Complements `docs/E2E_TEST_STRATEGY.md` (high-level) 
 ## 1. Tooling — what we use and why
 
 **Playwright** (`@playwright/test`, already installed and configured in
-`playwright.config.ts`). It's the right tool and it's already wired up:
+`playwright.config.ts`). It's the browser regression gate:
 
 - **Already in the repo:** config + a working `tests/coach.e2e.spec.ts` with reusable
   patterns (programmatic sign-in, session checks, no-horizontal-overflow, screenshots).
-- Drives a real Chromium against the running app (`baseURL` = `http://127.0.0.1:3003`).
+- Starts the app automatically against the canonical test URL (`http://127.0.0.1:3003`).
 - One API for **desktop + mobile viewports**, **RTL/Arabic**, screenshots, traces,
   network interception, and file uploads (needed for the payment-proof flow).
 - Generous timeouts already set (`timeout: 120s`, `expect: 45s`) to tolerate the AI calls.
@@ -29,16 +29,20 @@ organizer/admin lifecycle. Complements `docs/E2E_TEST_STRATEGY.md` (high-level) 
 
 **Run commands**
 ```bash
-# 1. start app against the test DB on :3003 (separate terminal)
-RACEDZ_BASE_URL=http://127.0.0.1:3003 npm run dev
-
-# 2. run the suite
-npx playwright test                 # all specs
-npx playwright test auth.e2e        # one spec
+npm run test:e2e                    # all browser journeys
+npm run test:e2e:visual             # responsive, RTL, a11y, and visual checks
+npm run test:all                    # lint, typecheck, domain checks, and browser suite
+npx playwright test auth.e2e         # one spec
 npx playwright test --headed        # watch it run
 npx playwright test --debug         # step through
-RACEDZ_REQUIRE_LIVE_AI=1 npx playwright test coach.e2e   # require real OpenAI
-npx playwright show-trace test-results/.../trace.zip     # debug a failure
+RACEDZ_REQUIRE_LIVE_AI=1 npx playwright test coach.e2e # require real OpenAI
+npx playwright show-trace test-results/.../trace.zip  # debug a failure
+
+# Update visual baselines only after reviewing the rendered change.
+npm run test:e2e:visual -- --update-snapshots
+
+# Test a deployed/staging URL without starting a local server.
+RACEDZ_EXTERNAL_SERVER=1 RACEDZ_BASE_URL=https://staging.example.com npm run test:e2e
 ```
 
 ---

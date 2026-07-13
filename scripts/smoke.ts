@@ -47,10 +47,11 @@ const checks: SmokeCheck[] = [
     }
   },
   {
-    name: "protected account redirects to login",
+    name: "account hub renders while logged out",
     run: async () => {
-      const response = await fetchUrl("/account", { redirect: "manual" });
-      assertRedirect(response, "/login?callbackUrl=/account");
+      const response = await fetchUrl("/account");
+      assertStatus(response, 200);
+      assertIncludes(await response.text(), "Sign in", "account hub should offer sign in");
     }
   },
   {
@@ -102,10 +103,10 @@ const checks: SmokeCheck[] = [
       const response = await fetchUrl("/");
       assertStatus(response, 200);
       const html = await response.text();
-      const cssPath = extractLayoutCssPath(html);
+      const cssPath = extractCssPath(html);
 
       if (!cssPath) {
-        throw new Error("could not find layout.css preload in home page");
+        throw new Error("could not find a versioned stylesheet in home page");
       }
 
       const cssResponse = await fetch(`${baseUrl}${cssPath}`);
@@ -167,8 +168,8 @@ function assertIncludes(value: string, expected: string, message: string) {
   }
 }
 
-function extractLayoutCssPath(html: string) {
-  const match = html.match(/href="(\/_next\/static\/css\/app\/layout\.css\?v=[^"]+)"/);
+function extractCssPath(html: string) {
+  const match = html.match(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+\.css[^\"]*)"/);
 
   return match?.[1] ?? null;
 }
