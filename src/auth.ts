@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { getPrisma } from "@/lib/db";
 import { verifyLoginCredentials, verifyMfaCode } from "@/lib/auth-credentials";
+import { createMfaTicket } from "@/lib/mfa-ticket";
 import { consumeNativeAuthToken } from "@/lib/native-auth";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
@@ -115,9 +116,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return false;
         }
         try {
+          const existing = await getPrisma().user.findUnique({
+            where: { email },
+            select: { id: true, blockedAt: true, mfaEnabled: true }
+          });
           // Blocked accounts cannot sign in via Google either.
-          const existing = await getPrisma().user.findUnique({ where: { email }, select: { blockedAt: true } });
-          return !existing?.blockedAt;
+          if (existing?.blockedAt) return false;
+          // Second factor: Google verifies identity but is only the FIRST factor. If this account has
+          // MFA on, deny the session here and redirect to the dedicated code page — returning a string
+          // from signIn() redirects without establishing a session (see @auth/core handleAuthorized).
+          // A valid code there mints the real session via the single-use native-auth bridge.
+          if (existing?.mfaEnabled) {
+            const ticket = createMfaTicket({ uid: existing.id, ff: true });
+            return `/login/mfa?t=${encodeURIComponent(ticket)}`;
+          }
+          return true;
         } catch (error) {
           console.error("[auth][google] signIn callback DB lookup failed:", error);
           throw error;

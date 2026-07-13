@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import QRCode from "qrcode";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import {
@@ -15,6 +16,8 @@ import {
 export type MfaEnrollment = {
   secret: string;
   otpauthUrl: string;
+  /** PNG data URL of the otpauth URL, for scanning directly with an authenticator app. */
+  qrDataUrl: string;
 };
 
 export type MfaActionResult = {
@@ -50,7 +53,10 @@ export async function startMfaEnrollmentAction(): Promise<MfaEnrollment> {
     data: { mfaSecret: secret, mfaBackupCodes: [] }
   });
 
-  return { secret, otpauthUrl: buildOtpAuthUrl(secret, user.email) };
+  const otpauthUrl = buildOtpAuthUrl(secret, user.email);
+  const qrDataUrl = await QRCode.toDataURL(otpauthUrl, { errorCorrectionLevel: "M", margin: 1, width: 220 });
+
+  return { secret, otpauthUrl, qrDataUrl };
 }
 
 /** Confirm enrollment by verifying a code against the pending secret, then enable MFA + issue codes. */

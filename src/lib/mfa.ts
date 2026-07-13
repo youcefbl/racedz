@@ -29,8 +29,10 @@ export function buildOtpAuthUrl(secret: string, accountEmail: string, issuer = "
 /**
  * Verify a user-entered TOTP code against the secret. Accepts the current 30s window plus the
  * adjacent past/future windows (±`window` steps) to tolerate clock skew and entry latency.
+ * NOTE: `window` only papers over *small* skew (±60s at the default). If codes never match, the
+ * server clock is out of sync with real time — fix NTP on the host; no window can bridge that.
  */
-export function verifyTotp(secret: string, token: string, window = 1): boolean {
+export function verifyTotp(secret: string, token: string, window = 2): boolean {
   const normalized = (token ?? "").replace(/\s+/g, "");
   if (!/^\d{6}$/.test(normalized)) return false;
 

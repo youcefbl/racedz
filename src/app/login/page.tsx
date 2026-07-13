@@ -22,6 +22,7 @@ type LoginPageProps = {
     native?: string;
     provider?: string;
     authError?: string;
+    e?: string;
   }>;
 };
 
@@ -102,6 +103,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           {params?.authError === "1" ? (
             <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
               {t.googleSignInError}
+            </div>
+          ) : null}
+          {params?.e === "1" ? (
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              {t.errSignInFailed}
             </div>
           ) : null}
           {params?.registered === "1" ? (

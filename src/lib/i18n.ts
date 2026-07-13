@@ -565,6 +565,10 @@ export const dictionaries = {
       mfaPrompt: "Enter the 6-digit code from your authenticator app.",
       mfaCodeLabel: "Authenticator code",
       mfaCodePlaceholder: "123456 or recovery code",
+      mfaVerify: "Verify and sign in",
+      mfaPageTitle: "Two-factor authentication",
+      mfaPageSubtitle: "Enter the code from your authenticator app to finish signing in.",
+      errSignInFailed: "Sign-in failed. Check your details and try again.",
       registerEyebrow: "Runner account",
       registerHeadline: "Create your ZidRun profile once, then register faster.",
       registerSub:
@@ -1194,6 +1198,10 @@ export const dictionaries = {
       mfaPrompt: "Saisissez le code à 6 chiffres de votre application d'authentification.",
       mfaCodeLabel: "Code d'authentification",
       mfaCodePlaceholder: "123456 ou code de secours",
+      mfaVerify: "Vérifier et se connecter",
+      mfaPageTitle: "Authentification à deux facteurs",
+      mfaPageSubtitle: "Saisissez le code de votre application d'authentification pour terminer la connexion.",
+      errSignInFailed: "Échec de la connexion. Vérifiez vos informations et réessayez.",
       registerEyebrow: "Compte coureur",
       registerHeadline: "Créez votre profil ZidRun une fois, puis inscrivez-vous plus vite.",
       registerSub:
@@ -1822,6 +1830,10 @@ export const dictionaries = {
       mfaPrompt: "أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.",
       mfaCodeLabel: "رمز المصادقة",
       mfaCodePlaceholder: "123456 أو رمز الاسترداد",
+      mfaVerify: "تحقّق وسجّل الدخول",
+      mfaPageTitle: "المصادقة الثنائية",
+      mfaPageSubtitle: "أدخل الرمز من تطبيق المصادقة لإكمال تسجيل الدخول.",
+      errSignInFailed: "فشل تسجيل الدخول. تحقّق من بياناتك وحاول مرة أخرى.",
       registerEyebrow: "حساب عدّاء",
       registerHeadline: "أنشئ ملفك في ZidRun مرة واحدة، ثم سجّل بسرعة أكبر.",
       registerSub:

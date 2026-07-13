@@ -80,9 +80,20 @@ export function MfaPanel({ enabled }: { enabled: boolean }) {
         <h2 className="text-lg font-bold text-gray-950">Set up your authenticator</h2>
         <ol className="mt-3 grid gap-3 text-sm text-gray-700">
           <li>
-            <span className="font-semibold">1.</span> In your authenticator app (Google Authenticator, Authy,
-            1Password…), add an account and enter this setup key:
-            <CopyField className="mt-2" value={formatSecret(enrollment.secret)} copyValue={enrollment.secret} />
+            <span className="font-semibold">1.</span> Scan this QR code with your authenticator app (Google
+            Authenticator, Authy, 1Password…):
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline data URL, not an optimizable asset */}
+            <img
+              src={enrollment.qrDataUrl}
+              alt="Two-factor setup QR code"
+              width={220}
+              height={220}
+              className="mt-2 rounded-lg border border-gray-200 bg-white p-2"
+            />
+            <span className="mt-2 block text-xs text-gray-500">
+              Can&apos;t scan? Enter this setup key manually instead:
+            </span>
+            <CopyField className="mt-1" value={formatSecret(enrollment.secret)} copyValue={enrollment.secret} />
             <span className="mt-1 block text-xs text-gray-500">
               Or paste this setup link if your app supports it:
             </span>
