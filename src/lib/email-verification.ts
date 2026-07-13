@@ -99,13 +99,15 @@ export async function sendAccountVerificationEmail({
       title: copy.title,
       body,
       action,
-      meta
+      meta,
+      locale
     }),
     text: renderRaceDzEmailText({
       title: copy.title,
       body,
       action,
-      meta
+      meta,
+      locale
     })
   });
 }

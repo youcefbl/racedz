@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 
 const copy = {
   en: { workout: "Guided workout", getReady: "Get ready", stepOf: (a: number, b: number) => `Step ${a} of ${b}`, next: "Next", left: "left", done: "done", complete: "Workout complete", coolDown: "Nice work — keep moving to cool down, then finish when ready.", skip: "Skip step", rep: (a: number, b: number) => `${a}/${b}` },
-  fr: { workout: "Séance guidée", getReady: "Préparez-vous", stepOf: (a: number, b: number) => `Étape ${a} / ${b}`, next: "Suivant", left: "restant", done: "fait", complete: "Séance terminée", coolDown: "Beau travail — continuez doucement pour récupérer, puis terminez.", skip: "Passer l'étape", rep: (a: number, b: number) => `${a}/${b}` },
-  ar: { workout: "حصة موجَّهة", getReady: "استعد", stepOf: (a: number, b: number) => `الخطوة ${a} من ${b}`, next: "التالي", left: "متبقٍ", done: "تم", complete: "انتهت الحصة", coolDown: "عمل رائع — واصل بلطف للتهدئة ثم أنهِ عند الاستعداد.", skip: "تخطّي الخطوة", rep: (a: number, b: number) => `${a}/${b}` }
+  fr: { workout: "Séance guidée", getReady: "Préparez-vous", stepOf: (a: number, b: number) => `Étape ${a} sur ${b}`, next: "Suivant", left: "restante(s)", done: "terminée", complete: "Séance terminée", coolDown: "Beau travail — continuez doucement pour récupérer, puis terminez quand vous êtes prêt.", skip: "Passer l'étape", rep: (a: number, b: number) => `${a}/${b}` },
+  ar: { workout: "حصة موجّهة", getReady: "استعدّ", stepOf: (a: number, b: number) => `الخطوة ${a} من ${b}`, next: "التالي", left: "متبقٍّ", done: "تمّت", complete: "انتهت الحصة", coolDown: "أحسنت — واصل بهدوء للتهدئة، ثم أنهِ الحصة عندما تكون مستعدًا.", skip: "تخطَّ الخطوة", rep: (a: number, b: number) => `${a}/${b}` }
 } as const;
 
 // Intensity → theme-safe colour set for the current-step card.

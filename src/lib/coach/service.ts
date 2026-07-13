@@ -861,8 +861,8 @@ export async function updateTrainingPlanStatus(userId: string, planId: string, s
 // naturally and points the runner at the coach if they want changes.
 const AUTO_PLAN_SUMMARY: Record<"en" | "fr" | "ar", string> = {
   en: "Your training week, generated automatically to keep you consistent. Ask your coach any time to adjust it.",
-  fr: "Votre semaine d'entraînement, générée automatiquement pour rester régulier. Demandez à votre coach pour l'ajuster.",
-  ar: "أسبوع تدريبك، أُنشئ تلقائياً للحفاظ على انتظامك. اسأل مدربك في أي وقت لتعديله."
+  fr: "Votre semaine d'entraînement, générée automatiquement pour vous aider à rester régulier. Demandez à votre coach de l'ajuster.",
+  ar: "أسبوعك التدريبي، أُنشئ تلقائيًا لمساعدتك على الحفاظ على انتظامك. اسأل مدربك في أي وقت لتعديله."
 };
 
 /**
@@ -1226,4 +1226,3 @@ async function refreshCoachSnapshot(userId: string, goal: GoalRow) {
   `;
   return metrics;
 }
-

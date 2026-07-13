@@ -44,12 +44,12 @@ const copy: Record<CoachLocale, { title: string; body: (name: string, days: numb
     preheader: "Une courte sortie aujourd'hui entretient votre endurance."
   },
   ar: {
-    title: "حان وقت جريتك القادمة",
+    title: "حان وقت حصتك القادمة",
     body: (name, days) =>
-      `مرحبا ${name}، ${days ? `مرّت ${days} أيام منذ آخر جري لك.` : "لم تسجّل أي جري بعد."} ` +
-      "الانتظام يحافظ على لياقتك ويحمي تقدمك. جري خفيف قصير اليوم يكفي للحفاظ على الإيقاع.",
-    cta: "افتح مدربي",
-    preheader: "جري قصير اليوم يحافظ على لياقتك."
+      `مرحبًا ${name}، ${days ? `مرّت ${days} أيام منذ آخر حصة جري لك.` : "لم تسجّل أي حصة جري بعد."} ` +
+      "يحافظ الانتظام على لياقتك ويحمي تقدّمك. تكفيك حصة جري قصيرة وخفيفة اليوم للحفاظ على وتيرتك.",
+    cta: "افتح مدربك",
+    preheader: "حصة جري قصيرة اليوم تحافظ على لياقتك."
   }
 };
 
@@ -183,14 +183,14 @@ const reminderCopy: Record<
   },
   ar: {
     title: "لا تنسَ جريتك اليوم 🏃",
-    intro: (name) => `مرحبا ${name}، لديك جري مبرمج في خطتك اليوم.`,
+    intro: (name) => `مرحبًا ${name}، لديك حصة جري مقرّرة في خطتك اليوم.`,
     target: (detail) => `حصة اليوم: ${detail}.`,
-    weather: (highC) => `في المكان الذي تجري فيه ستصل الحرارة إلى حوالي ${highC}° اليوم.`,
-    weatherHot: "سيكون الجو حاراً — اجرِ باكراً أو بعد الغروب واحمل ماءً إضافياً.",
+    weather: (highC) => `ستبلغ الحرارة في مكان جريك نحو ${highC}° اليوم.`,
+    weatherHot: "سيكون الجو حارًا — اجرِ في وقت مبكر أو بعد الغروب واحمل ماءً إضافيًا.",
     weatherRain: "الأمطار محتملة، فخطّط لتوقيتك وارتدِ ما يناسب.",
     fuel: "اشرب الماء جيداً خلال اليوم وتناول وجبة خفيفة قبل ساعة أو ساعتين من الخروج.",
     askCoach: "هل لديك أسئلة عن حصة اليوم؟ اسأل مدربك في التطبيق.",
-    cta: "افتح مدربي",
+    cta: "افتح مدربك",
     preheader: "جريتك اليوم، حالة الطقس، وكيف تستعد لها."
   }
 };
@@ -345,18 +345,18 @@ const planReadyCopy: Record<CoachLocale, { title: string; body: (name: string) =
   fr: {
     title: "Votre nouvelle semaine d'entraînement est prête",
     body: (name) =>
-      `Bonjour ${name}, votre plan précédent est terminé, nous avons donc généré votre semaine suivante automatiquement — à partir d'aujourd'hui. ` +
-      "Ouvrez le coach pour voir les séances de la semaine, et demandez-lui à tout moment pour l'ajuster.",
+      `Bonjour ${name}, votre plan précédent est terminé ; nous avons donc généré automatiquement votre semaine suivante — à partir d'aujourd'hui. ` +
+      "Ouvrez le coach pour voir les séances de la semaine et demandez-lui à tout moment de l'ajuster.",
     cta: "Voir le plan de la semaine",
     preheader: "Votre prochaine semaine d'entraînement a été générée automatiquement."
   },
   ar: {
     title: "أسبوع تدريبك الجديد جاهز",
     body: (name) =>
-      `مرحبا ${name}، انتهت خطتك السابقة، لذا أنشأنا أسبوعك التالي تلقائياً — بدءاً من اليوم. ` +
+      `مرحبًا ${name}، انتهت خطتك السابقة، لذا أنشأنا أسبوعك التالي تلقائيًا — بدءًا من اليوم. ` +
       "افتح المدرب لرؤية حصص هذا الأسبوع، واسأل مدربك في أي وقت إذا أردت تعديلها.",
     cta: "عرض خطة الأسبوع",
-    preheader: "تم إنشاء أسبوع تدريبك التالي تلقائياً."
+    preheader: "تم إنشاء أسبوع تدريبك التالي تلقائيًا."
   }
 };
 

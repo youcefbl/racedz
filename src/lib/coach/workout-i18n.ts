@@ -9,24 +9,24 @@ import type { CoachLocale, CoachWorkout } from "@/lib/coach/schemas";
 const workoutText: Record<string, { fr: string; ar: string }> = {
   // Titles
   "Long easy run": { fr: "Sortie longue facile", ar: "جري طويل سهل" },
-  "Controlled tempo run": { fr: "Tempo contrôlé", ar: "جري تيمبو محكوم" },
+  "Controlled tempo run": { fr: "Sortie tempo contrôlée", ar: "جري بإيقاع مضبوط" },
   "Easy run": { fr: "Sortie facile", ar: "جري سهل" },
   "Recovery session": { fr: "Séance de récupération", ar: "جلسة استشفاء" },
   // Intensity
-  "Moderate and controlled": { fr: "Modérée et contrôlée", ar: "معتدلة ومضبوطة" },
+  "Moderate and controlled": { fr: "Modéré et contrôlé", ar: "معتدل ومضبوط" },
   "Comfortable conversational effort": {
-    fr: "Effort confortable, on peut parler",
-    ar: "مجهود مريح يسمح بالحديث"
+    fr: "Effort confortable, vous pouvez parler",
+    ar: "مجهود مريح يسمح لك بالحديث"
   },
-  "Very easy": { fr: "Très facile", ar: "سهلة جداً" },
+  "Very easy": { fr: "Très facile", ar: "سهل جدًا" },
   // Instructions
   "Keep the effort controlled. Stop and seek appropriate advice if concerning symptoms appear.": {
-    fr: "Gardez un effort contrôlé. Arrêtez-vous et demandez un avis approprié si des symptômes inquiétants apparaissent.",
-    ar: "حافظ على مجهود محكوم. توقّف واطلب استشارة مناسبة إذا ظهرت أعراض مقلقة."
+    fr: "Gardez un effort contrôlé. Arrêtez-vous et demandez un avis médical si des symptômes inquiétants apparaissent.",
+    ar: "حافظ على مجهود مضبوط. توقّف واطلب استشارة طبية إذا ظهرت أعراض مقلقة."
   },
   "Keep this session very easy. Stop if pain or concerning symptoms appear.": {
     fr: "Gardez cette séance très facile. Arrêtez-vous si une douleur ou des symptômes inquiétants apparaissent.",
-    ar: "اجعل هذه الجلسة سهلة جداً. توقّف إذا ظهر ألم أو أعراض مقلقة."
+    ar: "اجعل هذه الحصة سهلة جدًا. توقّف إذا ظهر ألم أو أي أعراض مقلقة."
   }
 };
 

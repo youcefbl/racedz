@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 
 const copy = {
   en: { follow: "Follow", following: "Following" },
-  fr: { follow: "Suivre", following: "Abonné" },
-  ar: { follow: "متابعة", following: "متابَع" }
+  fr: { follow: "Suivre", following: "Suivi" },
+  ar: { follow: "متابعة", following: "تتابعه" }
 } as const;
 
 // Self-toggling follow control. Optimistic: flips immediately, reverts on failure.

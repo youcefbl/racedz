@@ -63,32 +63,32 @@ export function evaluateCoachSafety(run: SafetyRun, metrics: CoachMetrics, profi
 // string each check pushes; unknown strings fall back to English.
 const SAFETY_REASON_I18N: Record<string, { fr: string; ar: string }> = {
   "A reported symptom requires professional assessment.": {
-    fr: "Un symptôme signalé nécessite une évaluation professionnelle.",
-    ar: "عرض مُبلَّغ عنه يتطلب تقييماً من مختص."
+    fr: "Un symptôme signalé nécessite l'avis d'un professionnel de santé.",
+    ar: "يتطلب أحد الأعراض المُبلَّغ عنها تقييمًا من مختص صحي."
   },
   "The reported pain level is severe.": {
-    fr: "Le niveau de douleur signalé est sévère.",
-    ar: "مستوى الألم المُبلَّغ عنه شديد."
+    fr: "Le niveau de douleur signalé est élevé.",
+    ar: "مستوى الألم المُبلَّغ عنه مرتفع."
   },
   "A reported heart condition requires medical clearance before intense training.": {
-    fr: "Un problème cardiaque signalé nécessite un avis médical avant un entraînement intense.",
-    ar: "حالة قلبية مُبلَّغ عنها تتطلب موافقة طبية قبل التدريب المكثّف."
+    fr: "Un problème cardiaque signalé nécessite un avis médical avant tout entraînement intense.",
+    ar: "تتطلب حالة قلبية مُبلَّغ عنها استشارة طبية قبل أي تدريب مكثّف."
   },
   "An ongoing health condition was reported; keep training conservative.": {
-    fr: "Un problème de santé persistant a été signalé ; gardez un entraînement prudent.",
-    ar: "تم الإبلاغ عن حالة صحية مستمرة؛ حافظ على تدريب متحفّظ."
+    fr: "Un problème de santé persistant a été signalé ; restez prudent dans votre entraînement.",
+    ar: "تم الإبلاغ عن حالة صحية مستمرة؛ لذا احرص على أن يكون تدريبك متحفّظًا."
   },
   "Pain was reported during recent training.": {
-    fr: "De la douleur a été signalée lors d'entraînements récents.",
-    ar: "تم الإبلاغ عن ألم خلال التدريبات الأخيرة."
+    fr: "Des douleurs ont été signalées lors d'entraînements récents.",
+    ar: "تم الإبلاغ عن آلام خلال التدريبات الأخيرة."
   },
   "Recent fatigue is high.": {
-    fr: "La fatigue récente est élevée.",
-    ar: "التعب الأخير مرتفع."
+    fr: "La fatigue récente est importante.",
+    ar: "مستوى التعب الأخير مرتفع."
   },
   "Recent weekly distance increased sharply.": {
     fr: "La distance hebdomadaire a fortement augmenté récemment.",
-    ar: "ازدادت المسافة الأسبوعية بشكل حاد مؤخراً."
+    ar: "ازدادت المسافة الأسبوعية كثيرًا مؤخرًا."
   }
 };
 

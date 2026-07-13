@@ -225,7 +225,7 @@ export const contentDictionaries = {
         title: "Conditions d'utilisation",
         updated: "Dernière mise à jour : 8 juillet 2026",
         intro:
-          "Les présentes Conditions d'utilisation (« Conditions ») régissent votre accès et votre utilisation de ZidRun — notre site web, notre application mobile et les services associés (ensemble, le « Service »). ZidRun est une plateforme pour découvrir des courses de running en Algérie, s'y inscrire, et s'entraîner avec un coach de course IA. En créant un compte ou en utilisant le Service, vous acceptez ces Conditions. Si vous n'êtes pas d'accord, veuillez ne pas utiliser le Service.",
+          "Les présentes Conditions d'utilisation (« Conditions ») régissent votre accès et votre utilisation de ZidRun — notre site web, notre application mobile et les services associés (ensemble, le « Service »). ZidRun est une plateforme qui permet de découvrir des courses à pied en Algérie, de s'y inscrire et de s'entraîner avec un coach de course doté d'IA. En créant un compte ou en utilisant le Service, vous acceptez ces Conditions. Si vous n'êtes pas d'accord, veuillez ne pas utiliser le Service.",
         note:
           "Nous fournissons ces Conditions en anglais, français et arabe à titre de commodité. En cas de conflit entre les versions, la version anglaise prévaut. Ce document est un accord général et ne remplace pas un conseil juridique.",
         sections: [
@@ -233,7 +233,7 @@ export const contentDictionaries = {
             id: "acceptance",
             title: "1. Qui nous sommes et acceptation",
             body:
-              "ZidRun (« ZidRun », « nous ») exploite le Service en Algérie. Ces Conditions constituent un accord contraignant entre vous et ZidRun.\nVous devez avoir au moins 16 ans pour créer un compte. Si vous avez moins de 18 ans, vous confirmez qu'un parent ou tuteur légal a examiné et accepte ces Conditions et supervise votre utilisation. Si vous utilisez le Service pour le compte d'une organisation, vous confirmez être autorisé à l'engager."
+              "ZidRun (« ZidRun », « nous ») exploite le Service en Algérie. Ces Conditions constituent un accord contraignant entre vous et ZidRun.\nVous devez avoir au moins 16 ans pour créer un compte. Si vous avez moins de 18 ans, vous confirmez qu'un parent ou tuteur légal a examiné et accepte ces Conditions et supervise votre utilisation. Si vous utilisez le Service pour le compte d'une organisation, vous confirmez être autorisé à l'engager juridiquement."
           },
           {
             id: "accounts",
@@ -287,7 +287,7 @@ export const contentDictionaries = {
             id: "acceptable-use",
             title: "10. Utilisation acceptable",
             body:
-              "En utilisant le Service, vous acceptez de ne pas :\n• enfreindre une loi applicable ou les droits de tiers ;\n• publier du contenu faux, trompeur, nuisible, contrefaisant, haineux ou offensant ;\n• usurper l'identité d'autrui ou dénaturer votre identité ou affiliation ;\n• perturber, surcharger, extraire (scraper), désosser ou tenter d'accéder sans autorisation au Service ;\n• détourner les données personnelles d'autres utilisateurs ou envoyer du spam.\nFournissez des informations honnêtes et exactes au coach (y compris les détails de santé). Nous pouvons retirer du contenu et suspendre les comptes qui enfreignent ces règles."
+              "En utilisant le Service, vous acceptez de ne pas :\n• enfreindre une loi applicable ou les droits de tiers ;\n• publier du contenu faux, trompeur, nuisible, contrefaisant, haineux ou offensant ;\n• usurper l'identité d'autrui ou dénaturer votre identité ou affiliation ;\n• perturber, surcharger, extraire des données, désosser ou tenter d'accéder sans autorisation au Service ;\n• détourner les données personnelles d'autres utilisateurs ou envoyer des messages indésirables.\nFournissez des informations honnêtes et exactes au coach (y compris les détails de santé). Nous pouvons retirer du contenu et suspendre les comptes qui enfreignent ces règles."
           },
           {
             id: "your-content",
@@ -345,7 +345,7 @@ export const contentDictionaries = {
             id: "data",
             title: "1. Informations que nous collectons",
             body:
-              "Nous collectons :\n• Compte et profil : nom, e-mail, téléphone, et des détails facultatifs comme le sexe, la date de naissance, la ville/wilaya, le numéro de pièce d'identité (lorsqu'une course l'exige) et l'avatar.\n• Activité de course : vos inscriptions et tout document requis par un organisateur.\n• Données du coach IA : les informations d'entraînement et de santé que vous choisissez de fournir (objectifs, historique, blessures, problèmes de santé persistants, poids) et, si vous enregistrez des sorties, vos mesures et trajets GPS.\n• Messages : les messages de support que vous nous envoyez.\n• Données organisateur : pour les comptes organisateurs, les coordonnées et détails de l'organisation.\n• Preuve de paiement : la capture d'écran que vous téléchargez pour confirmer un paiement manuel. Nous ne collectons ni ne stockons de numéros de carte.\n• Appareil et usage : données techniques de base (pages consultées approximatives, version de l'application) collectées via notre propre outil d'analyse first-party."
+              "Nous collectons :\n• Compte et profil : nom, e-mail, téléphone, et des détails facultatifs comme le sexe, la date de naissance, la ville ou la wilaya, le numéro de pièce d'identité (lorsqu'une course l'exige) et la photo de profil.\n• Activité de course : vos inscriptions et tout document requis par un organisateur.\n• Données du coach IA : les informations d'entraînement et de santé que vous choisissez de fournir (objectifs, historique, blessures, problèmes de santé persistants, poids) et, si vous enregistrez des sorties, vos mesures et trajets GPS.\n• Messages : les messages de support que vous nous envoyez.\n• Données organisateur : pour les comptes organisateurs, les coordonnées et détails de l'organisation.\n• Preuve de paiement : la capture d'écran que vous téléchargez pour confirmer un paiement manuel. Nous ne collectons ni ne stockons de numéros de carte.\n• Appareil et usage : données techniques de base (pages consultées approximatives, version de l'application) collectées via notre propre outil d'analyse interne."
           },
           {
             id: "use",
@@ -363,7 +363,7 @@ export const contentDictionaries = {
             id: "cookies",
             title: "4. Cookies et technologies similaires",
             body:
-              "Nous utilisons un petit nombre de cookies et technologies similaires. Vous pouvez examiner et accepter ou refuser les cookies non essentiels via la bannière affichée lors de votre première visite, et modifier ou supprimer les cookies à tout moment dans les paramètres de votre navigateur.\n• Essentiel (connexion) : un cookie de session sécurisé défini par notre système d'authentification vous maintient connecté. Le Service ne peut pas fonctionner sans lui ; il ne peut donc pas être désactivé.\n• Préférences : « racedz-locale » enregistre votre langue et « racedz-theme » votre apparence (clair/sombre/course). Chacun dure environ un an.\n• Analyse (first-party) : « zr_vid » (environ un an) et « zr_sid » (environ 30 minutes) sont des identifiants aléatoires servant à mesurer l'usage agrégé, comme le nombre de visiteurs et les pages populaires. Ce sont nos propres cookies — nous n'utilisons pas de cookies publicitaires ou de suivi tiers.\n• Consentement : « zr_consent » mémorise votre choix de cookies pour ne pas vous le redemander.\nNous stockons aussi votre préférence de thème et un indicateur de synchronisation unique dans le stockage local de votre navigateur. Si vous refusez les cookies non essentiels, nous n'utilisons pas de cookies d'analyse. Désactiver les cookies de préférences réinitialise simplement votre langue et votre thème enregistrés."
+              "Nous utilisons un petit nombre de cookies et technologies similaires. Vous pouvez examiner et accepter ou refuser les cookies non essentiels via la bannière affichée lors de votre première visite, et modifier ou supprimer les cookies à tout moment dans les paramètres de votre navigateur.\n• Essentiel (connexion) : un cookie de session sécurisé défini par notre système d'authentification vous maintient connecté. Le Service ne peut pas fonctionner sans lui ; il ne peut donc pas être désactivé.\n• Préférences : « racedz-locale » enregistre votre langue et « racedz-theme » votre apparence (clair/sombre/course). Chacun dure environ un an.\n• Analyse interne : « zr_vid » (environ un an) et « zr_sid » (environ 30 minutes) sont des identifiants aléatoires servant à mesurer l'usage agrégé, comme le nombre de visiteurs et les pages populaires. Ce sont nos propres cookies — nous n'utilisons pas de cookies publicitaires ou de suivi tiers.\n• Consentement : « zr_consent » mémorise votre choix de cookies pour ne pas vous le redemander.\nNous stockons aussi votre préférence de thème et un indicateur de synchronisation unique dans le stockage local de votre navigateur. Si vous refusez les cookies non essentiels, nous n'utilisons pas de cookies d'analyse. Désactiver les cookies de préférences réinitialise simplement votre langue et votre thème enregistrés."
           },
           {
             id: "retention",
@@ -441,7 +441,7 @@ export const contentDictionaries = {
         title: "شروط الاستخدام",
         updated: "آخر تحديث: 8 جويلية 2026",
         intro:
-          "تحكم شروط الاستخدام هذه («الشروط») وصولك إلى ZidRun واستخدامك له — موقعنا الإلكتروني وتطبيقنا للهاتف والخدمات المرتبطة (معًا «الخدمة»). ZidRun منصّة لاكتشاف سباقات الجري في الجزائر والتسجيل فيها والتدرّب مع مدرب جري ذكي. بإنشائك حسابًا أو استخدامك الخدمة، فإنك توافق على هذه الشروط. إذا لم توافق، فيُرجى عدم استخدام الخدمة.",
+          "تحكم شروط الاستخدام هذه («الشروط») وصولك إلى ZidRun واستخدامك له — موقعنا الإلكتروني وتطبيقنا للهاتف والخدمات المرتبطة (معًا «الخدمة»). ZidRun منصّة لاكتشاف سباقات الجري في الجزائر والتسجيل فيها والتدرّب مع مدرب جري يعمل بالذكاء الاصطناعي. بإنشائك حسابًا أو استخدامك الخدمة، فإنك توافق على هذه الشروط. إذا لم توافق، فيُرجى عدم استخدام الخدمة.",
         note:
           "نوفّر هذه الشروط بالإنجليزية والفرنسية والعربية لتسهيل الاطلاع. في حال وجود أي تعارض بين النسخ، تسود النسخة الإنجليزية. هذا المستند اتفاق عام ولا يُغني عن استشارة قانونية.",
         sections: [
@@ -467,7 +467,7 @@ export const contentDictionaries = {
             id: "race-registration",
             title: "4. التسجيل في السباقات",
             body:
-              "يعبّر التسجيل في سباق عن نيّتك المشاركة. لا يُؤكَّد المقعد إلا عندما يقبل المنظّم تسجيلك وتُستكمل أي رسوم أو مستندات مطلوبة. يضع المنظّمون شروط الأهلية والفئات والأسعار والمواعيد والقواعد الخاصة بهم، وأنت توافق على الالتزام بها. عليك تقديم معلومات هوية دقيقة عند الطلب. قد تُلغى التسجيلات وفق قواعد المنظّم أو بسبب عدم الدفع."
+              "يعبّر التسجيل في سباق عن نيّتك المشاركة. لا يُؤكَّد مكانك إلا عندما يقبل المنظّم تسجيلك وتُستكمل أي رسوم أو مستندات مطلوبة. يضع المنظّمون شروط الأهلية والفئات والأسعار والمواعيد والقواعد الخاصة بهم، وأنت توافق على الالتزام بها. عليك تقديم معلومات هوية دقيقة عند الطلب. قد تُلغى التسجيلات وفق قواعد المنظّم أو بسبب عدم الدفع."
           },
           {
             id: "payments",
@@ -485,7 +485,7 @@ export const contentDictionaries = {
             id: "fulfillment",
             title: "7. التنفيذ (كيفية تقديم الخدمة)",
             body:
-              "تُقدَّم الخدمة رقميًا.\n• المدرب الذكي: يُمنح الوصول لحسابك فور تفعيل اشتراكك بعد مراجعة الدفع، ويمكنك استخدامه فورًا طوال المدة المدفوعة.\n• التسجيل في السباقات: يتحقّق التنفيذ عندما يؤكّد المنظّم مقعدك. أما ما يخصّ يوم السباق — الأرقام والتوقيت والفعالية نفسها — فيقدّمه ويكفله المنظّم لا ZidRun.\nولأنّ الوصول الرقمي يُقدَّم فورًا عند التفعيل، فإنك توافق على أن نبدأ تقديمه دون تأخير."
+              "تُقدَّم الخدمة رقميًا.\n• المدرب الذكي: يُمنح الوصول لحسابك فور تفعيل اشتراكك بعد مراجعة الدفع، ويمكنك استخدامه فورًا طوال المدة المدفوعة.\n• التسجيل في السباقات: يتحقّق التنفيذ عندما يؤكّد المنظّم مكانك. أما ما يخصّ يوم السباق — الأرقام والتوقيت والفعالية نفسها — فيقدّمه ويكفله المنظّم لا ZidRun.\nولأنّ الوصول الرقمي يُقدَّم فورًا عند التفعيل، فإنك توافق على أن نبدأ تقديمه دون تأخير."
           },
           {
             id: "refunds",
@@ -503,7 +503,7 @@ export const contentDictionaries = {
             id: "acceptable-use",
             title: "10. الاستخدام المقبول",
             body:
-              "عند استخدام الخدمة، توافق على ألا:\n• تخالف أي قانون معمول به أو حقوق الغير؛\n• تنشر محتوى كاذبًا أو مضلّلًا أو ضارًا أو منتهِكًا أو كراهيًا أو مسيئًا؛\n• تنتحل شخصية غيرك أو تحرّف هويتك أو انتماءك؛\n• تعطّل الخدمة أو تُثقلها أو تستخرج بياناتها (scraping) أو تفكّكها أو تحاول الوصول غير المصرّح به إليها؛\n• تسيء استخدام بيانات المستخدمين الآخرين أو ترسل بريدًا مزعجًا.\nقدّم معلومات صادقة ودقيقة للمدرب (بما في ذلك التفاصيل الصحية). يجوز لنا إزالة المحتوى وتعليق الحسابات المخالفة لهذه القواعد."
+              "عند استخدام الخدمة، توافق على ألا:\n• تخالف أي قانون معمول به أو حقوق الغير؛\n• تنشر محتوى كاذبًا أو مضلّلًا أو ضارًا أو منتهِكًا أو كراهيًا أو مسيئًا؛\n• تنتحل شخصية غيرك أو تحرّف هويتك أو انتماءك؛\n• تعطّل الخدمة أو تُثقلها أو تستخرج بياناتها أو تفكّكها أو تحاول الوصول غير المصرّح به إليها؛\n• تسيء استخدام بيانات المستخدمين الآخرين أو ترسل رسائل مزعجة.\nقدّم معلومات صادقة ودقيقة للمدرب (بما في ذلك التفاصيل الصحية). يجوز لنا إزالة المحتوى وتعليق الحسابات المخالفة لهذه القواعد."
           },
           {
             id: "your-content",
@@ -561,13 +561,13 @@ export const contentDictionaries = {
             id: "data",
             title: "1. المعلومات التي نجمعها",
             body:
-              "نجمع:\n• الحساب والملف الشخصي: الاسم والبريد الإلكتروني والهاتف، وتفاصيل اختيارية مثل الجنس وتاريخ الميلاد والمدينة/الولاية ورقم الهوية (عندما يتطلبه سباق) والصورة الرمزية.\n• نشاط السباقات: تسجيلاتك وأي مستندات يطلبها المنظّم.\n• بيانات المدرب الذكي: معلومات التدريب والصحة التي تختار تقديمها (الأهداف، تاريخ التدريب، الإصابات، الحالات الصحية المزمنة، الوزن)، وإذا سجّلت جريات، مقاييسك ومسارات GPS.\n• الرسائل: رسائل الدعم التي ترسلها إلينا.\n• بيانات المنظّم: لحسابات المنظّمين، بيانات الاتصال وتفاصيل المنظمة.\n• إثبات الدفع: لقطة الشاشة التي ترفعها لتأكيد دفعة يدوية. لا نجمع أرقام البطاقات ولا نخزّنها.\n• الجهاز والاستخدام: بيانات تقنية أساسية (كالصفحات المُشاهَدة تقريبًا وإصدار التطبيق) تُجمع عبر أداة تحليلات خاصة بنا (first-party)."
+              "نجمع:\n• الحساب والملف الشخصي: الاسم والبريد الإلكتروني والهاتف، وتفاصيل اختيارية مثل الجنس وتاريخ الميلاد والمدينة أو الولاية ورقم الهوية (عندما يتطلبه سباق) وصورة الملف الشخصي.\n• نشاط السباقات: تسجيلاتك وأي مستندات يطلبها المنظّم.\n• بيانات المدرب الذكي: معلومات التدريب والصحة التي تختار تقديمها (الأهداف، تاريخ التدريب، الإصابات، الحالات الصحية المزمنة، الوزن)، وإذا سجّلت جريات، مقاييسك ومسارات GPS.\n• الرسائل: رسائل الدعم التي ترسلها إلينا.\n• بيانات المنظّم: لحسابات المنظّمين، بيانات الاتصال وتفاصيل المنظمة.\n• إثبات الدفع: لقطة الشاشة التي ترفعها لتأكيد دفعة يدوية. لا نجمع أرقام البطاقات ولا نخزّنها.\n• الجهاز والاستخدام: بيانات تقنية أساسية (كالصفحات المُشاهَدة تقريبًا وإصدار التطبيق) تُجمع عبر أداة تحليلات داخلية."
           },
           {
             id: "use",
             title: "2. كيف نستخدم بياناتك",
             body:
-              "نستخدم بياناتك لـ: إنشاء حسابك وتأمينه؛ وإدارة التسجيلات ومشاركة ما يحتاجه المنظّمون لتأكيد مقعدك؛ وتوفير مدربك الذكي وتخصيصه؛ وإرسال الإشعارات التي لم توقفها؛ ومراجعة المدفوعات اليدوية؛ وقياس الخدمة وتحسينها؛ والحفاظ على أمانها والامتثال للقانون.\nيقدّم المدرب الذكي إرشادات تدريبية فقط وليس نصيحة طبية. الجريات خاصة افتراضيًا ولا تظهر في التصنيفات العامة إلا إذا اخترت مشاركتها. لا نبيع بياناتك الشخصية."
+              "نستخدم بياناتك لـ: إنشاء حسابك وتأمينه؛ وإدارة التسجيلات ومشاركة ما يحتاجه المنظّمون لتأكيد مكانك؛ وتوفير مدربك الذكي وتخصيصه؛ وإرسال الإشعارات التي لم توقفها؛ ومراجعة المدفوعات اليدوية؛ وقياس الخدمة وتحسينها؛ والحفاظ على أمانها والامتثال للقانون.\nيقدّم المدرب الذكي إرشادات تدريبية فقط وليس نصيحة طبية. الجريات خاصة افتراضيًا ولا تظهر في لوحات الصدارة العامة إلا إذا اخترت مشاركتها. لا نبيع بياناتك الشخصية."
           },
           {
             id: "sharing",
@@ -579,7 +579,7 @@ export const contentDictionaries = {
             id: "cookies",
             title: "4. ملفات تعريف الارتباط والتقنيات المشابهة",
             body:
-              "نستخدم عددًا محدودًا من ملفات تعريف الارتباط والتقنيات المشابهة. يمكنك مراجعة الملفات غير الأساسية وقبولها أو رفضها عبر الشريط الذي يظهر في زيارتك الأولى، ويمكنك تغيير الملفات أو حذفها في أي وقت من إعدادات متصفّحك.\n• أساسي (تسجيل الدخول): ملف جلسة آمن يضبطه نظام المصادقة لدينا يبقيك مسجّل الدخول. لا تعمل الخدمة بدونه، لذا لا يمكن إيقافه.\n• التفضيلات: «racedz-locale» يحفظ لغتك و«racedz-theme» يحفظ مظهرك (فاتح/داكن/سباق). يدوم كل منهما نحو سنة.\n• التحليلات (first-party): «zr_vid» (نحو سنة) و«zr_sid» (نحو 30 دقيقة) معرّفان عشوائيان نقيس بهما الاستخدام الإجمالي، مثل عدد الزوار والصفحات الأكثر شعبية. هذه ملفاتنا الخاصة — ولا نستخدم ملفات إعلانية أو تتبّعية من أطراف ثالثة.\n• الموافقة: «zr_consent» يتذكّر اختيارك للملفات كي لا نسألك مجددًا.\nنخزّن أيضًا تفضيل مظهرك ومؤشّر مزامنة يُستخدم مرة واحدة في التخزين المحلي لمتصفّحك. إذا رفضت الملفات غير الأساسية، فلن نستخدم ملفات التحليلات. وإيقاف ملفات التفضيلات يعيد ببساطة ضبط لغتك ومظهرك المحفوظين."
+              "نستخدم عددًا محدودًا من ملفات تعريف الارتباط والتقنيات المشابهة. يمكنك مراجعة الملفات غير الأساسية وقبولها أو رفضها عبر الشريط الذي يظهر في زيارتك الأولى، ويمكنك تغيير الملفات أو حذفها في أي وقت من إعدادات متصفّحك.\n• أساسي (تسجيل الدخول): ملف جلسة آمن يضبطه نظام المصادقة لدينا يبقيك مسجّل الدخول. لا تعمل الخدمة بدونه، لذا لا يمكن إيقافه.\n• التفضيلات: «racedz-locale» يحفظ لغتك و«racedz-theme» يحفظ مظهرك (فاتح/داكن/سباق). يدوم كل منهما نحو سنة.\n• التحليلات الداخلية: «zr_vid» (نحو سنة) و«zr_sid» (نحو 30 دقيقة) معرّفان عشوائيان نقيس بهما الاستخدام الإجمالي، مثل عدد الزوار والصفحات الأكثر شعبية. هذه ملفاتنا الخاصة — ولا نستخدم ملفات إعلانية أو تتبّعية من أطراف ثالثة.\n• الموافقة: «zr_consent» يتذكّر اختيارك للملفات كي لا نسألك مجددًا.\nنخزّن أيضًا تفضيل مظهرك ومؤشّر مزامنة يُستخدم مرة واحدة في التخزين المحلي لمتصفّحك. إذا رفضت الملفات غير الأساسية، فلن نستخدم ملفات التحليلات. وإيقاف ملفات التفضيلات يعيد ببساطة ضبط لغتك ومظهرك المحفوظين."
           },
           {
             id: "retention",
@@ -615,7 +615,7 @@ export const contentDictionaries = {
       },
       faq: {
         title: "الأسئلة الشائعة",
-        intro: "إجابات سريعة حول السباقات والحسابات والدفع والمدرب الذكي. ما زلت بحاجة للمساعدة؟ تواصل مع فريقنا من حسابك.",
+        intro: "إجابات سريعة عن السباقات والحسابات والدفع والمدرب الذكي. هل ما زلت بحاجة إلى المساعدة؟ تواصل مع فريقنا من حسابك.",
         items: [
           {
             q: "ما هو ZidRun؟",
@@ -627,7 +627,7 @@ export const contentDictionaries = {
           },
           {
             q: "هل ZidRun مجاني؟",
-            a: "تصفّح السباقات وإنشاء حساب والتسجيل مجاني. رسوم الاشتراك في السباق يحددها كل منظّم. المدرب الذكي مجاني في الأسبوع الأول ثم يتطلب اشتراكًا."
+            a: "تصفّح السباقات وإنشاء حساب والتسجيل فيها مجاني. يحدّد كل منظّم رسوم التسجيل في السباق. المدرب الذكي مجاني في الأسبوع الأول، ثم يتطلب اشتراكًا."
           },
           {
             q: "كيف يعمل الأسبوع المجاني للمدرب الذكي؟",

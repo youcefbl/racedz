@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const copy = {
   en: { title: "Import a run", hint: "Add a run recorded on a watch or another app (.gpx).", choose: "Choose GPX file", effort: "Perceived effort (1–10)", makePublic: "Share publicly", importBtn: "Import run", importing: "Importing…", cancel: "Cancel", success: "Run imported." },
-  fr: { title: "Importer une course", hint: "Ajoutez une course enregistrée sur une montre ou une autre app (.gpx).", choose: "Choisir un fichier GPX", effort: "Effort perçu (1–10)", makePublic: "Partager publiquement", importBtn: "Importer", importing: "Importation…", cancel: "Annuler", success: "Course importée." },
+  fr: { title: "Importer une sortie", hint: "Ajoutez une sortie enregistrée sur une montre ou une autre application (.gpx).", choose: "Choisir un fichier GPX", effort: "Effort perçu (1–10)", makePublic: "Partager publiquement", importBtn: "Importer", importing: "Importation…", cancel: "Annuler", success: "Sortie importée." },
   ar: { title: "استيراد جري", hint: "أضف جريًا مسجَّلًا على ساعة أو تطبيق آخر (.gpx).", choose: "اختر ملف GPX", effort: "الجهد المُدرَك (1–10)", makePublic: "مشاركة علنية", importBtn: "استيراد", importing: "جارٍ الاستيراد…", cancel: "إلغاء", success: "تم استيراد الجري." }
 } as const;
 

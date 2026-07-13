@@ -13,20 +13,20 @@ const HEADING = {
 } as const;
 
 const META: Record<string, { icon: LucideIcon; label: Record<CoachLocale, string> }> = {
-  first_run: { icon: Footprints, label: { en: "First run", fr: "Première course", ar: "أول جري" } },
-  runs_10: { icon: Footprints, label: { en: "10 runs", fr: "10 courses", ar: "10 جري" } },
-  runs_50: { icon: Footprints, label: { en: "50 runs", fr: "50 courses", ar: "50 جري" } },
-  runs_100: { icon: Award, label: { en: "100 runs", fr: "100 courses", ar: "100 جري" } },
+  first_run: { icon: Footprints, label: { en: "First run", fr: "Première sortie", ar: "أول حصة جري" } },
+  runs_10: { icon: Footprints, label: { en: "10 runs", fr: "10 sorties", ar: "10 حصص جري" } },
+  runs_50: { icon: Footprints, label: { en: "50 runs", fr: "50 sorties", ar: "50 حصة جري" } },
+  runs_100: { icon: Award, label: { en: "100 runs", fr: "100 sorties", ar: "100 حصة جري" } },
   dist_50: { icon: RouteIcon, label: { en: "50 km total", fr: "50 km au total", ar: "50 كم إجمالاً" } },
   dist_250: { icon: RouteIcon, label: { en: "250 km total", fr: "250 km au total", ar: "250 كم إجمالاً" } },
   dist_1000: { icon: Award, label: { en: "1000 km total", fr: "1000 km au total", ar: "1000 كم إجمالاً" } },
-  long_10k: { icon: RouteIcon, label: { en: "10K run", fr: "Course de 10K", ar: "جري 10 كم" } },
+  long_10k: { icon: RouteIcon, label: { en: "10K run", fr: "Course de 10 km", ar: "جري 10 كم" } },
   long_half: { icon: Mountain, label: { en: "Half marathon", fr: "Semi-marathon", ar: "نصف ماراثون" } },
   long_marathon: { icon: Mountain, label: { en: "Marathon", fr: "Marathon", ar: "ماراثون" } },
   streak_4: { icon: Flame, label: { en: "4-week streak", fr: "Série de 4 semaines", ar: "سلسلة 4 أسابيع" } },
   streak_12: { icon: Flame, label: { en: "12-week streak", fr: "Série de 12 semaines", ar: "سلسلة 12 أسبوعًا" } },
   streak_26: { icon: Flame, label: { en: "26-week streak", fr: "Série de 26 semaines", ar: "سلسلة 26 أسبوعًا" } },
-  race_1: { icon: Medal, label: { en: "Race finisher", fr: "Finisher de course", ar: "أنهى سباقًا" } },
+  race_1: { icon: Medal, label: { en: "Race finisher", fr: "Finisher", ar: "أتمّ سباقًا" } },
   race_5: { icon: Trophy, label: { en: "5 races", fr: "5 courses", ar: "5 سباقات" } }
 };
 

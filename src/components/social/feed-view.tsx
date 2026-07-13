@@ -19,18 +19,18 @@ const copy = {
   },
   fr: {
     title: "Fil",
-    intro: "Les courses des personnes que vous suivez.",
-    emptyTitle: "Votre fil est calme",
-    emptyText: "Suivez des coureurs depuis les classements, ou enregistrez une course — les vôtres apparaissent aussi ici.",
+    intro: "Les sorties des personnes que vous suivez.",
+    emptyTitle: "Votre fil est vide",
+    emptyText: "Suivez des coureurs depuis les classements, ou enregistrez une sortie — les vôtres apparaîtront aussi ici.",
     loadMore: "Voir plus",
     you: "Vous",
     km: "km"
   },
   ar: {
     title: "الموجز",
-    intro: "جري الأشخاص الذين تتابعهم.",
-    emptyTitle: "موجزك هادئ",
-    emptyText: "تابع عدّائين من التصنيفات، أو سجّل جريًا — يظهر جريك هنا أيضًا.",
+    intro: "جريات الأشخاص الذين تتابعهم.",
+    emptyTitle: "موجزك فارغ",
+    emptyText: "تابع عدّائين من لوحات الصدارة، أو سجّل جريًا — وستظهر جرياتك هنا أيضًا.",
     loadMore: "تحميل المزيد",
     you: "أنت",
     km: "كم"
