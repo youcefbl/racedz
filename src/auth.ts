@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import { authConfig } from "@/auth.config";
 import { getPrisma } from "@/lib/db";
 import { verifyLoginCredentials, verifyMfaCode } from "@/lib/auth-credentials";
 import { createMfaTicket } from "@/lib/mfa-ticket";
@@ -19,7 +20,9 @@ type AuthUser = {
 const googleProviderEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  // Edge-safe base (session strategy, pages, trustHost, session callback) is shared
+  // with the middleware via src/auth.config.ts.
+  ...authConfig,
   // Surface the real cause of auth failures in the server logs. Without this, a
   // thrown callback/OAuth error only shows users the generic
   // /api/auth/error?error=Configuration page with no detail. Grep logs for "[auth]".
@@ -27,12 +30,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error(error: Error) {
       console.error("[auth][error]", error);
     }
-  },
-  session: {
-    strategy: "jwt"
-  },
-  pages: {
-    signIn: "/login"
   },
   providers: [
     Credentials({
@@ -109,6 +106,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       : [])
   ],
   callbacks: {
+    // session() is defined in src/auth.config.ts (edge-safe, shared with middleware).
+    ...authConfig.callbacks,
     async signIn({ account, profile }) {
       if (account?.provider === "google") {
         const email = getOAuthEmail(profile);
@@ -175,17 +174,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       return token;
-    },
-    session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub ?? "";
-        session.user.role = token.role as UserRole;
-        session.user.organizationIds = Array.isArray(token.organizationIds)
-          ? (token.organizationIds as string[])
-          : [];
-      }
-
-      return session;
     }
   }
 });
