@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Megaphone } from "lucide-react";
+import { Megaphone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getRaceAnnouncements } from "@/lib/announcements";
 import { getAdminRaceForEdit, requireAdmin } from "@/lib/admin";
@@ -12,11 +12,13 @@ export const dynamic = "force-dynamic";
 
 type AdminRaceEditPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ imported?: string }>;
 };
 
-export default async function AdminRaceEditPage({ params }: AdminRaceEditPageProps) {
+export default async function AdminRaceEditPage({ params, searchParams }: AdminRaceEditPageProps) {
   await requireAdmin();
   const { id } = await params;
+  const justImported = (await searchParams)?.imported === "1";
   const race = await getAdminRaceForEdit(id);
 
   if (!race) {
@@ -26,6 +28,19 @@ export default async function AdminRaceEditPage({ params }: AdminRaceEditPagePro
 
   return (
     <AdminShell title="Edit race" description="Admin edits are saved immediately and recorded in the audit log.">
+      {justImported ? (
+        <div className="mb-6 flex max-w-6xl items-start gap-3 rounded-lg border border-brand-orange/30 bg-orange-50 p-4">
+          <Sparkles className="mt-0.5 size-5 shrink-0 text-brand-orange" aria-hidden="true" />
+          <div className="text-sm leading-6 text-gray-700">
+            <p className="font-black text-gray-950">Draft created from the post</p>
+            <p>
+              The AI filled these fields in from the images and caption. <strong>Check the date, wilaya, distances,
+              and prices</strong> — anything it was unsure about needs your review. Set the status to{" "}
+              <strong>Published</strong> when it&apos;s correct.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <div className="grid max-w-6xl gap-6 lg:grid-cols-[1fr_360px]">
         <AdminRaceEditForm race={race} />
         <aside className="h-fit rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
