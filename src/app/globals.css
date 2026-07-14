@@ -865,37 +865,155 @@ textarea {
   width: 100%;
 }
 
-/* Animated native boot splash — the bouncing ZidRun Z on the brand teal panel. Hidden on the
-   website; shown only inside the native app (where NativeChrome adds `.native-app`). */
+/* Animated native boot splash. Hidden on the website; shown only inside the native app (where
+   NativeChrome adds `.native-app`). Fully theme-driven off `[data-theme]` (light / dark / race)
+   which the inline boot script sets on <html> before first paint — three distinct looks, one panel:
+   an ambient pulsing glow behind a large bouncing ZidRun mark, with a wave of loading dots below. */
 .rz-native-splash {
   display: none;
-  transition: opacity 0.45s ease;
+  flex-direction: column;
+  gap: 2.75rem;
+  overflow: hidden;
+  transition:
+    opacity 0.5s ease,
+    visibility 0.5s ease;
+  /* Light theme (default). */
+  background: radial-gradient(135% 105% at 50% 0%, #ffffff 0%, #eef7f2 55%, #e0f0e8 100%);
+}
+[data-theme="dark"] .rz-native-splash {
+  background: radial-gradient(135% 105% at 50% 0%, #0f1b2c 0%, #0a1220 55%, #060b16 100%);
+}
+[data-theme="race"] .rz-native-splash {
+  background: radial-gradient(125% 105% at 50% 0%, #1c0f2e 0%, #120826 55%, #05020a 100%);
 }
 .native-app .rz-native-splash {
   display: flex;
 }
 .rz-native-splash--hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
+
+/* Stage holds the glow + mark stacked. */
+.rz-splash-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.rz-splash-glow {
+  position: absolute;
+  width: clamp(240px, 78vw, 340px);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  filter: blur(34px);
+  animation: rz-splash-pulse 2.6s ease-in-out infinite;
+  /* Light theme (default) — green core with a warm brand-orange halo. */
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(139, 197, 63, 0.55) 0%,
+    rgba(244, 122, 32, 0.22) 45%,
+    rgba(139, 197, 63, 0) 72%
+  );
+}
+[data-theme="dark"] .rz-splash-glow {
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(74, 222, 128, 0.5) 0%,
+    rgba(251, 146, 60, 0.2) 45%,
+    rgba(74, 222, 128, 0) 72%
+  );
+}
+[data-theme="race"] .rz-splash-glow {
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(57, 255, 20, 0.55) 0%,
+    rgba(255, 43, 214, 0.34) 42%,
+    rgba(57, 255, 20, 0) 72%
+  );
+}
+
+.rz-splash-mark {
+  display: block;
+  line-height: 0;
+}
 .rz-splash-mark svg {
+  position: relative;
+  z-index: 1;
   display: block;
   height: auto;
-  width: 100%;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.25));
-  animation: rz-splash-bounce 1s ease-in-out infinite;
+  width: clamp(150px, 44vw, 210px);
+  filter: drop-shadow(0 16px 32px rgba(17, 24, 39, 0.18));
+  animation: rz-splash-float 2s ease-in-out infinite;
 }
-@keyframes rz-splash-bounce {
+[data-theme="dark"] .rz-splash-mark svg {
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.55));
+}
+[data-theme="race"] .rz-splash-mark svg {
+  filter: drop-shadow(0 0 9px rgba(57, 255, 20, 0.55)) drop-shadow(0 0 16px rgba(255, 43, 214, 0.4));
+}
+
+/* Loading dots — a small wave beneath the mark. */
+.rz-splash-dots {
+  display: inline-flex;
+  gap: 0.55rem;
+}
+.rz-splash-dots i {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  background: #8bc53f;
+  animation: rz-splash-dot 1s ease-in-out infinite;
+}
+.rz-splash-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.rz-splash-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+[data-theme="dark"] .rz-splash-dots i {
+  background: #4ade80;
+}
+[data-theme="race"] .rz-splash-dots i {
+  background: #39ff14;
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.85);
+}
+
+@keyframes rz-splash-float {
   0%,
   100% {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-16px);
+    transform: translateY(-14px);
+  }
+}
+@keyframes rz-splash-pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.72;
+  }
+}
+@keyframes rz-splash-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rz-splash-mark svg {
+  .rz-splash-mark svg,
+  .rz-splash-glow,
+  .rz-splash-dots i {
     animation: none;
   }
 }
