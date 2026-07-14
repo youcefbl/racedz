@@ -41,45 +41,57 @@ export function NativeChrome() {
     let removeKeyboard: (() => void) | undefined;
 
     (async () => {
+      // Hide the boot splash first so the app becomes visible as early as possible…
       try {
         const { SplashScreen } = await import("@capacitor/splash-screen");
         await SplashScreen.hide();
       } catch {
         /* plugin missing — fine */
       }
-      try {
-        statusBarApi = await import("@capacitor/status-bar");
-        await applyStatusBar();
-        observer = new MutationObserver(() => void applyStatusBar());
-        observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
-      } catch {
-        /* ignore */
-      }
-      try {
-        const { App } = await import("@capacitor/app");
-        const handle = await App.addListener("backButton", ({ canGoBack }) => {
-          if (canGoBack || window.history.length > 1) {
-            window.history.back();
-          } else {
-            void App.exitApp();
+
+      // …then wire the remaining, independent plugins in parallel (each dynamic import + bridge
+      // call is a separate round-trip; awaiting them sequentially needlessly serialized boot).
+      await Promise.all([
+        (async () => {
+          try {
+            statusBarApi = await import("@capacitor/status-bar");
+            await applyStatusBar();
+            observer = new MutationObserver(() => void applyStatusBar());
+            observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+          } catch {
+            /* ignore */
           }
-        });
-        removeBackButton = () => void handle.remove();
-      } catch {
-        /* ignore */
-      }
-      try {
-        const { Keyboard } = await import("@capacitor/keyboard");
-        // Hide the bottom tab bar while the keyboard is up (native apps don't float a tab bar over it).
-        const show = await Keyboard.addListener("keyboardWillShow", () => root.classList.add("keyboard-open"));
-        const hide = await Keyboard.addListener("keyboardWillHide", () => root.classList.remove("keyboard-open"));
-        removeKeyboard = () => {
-          void show.remove();
-          void hide.remove();
-        };
-      } catch {
-        /* keyboard plugin unavailable — fine */
-      }
+        })(),
+        (async () => {
+          try {
+            const { App } = await import("@capacitor/app");
+            const handle = await App.addListener("backButton", ({ canGoBack }) => {
+              if (canGoBack || window.history.length > 1) {
+                window.history.back();
+              } else {
+                void App.exitApp();
+              }
+            });
+            removeBackButton = () => void handle.remove();
+          } catch {
+            /* ignore */
+          }
+        })(),
+        (async () => {
+          try {
+            const { Keyboard } = await import("@capacitor/keyboard");
+            // Hide the bottom tab bar while the keyboard is up (native apps don't float a tab bar over it).
+            const show = await Keyboard.addListener("keyboardWillShow", () => root.classList.add("keyboard-open"));
+            const hide = await Keyboard.addListener("keyboardWillHide", () => root.classList.remove("keyboard-open"));
+            removeKeyboard = () => {
+              void show.remove();
+              void hide.remove();
+            };
+          } catch {
+            /* keyboard plugin unavailable — fine */
+          }
+        })()
+      ]);
     })();
 
     return () => {

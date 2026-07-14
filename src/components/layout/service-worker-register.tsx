@@ -3,10 +3,11 @@
 import { Capacitor } from "@capacitor/core";
 import { useEffect } from "react";
 
-// Registers the Firebase-messaging service worker (push notifications). The worker no
-// longer caches pages/assets — see public/firebase-messaging-sw.js for why — so this is
-// mostly about push, plus making sure a new worker version takes over promptly and the
-// page reloads once when it does (so a deploy reaches already-open browsers).
+// Registers the right service worker per platform:
+// - Website: the Firebase-messaging worker (push). It doesn't cache pages/assets — see
+//   public/firebase-messaging-sw.js — and this handles prompt takeover + one reload on update.
+// - Native app: a cache-only worker for hashed /_next/static assets (public/native-asset-sw.js)
+//   so warm starts load JS/CSS from disk. Native uses FCM push directly, so no firebase SW there.
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,15 +21,17 @@ export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
-    // The native app loads the remote site and uses native FCM push — a service worker
-    // here only causes trouble (controllerchange -> window.location.reload(), which can
-    // reload the WebView at bad moments and crash/loop it). Never register one in native,
-    // and tear down any a previous build may have left controlling the WebView.
+    // Native: register the cache-only asset worker. Registering it at scope `/` also replaces any
+    // SW a previous build left controlling the WebView (e.g. the old caching one that looped), and
+    // that worker's `activate` nukes every legacy cache. Crucially there is NO controllerchange
+    // reload in this branch — that was the source of the past WebView reload loops.
     if (Capacitor.isNativePlatform()) {
-      navigator.serviceWorker
-        .getRegistrations?.()
-        .then((registrations) => registrations.forEach((registration) => void registration.unregister()))
-        .catch(() => undefined);
+      const registerAssetWorker = () => navigator.serviceWorker.register("/native-asset-sw.js").catch(() => undefined);
+      if (document.readyState === "complete") {
+        registerAssetWorker();
+      } else {
+        window.addEventListener("load", registerAssetWorker, { once: true });
+      }
       return;
     }
 

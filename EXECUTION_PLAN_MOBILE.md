@@ -1,17 +1,18 @@
 # ZidRun — Mobile Performance Execution Plan (verified)
 
-## Progress — 33% (3 / 9 core fixes)
-`▓▓▓░░░░░░ 33%`
+## Progress — 67% (6 / 9 core fixes)
+`▓▓▓▓▓▓░░░ 67%`
 
 | Batch | Items | Status |
 |---|---|---|
 | **1 — felt speed (zero-risk)** | A, B, C | ✅ **done** (2026-07-14) |
 | **2 — data & polish** | D, E, F | ⬜ pending |
-| **3 — navigation** | G, H | ⬜ pending |
-| **4 — startup/offline** | I (+ NativeChrome parallel init) | ⬜ pending |
+| **3 — navigation** | G, H | ✅ **done** (2026-07-14) — G resolved by audit (no change needed), H shipped |
+| **4 — startup/offline** | I (+ NativeChrome parallel init) | ✅ **done** (2026-07-14) — static-asset SW + parallel init |
 | optional (do alongside a batch) | header `transition-all`, watermark pause, splash-glow swap | ⬜ pending |
 
-*Percentage tracks the 9 core labelled fixes (A–I); the optional ◐ items aren't counted.*
+*Percentage tracks the 9 core labelled fixes (A–I); the optional ◐ items aren't counted. G counts as
+complete: investigation showed the routes are already correctly cached/dynamic (see its entry).*
 
 ---
 
@@ -49,6 +50,22 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
     all ~50 rows (or their SVG maps). Behavior-preserving.
   - **Owner runtime check (device):** React DevTools Profiler — drag a slider, confirm only the form
     re-renders; DevTools Rendering paint-flashing while scrolling a long list in race theme.
+- **2026-07-14 — P2 pass (navigation/startup).** All typecheck + lint clean.
+  - **H** — reworked `NativeTransition`: dropped `key={pathname}` (which remounted the whole page subtree
+    every navigation) for a stable wrapper that replays the CSS enter animation before paint via an
+    isomorphic layout effect (native-only; no-op + no reflow on the website). Triggers on the exact same
+    `pathname` changes as before, so behavior is preserved (param/pagination changes already reconciled).
+  - **NativeChrome parallel init** — `SplashScreen.hide()` still runs first; the independent status-bar /
+    back-button / keyboard plugin imports+listeners now run in `Promise.all` instead of serially.
+  - **G** — **investigated, no change needed.** Premise didn't hold: marketing/content pages (home, about,
+    pricing, runners, organizers, coach, blog) are already static; every `force-dynamic` page is legitimately
+    dynamic (`getCurrentUser`, searchParams, or the `recordSearchQuery` write); race **data** reads are
+    already cached at the data layer with tag invalidation. No safe caching win exists without a medium
+    refactor (splitting personalized islands out of race detail) — logged as a future option below.
+  - **I** — **shipped (static-assets-only, per decision).** New `public/native-asset-sw.js` caches only
+    immutable hashed `/_next/static` assets in native; registered via `service-worker-register.tsx` with no
+    `controllerchange` reload. Warm starts load JS/CSS from disk. Full offline HTML shell deferred by design.
+  - **P2 complete (6/9 core).** Only Batch 2 (D, E, F) remains. All changes typecheck + lint clean.
 
 ---
 
@@ -71,40 +88,37 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
 
 ## 🟠 P2 — Slow startup & navigation
 
-- [ ] ❌ **(G) `revalidate`-cache the genuinely-public `force-dynamic` routes** — 49 `force-dynamic` pages,
-      1 `revalidate`. Public listing/content routes (races list, race detail, pricing, about, blog) pay a full
-      server render on every navigation with no HTTP cache. Personalized routes (account/coach/admin/organizer)
-      must stay dynamic.
-      *Evidence:* `grep force-dynamic src/app` → 49 files; only 1 `export const revalidate`.
-      *Fix:* per-route audit → switch the truly-public ones to `revalidate = N` (or segment caching) so
-      repeat navigations hit cache. *Benefit:* near-instant public-page nav; lower server load.
-      *Risk:* Medium — must not cache authenticated/personalized data; route-by-route pass required.
-      *Verify:* Network panel — cached routes return from-cache / low TTFB; personalized pages still update. — M
+- [x] ✅ **(G) `revalidate`-cache the genuinely-public `force-dynamic` routes** — AUDITED 2026-07-14,
+      **no change needed.** The premise was wrong: the marketing/content pages (home, about, pricing, runners,
+      organizers, coach, blog) are **already static** (not `force-dynamic`); every `force-dynamic` page is
+      legitimately dynamic — races list has searchParams + a `recordSearchQuery` write; race detail `[slug]`
+      calls `getCurrentUser()` (personalized registration status / report button); account/organizer/admin are
+      per-user. And race **data** reads are already cached at the data layer with tag invalidation. `getLocale`
+      reads the `?lang` **param**, not cookies. So there is no safe `revalidate` win to make here.
+      *Follow-up (future, medium — NOT done):* race detail `[slug]` could be made mostly-static by extracting
+      the `getCurrentUser`-dependent bits (registration CTA, report button) into a client island that fetches
+      on the client. Bigger than a flag; only worth it if cold public-page render stays a top complaint. — (n/a)
 
-- [ ] ❌ **(H) `NativeTransition` remounts the entire page subtree on every navigation** — wraps all routes
-      and re-keys on pathname (`<div key={pathname}>`), forcing a full DOM teardown+rebuild (image reloads,
-      re-layout) each nav just to replay a CSS enter animation, instead of letting React reconcile.
-      *Evidence:* `native-transition.tsx:11`.
-      *Fix:* replay the enter animation via a class toggle on pathname change (effect), or scope the `key` to a
-      small inner wrapper — keep the visual transition, drop the full remount.
-      *Benefit:* cheaper, faster route transitions. *Risk:* Low-Medium (preserve animation + scroll reset).
-      *Verify:* Performance trace on nav — compare scripting/layout time and DOM node churn. — M
+- [x] ✅ **(H) `NativeTransition` remounts the entire page subtree on every navigation** — FIXED 2026-07-14:
+      dropped `key={pathname}` for a stable wrapper that restarts the CSS enter animation before paint via an
+      isomorphic layout effect (native-only; website skips it, no reflow). Triggers on the same `pathname`
+      changes as before, so behavior is preserved. Now React reconciles instead of tearing down/rebuilding
+      the page each navigation. *Evidence:* `native-transition.tsx`. — M
 
-- [ ] ❌ **(I) No offline/app-shell asset caching in native** — remote-URL load + SW unregistered means a
-      flaky connection = blank/slow app, and hashed static assets (JS/CSS/font) re-fetch instead of loading
-      from disk.
-      *Evidence:* `service-worker-register.tsx:27-33`; `images:{unoptimized:true}` in `next.config.ts`.
-      *Fix (graduated):* (1) native-safe cache-only SW (or Capacitor HTTP cache) for `/_next/static/*` + font —
-      **must avoid** the `controllerchange → reload` loop the code comment warns about (no navigation preload,
-      no reload). (2) later: bundled static shell for the top-level tabs.
-      *Benefit:* faster warm starts, resilience on poor networks. *Risk:* Med-High (SW in this webview has
-      caused reload loops before — scope carefully, native-only). *Verify:* airplane-mode after first load. — L
+- [x] ✅ **(I) Native static-asset caching** — SHIPPED 2026-07-14 (decision: static-assets-only). Added
+      `public/native-asset-sw.js`, a **native-only** cache-only worker that caches **only** hashed
+      `/_next/static/<hash>` assets (content-addressed/immutable → can never serve a stale shell; HTML +
+      everything else always hit the network). `service-worker-register.tsx` now registers it in native
+      (replacing the old blanket unregister); the worker's `activate` nukes any legacy caches, and there is
+      **no `controllerchange` reload** (the past reload-loop source). Warm starts now load JS/CSS from disk.
+      *Not done (deferred):* full offline HTML shell — deliberately out of scope (that's what caused the old
+      stale-shell loops). *Owner runtime check:* after one online load, confirm `/_next/static` requests serve
+      from Cache Storage (DevTools → Application → Cache Storage / Network "from ServiceWorker"); verify no
+      reload loop on app relaunch after a deploy. — L
 
-- [ ] ◐ **NativeChrome plugin init is sequential** — `SplashScreen.hide()` is awaited first (good), but
-      status-bar / app / keyboard dynamic imports then run one-after-another in the same async IIFE.
-      *Evidence:* `native-chrome.tsx:43-83`.
-      *Fix:* `Promise.all` the independent plugin imports/listeners after the splash hide. *Benefit:* shaves a
-      little bridge/boot time. *Risk:* Very low. *Verify:* boot trace, time-to-interactive. — S
+- [x] ✅ **NativeChrome plugin init is sequential** — FIXED 2026-07-14: `SplashScreen.hide()` still runs
+      first; the independent status-bar / back-button / keyboard imports + listeners now run in `Promise.all`
+      instead of serially. *Evidence:* `native-chrome.tsx`. — S
 
 ---
 
