@@ -78,7 +78,7 @@ export function MfaPanel({ enabled }: { enabled: boolean }) {
     return (
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-bold text-gray-950">Set up your authenticator</h2>
-        <ol className="mt-3 grid gap-3 text-sm text-gray-700">
+        <ol className="mt-3 grid grid-cols-1 gap-3 text-sm text-gray-700 [&>li]:min-w-0">
           <li>
             <span className="font-semibold">1.</span> Scan this QR code with your authenticator app (Google
             Authenticator, Authy, 1Password…):

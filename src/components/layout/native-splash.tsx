@@ -14,20 +14,27 @@ export function NativeSplash() {
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    // Hold briefly so the bounce is visible, then fade out and let the app through.
-    const timer = window.setTimeout(() => setHidden(true), 900);
+    // Hold briefly so the animation is visible, then fade out and let the app through.
+    const timer = window.setTimeout(() => setHidden(true), 1100);
     return () => window.clearTimeout(timer);
   }, []);
 
+  // Look is fully theme-driven from CSS off `[data-theme]` (light / dark / race), which the
+  // inline boot script sets on <html> before first paint — so there's no flash and no JS branch.
   return (
     <div
-      className={cn(
-        "rz-native-splash fixed inset-0 z-[100] items-center justify-center bg-gradient-to-br from-brand-teal via-[#0c5650] to-[#0a3a36]",
-        hidden && "rz-native-splash--hidden"
-      )}
+      className={cn("rz-native-splash fixed inset-0 z-[100] items-center justify-center", hidden && "rz-native-splash--hidden")}
       aria-hidden="true"
     >
-      <span className="rz-splash-mark w-24" dangerouslySetInnerHTML={{ __html: ZIDRUN_MARK_SVG }} />
+      <span className="rz-splash-stage">
+        <span className="rz-splash-glow" />
+        <span className="rz-splash-mark" dangerouslySetInnerHTML={{ __html: ZIDRUN_MARK_SVG }} />
+      </span>
+      <span className="rz-splash-dots">
+        <i />
+        <i />
+        <i />
+      </span>
     </div>
   );
 }

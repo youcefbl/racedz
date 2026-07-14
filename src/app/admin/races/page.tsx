@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, CalendarDays, History, MapPin, Pencil, Route, Trophy, UsersRound } from "lucide-react";
+import { Building2, CalendarDays, History, MapPin, Pencil, Route, Sparkles, Trophy, UsersRound } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
@@ -44,9 +44,15 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
       description="Search races, review organization-created events, and control public publication."
       action={
         session.user.role === "SUPERADMIN" ? (
-          <ButtonLink href="/admin/races/new" variant="secondary">
-            Create platform race
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/races/import" variant="outline">
+              <Sparkles className="size-4" aria-hidden="true" />
+              Import from post
+            </ButtonLink>
+            <ButtonLink href="/admin/races/new" variant="secondary">
+              Create platform race
+            </ButtonLink>
+          </div>
         ) : null
       }
     >

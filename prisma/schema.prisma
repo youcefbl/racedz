@@ -191,6 +191,12 @@ model RaceEvent {
   maxParticipants            Int?
   availablePlaces            Int?
   autoCancelUnpaidAfterHours Int?
+  // Provenance for races drafted from a shared social-media post (Instagram/Facebook) via the
+  // admin AI importer. Populated only for imported drafts; null for hand-created races.
+  importSource               String? // INSTAGRAM | FACEBOOK | MANUAL
+  importSourceUrl            String? // original post permalink, for reference + dedupe
+  importRawText              String? // pasted caption, kept for audit / re-extract
+  importExtractionJson       Json? // raw LLM extraction incl. confidence, for debugging
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
 
