@@ -192,11 +192,14 @@ async function createRegistration(userId: string, raceEventId: string, input: Ra
       throw new RegistrationError("Race distance not found.", 404);
     }
 
-    if (race.availablePlaces != null && race.availablePlaces <= 0) {
-      throw new RegistrationError("This race is full.");
-    }
-
+    // Capacity enforcement has to be atomic against concurrent registrations for the same
+    // distance (registration-open thundering-herd). Take a row lock on the category so the
+    // count()-then-insert below can't be run by two transactions on a stale count and both
+    // overshoot maxParticipants. The lock is released when the transaction commits/rolls back;
+    // registrations for other categories lock different rows, so they don't contend.
     if (category.maxParticipants != null) {
+      await tx.$queryRaw`SELECT "id" FROM "RaceCategory" WHERE "id" = ${category.id} FOR UPDATE`;
+
       const categoryRegistrationCount = await tx.raceRegistration.count({
         where: {
           raceCategoryId: category.id,
@@ -208,6 +211,31 @@ async function createRegistration(userId: string, raceEventId: string, input: Ra
 
       if (categoryRegistrationCount >= category.maxParticipants) {
         throw new RegistrationError("This distance is full.");
+      }
+    }
+
+    // Claim an event-level place atomically: the guarded UPDATE decrements only while places
+    // remain, so it can never go negative even under concurrent registrations (the earlier
+    // `race.availablePlaces` read is stale by the time we get here). A rollback (e.g. the
+    // unique-constraint conflict below) restores the place. Cancellations increment it back
+    // (see organizer.ts), matching this countdown.
+    if (race.availablePlaces != null) {
+      const claimed = await tx.raceEvent.updateMany({
+        where: {
+          id: race.id,
+          availablePlaces: {
+            gt: 0
+          }
+        },
+        data: {
+          availablePlaces: {
+            decrement: 1
+          }
+        }
+      });
+
+      if (claimed.count === 0) {
+        throw new RegistrationError("This race is full.");
       }
     }
 
@@ -244,19 +272,14 @@ async function createRegistration(userId: string, raceEventId: string, input: Ra
       }
     });
 
-    if (race.availablePlaces != null) {
-      await tx.raceEvent.update({
-        where: {
-          id: race.id
-        },
-        data: {
-          availablePlaces: {
-            decrement: 1
-          }
-        }
-      });
-    }
-
     return registration;
+  }, {
+    // Capacity enforcement serializes concurrent registrations for the same race on a row lock
+    // (the FOR UPDATE above / the guarded availablePlaces UPDATE). Each transaction is tiny, but a
+    // registration-open herd can queue many deep — give it more than Prisma's default 5s so waiters
+    // drain into a clean "full" rejection instead of a spurious P2028 timeout. A Cloudflare waiting
+    // room in front of the open moment is the real fix for extreme spikes.
+    maxWait: 10_000,
+    timeout: 20_000
   });
 }
