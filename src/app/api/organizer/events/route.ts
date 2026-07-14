@@ -3,12 +3,13 @@ import { createOrganizerRace, OrganizerError, getOrganizerRaces, requireApproved
 
 export async function GET() {
   const { organization } = await requireApprovedOrganizer();
-  const races = await getOrganizerRaces(organization.id);
+  // Bounded so the query can't be unbounded; 200 is far above any realistic per-org count.
+  const { items: races, total } = await getOrganizerRaces(organization.id, { page: 1, limit: 200, skip: 0 });
 
   return NextResponse.json({
     data: races,
     meta: {
-      count: races.length
+      count: total
     }
   });
 }

@@ -3,9 +3,11 @@ import { CalendarDays, MapPin, Route, Trophy, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getOrganizerRaces, requireApprovedOrganizer } from "@/lib/organizer";
 import { getLocale, withLocale } from "@/lib/i18n";
+import { parsePagination } from "@/lib/pagination";
 import { translateOrganizer, translateOrganizerEnum } from "@/lib/organizer-i18n";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +16,7 @@ type OrganizerEventsPageProps = {
   searchParams?: Promise<{
     created?: string;
     lang?: string;
+    page?: string;
   }>;
 };
 
@@ -22,7 +25,8 @@ export default async function OrganizerEventsPage({ searchParams }: OrganizerEve
   const params = await searchParams;
   const locale = getLocale(params?.lang);
   const t = (text: string) => translateOrganizer(locale, text);
-  const races = await getOrganizerRaces(organization.id);
+  const pagination = parsePagination({ page: params?.page });
+  const { items: races, page, totalPages } = await getOrganizerRaces(organization.id, pagination);
 
   return (
     <div className="bg-gray-50">
@@ -104,6 +108,8 @@ export default async function OrganizerEventsPage({ searchParams }: OrganizerEve
             })}
           </div>
         )}
+
+        <Pagination basePath="/organizer/events" searchParams={params} page={page} totalPages={totalPages} locale={locale} />
       </div>
     </div>
   );

@@ -161,7 +161,7 @@ function Board({
 function Avatar({ name, url }: { name: string; url: string | null }) {
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" loading="lazy" decoding="async" className="size-9 shrink-0 rounded-full object-cover" />;
+    return <img src={url} alt="" width={36} height={36} loading="lazy" decoding="async" className="size-9 shrink-0 rounded-full object-cover" />;
   }
   const initials = name
     .trim()

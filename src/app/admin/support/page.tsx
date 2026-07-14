@@ -2,17 +2,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { MessageCircle, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
 import { formatDateTime } from "@/lib/format";
 import { requireAdmin } from "@/lib/admin";
+import { parsePagination } from "@/lib/pagination";
 import { getAdminSupportThreads } from "@/lib/support";
 import { AdminShell, EmptyState } from "../_components/admin-ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSupportPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+export default async function AdminSupportPage({ searchParams }: { searchParams?: Promise<{ q?: string; page?: string }> }) {
   await requireAdmin();
-  const q = (await searchParams)?.q?.trim() ?? "";
-  const threads = await getAdminSupportThreads(q);
+  const filters = await searchParams;
+  const q = filters?.q?.trim() ?? "";
+  const pagination = parsePagination({ page: filters?.page });
+  const { items: threads, page, totalPages } = await getAdminSupportThreads(q, pagination);
 
   return (
     <AdminShell title="Support chat" description="Direct conversations with runners, most recent first.">
@@ -73,6 +77,8 @@ export default async function AdminSupportPage({ searchParams }: { searchParams?
           ))}
         </div>
       )}
+
+      <Pagination basePath="/admin/support" searchParams={filters} page={page} totalPages={totalPages} />
     </AdminShell>
   );
 }

@@ -4,9 +4,11 @@ import { Award, CalendarDays, MapPin, Medal, ReceiptText, Route } from "lucide-r
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { auth } from "@/auth";
 import { formatDateTime, formatDzd } from "@/lib/format";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import { parsePagination } from "@/lib/pagination";
 import { getUserRegistrations } from "@/lib/registrations";
 import { formatFinishTime } from "@/lib/race-results";
 import type { PaymentStatus, RegistrationStatus } from "@/types/race";
@@ -18,6 +20,7 @@ type AccountRegistrationsPageProps = {
   searchParams?: Promise<{
     registered?: string;
     lang?: string;
+    page?: string;
   }>;
 };
 
@@ -56,7 +59,8 @@ export default async function AccountRegistrationsPage({ searchParams }: Account
     redirect("/login?callbackUrl=/account/registrations");
   }
 
-  const registrations = await getUserRegistrations(session.user.id);
+  const pagination = parsePagination({ page: params?.page });
+  const { items: registrations, page, totalPages } = await getUserRegistrations(session.user.id, pagination);
 
   return (
     <div className="bg-gray-50">
@@ -188,6 +192,8 @@ export default async function AccountRegistrationsPage({ searchParams }: Account
             ))}
           </div>
         )}
+
+        <Pagination basePath="/account/registrations" searchParams={params} page={page} totalPages={totalPages} locale={locale} />
       </div>
     </div>
   );

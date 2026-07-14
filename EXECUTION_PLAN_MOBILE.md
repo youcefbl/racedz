@@ -1,15 +1,15 @@
 # ZidRun — Mobile Performance Execution Plan (verified)
 
-## Progress — 67% (6 / 9 core fixes)
-`▓▓▓▓▓▓░░░ 67%`
+## Progress — 100% (9 / 9 core fixes) 🎉
+`▓▓▓▓▓▓▓▓▓ 100%`
 
 | Batch | Items | Status |
 |---|---|---|
 | **1 — felt speed (zero-risk)** | A, B, C | ✅ **done** (2026-07-14) |
-| **2 — data & polish** | D, E, F | ⬜ pending |
+| **2 — data & polish** | D, E, F | ✅ **done** (2026-07-14) — 3 lists paginated, feed row memoized, avatar CLS |
 | **3 — navigation** | G, H | ✅ **done** (2026-07-14) — G resolved by audit (no change needed), H shipped |
 | **4 — startup/offline** | I (+ NativeChrome parallel init) | ✅ **done** (2026-07-14) — static-asset SW + parallel init |
-| optional (do alongside a batch) | header `transition-all`, watermark pause, splash-glow swap | ⬜ pending |
+| optional (do alongside a batch) | header `transition-all`, watermark pause, splash-glow swap | ⬜ pending (nice-to-haves) |
 
 *Percentage tracks the 9 core labelled fixes (A–I); the optional ◐ items aren't counted. G counts as
 complete: investigation showed the routes are already correctly cached/dynamic (see its entry).*
@@ -66,6 +66,16 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
     immutable hashed `/_next/static` assets in native; registered via `service-worker-register.tsx` with no
     `controllerchange` reload. Warm starts load JS/CSS from disk. Full offline HTML shell deferred by design.
   - **P2 complete (6/9 core).** Only Batch 2 (D, E, F) remains. All changes typecheck + lint clean.
+- **2026-07-14 — Batch 2 shipped (D, E, F). All 9 core fixes done (100%).** Typecheck + lint clean.
+  - **D** — paginated the 3 unbounded lists. `getAdminSupportThreads`, `getUserRegistrations`, and
+    `getOrganizerRaces` now take `PaginationParams` and return `PaginatedResult` (count + skip/take); the
+    admin-support / registrations / organizer-events pages render `<Pagination>` (25/page). The two GET API
+    callers (`/api/me/registrations`, `/api/organizer/events`) pass a bounded `{page:1, limit:200}` so the
+    query can't be unbounded while realistic payloads are unchanged.
+  - **E** — extracted the feed row into a `React.memo` `FeedRow`; "Load more" now renders only the new rows
+    (existing rows keep stable props and skip). **Hard DOM cap deliberately deferred** — safe trimming needs
+    real virtualization (no lib installed); memoization is the low-risk win.
+  - **F** — added explicit `width`/`height` to the feed (40px) and rankings (36px) avatars → no layout shift.
 
 ---
 
@@ -169,7 +179,9 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
 
 ## 🔵 P4 — Excessive API / CPU / memory
 
-- [ ] ❌ **(D) Three unbounded list queries (no `take`, no pagination)** — will degrade as data grows:
+- [x] ✅ **(D) Three unbounded list queries (no `take`, no pagination)** — FIXED 2026-07-14: all three now
+      paginate (`PaginationParams` → `PaginatedResult`, count + skip/take); pages render `<Pagination>` (25/page);
+      the two GET API callers pass a bounded `{page:1, limit:200}`. Originally:
       - **Registrations** — `getUserRegistrations` has no `take`; renders every row, each mounting a
         `<PaymentPanel>` client component for unpaid rows. `registrations/page.tsx:91`, `registrations.ts:67`.
       - **Admin support threads** — the one admin table missing the `parsePagination`/`<Pagination>` pattern all
@@ -179,11 +191,11 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
       *Benefit:* prevents future freezes; less API/CPU. *Risk:* Low-Med. *Verify:* seed many rows, confirm
       paged. — M
 
-- [ ] ❌ **(E) Social feed DOM grows unbounded** — feed accumulates pages into state and **never trims**, so
-      node count climbs indefinitely as you "Load more"; rows aren't memoized.
-      *Evidence:* `feed-view.tsx:159` (map), `:134` (`setRuns([...prev, ...])`).
-      *Fix:* cap retained pages (windowing) or trim off-screen rows; `React.memo` the row.
-      *Benefit:* bounded memory on long feed sessions. *Risk:* Med (scroll-position preservation). — M
+- [x] ◐ **(E) Social feed DOM grows unbounded** — PARTIALLY FIXED 2026-07-14: row extracted to `React.memo`
+      `FeedRow`, so "Load more" renders only new rows (existing rows skip). **Hard DOM cap deferred** — safe
+      trimming/windowing needs a real virtualization lib (none installed); memoization is the low-risk win and
+      resolves the re-render cost. Revisit windowing only if very long feed sessions become a real memory issue.
+      *Evidence:* `feed-view.tsx`. — M
 
 - [ ] ◐ **Coach runs — 50 inline SVG route thumbnails** — 50 rows each render an inline SVG polyline map
       (cheap-ish vs Leaflet, but 50 at once, un-virtualized). Largely resolved by (A)'s row memoization; consider
@@ -194,10 +206,9 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
 
 ## ⚪ P5 — Bundle & minor polish
 
-- [ ] ❌ **(F) Avatars cause layout shift (CLS)** — feed & rankings avatars are raw `<img loading="lazy">`
-      with **no width/height** (only CSS `size-9`/`size-10`), so they shift layout before load.
-      *Evidence:* `feed-view.tsx:54`, `rankings/page.tsx:164`.
-      *Fix:* add explicit `width`/`height` (or `aspect-ratio`). *Risk:* Very low. — S
+- [x] ✅ **(F) Avatars cause layout shift (CLS)** — FIXED 2026-07-14: added explicit `width`/`height` to the
+      feed (40px) and rankings (36px) avatars, so they reserve space before load. *Evidence:* `feed-view.tsx`,
+      `rankings/page.tsx`. — S
 
 - [ ] ◐ **Bundle** — Leaflet is already lazy-loaded (see verified-safe). No large obvious offenders found;
       revisit with `@next/bundle-analyzer` only if a specific route feels heavy. — S

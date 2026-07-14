@@ -174,28 +174,36 @@ export async function getOrganizerDashboardData(userId: string) {
   };
 }
 
-export async function getOrganizerRaces(organizationId: string) {
-  return getPrisma().raceEvent.findMany({
-    where: {
-      organizationId
-    },
-    include: {
-      categories: {
-        orderBy: {
-          distanceKm: "asc"
+export async function getOrganizerRaces(organizationId: string, pagination: PaginationParams) {
+  const prisma = getPrisma();
+  const [total, items] = await Promise.all([
+    prisma.raceEvent.count({ where: { organizationId } }),
+    prisma.raceEvent.findMany({
+      where: {
+        organizationId
+      },
+      include: {
+        categories: {
+          orderBy: {
+            distanceKm: "asc"
+          }
+        },
+        _count: {
+          select: {
+            registrations: true,
+            categories: true
+          }
         }
       },
-      _count: {
-        select: {
-          registrations: true,
-          categories: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip: pagination.skip,
+      take: pagination.limit
+    })
+  ]);
+
+  return { items, ...buildPaginationMeta(total, pagination.page, pagination.limit) };
 }
 
 export async function getOrganizerRaceById(organizationId: string, raceEventId: string) {

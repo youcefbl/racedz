@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPrisma } from "@/lib/db";
 import { notifyAdminsSupportMessage, notifyUserSupportReply } from "@/lib/notifications";
+import { buildPaginationMeta, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 
 export const SUPPORT_MESSAGE_MAX = 4000;
 
@@ -162,27 +163,37 @@ export async function postUserSupportMessage(
  * Admin inbox: threads ordered by most-recent message first, with the runner, unread count, and
  * last message. An optional query filters by the runner's name or email.
  */
-export async function getAdminSupportThreads(query?: string): Promise<AdminSupportThreadRow[]> {
+export async function getAdminSupportThreads(
+  query: string | undefined,
+  pagination: PaginationParams
+): Promise<PaginatedResult<AdminSupportThreadRow>> {
   const prisma = getPrisma();
   const q = query?.trim();
-  const threads = await prisma.supportThread.findMany({
-    where: q
-      ? {
-          user: {
-            OR: [
-              { firstName: { contains: q, mode: "insensitive" } },
-              { lastName: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } }
-            ]
-          }
+  const where = q
+    ? {
+        user: {
+          OR: [
+            { firstName: { contains: q, mode: "insensitive" as const } },
+            { lastName: { contains: q, mode: "insensitive" as const } },
+            { email: { contains: q, mode: "insensitive" as const } }
+          ]
         }
-      : undefined,
-    orderBy: { lastMessageAt: "desc" },
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } },
-      messages: { orderBy: { createdAt: "desc" }, take: 1 }
-    }
-  });
+      }
+    : undefined;
+
+  const [total, threads] = await Promise.all([
+    prisma.supportThread.count({ where }),
+    prisma.supportThread.findMany({
+      where,
+      orderBy: { lastMessageAt: "desc" },
+      skip: pagination.skip,
+      take: pagination.limit,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } },
+        messages: { orderBy: { createdAt: "desc" }, take: 1 }
+      }
+    })
+  ]);
 
   // Unread-per-thread in one grouped query rather than N counts.
   const unreadRows = await prisma.$queryRaw<Array<{ threadId: string; count: bigint }>>`
@@ -195,7 +206,7 @@ export async function getAdminSupportThreads(query?: string): Promise<AdminSuppo
   `;
   const unreadByThread = new Map(unreadRows.map((row) => [row.threadId, Number(row.count)]));
 
-  return threads.map((thread) => ({
+  const items = threads.map((thread) => ({
     id: thread.id,
     status: thread.status,
     lastMessageAt: thread.lastMessageAt.toISOString(),
@@ -209,6 +220,8 @@ export async function getAdminSupportThreads(query?: string): Promise<AdminSuppo
       avatarUrl: thread.user.avatarUrl
     }
   }));
+
+  return { items, ...buildPaginationMeta(total, pagination.page, pagination.limit) };
 }
 
 /** One thread for the admin view: messages + runner, marking it read for the admin. */

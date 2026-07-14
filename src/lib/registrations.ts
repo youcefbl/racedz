@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { notifyRaceRegistrationCreated } from "@/lib/notifications";
+import { buildPaginationMeta, type PaginationParams } from "@/lib/pagination";
 import { cancelExpiredUnpaidRegistrations } from "@/lib/registration-auto-cancel";
 import { raceRegistrationSchema, type RaceRegistrationInput } from "@/lib/validations";
 
@@ -61,10 +62,11 @@ export async function createRaceRegistrationForUser({
   }
 }
 
-export async function getUserRegistrations(userId: string) {
+export async function getUserRegistrations(userId: string, pagination: PaginationParams) {
   const prisma = getPrisma();
 
-  return prisma.raceRegistration.findMany({
+  const total = await prisma.raceRegistration.count({ where: { userId } });
+  const items = await prisma.raceRegistration.findMany({
     where: {
       userId
     },
@@ -110,8 +112,12 @@ export async function getUserRegistrations(userId: string) {
     },
     orderBy: {
       createdAt: "desc"
-    }
+    },
+    skip: pagination.skip,
+    take: pagination.limit
   });
+
+  return { items, ...buildPaginationMeta(total, pagination.page, pagination.limit) };
 }
 
 // One registration owned by the user, with its finisher result + the data a certificate needs.

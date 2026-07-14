@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart, Users } from "lucide-react";
-import { useCallback, useState, useTransition } from "react";
+import { memo, useCallback, useState, useTransition } from "react";
 import { FollowButton } from "@/components/social/follow-button";
 import type { CoachLocale } from "@/components/coach/types";
 import type { FeedRun } from "@/lib/social";
@@ -51,7 +51,7 @@ function formatDate(iso: string, locale: CoachLocale): string {
 function Avatar({ name, url }: { name: string; url: string | null }) {
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" loading="lazy" decoding="async" className="size-10 shrink-0 rounded-full object-cover" />;
+    return <img src={url} alt="" width={40} height={40} loading="lazy" decoding="async" className="size-10 shrink-0 rounded-full object-cover" />;
   }
   const initials = name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
   return (
@@ -109,6 +109,42 @@ function KudosButton({ run, locale }: { run: FeedRun; locale: CoachLocale }) {
   );
 }
 
+// Memoized so appending a page via "Load more" (which grows the parent's `runs` array) only
+// renders the new rows — the existing rows keep identical props (stable run object + locale) and
+// skip re-rendering, instead of re-rendering the entire accumulated list.
+const FeedRow = memo(function FeedRow({ run, locale }: { run: FeedRun; locale: CoachLocale }) {
+  const t = copy[locale];
+  return (
+    <li className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <Avatar name={run.authorName} url={run.authorAvatarUrl} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black text-gray-950">{run.isOwn ? t.you : run.authorName}</p>
+          <p className="truncate text-xs font-semibold text-gray-500">
+            {(run.authorWilaya ?? "—")} · {formatDate(run.startedAt, locale)}
+          </p>
+        </div>
+        {!run.isOwn ? <FollowButton userId={run.userId} initialFollowing locale={locale} /> : null}
+      </div>
+
+      {run.title ? <p className="mt-3 text-sm font-bold text-gray-800">{run.title}</p> : null}
+
+      <div className="mt-3 flex items-center gap-4">
+        <div>
+          <p className="text-lg font-black tabular-nums text-gray-950">
+            {run.distanceKm.toFixed(1)} <span className="text-xs font-bold text-gray-500">{t.km}</span>
+          </p>
+        </div>
+        <div>
+          <p className="text-lg font-black tabular-nums text-brand-teal">{formatPace(run.averagePaceSecondsPerKm)}</p>
+        </div>
+        <span className="grow" />
+        <KudosButton run={run} locale={locale} />
+      </div>
+    </li>
+  );
+});
+
 export function FeedView({
   initialRuns,
   initialCursor,
@@ -157,33 +193,7 @@ export function FeedView({
       ) : (
         <ul className="space-y-3">
           {runs.map((run) => (
-            <li key={run.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <Avatar name={run.authorName} url={run.authorAvatarUrl} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-gray-950">{run.isOwn ? t.you : run.authorName}</p>
-                  <p className="truncate text-xs font-semibold text-gray-500">
-                    {(run.authorWilaya ?? "—")} · {formatDate(run.startedAt, locale)}
-                  </p>
-                </div>
-                {!run.isOwn ? <FollowButton userId={run.userId} initialFollowing locale={locale} /> : null}
-              </div>
-
-              {run.title ? <p className="mt-3 text-sm font-bold text-gray-800">{run.title}</p> : null}
-
-              <div className="mt-3 flex items-center gap-4">
-                <div>
-                  <p className="text-lg font-black tabular-nums text-gray-950">
-                    {run.distanceKm.toFixed(1)} <span className="text-xs font-bold text-gray-500">{t.km}</span>
-                  </p>
-                </div>
-                <div>
-                  <p className="text-lg font-black tabular-nums text-brand-teal">{formatPace(run.averagePaceSecondsPerKm)}</p>
-                </div>
-                <span className="grow" />
-                <KudosButton run={run} locale={locale} />
-              </div>
-            </li>
+            <FeedRow key={run.id} run={run} locale={locale} />
           ))}
         </ul>
       )}
