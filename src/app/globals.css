@@ -58,6 +58,9 @@
   --info-soft: #172554;
   --focus: #fb923c;
   --soft-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  /* Cheap single-layer shadow for the ubiquitous `.shadow-sm` (cards, list rows). The heavy
+     multi-layer `--soft-shadow` is reserved for genuinely elevated surfaces (popovers/sheets). */
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.28);
 }
 
 [data-theme="race"] {
@@ -87,6 +90,8 @@
   --info-soft: #211039;
   --focus: #39ff14;
   --soft-shadow: 0 0 0 1px rgba(255, 43, 214, 0.18), 0 16px 48px rgba(155, 92, 255, 0.28);
+  /* Single-layer, no magenta ring — cheap for per-row `.shadow-sm` on long lists. */
+  --shadow-sm: 0 4px 14px rgba(155, 92, 255, 0.18);
 }
 
 * {
@@ -200,8 +205,12 @@ a {
   border-color: var(--border) !important;
 }
 
+/* `.shadow-sm` is everywhere (every card / list row) — give it a cheap single-layer shadow in
+   dark/race. Only `.shadow-soft` (elevated surfaces) keeps the richer multi-layer `--soft-shadow`. */
 [data-theme="dark"] .shadow-sm,
-[data-theme="race"] .shadow-sm,
+[data-theme="race"] .shadow-sm {
+  box-shadow: var(--shadow-sm) !important;
+}
 [data-theme="dark"] .shadow-soft,
 [data-theme="race"] .shadow-soft {
   box-shadow: var(--soft-shadow) !important;
@@ -358,8 +367,9 @@ textarea {
   inset-inline: 0;
   bottom: 0;
   z-index: 40;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  backdrop-filter: blur(12px);
+  /* Opaque, no backdrop-filter: a blurred fixed bar re-samples everything behind it on
+     every scroll frame (heavy on low-end Android GPUs). The bg was already ~96% opaque. */
+  background: var(--surface);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -442,8 +452,9 @@ textarea {
   inset-inline: 0;
   top: 0;
   z-index: 40;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
+  /* Opaque, no backdrop-filter — see .mobile-tab-bar note. Both fixed bars framing the app
+     would otherwise run a full-width blur pass every scroll frame. */
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding-top: env(safe-area-inset-top);
 }

@@ -1,5 +1,20 @@
 # ZidRun — Mobile Performance Execution Plan (verified)
 
+## Progress — 33% (3 / 9 core fixes)
+`▓▓▓░░░░░░ 33%`
+
+| Batch | Items | Status |
+|---|---|---|
+| **1 — felt speed (zero-risk)** | A, B, C | ✅ **done** (2026-07-14) |
+| **2 — data & polish** | D, E, F | ⬜ pending |
+| **3 — navigation** | G, H | ⬜ pending |
+| **4 — startup/offline** | I (+ NativeChrome parallel init) | ⬜ pending |
+| optional (do alongside a batch) | header `transition-all`, watermark pause, splash-glow swap | ⬜ pending |
+
+*Percentage tracks the 9 core labelled fixes (A–I); the optional ◐ items aren't counted.*
+
+---
+
 **One source of truth for making the Capacitor Android app feel fast, polished, and native.** Every
 item below was checked against the codebase on **2026-07-14** during a full mobile-performance audit
 (startup, native bridge, lists/DOM, CSS paint, memory). Items already handled correctly are listed
@@ -21,16 +36,27 @@ mid/low-end device on 3G/4G this dominates "feels slow" more than any JS/CSS mic
 Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-improvement per unit risk.
 
 ### Progress log
-- **2026-07-14 — Audit complete, no code changes yet.** Full mobile perf audit done (2 parallel sweeps:
-  lists/DOM + CSS paint). Findings captured below with file:line evidence. Prior splash redesign
-  (`native-splash.tsx` + `globals.css`) shipped separately. Recommended start: **A, B, C** (input latency
-  + scroll smoothness, zero visual/architectural change).
+- **2026-07-14 — Audit complete.** Full mobile perf audit done (2 parallel sweeps: lists/DOM + CSS paint).
+  Findings captured below with file:line evidence. Prior splash redesign (`native-splash.tsx` +
+  `globals.css`) shipped separately.
+- **2026-07-14 — Batch 1 shipped (A, B, C).** All typecheck + lint clean.
+  - **B** — dropped `backdrop-filter` on `.mobile-tab-bar` and `.native-header`; both now opaque
+    `var(--surface)` (were already ~92–96% opaque). No more per-scroll-frame blur passes framing the app.
+  - **C** — split the dark/race shadow remap: `.shadow-sm` (every card/row) now uses a cheap single-layer
+    `--shadow-sm`; only `.shadow-soft` (elevated surfaces) keeps the heavy multi-layer `--soft-shadow`.
+  - **A** — extracted the run row into a `React.memo` `RunRow` with pre-memoized (`useCallback`) handlers +
+    a `photoOverridesRef` mirror, so dragging the add-run sliders / expanding one run no longer re-renders
+    all ~50 rows (or their SVG maps). Behavior-preserving.
+  - **Owner runtime check (device):** React DevTools Profiler — drag a slider, confirm only the form
+    re-renders; DevTools Rendering paint-flashing while scrolling a long list in race theme.
 
 ---
 
 ## 🔴 P1 — Freezes & input delay
 
-- [ ] ❌ **(A) Coach runs panel re-renders all 50 rows on every slider drag** — the panel holds the
+- [x] ✅ **(A) Coach runs panel re-renders all 50 rows on every slider drag** — FIXED 2026-07-14: row
+      extracted to `React.memo` `RunRow` with `useCallback` handlers; slider drags/expands no longer touch
+      other rows. The panel holds the
       50-run list *and* the add-run form state (effort/fatigue/pain/distance/duration sliders) in the same
       component; `runs.map` isn't memoized and rows use inline closures, so dragging a slider or expanding
       one run re-renders all 50 `<article>`s (each with an inline SVG route thumbnail). Concrete input-delay
@@ -84,7 +110,8 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
 
 ## 🟡 P3 — Scrolling & animation jank
 
-- [ ] ❌ **(B) `backdrop-filter: blur` on both native fixed bars** — the fixed top `.native-header` and fixed
+- [x] ✅ **(B) `backdrop-filter: blur` on both native fixed bars** — FIXED 2026-07-14: both bars now opaque
+      `var(--surface)`, no `backdrop-filter`. The fixed top `.native-header` and fixed
       bottom `.mobile-tab-bar` both blur, so **every app scroll is framed by two full-width per-frame GPU blur
       passes** — the #1 scroll-jank pattern on Android webviews. Both backgrounds are already
       `color-mix(... 92–96%, transparent)` (near-opaque), so the blur is barely visible.
@@ -95,7 +122,8 @@ Tier-🟠 items address this; the Tier-🔴/🟡 items are the highest felt-impr
       *Risk:* Very low (near-opaque already). *Verify:* DevTools Rendering → paint-flashing + FPS while
       scrolling a long list, before/after. **← if we do only one fix, this is it.** — S
 
-- [ ] ❌ **(C) Dark/Race theme amplifies shadows across the whole app** — in `dark`/`race`, every
+- [x] ✅ **(C) Dark/Race theme amplifies shadows across the whole app** — FIXED 2026-07-14: `.shadow-sm`
+      remapped to a cheap single-layer `--shadow-sm` in dark/race; `.shadow-soft` keeps the 2-layer. In `dark`/`race`, every
       `shadow-sm`/`shadow-soft` is remapped to a 2-layer `--soft-shadow` (`0 0 0 1px …, 0 16px 48px …`),
       turning ~60 shadow sites — including **every race card in a scrolling list** — into large multi-layer
       blurs, in exactly the two themes low-light users pick most.

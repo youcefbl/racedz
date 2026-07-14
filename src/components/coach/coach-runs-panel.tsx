@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { memo, useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
@@ -54,6 +54,11 @@ export function CoachRunsPanel({
   // Local, per-run photo overrides so a photo added/removed on a history row shows instantly,
   // before the list refetches. Falls back to the run's server-side photos.
   const [photoOverrides, setPhotoOverrides] = useState<Record<string, string[]>>({});
+  // Ref mirror so the memoized row's stable `updatePhotos` can read the latest overrides for
+  // rollback without a `photoOverrides` dependency that would recreate the callback (and
+  // re-render every row) on each photo change.
+  const photoOverridesRef = useRef(photoOverrides);
+  photoOverridesRef.current = photoOverrides;
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -105,17 +110,28 @@ export function CoachRunsPanel({
     });
   }
 
-  function toggleVisibility(runId: string, next: boolean) {
-    setError(null);
-    startSaving(async () => {
-      try {
-        await coachRequest(`/api/coach/runs/${runId}`, { method: "PATCH", body: JSON.stringify({ isPublic: next }) });
-        await onSaved("", false);
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
-      }
-    });
-  }
+  // Row handlers are memoized (stable identity) so the memoized RunRow's props don't change on
+  // unrelated parent re-renders (e.g. dragging the add-run sliders) — keeping all rows skipped.
+  const toggleVisibility = useCallback(
+    (runId: string, next: boolean) => {
+      setError(null);
+      startSaving(async () => {
+        try {
+          await coachRequest(`/api/coach/runs/${runId}`, { method: "PATCH", body: JSON.stringify({ isPublic: next }) });
+          await onSaved("", false);
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
+        }
+      });
+    },
+    [onSaved, copy]
+  );
+
+  const handleExpand = useCallback((runId: string) => {
+    setExpandedRun((current) => (current === runId ? null : runId));
+  }, []);
+
+  const requestDelete = useCallback((runId: string) => setPendingDelete(runId), []);
 
   function deleteRun(runId: string) {
     setError(null);
@@ -132,17 +148,20 @@ export function CoachRunsPanel({
 
   // Persist a run's photo list after an add/remove on its history row. The override is set
   // first (instant feedback); on failure it's rolled back to the run's server value.
-  async function updatePhotos(run: CoachRun, next: string[]) {
-    const previous = photoOverrides[run.id] ?? run.photos ?? [];
-    setError(null);
-    setPhotoOverrides((prev) => ({ ...prev, [run.id]: next }));
-    try {
-      await coachRequest(`/api/coach/runs/${run.id}`, { method: "PATCH", body: JSON.stringify({ photos: next }) });
-    } catch (caught) {
-      setPhotoOverrides((prev) => ({ ...prev, [run.id]: previous }));
-      setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
-    }
-  }
+  const updatePhotos = useCallback(
+    async (run: CoachRun, next: string[]) => {
+      const previous = photoOverridesRef.current[run.id] ?? run.photos ?? [];
+      setError(null);
+      setPhotoOverrides((prev) => ({ ...prev, [run.id]: next }));
+      try {
+        await coachRequest(`/api/coach/runs/${run.id}`, { method: "PATCH", body: JSON.stringify({ photos: next }) });
+      } catch (caught) {
+        setPhotoOverrides((prev) => ({ ...prev, [run.id]: previous }));
+        setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
+      }
+    },
+    [copy]
+  );
 
   return (
     <div className="space-y-6">
@@ -259,143 +278,25 @@ export function CoachRunsPanel({
           </div>
         ) : (
           <div className="space-y-3">
-            {runs.map((run) => {
-              const isOpen = expandedRun === run.id;
-              const hasRoute = Boolean(run.route && run.route.length > 1);
-              const photos = photoOverrides[run.id] ?? run.photos ?? [];
-              const analysisId = analyzedRuns?.[run.id];
-              return (
-                <article key={run.id} className={cn("overflow-hidden rounded-xl border bg-white shadow-sm transition-colors", isOpen ? "border-brand-teal" : "border-gray-200")}>
-                  <div className="p-4">
-                    {/* Header: route thumbnail as the run's visual anchor + title/date */}
-                    <div className="flex items-start gap-3">
-                      {hasRoute ? (
-                        <RunRouteMap points={run.route} className="size-14 shrink-0 rounded-lg" />
-                      ) : (
-                        <span className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-brand-orange" aria-hidden="true">
-                          <Route className="size-6" />
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-black text-gray-950">{run.title || formatCoachDateTime(run.startedAt, locale)}</p>
-                        <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
-                          {run.title ? formatCoachDateTime(run.startedAt, locale) : run.route ? copy.gpsRunLabel : copy.manualRunLabel}
-                        </p>
-                      </div>
-                      {photos.length > 0 ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-50 px-2 py-1 text-xs font-bold text-gray-500" title={copy.photos}>
-                          <Images className="size-3.5" aria-hidden="true" />
-                          {photos.length}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Hero stats: the three numbers that matter, distance accented */}
-                    <div className="mt-4 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
-                      <RunStat label={copy.statDistance} value={`${run.distanceKm} km`} accent />
-                      <RunStat label={copy.statPace} value={formatPace(run.averagePaceSecondsPerKm)} />
-                      <RunStat label={copy.statTime} value={formatDuration(run.durationSeconds)} />
-                    </div>
-
-                    {/* Secondary facts, only when there's data */}
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-semibold text-gray-500">
-                      {run.calories != null ? <RunChip icon={Flame} label={`${run.calories} kcal`} /> : null}
-                      {run.elevationGainM != null && run.elevationGainM > 0 ? <RunChip icon={Mountain} label={`${run.elevationGainM} m`} /> : null}
-                      {run.avgCadence != null && run.avgCadence > 0 ? <RunChip icon={Footprints} label={`${run.avgCadence} spm`} /> : null}
-                      <RunChip icon={Activity} label={`${copy.effort} ${run.perceivedEffort}/10`} />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedRun(isOpen ? null : run.id)}
-                        aria-expanded={isOpen}
-                        className={cn(
-                          "inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
-                          isOpen && "border-brand-teal bg-teal-50 text-brand-teal",
-                          !isOpen && "border-gray-200 text-gray-600 hover:border-brand-teal hover:text-brand-teal"
-                        )}
-                      >
-                        <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
-                        {copy.details}
-                      </button>
-                      {analysisId && onViewAnalysis ? (
-                        <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => onViewAnalysis(analysisId)}>
-                          <Sparkles className="size-4" aria-hidden="true" /> {copy.viewAnalysis}
-                        </Button>
-                      ) : (
-                        <Button type="button" size="sm" className="min-h-11" disabled={pendingAction === "POST_RUN"} onClick={() => void onAnalyze(run.id)}>
-                          <Sparkles className="size-4" aria-hidden="true" /> {copy.analyzeRun}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {isOpen ? (
-                    <div className="space-y-4 border-t border-gray-200 bg-gray-50 p-4">
-                      {run.notes ? (
-                        <p className="whitespace-pre-line rounded-lg bg-white px-3 py-2.5 text-sm leading-6 text-gray-700 shadow-sm">{run.notes}</p>
-                      ) : null}
-                      {hasRoute && run.route ? (
-                        <>
-                          <RunMap points={run.route} className="h-56 w-full overflow-hidden rounded-lg border border-gray-200" />
-                          <RunSummary
-                            points={run.route}
-                            distanceKm={run.distanceKm}
-                            durationSeconds={run.durationSeconds}
-                            movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
-                            avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
-                            elevationGainM={run.elevationGainM}
-                            avgCadence={run.avgCadence}
-                            calories={run.calories}
-                            copy={copy}
-                          />
-                        </>
-                      ) : null}
-                      <div>
-                        <p className="mb-2 text-sm font-bold text-gray-800">{copy.photos}</p>
-                        <RunPhotoUploader value={photos} onChange={(next) => updatePhotos(run, next)} copy={copy} disabled={saving} />
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
-                        <button
-                          type="button"
-                          onClick={() => toggleVisibility(run.id, !run.isPublic)}
-                          disabled={saving}
-                          aria-pressed={run.isPublic}
-                          title={copy.visibility}
-                          className={cn(
-                            "inline-flex min-h-11 items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50",
-                            run.isPublic ? "border-brand-teal text-brand-teal" : "border-gray-200 text-gray-500 hover:border-brand-teal"
-                          )}
-                        >
-                          {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
-                          {run.isPublic ? copy.publicLabel : copy.privateLabel}
-                        </button>
-                        {run.route && run.route.length > 1 ? (
-                          <a
-                            href={`/api/coach/runs/${run.id}/gpx`}
-                            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
-                          >
-                            <Download className="size-3.5" aria-hidden="true" />
-                            GPX
-                          </a>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => setPendingDelete(run.id)}
-                          disabled={saving}
-                          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          {copy.deleteRun}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
+            {runs.map((run) => (
+              <RunRow
+                key={run.id}
+                run={run}
+                isOpen={expandedRun === run.id}
+                photoOverride={photoOverrides[run.id]}
+                analysisId={analyzedRuns?.[run.id]}
+                saving={saving}
+                pendingAction={pendingAction}
+                locale={locale}
+                copy={copy}
+                onExpand={handleExpand}
+                onAnalyze={onAnalyze}
+                onViewAnalysis={onViewAnalysis}
+                onToggleVisibility={toggleVisibility}
+                onRequestDelete={requestDelete}
+                onUpdatePhotos={updatePhotos}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -416,6 +317,176 @@ export function CoachRunsPanel({
     </div>
   );
 }
+
+// One run in the history list, memoized so it only re-renders when its own props change.
+// Handlers arrive pre-memoized from the parent, so unrelated parent re-renders (e.g. dragging
+// the add-run sliders, or expanding a *different* run) skip every other row — including its
+// SVG route thumbnail — instead of re-rendering all ~50 at once.
+const RunRow = memo(function RunRow({
+  run,
+  isOpen,
+  photoOverride,
+  analysisId,
+  saving,
+  pendingAction,
+  locale,
+  copy,
+  onExpand,
+  onAnalyze,
+  onViewAnalysis,
+  onToggleVisibility,
+  onRequestDelete,
+  onUpdatePhotos
+}: {
+  run: CoachRun;
+  isOpen: boolean;
+  photoOverride: string[] | undefined;
+  analysisId: string | undefined;
+  saving: boolean;
+  pendingAction: string | null;
+  locale: CoachLocale;
+  copy: CoachCopy;
+  onExpand: (runId: string) => void;
+  onAnalyze: (runId: string) => void;
+  onViewAnalysis?: (interactionId: string) => void;
+  onToggleVisibility: (runId: string, next: boolean) => void;
+  onRequestDelete: (runId: string) => void;
+  onUpdatePhotos: (run: CoachRun, next: string[]) => void;
+}) {
+  const hasRoute = Boolean(run.route && run.route.length > 1);
+  const photos = photoOverride ?? run.photos ?? [];
+  return (
+    <article className={cn("overflow-hidden rounded-xl border bg-white shadow-sm transition-colors", isOpen ? "border-brand-teal" : "border-gray-200")}>
+      <div className="p-4">
+        {/* Header: route thumbnail as the run's visual anchor + title/date */}
+        <div className="flex items-start gap-3">
+          {hasRoute ? (
+            <RunRouteMap points={run.route} className="size-14 shrink-0 rounded-lg" />
+          ) : (
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-brand-orange" aria-hidden="true">
+              <Route className="size-6" />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-black text-gray-950">{run.title || formatCoachDateTime(run.startedAt, locale)}</p>
+            <p className="mt-0.5 truncate text-xs font-semibold text-gray-500">
+              {run.title ? formatCoachDateTime(run.startedAt, locale) : run.route ? copy.gpsRunLabel : copy.manualRunLabel}
+            </p>
+          </div>
+          {photos.length > 0 ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-50 px-2 py-1 text-xs font-bold text-gray-500" title={copy.photos}>
+              <Images className="size-3.5" aria-hidden="true" />
+              {photos.length}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Hero stats: the three numbers that matter, distance accented */}
+        <div className="mt-4 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
+          <RunStat label={copy.statDistance} value={`${run.distanceKm} km`} accent />
+          <RunStat label={copy.statPace} value={formatPace(run.averagePaceSecondsPerKm)} />
+          <RunStat label={copy.statTime} value={formatDuration(run.durationSeconds)} />
+        </div>
+
+        {/* Secondary facts, only when there's data */}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-semibold text-gray-500">
+          {run.calories != null ? <RunChip icon={Flame} label={`${run.calories} kcal`} /> : null}
+          {run.elevationGainM != null && run.elevationGainM > 0 ? <RunChip icon={Mountain} label={`${run.elevationGainM} m`} /> : null}
+          {run.avgCadence != null && run.avgCadence > 0 ? <RunChip icon={Footprints} label={`${run.avgCadence} spm`} /> : null}
+          <RunChip icon={Activity} label={`${copy.effort} ${run.perceivedEffort}/10`} />
+        </div>
+
+        {/* Actions */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onExpand(run.id)}
+            aria-expanded={isOpen}
+            className={cn(
+              "inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
+              isOpen && "border-brand-teal bg-teal-50 text-brand-teal",
+              !isOpen && "border-gray-200 text-gray-600 hover:border-brand-teal hover:text-brand-teal"
+            )}
+          >
+            <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
+            {copy.details}
+          </button>
+          {analysisId && onViewAnalysis ? (
+            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => onViewAnalysis(analysisId)}>
+              <Sparkles className="size-4" aria-hidden="true" /> {copy.viewAnalysis}
+            </Button>
+          ) : (
+            <Button type="button" size="sm" className="min-h-11" disabled={pendingAction === "POST_RUN"} onClick={() => void onAnalyze(run.id)}>
+              <Sparkles className="size-4" aria-hidden="true" /> {copy.analyzeRun}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {isOpen ? (
+        <div className="space-y-4 border-t border-gray-200 bg-gray-50 p-4">
+          {run.notes ? (
+            <p className="whitespace-pre-line rounded-lg bg-white px-3 py-2.5 text-sm leading-6 text-gray-700 shadow-sm">{run.notes}</p>
+          ) : null}
+          {hasRoute && run.route ? (
+            <>
+              <RunMap points={run.route} className="h-56 w-full overflow-hidden rounded-lg border border-gray-200" />
+              <RunSummary
+                points={run.route}
+                distanceKm={run.distanceKm}
+                durationSeconds={run.durationSeconds}
+                movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
+                avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
+                elevationGainM={run.elevationGainM}
+                avgCadence={run.avgCadence}
+                calories={run.calories}
+                copy={copy}
+              />
+            </>
+          ) : null}
+          <div>
+            <p className="mb-2 text-sm font-bold text-gray-800">{copy.photos}</p>
+            <RunPhotoUploader value={photos} onChange={(next) => onUpdatePhotos(run, next)} copy={copy} disabled={saving} />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+            <button
+              type="button"
+              onClick={() => onToggleVisibility(run.id, !run.isPublic)}
+              disabled={saving}
+              aria-pressed={run.isPublic}
+              title={copy.visibility}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50",
+                run.isPublic ? "border-brand-teal text-brand-teal" : "border-gray-200 text-gray-500 hover:border-brand-teal"
+              )}
+            >
+              {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
+              {run.isPublic ? copy.publicLabel : copy.privateLabel}
+            </button>
+            {run.route && run.route.length > 1 ? (
+              <a
+                href={`/api/coach/runs/${run.id}/gpx`}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+              >
+                <Download className="size-3.5" aria-hidden="true" />
+                GPX
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onRequestDelete(run.id)}
+              disabled={saving}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+              {copy.deleteRun}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+});
 
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return <label className={`grid min-w-0 gap-2 text-sm font-bold text-gray-800 ${className}`}><span>{label}</span>{children}</label>;

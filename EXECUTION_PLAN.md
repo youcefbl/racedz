@@ -4,11 +4,47 @@
 codebase on **2026-07-13**; anything already implemented was removed (see "Verified DONE — removed"
 at the bottom for what was dropped and why). Only **MISSING** or **PARTIAL** work remains here.
 
+## 📊 Overall progress — 13 / 46 items · **28%** _(checkbox count, 2026-07-14)_
+
+`███████░░░░░░░░░░░░░░░░░░░` **28%**
+
+| Tier | Bar | Done | Left | Total | % |
+|---|---|---:|---:|---:|---:|
+| 🔴 **P0** — production hardening | `████░░░░░░` | 6 | 10 | 16 | 38% |
+| 🟠 **P1** — launch UX & product | `██████░░░░` | 6 | 4 | 10 | 60% |
+| 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 1 | 14 | 15 | 7% |
+| 🟢 **P3** — later | `░░░░░░░░░░` | 0 | 5 | 5 | 0% |
+| **Overall** | `███░░░░░░░` | **13** | **33** | **46** | **28%** |
+
+> Of the **33 remaining**, ~6 are **owner/external** ops, not dev work — OpenAI billing, deploy the
+> pending migrations, Caddy reload, `google-services.json`, and the two external reviews (security +
+> sports-health). The other ~27 are development items. **Nearest to launch:** P0 (10 left, half of them
+> owner ops) then P1 (4 left). _Note: the social-post race importer (Phase 1) was a net-new feature, not
+> a plan item, so it isn't in this count — see the progress log below._
+
 Legend: 🔴 blocker before production · 🟠 launch sprint · 🟡 scale/after-launch · 🟢 later
 Effort: S = <½ day · M = ~1–2 days · L = ~3–5 days · XL = 1–3 weeks
 Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 
 ### Progress log
+- **2026-07-14 — Social-post race importer (Phase 1). ✅ 100% of scoped items done.** Shipped on branch
+  `feat/social-post-race-import` (typecheck / lint / build all clean; migration applied locally). Admin
+  **"Import from post"** flow: a superadmin uploads the Instagram/Facebook poster image(s) and/or pastes
+  the caption, an **OpenAI vision** model extracts the race fields, and a **DRAFT** race is created and
+  opened in the existing edit page (review banner) to review + publish. Delivered items — all ✅:
+  1. ✅ **Provenance schema + migration** (`20260714120000_add_race_import_provenance`): `importSource`,
+     `importSourceUrl`, `importRawText`, `importExtractionJson` on `RaceEvent`.
+  2. ✅ **Vision extraction** (`src/lib/social-import/extract.ts`) — Responses API + `zodTextFormat`,
+     FR/AR/dialect-aware, `SOCIAL_IMPORT_MODEL` env (multimodal; defaults to the coach family).
+  3. ✅ **Normalization** (`normalize.ts`) — wilaya-snap to `src/lib/algeria.ts`, distance→raceType, date
+     parsing, always-valid DRAFT.
+  4. ✅ **Draft create** (`create.ts`) — `status: DRAFT`, `source: PLATFORM`, categories + provenance.
+  5. ✅ **Admin UI** (`/admin/races/import`, superadmin-only) + races-list entry point + `?imported=1`
+     review banner on the edit page; rate-limited, path-traversal-guarded image reads.
+  6. ✅ **Roadmap doc** `SOCIAL_IMPORT_PLAN.md` (Phase 2 = PWA/Android **Share Target**; 3–4 later).
+  **Decisions locked:** OpenAI provider · DRAFT status · images+caption ingestion · Instagram + Facebook.
+  **Owner follow-up (not part of this scope):** the live extraction call is untested until `OPENAI_API_KEY`
+  billing is enabled (already an open ops item below); then run one real post through it.
 - **2026-07-13 — P0 pass.** Shipped: Google-link account-takeover fix, invite-accept rate limit +
   off-topic coach DB-bloat cap, `server-only` provider guards, past-race→COMPLETED cron, and **opt-in
   TOTP two-factor** (RFC-6238-tested lib, `/account/security` enrollment, login two-step, migration
