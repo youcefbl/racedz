@@ -1,8 +1,19 @@
 import { randomUUID } from "crypto";
 import { getPrisma } from "@/lib/db";
+import { getLocale, type Locale } from "@/lib/i18n";
 import { sendNotificationEmail } from "@/lib/notifications/email-provider";
 import { renderRaceDzEmailHtml, renderRaceDzEmailText } from "@/lib/notifications/email-template";
 import { sendFirebasePush } from "@/lib/notifications/firebase-provider";
+import {
+  coachSubscriptionRequestMessage,
+  emailLabels,
+  organizerRaceStatusMessage,
+  racePendingReviewMessage,
+  raceChangedMessage,
+  raceRegistrationCreatedMessage,
+  supportMessageMessage,
+  supportReplyMessage
+} from "@/lib/notifications/messages";
 
 export type NotificationChannel = "IN_APP" | "EMAIL" | "PUSH";
 
@@ -26,6 +37,9 @@ type CreateNotificationInput = {
   href?: string;
   metadata?: Record<string, unknown>;
   channels?: NotificationChannel[];
+  // Recipient locale — used only to localize the default email chrome (the "Open ZidRun"
+  // button) when no explicit email html/text is supplied. Defaults to English.
+  locale?: Locale;
   email?: {
     to: string;
     subject?: string;
@@ -37,6 +51,7 @@ type CreateNotificationInput = {
 type NotificationRecipient = {
   id: string;
   email: string;
+  language: string | null;
 };
 
 type RaceRegistrantRecipient = NotificationRecipient & {
@@ -181,8 +196,12 @@ export async function createNotification(input: CreateNotificationInput) {
       await deliverEmail(notification.id, {
         to: input.email.to,
         subject: input.email.subject ?? input.title,
-        html: input.email.html ?? renderEmailHtml({ title: input.title, body: input.body, href: input.href }),
-        text: input.email.text ?? renderEmailText({ title: input.title, body: input.body, href: input.href })
+        html:
+          input.email.html ??
+          renderEmailHtml({ title: input.title, body: input.body, href: input.href, locale: input.locale }),
+        text:
+          input.email.text ??
+          renderEmailText({ title: input.title, body: input.body, href: input.href, locale: input.locale })
       });
     } else {
       await createSkippedDelivery(notification.id, "EMAIL", "resend", "Email disabled by user preference.");
@@ -382,20 +401,23 @@ export async function notifyAdminsRacePendingReview({
     },
     select: {
       id: true,
-      email: true
+      email: true,
+      language: true
     }
   });
 
-  await notifyRecipients(admins, {
-    type: "RACE_APPROVAL_PENDING",
-    title: "Race approval pending",
-    body: `${organizationName} submitted "${raceTitle}" for review.`,
-    href: "/admin/races?status=PENDING_REVIEW",
-    metadata: {
-      raceId
+  await notifyRecipients(
+    admins,
+    {
+      type: "RACE_APPROVAL_PENDING",
+      href: "/admin/races?status=PENDING_REVIEW",
+      metadata: {
+        raceId
+      },
+      channels: ["IN_APP", "EMAIL", "PUSH"]
     },
-    channels: ["IN_APP", "EMAIL", "PUSH"]
-  });
+    (locale) => racePendingReviewMessage(locale, { organizationName, raceTitle })
+  );
 }
 
 // Ping admins when a runner submits a coach subscription payment for review, so a paying runner
@@ -403,15 +425,17 @@ export async function notifyAdminsRacePendingReview({
 export async function notifyAdminsCoachSubscriptionRequest({ runnerName }: { runnerName: string }) {
   const admins = await getPrisma().user.findMany({
     where: { role: { in: ["ADMIN", "SUPERADMIN"] } },
-    select: { id: true, email: true }
+    select: { id: true, email: true, language: true }
   });
-  await notifyRecipients(admins, {
-    type: "PAYMENT_PROOF_REVIEW",
-    title: "Coach payment to review",
-    body: `${runnerName || "A runner"} submitted a coach subscription payment for review.`,
-    href: "/admin/coach",
-    channels: ["IN_APP", "EMAIL", "PUSH"]
-  });
+  await notifyRecipients(
+    admins,
+    {
+      type: "PAYMENT_PROOF_REVIEW",
+      href: "/admin/coach",
+      channels: ["IN_APP", "EMAIL", "PUSH"]
+    },
+    (locale) => coachSubscriptionRequestMessage(locale, { runnerName })
+  );
 }
 
 // A runner sent a support message. Alert the admin team (in-app + push, no email — chat is
@@ -427,15 +451,17 @@ export async function notifyAdminsSupportMessage({
 }) {
   const admins = await getPrisma().user.findMany({
     where: { role: { in: ["ADMIN", "SUPERADMIN"] } },
-    select: { id: true, email: true }
+    select: { id: true, email: true, language: true }
   });
-  await notifyRecipients(admins, {
-    type: "ADMIN_SUPPORT_MESSAGE",
-    title: "New support message",
-    body: `${runnerName || "A runner"}: ${truncatePreview(preview)}`,
-    href: `/admin/support/${threadId}`,
-    channels: ["IN_APP", "PUSH"]
-  });
+  await notifyRecipients(
+    admins,
+    {
+      type: "ADMIN_SUPPORT_MESSAGE",
+      href: `/admin/support/${threadId}`,
+      channels: ["IN_APP", "PUSH"]
+    },
+    (locale) => supportMessageMessage(locale, { runnerName, preview: truncatePreview(preview) })
+  );
 }
 
 // The support team replied — nudge the runner back in-app + push.
@@ -446,13 +472,16 @@ export async function notifyUserSupportReply({
   userId: string;
   preview: string;
 }) {
+  const locale = await getUserLocale(userId);
+  const { title, body } = supportReplyMessage(locale, { preview: truncatePreview(preview) });
   await createNotification({
     userId,
     type: "SUPPORT_REPLY",
-    title: "ZidRun support replied",
-    body: truncatePreview(preview),
+    title,
+    body,
     href: "/account/support",
-    channels: ["IN_APP", "PUSH"]
+    channels: ["IN_APP", "PUSH"],
+    locale
   });
 }
 
@@ -471,7 +500,7 @@ export async function notifyOrganizerRaceStatusChanged({
   status: "PUBLISHED" | "REJECTED" | "UNPUBLISHED";
 }) {
   const recipients = await getPrisma().$queryRaw<NotificationRecipient[]>`
-    SELECT DISTINCT users."id", users."email"
+    SELECT DISTINCT users."id", users."email", users."language"
     FROM "RaceEvent" race
     INNER JOIN "OrganizationMember" member ON member."organizationId" = race."organizationId"
     INNER JOIN "User" users ON users."id" = member."userId"
@@ -484,21 +513,23 @@ export async function notifyOrganizerRaceStatusChanged({
 
   const published = status === "PUBLISHED";
   const rejected = status === "REJECTED";
-  await notifyRecipients(recipients, {
-    type: published ? "ORGANIZER_RACE_APPROVED" : rejected ? "ORGANIZER_RACE_REJECTED" : "ORGANIZER_RACE_UNPUBLISHED",
-    title: published ? "Race published" : rejected ? "Race rejected" : "Race unpublished",
-    body: published
-      ? `"${raceTitle}" is now published on ZidRun.`
-      : rejected
-        ? `"${raceTitle}" was rejected by the ZidRun admin team.`
-        : `"${raceTitle}" was unpublished by the ZidRun admin team.`,
-    href: `/organizer/events/${raceId}`,
-    metadata: {
-      raceId,
-      status
+  await notifyRecipients(
+    recipients,
+    {
+      type: published
+        ? "ORGANIZER_RACE_APPROVED"
+        : rejected
+          ? "ORGANIZER_RACE_REJECTED"
+          : "ORGANIZER_RACE_UNPUBLISHED",
+      href: `/organizer/events/${raceId}`,
+      metadata: {
+        raceId,
+        status
+      },
+      channels: ["IN_APP", "EMAIL", "PUSH"]
     },
-    channels: ["IN_APP", "EMAIL", "PUSH"]
-  });
+    (locale) => organizerRaceStatusMessage(locale, { raceTitle, status })
+  );
 }
 
 export async function notifyRaceRegistrationCreated({
@@ -517,14 +548,31 @@ export async function notifyRaceRegistrationCreated({
   categoryName: string;
 }) {
   const href = `/account/registrations`;
-  const body = `Your registration for "${raceTitle}" (${categoryName}) was created.`;
   const url = new URL(href, getAppUrl()).toString();
+  const locale = await getUserLocale(userId);
+  const labels = emailLabels(locale);
+  const message = raceRegistrationCreatedMessage(locale, { raceTitle, categoryName });
+
+  const emailTemplate = {
+    preheader: message.preheader,
+    title: message.emailTitle,
+    body: message.body,
+    locale,
+    action: {
+      label: labels.viewRegistration,
+      href: url
+    },
+    meta: [
+      { label: labels.race, value: raceTitle },
+      { label: labels.category, value: categoryName }
+    ]
+  };
 
   await createNotification({
     userId,
     type: "RACE_REGISTRATION_CREATED",
-    title: "Race registration received",
-    body,
+    title: message.title,
+    body: message.body,
     href,
     metadata: {
       raceId,
@@ -532,34 +580,12 @@ export async function notifyRaceRegistrationCreated({
       categoryName
     },
     channels: ["IN_APP", "EMAIL", "PUSH"],
+    locale,
     email: {
       to: email,
-      subject: `Registration received: ${raceTitle}`,
-      html: renderRaceDzEmailHtml({
-        preheader: `Your ZidRun registration for ${raceTitle} was created.`,
-        title: "Registration received",
-        body,
-        action: {
-          label: "View registration",
-          href: url
-        },
-        meta: [
-          { label: "Race", value: raceTitle },
-          { label: "Category", value: categoryName }
-        ]
-      }),
-      text: renderRaceDzEmailText({
-        title: "Registration received",
-        body,
-        action: {
-          label: "View registration",
-          href: url
-        },
-        meta: [
-          { label: "Race", value: raceTitle },
-          { label: "Category", value: categoryName }
-        ]
-      })
+      subject: message.subject,
+      html: renderRaceDzEmailHtml(emailTemplate),
+      text: renderRaceDzEmailText(emailTemplate)
     }
   });
 }
@@ -586,30 +612,41 @@ export async function notifyRaceRegistrantsRaceChanged({
   const href = `/races/${raceSlug}`;
   const url = new URL(href, getAppUrl()).toString();
 
-  await notifyRecipients(recipients, {
-    type: "RACE_CHANGE",
-    title: "Race details updated",
-    body: summary,
-    href,
-    metadata: {
-      raceId,
-      changes
-    },
-    channels: ["IN_APP", "EMAIL", "PUSH"],
-    emailTemplate: {
-      subject: `Race update: ${raceTitle}`,
-      title: "Race details updated",
-      body: summary,
-      action: {
-        label: "View race",
-        href: url
+  await notifyRecipients(
+    recipients,
+    {
+      type: "RACE_CHANGE",
+      href,
+      metadata: {
+        raceId,
+        changes
       },
-      meta: [
-        { label: "Race", value: raceTitle },
-        { label: "Changes", value: changes.join(", ") || "Details updated" }
-      ]
+      channels: ["IN_APP", "EMAIL", "PUSH"]
+    },
+    (locale) => {
+      const labels = emailLabels(locale);
+      const message = raceChangedMessage(locale, { raceTitle });
+      // `summary` and `changes` are composed by the caller (organizer edit flow); passed
+      // through as-is — only the surrounding app copy is localized.
+      return {
+        title: message.title,
+        body: summary,
+        emailTemplate: {
+          subject: message.subject,
+          title: message.title,
+          body: summary,
+          action: {
+            label: labels.viewRace,
+            href: url
+          },
+          meta: [
+            { label: labels.race, value: raceTitle },
+            { label: labels.changes, value: changes.join(", ") || labels.detailsUpdated }
+          ]
+        }
+      };
     }
-  });
+  );
 }
 
 export async function notifyRaceRegistrantsAnnouncement({
@@ -634,82 +671,120 @@ export async function notifyRaceRegistrantsAnnouncement({
   const href = `/races/${raceSlug}`;
   const url = new URL(href, getAppUrl()).toString();
 
-  await notifyRecipients(recipients, {
-    type: "RACE_ANNOUNCEMENT",
-    title: announcementTitle,
-    body: announcementBody,
-    href,
-    metadata: {
-      raceId
-    },
-    channels: ["IN_APP", "EMAIL", "PUSH"],
-    emailTemplate: {
-      subject: `${raceTitle}: ${announcementTitle}`,
-      title: announcementTitle,
-      body: announcementBody,
-      action: {
-        label: "View race",
-        href: url
+  // The announcement title/body are the organizer's own words — passed through untranslated.
+  // Only the email chrome (button + meta label) is localized per recipient.
+  await notifyRecipients(
+    recipients,
+    {
+      type: "RACE_ANNOUNCEMENT",
+      href,
+      metadata: {
+        raceId
       },
-      meta: [
-        {
-          label: "Race",
-          value: raceTitle
+      channels: ["IN_APP", "EMAIL", "PUSH"]
+    },
+    (locale) => {
+      const labels = emailLabels(locale);
+      return {
+        title: announcementTitle,
+        body: announcementBody,
+        emailTemplate: {
+          subject: `${raceTitle}: ${announcementTitle}`,
+          title: announcementTitle,
+          body: announcementBody,
+          action: {
+            label: labels.viewRace,
+            href: url
+          },
+          meta: [
+            {
+              label: labels.race,
+              value: raceTitle
+            }
+          ]
         }
-      ]
+      };
     }
-  });
+  );
 }
 
+type LocalizedEmailTemplate = {
+  subject: string;
+  preheader?: string;
+  title: string;
+  body: string;
+  action?: {
+    label: string;
+    href: string;
+  };
+  meta?: Array<{
+    label: string;
+    value: string;
+  }>;
+};
+
+// Fan a notification out to many recipients, each in their own language. The static parts
+// (type/href/metadata/channels) are shared; `localize(locale)` produces the recipient-specific
+// title/body and optional email template, so recipients with different `User.language` values
+// each get their own translated copy in one pass.
 async function notifyRecipients(
   recipients: NotificationRecipient[],
-  input: Omit<CreateNotificationInput, "userId" | "email"> & {
+  base: {
+    type: string;
+    href?: string;
+    metadata?: Record<string, unknown>;
     channels: NotificationChannel[];
-    emailTemplate?: {
-      subject: string;
-      title: string;
-      body: string;
-      action?: {
-        label: string;
-        href: string;
-      };
-      meta?: Array<{
-        label: string;
-        value: string;
-      }>;
-    };
-  }
+  },
+  localize: (locale: Locale) => { title: string; body: string; emailTemplate?: LocalizedEmailTemplate }
 ) {
   await Promise.all(
-    recipients.map((recipient) =>
-      createNotification({
-        ...input,
+    recipients.map((recipient) => {
+      const locale = getLocale(recipient.language);
+      const content = localize(locale);
+
+      return createNotification({
+        type: base.type,
+        href: base.href,
+        metadata: base.metadata,
+        channels: base.channels,
+        locale,
         userId: recipient.id,
-        email: input.channels.includes("EMAIL")
-          ? input.emailTemplate
+        title: content.title,
+        body: content.body,
+        email: base.channels.includes("EMAIL")
+          ? content.emailTemplate
             ? {
                 to: recipient.email,
-                subject: input.emailTemplate.subject,
-                html: renderRaceDzEmailHtml(input.emailTemplate),
-                text: renderRaceDzEmailText(input.emailTemplate)
+                subject: content.emailTemplate.subject,
+                html: renderRaceDzEmailHtml({ ...content.emailTemplate, locale }),
+                text: renderRaceDzEmailText({ ...content.emailTemplate, locale })
               }
             : {
                 to: recipient.email
               }
           : undefined
-      })
-    )
+      });
+    })
   );
 }
 
 async function getRaceRegistrantRecipients(raceId: string) {
   return getPrisma().$queryRaw<RaceRegistrantRecipient[]>`
-    SELECT DISTINCT users."id", users."email", users."firstName", users."lastName"
+    SELECT DISTINCT users."id", users."email", users."language", users."firstName", users."lastName"
     FROM "RaceRegistration" registration
     INNER JOIN "User" users ON users."id" = registration."userId"
     WHERE registration."raceEventId" = ${raceId}
       AND registration."status" NOT IN ('CANCELLED', 'REJECTED')
   `;
+}
+
+// Resolve one user's preferred notification locale (User.language → Locale, English fallback).
+// Used by the single-recipient builders that don't fan out through notifyRecipients().
+async function getUserLocale(userId: string): Promise<Locale> {
+  const rows = await getPrisma().$queryRaw<Array<{ language: string | null }>>`
+    SELECT "language" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  `;
+  return getLocale(rows[0]?.language);
 }
 
 async function deliverEmail(notificationId: string, email: NonNullable<CreateNotificationInput["email"]>) {
@@ -854,15 +929,26 @@ async function createSkippedDelivery(notificationId: string, channel: Notificati
   `;
 }
 
-function renderEmailHtml({ title, body, href }: { title: string; body: string; href?: string }) {
+function renderEmailHtml({
+  title,
+  body,
+  href,
+  locale
+}: {
+  title: string;
+  body: string;
+  href?: string;
+  locale?: Locale;
+}) {
   const url = href ? new URL(href, getAppUrl()).toString() : null;
 
   return renderRaceDzEmailHtml({
     title,
     body,
+    locale: locale ?? "en",
     action: url
       ? {
-          label: "Open ZidRun",
+          label: emailLabels(locale ?? "en").openApp,
           href: url
         }
       : undefined
@@ -891,15 +977,26 @@ async function isNotificationChannelEnabled(userId: string, type: string, channe
   return rows[0]?.enabled ?? true;
 }
 
-function renderEmailText({ title, body, href }: { title: string; body: string; href?: string }) {
+function renderEmailText({
+  title,
+  body,
+  href,
+  locale
+}: {
+  title: string;
+  body: string;
+  href?: string;
+  locale?: Locale;
+}) {
   const url = href ? new URL(href, getAppUrl()).toString() : null;
 
   return renderRaceDzEmailText({
     title,
     body,
+    locale: locale ?? "en",
     action: url
       ? {
-          label: "Open ZidRun",
+          label: emailLabels(locale ?? "en").openApp,
           href: url
         }
       : undefined

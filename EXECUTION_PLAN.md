@@ -4,17 +4,17 @@
 codebase on **2026-07-13**; anything already implemented was removed (see "Verified DONE — removed"
 at the bottom for what was dropped and why). Only **MISSING** or **PARTIAL** work remains here.
 
-## 📊 Overall progress — 13 / 46 items · **28%** _(checkbox count, 2026-07-14)_
+## 📊 Overall progress — 15 / 46 items · **33%** _(checkbox count, 2026-07-14)_
 
-`███████░░░░░░░░░░░░░░░░░░░` **28%**
+`████████░░░░░░░░░░░░░░░░░░` **33%**
 
 | Tier | Bar | Done | Left | Total | % |
 |---|---|---:|---:|---:|---:|
-| 🔴 **P0** — production hardening | `████░░░░░░` | 6 | 10 | 16 | 38% |
-| 🟠 **P1** — launch UX & product | `██████░░░░` | 6 | 4 | 10 | 60% |
+| 🔴 **P0** — production hardening | `████░░░░░░` | 7 | 9 | 16 | 44% |
+| 🟠 **P1** — launch UX & product | `███████░░░` | 7 | 3 | 10 | 70% |
 | 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 1 | 14 | 15 | 7% |
 | 🟢 **P3** — later | `░░░░░░░░░░` | 0 | 5 | 5 | 0% |
-| **Overall** | `███░░░░░░░` | **13** | **33** | **46** | **28%** |
+| **Overall** | `███░░░░░░░` | **15** | **31** | **46** | **33%** |
 
 > Of the **33 remaining**, ~6 are **owner/external** ops, not dev work — OpenAI billing, deploy the
 > pending migrations, Caddy reload, `google-services.json`, and the two external reviews (security +
@@ -97,12 +97,16 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 - [ ] **External security review** before public launch. — (external)
 - [ ] *(optional)* Image **re-encode** on upload — uploads validate type/size/magic-bytes + sanitize
       filenames already; re-encoding (strip EXIF/parser exploits via sharp) is the only missing layer. — S
-- [ ] **Consolidate the two middleware files** — a root `middleware.ts` (auth-guard: redirects unauth users off
-      `/account|/organizer|/admin`) and `src/middleware.ts` (locale persistence) both exist; Next uses
-      `src/middleware.ts` when a `src/` dir is present, so the **auth-guard middleware is likely inactive** (a
-      side-effect of the P2 social-feature merge). Auth is still enforced at page/`layout` level — incl. the new
-      `assertNotBlocked()` check — so nothing is currently exposed, but the dead file is a footgun. Verify which one
-      Next actually runs and merge both concerns into one middleware. — S
+- [x] ✅ **Consolidate the two middleware files** — FIXED 2026-07-14. Confirmed the root `middleware.ts` never ran
+      (Next shadows it with `src/middleware.ts` when a `src/` dir is present) — so the auth guard was dead and, worse,
+      its `@/auth` import was **edge-unsafe** (`@/auth` pulls in `server-only` + Prisma via `auth-credentials.ts`),
+      so a naive merge would have broken the edge build. Applied the canonical next-auth v5 split: new edge-safe
+      `src/auth.config.ts` (JWT session strategy + pages + the pure `session` callback) is shared by `src/auth.ts`
+      (which adds the DB-touching providers + signIn/jwt callbacks) and `src/middleware.ts` (which builds an edge
+      `NextAuth(authConfig)` just to decode the JWT). `src/middleware.ts` now does **both** the auth guard (private
+      `/account|/organizer|/admin` areas, all methods) and locale persistence; root `middleware.ts` deleted. This
+      **restores** the previously-dead auth-guard redirect (defense-in-depth on top of the page/`layout` checks).
+      Typecheck + build clean (Middleware bundles at 144 kB, no server-only/Prisma leak into edge). — S
 
 ### Data integrity / ops
 - [x] ✅ **Mark past races COMPLETED** — DONE: `src/lib/race-lifecycle.ts` `completePastRaces()` + cron route
@@ -142,9 +146,17 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 - [x] ✅ **i18n key-parity check** — `scripts/check-i18n-parity.ts`, fails `npm run lint` on en/fr/ar drift.
 - [x] ✅ **CI pipeline** — `.github/workflows/ci.yml`: postgres service, lint+typecheck+unit tests+build+smoke.
 - [x] ✅ **Races sort** — decided: keep soonest-first only (no UI selector). Resolved.
-- [ ] ◐ **Notification i18n** — `User.locale` **exists** but `src/lib/notifications.ts` is English-only for
-      every recipient. Read recipient `User.locale` and thread it into every `notify*` builder
-      (title/body/subject). **← the remaining P1 item.** — M
+- [x] ✅ **Notification i18n** — FIXED 2026-07-14. The recipient locale field is actually `User.language`
+      (not `User.locale`). New `src/lib/notifications/messages.ts` catalog holds en/fr/ar copy for every
+      fixed-string builder; `src/lib/notifications.ts` now threads each recipient's `language` → locale and
+      localizes title/body/subject + email chrome (button + meta labels) **per recipient** — `notifyRecipients`
+      was reworked to take a `localize(locale)` callback so a fan-out to recipients with different languages
+      each get their own translated copy. Email templates receive `locale` too, so Arabic emails render RTL.
+      Recipient queries now select `language`; single-recipient builders resolve it via `getUserLocale()`.
+      Free-text pieces (organizer announcements, support-chat previews, the change summary) are passed through
+      untranslated by design. Typecheck + lint (changed files) + i18n parity all clean; localized output
+      spot-checked at runtime. **Out of scope (unchanged):** admin-authored broadcasts and coach reminders
+      (the latter already localize via `preferredLocale`). — M
 - [ ] ❌ **Photo verification at registration** — no such feature. Let organizers require/upload a race photo
       to be checked at registration. *(needs a short spec)* — L
 - [ ] **Remaining UI polish** (UI_AUDIT P3 + cross-cutting sweeps A–F) and UI_TODO homepage/race-detail/
