@@ -15,6 +15,7 @@
     "test:coach": "tsx scripts/test-coach.ts",
     "test:workout": "tsx scripts/test-workout-structure.ts",
     "test:mfa": "tsx scripts/test-mfa.ts",
+    "test:registration": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-registration-concurrency.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:visual": "playwright test tests/visual.e2e.spec.ts",
