@@ -16,6 +16,19 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
   typecheck / lint / build / `test:mfa`. **Owner follow-ups:** `npx prisma migrate deploy`; schedule the
   new cron; runtime click-through of MFA. **Still open in P0:** major-version dependency upgrade for the
   5 high vulns (needs a tested pass), MFA enforcement flip for `/admin/*`, external review, owner ops.
+- **2026-07-14 — Product + perf + mobile session.** Shipped (all typecheck/lint/build-verified, on `main`):
+  admin↔runner **support chat** (`SupportThread`/`SupportMessage` + migration `add_support_chat`; runner chat, admin
+  inbox with name/email search, two-way in-app/push notifications); **first-login onboarding** (skippable
+  `/account/welcome` + AI-coach invite, `User.onboardedAt`); **cross-device language/theme** (`User.language`/`theme`,
+  applied on new-device login); trilingual **FAQ** page; **legal rewrite** — Terms (fulfillment/refund/warranty/
+  liability, Algiers law) + Privacy incl. a cookie policy, EN/FR/AR — plus a first-visit **cookie-consent banner**
+  (analytics honor a reject; banner hidden in-app); **blocked-user enforcement** on live sessions (`/blocked` +
+  forced sign-out); **admin login → `/admin`** redirect fix; demo-login removed; admin user detail now shows
+  target/#runs/#AI-prompts; coach trial-countdown + subscribe CTA; coach-subscription link in the mobile account hub.
+  **Mobile:** animated bouncing-Z boot splash. **Perf:** public race reads cached in Next's data cache with tag
+  invalidation on every mutation; server-only legal/FAQ text split into `src/lib/i18n-content.ts`, shrinking the
+  shared client chunk **48→25 KB gzipped**. **Follow-ups → new items below:** deploy the two new migrations;
+  consolidate the two middleware files; commit the still-uncommitted i18n split.
 
 ---
 
@@ -48,11 +61,23 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 - [ ] **External security review** before public launch. — (external)
 - [ ] *(optional)* Image **re-encode** on upload — uploads validate type/size/magic-bytes + sanitize
       filenames already; re-encoding (strip EXIF/parser exploits via sharp) is the only missing layer. — S
+- [ ] **Consolidate the two middleware files** — a root `middleware.ts` (auth-guard: redirects unauth users off
+      `/account|/organizer|/admin`) and `src/middleware.ts` (locale persistence) both exist; Next uses
+      `src/middleware.ts` when a `src/` dir is present, so the **auth-guard middleware is likely inactive** (a
+      side-effect of the P2 social-feature merge). Auth is still enforced at page/`layout` level — incl. the new
+      `assertNotBlocked()` check — so nothing is currently exposed, but the dead file is a footgun. Verify which one
+      Next actually runs and merge both concerns into one middleware. — S
 
 ### Data integrity / ops
 - [x] ✅ **Mark past races COMPLETED** — DONE: `src/lib/race-lifecycle.ts` `completePastRaces()` + cron route
       `POST /api/internal/cron/complete-past-races` (CRON_SECRET-guarded, idempotent). **Owner: schedule it
       daily** alongside the other `internal/cron/*` jobs.
+- [ ] **Deploy the 2026-07-14 migrations** *(owner)* — `npx prisma migrate deploy` for `add_support_chat` and
+      `add_onboarding_and_appearance_prefs` (its onboarding backfill — treat existing users as onboarded — runs
+      inside the migration). Applied to the local DB only so far. — S
+- [ ] **Commit the perf i18n split** *(dev)* — `src/lib/i18n-content.ts` + the `terms/privacy/faq` pages are
+      verified but still **uncommitted** (they were left out to avoid entangling with the in-progress social feature
+      in the working tree). Commit them in isolation. — S
 - [ ] **Android push + Crashlytics** *(owner)* — ship `android/app/google-services.json`, rebuild APK, get
       users on it, **then** set `NEXT_PUBLIC_NATIVE_PUSH_ENABLED=true` + server `FIREBASE_*`. Same file lights
       up the already-wired Crashlytics.
@@ -128,11 +153,15 @@ Context: run recording is **client-side** (one `POST /api/coach/runs` at run-end
 stream), so raw throughput isn't the risk. The real bottleneck is the **registration thundering-herd** on
 registration-open, and the single-host stack (one app container + local-volume uploads) that can't scale out.
 Target ~€40/mo on Hetzner (CPX41 + object storage), no AWS needed at this size.
-- [ ] ❌ **(1) Make the registration transaction atomic** — `createRegistration` (`src/lib/registrations.ts:160`)
-      does `count()` then `create` inside a `$transaction`; under registration-open load, 1000 requests contend
-      on the same category counter and serialize/deadlock. Replace count-then-insert with an atomic
-      `UPDATE ... WHERE registeredCount < maxParticipants` (or a DB constraint) + retry. **Highest priority —
-      this falls over first.** Optionally front the open moment with a Cloudflare waiting room. — M
+- [x] ✅ **(1) Make the registration transaction atomic** — DONE (`src/lib/registrations.ts`). The
+      count-then-insert race is closed **without** a new counter column (which would drift against the
+      cancel-path `increment` and the CANCELLED/REJECTED-excluding count): the category cap now takes a
+      `SELECT … FOR UPDATE` row lock on the `RaceCategory` before its `count()`, serializing concurrent
+      registrations for the same distance; the event `availablePlaces` countdown became a single atomic
+      guarded `updateMany (WHERE availablePlaces > 0)` that can't go negative. Proven with a real-Postgres
+      thundering-herd test — `npm run test:registration` (`scripts/test-registration-concurrency.ts`): 40
+      concurrent registrations against a CAP-5 race yield exactly 5, and removing the lock overshoots to 17.
+      **Still optional:** front the registration-open moment with a Cloudflare waiting room for extra smoothing. — M
 - [ ] ❌ **(2) Externalize uploads to R2** — uploads currently write to a **local** Docker volume
       (`racedz_uploads`, `src/lib/storage.ts`), which pins the app to one host. Move to Cloudflare R2 / Hetzner
       Object Storage (S3 API) so the app tier becomes stateless and horizontally scalable. (Note: P3 already lists
