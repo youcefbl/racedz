@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 
 export const uploadScopes = ["avatar", "race", "organization", "payment", "run", "coach-payment"] as const;
 
@@ -63,6 +64,13 @@ export async function saveImageUpload(file: ImageUploadFile, scope: UploadScope)
     throw new UploadError("That file is not a valid JPG, PNG, WebP, or GIF image.");
   }
 
+  // Re-encode the pixels through sharp before storing. This is the last upload-hardening layer:
+  // decoding then re-encoding (a) strips all metadata — EXIF GPS coordinates, camera info, and any
+  // embedded thumbnail/ICC payloads that could carry an exploit — and (b) collapses malformed or
+  // polyglot files that survived the magic-byte check, since the output is written by our encoder,
+  // not copied from the untrusted input. The stored format matches the detected format.
+  const safeBytes = await reencodeImage(bytes, detected);
+
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const directory = path.join(process.cwd(), "public", "uploads", scope, month);
@@ -70,7 +78,7 @@ export async function saveImageUpload(file: ImageUploadFile, scope: UploadScope)
   const absolutePath = path.join(directory, filename);
 
   await mkdir(directory, { recursive: true });
-  await writeFile(absolutePath, bytes);
+  await writeFile(absolutePath, safeBytes);
 
   return {
     // Payment proofs are financial PII: they live in the same volume but are never served by the
@@ -80,9 +88,35 @@ export async function saveImageUpload(file: ImageUploadFile, scope: UploadScope)
       scope === "coach-payment"
         ? `/api/coach/subscription/proof/${month}/${filename}`
         : `/uploads/${scope}/${month}/${filename}`,
-    size: file.size,
+    size: safeBytes.length,
     contentType: detected.mimeType
   };
+}
+
+// Decode and re-encode an already-magic-byte-validated image to the same format, dropping all
+// metadata. sharp strips metadata by default (we never call withMetadata); .rotate() bakes in EXIF
+// orientation before it's discarded so JPEG/WebP photos keep the right side up. Animated GIFs are
+// re-encoded frame-by-frame. A decode failure means the "image" wasn't really decodable → reject it.
+async function reencodeImage(bytes: Buffer, detected: { mimeType: string; extension: string }): Promise<Buffer> {
+  try {
+    switch (detected.mimeType) {
+      case "image/jpeg":
+        return await sharp(bytes).rotate().jpeg({ quality: 85 }).toBuffer();
+      case "image/png":
+        return await sharp(bytes).png({ compressionLevel: 9 }).toBuffer();
+      case "image/webp":
+        return await sharp(bytes).rotate().webp({ quality: 85 }).toBuffer();
+      case "image/gif":
+        return await sharp(bytes, { animated: true }).gif().toBuffer();
+      default:
+        throw new UploadError("Unsupported image format.");
+    }
+  } catch (error) {
+    if (error instanceof UploadError) {
+      throw error;
+    }
+    throw new UploadError("That image could not be processed. Try a different file.");
+  }
 }
 
 // Resolve a coach-payment proof URL (/api/coach/subscription/proof/<month>/<file>) back to its file
