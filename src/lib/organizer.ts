@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { notifyRaceResultPublished } from "@/lib/notifications";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
 import type { RaceResultStatusValue } from "@/lib/race-results";
@@ -401,7 +402,7 @@ export async function saveOrganizerRaceResult({
 }) {
   const registration = await getPrisma().raceRegistration.findFirst({
     where: { id: registrationId, raceEvent: { organizationId } },
-    select: { id: true, userId: true, raceEventId: true }
+    select: { id: true, userId: true, raceEventId: true, raceEvent: { select: { title: true } } }
   });
 
   if (!registration) {
@@ -410,7 +411,14 @@ export async function saveOrganizerRaceResult({
 
   const timeSeconds = status === "FINISHED" ? finishTimeSeconds : null;
 
-  return getPrisma().raceResult.upsert({
+  // Read the previous result first so an unchanged re-save (an organizer correcting notes, or
+  // re-submitting the same form) doesn't notify the runner again.
+  const previous = await getPrisma().raceResult.findUnique({
+    where: { registrationId },
+    select: { finishTimeSeconds: true, status: true }
+  });
+
+  const result = await getPrisma().raceResult.upsert({
     where: { registrationId },
     create: {
       registrationId,
@@ -428,6 +436,26 @@ export async function saveOrganizerRaceResult({
       recordedById
     }
   });
+
+  const changed = !previous || previous.status !== status || previous.finishTimeSeconds !== timeSeconds;
+
+  // Tell the runner their result is in. Skipped when nothing changed, and when the organizer is
+  // recording their own result (they just typed it). Best-effort: the result is already committed,
+  // so a notification failure is logged and dropped rather than failing the organizer's save.
+  if (changed && registration.userId !== recordedById) {
+    try {
+      await notifyRaceResultPublished({
+        userId: registration.userId,
+        raceTitle: registration.raceEvent.title,
+        status,
+        finishTimeSeconds: timeSeconds
+      });
+    } catch (error) {
+      console.error("[organizer][notify] race result notification failed:", error);
+    }
+  }
+
+  return result;
 }
 
 export async function cancelOrganizerRaceRegistration({

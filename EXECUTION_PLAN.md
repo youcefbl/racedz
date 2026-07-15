@@ -4,17 +4,17 @@
 codebase on **2026-07-13**; anything already implemented was removed (see "Verified DONE — removed"
 at the bottom for what was dropped and why). Only **MISSING** or **PARTIAL** work remains here.
 
-## 📊 Overall progress — 15 / 46 items · **33%** _(checkbox count, 2026-07-14)_
+## 📊 Overall progress — 17 / 46 items · **37%** _(checkbox count, 2026-07-14)_
 
-`████████░░░░░░░░░░░░░░░░░░` **33%**
+`█████████░░░░░░░░░░░░░░░░░` **37%**
 
 | Tier | Bar | Done | Left | Total | % |
 |---|---|---:|---:|---:|---:|
-| 🔴 **P0** — production hardening | `████░░░░░░` | 7 | 9 | 16 | 44% |
+| 🔴 **P0** — production hardening | `█████░░░░░` | 8 | 8 | 16 | 50% |
 | 🟠 **P1** — launch UX & product | `███████░░░` | 7 | 3 | 10 | 70% |
-| 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 1 | 14 | 15 | 7% |
+| 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 2 | 13 | 15 | 13% |
 | 🟢 **P3** — later | `░░░░░░░░░░` | 0 | 5 | 5 | 0% |
-| **Overall** | `███░░░░░░░` | **15** | **31** | **46** | **33%** |
+| **Overall** | `████░░░░░░` | **17** | **29** | **46** | **37%** |
 
 > Of the **33 remaining**, ~6 are **owner/external** ops, not dev work — OpenAI billing, deploy the
 > pending migrations, Caddy reload, `google-services.json`, and the two external reviews (security +
@@ -95,8 +95,14 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
       build-time/transitive or author-controlled-content, lower runtime risk. **Node is already v20** (EOL-18
       concern moot in this env). — M
 - [ ] **External security review** before public launch. — (external)
-- [ ] *(optional)* Image **re-encode** on upload — uploads validate type/size/magic-bytes + sanitize
-      filenames already; re-encoding (strip EXIF/parser exploits via sharp) is the only missing layer. — S
+- [x] ✅ *(optional)* Image **re-encode** on upload — DONE 2026-07-14 (`src/lib/storage.ts`). Every accepted
+      image is decoded + re-encoded through **sharp** before it's written, which strips all metadata (EXIF GPS,
+      camera info, embedded thumbnails/ICC) and collapses malformed/polyglot files that pass the magic-byte
+      sniff — the stored bytes come from our encoder, not the untrusted input. `.rotate()` bakes EXIF
+      orientation into the pixels first so photos stay right-side-up; animated GIFs re-encode frame-by-frame;
+      a decode failure surfaces as a normal `UploadError`; reported size reflects the re-encoded bytes.
+      *Verified:* a JPEG carrying EXIF GPS + orientation 6 comes out with no EXIF and the rotation baked in
+      (64x32 → 32x64), and a JPEG-magic/HTML polyglot is rejected. — S
 - [x] ✅ **Consolidate the two middleware files** — FIXED 2026-07-14. Confirmed the root `middleware.ts` never ran
       (Next shadows it with `src/middleware.ts` when a `src/` dir is present) — so the auth guard was dead and, worse,
       its `@/auth` import was **edge-unsafe** (`@/auth` pulls in `server-only` + Prisma via `auth-credentials.ts`),
@@ -168,9 +174,17 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 
 ## P2 — Growth & depth 🟡
 
-- [ ] ❌ **Follow / kudos / result notifications** — Tier-1 models (`Follow`, `RunKudos`, `RaceResult`) exist
-      and the actions work, but **no notification is sent** on follow, kudos, or a saved race result. Wire
-      `createNotification` into `social.ts` / `organizer.ts` result-upsert. — M
+- [x] ✅ **Follow / kudos / result notifications** — DONE 2026-07-14. Three new types (`SOCIAL_FOLLOW`,
+      `SOCIAL_KUDOS`, `RACE_RESULT_PUBLISHED`) wired into `social.ts` (`toggleFollow`/`toggleKudos`) and
+      `organizer.ts` (`saveOrganizerRaceResult`), each localized en/fr/ar via the notification message catalog
+      and delivered **in-app + push only** (per-event email would be noisy — same call as the support-message
+      alerts). All three are user-toggleable via `notificationPreferenceOptions`. Guards: only the *on*
+      transition notifies (unfollow / un-kudos are silent), never self-notify (own-run kudos, organizer
+      recording their own result), and an **unchanged** result re-save doesn't re-notify (a corrected time
+      does). Notifications are best-effort — the follow/kudos/result row is already committed, so a
+      notification failure is logged, not surfaced as a failed action.
+      *Verified end-to-end against a real DB:* 10/10 checks incl. an `ar` recipient receiving genuinely Arabic
+      copy and the actor receiving nothing. — M
 - [ ] ❌ **In-app share-my-run/plan card** — only a "share publicly" flag exists; no shareable artifact.
       Build an OG/`ImageResponse` share card (route/distance/pace/"planned by Coach Zid"). Highest-leverage
       growth item per marketing. — M

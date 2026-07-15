@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getPrisma } from "@/lib/db";
+import { notifyNewFollower, notifyRunKudos } from "@/lib/notifications";
 
 // The social layer: a lightweight follow graph, an activity feed of public runs from people you
 // follow, and kudos (likes). This is the community surface the app was missing — a reason to open
@@ -49,7 +50,28 @@ export async function toggleFollow(followerId: string, followingId: string): Pro
   const target = await prisma.user.findUnique({ where: { id: followingId }, select: { id: true, profilePrivate: true } });
   if (!target || target.profilePrivate) return { following: false };
   await prisma.follow.create({ data: { followerId, followingId } });
+  // Only the follow transition notifies — unfollowing is silent.
+  await notifySilently(async () => {
+    const follower = await prisma.user.findUnique({
+      where: { id: followerId },
+      select: { firstName: true, lastName: true }
+    });
+    await notifyNewFollower({
+      followingId,
+      followerName: follower ? `${follower.firstName} ${follower.lastName}`.trim() : ""
+    });
+  });
   return { following: true };
+}
+
+// Social notifications are a nudge, never a reason to fail the action the runner just took: the
+// follow/kudos row is already committed by this point, so a notification error is logged and dropped.
+async function notifySilently(run: () => Promise<void>) {
+  try {
+    await run();
+  } catch (error) {
+    console.error("[social][notify] failed to send notification:", error);
+  }
 }
 
 export async function getSocialProfile(viewerId: string | null, userId: string): Promise<SocialProfile | null> {
@@ -101,6 +123,21 @@ export async function toggleKudos(userId: string, runId: string): Promise<{ kudo
     await prisma.runKudos.delete({ where: { id: existing.id } });
   } else {
     await prisma.runKudos.create({ data: { runId, userId } });
+    // Only the kudos-add notifies (removing is silent), and never for kudos on your own run —
+    // a runner can kudos their own run, which must not ping them.
+    if (run.userId !== userId) {
+      await notifySilently(async () => {
+        const actor = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { firstName: true, lastName: true }
+        });
+        await notifyRunKudos({
+          runOwnerId: run.userId,
+          actorName: actor ? `${actor.firstName} ${actor.lastName}`.trim() : "",
+          runId
+        });
+      });
+    }
   }
   const count = await prisma.runKudos.count({ where: { runId } });
   return { kudoed: !existing, count };

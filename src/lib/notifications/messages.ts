@@ -183,3 +183,76 @@ export function raceChangedMessage(locale: Locale, { raceTitle }: { raceTitle: s
     ar: { title: "تم تحديث تفاصيل السباق", subject: `تحديث السباق: ${raceTitle}` }
   });
 }
+
+export function newFollowerMessage(locale: Locale, { followerName }: { followerName: string }) {
+  const name = followerName || aRunner[locale];
+  return t(locale, {
+    en: { title: "New follower", body: `${name} started following you.` },
+    fr: { title: "Nouvel abonné", body: `${name} vous suit désormais.` },
+    ar: { title: "متابع جديد", body: `بدأ ${name} بمتابعتك.` }
+  });
+}
+
+export function runKudosMessage(locale: Locale, { actorName }: { actorName: string }) {
+  const name = actorName || aRunner[locale];
+  return t(locale, {
+    en: { title: "Kudos on your run", body: `${name} gave kudos to your run.` },
+    fr: { title: "Kudos sur votre course", body: `${name} a donné un kudos à votre course.` },
+    ar: { title: "تحية على جريك", body: `منح ${name} تحية لجريك.` }
+  });
+}
+
+// A saved race result. FINISHED carries the finish time; the other statuses are reported with a
+// localized label instead (the time is always null for them).
+export function raceResultMessage(
+  locale: Locale,
+  {
+    raceTitle,
+    status,
+    finishTime
+  }: { raceTitle: string; status: "FINISHED" | "DNF" | "DNS" | "DSQ"; finishTime: string | null }
+) {
+  const statusLabels: Record<"DNF" | "DNS" | "DSQ", Localized<string>> = {
+    DNF: { en: "DNF (did not finish)", fr: "abandon (DNF)", ar: "لم يُكمل (DNF)" },
+    DNS: { en: "DNS (did not start)", fr: "non partant (DNS)", ar: "لم يبدأ (DNS)" },
+    DSQ: { en: "DSQ (disqualified)", fr: "disqualifié (DSQ)", ar: "مُستبعد (DSQ)" }
+  };
+
+  const title = t(locale, {
+    en: "Race result published",
+    fr: "Résultat de course publié",
+    ar: "تم نشر نتيجة السباق"
+  });
+
+  if (status === "FINISHED" && finishTime) {
+    return {
+      title,
+      body: t(locale, {
+        en: `Your result for "${raceTitle}" is in: ${finishTime}.`,
+        fr: `Votre résultat pour « ${raceTitle} » est disponible : ${finishTime}.`,
+        ar: `نتيجتك في «${raceTitle}» أصبحت متاحة: ${finishTime}.`
+      })
+    };
+  }
+
+  if (status === "FINISHED") {
+    return {
+      title,
+      body: t(locale, {
+        en: `Your result for "${raceTitle}" was recorded as finished.`,
+        fr: `Votre résultat pour « ${raceTitle} » a été enregistré : terminé.`,
+        ar: `تم تسجيل نتيجتك في «${raceTitle}»: أكملت السباق.`
+      })
+    };
+  }
+
+  const label = t(locale, statusLabels[status]);
+  return {
+    title,
+    body: t(locale, {
+      en: `Your result for "${raceTitle}" was recorded as ${label}.`,
+      fr: `Votre résultat pour « ${raceTitle} » a été enregistré : ${label}.`,
+      ar: `تم تسجيل نتيجتك في «${raceTitle}»: ${label}.`
+    })
+  };
+}

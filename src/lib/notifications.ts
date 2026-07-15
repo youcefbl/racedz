@@ -7,13 +7,17 @@ import { sendFirebasePush } from "@/lib/notifications/firebase-provider";
 import {
   coachSubscriptionRequestMessage,
   emailLabels,
+  newFollowerMessage,
   organizerRaceStatusMessage,
   racePendingReviewMessage,
   raceChangedMessage,
   raceRegistrationCreatedMessage,
+  raceResultMessage,
+  runKudosMessage,
   supportMessageMessage,
   supportReplyMessage
 } from "@/lib/notifications/messages";
+import { formatFinishTime } from "@/lib/race-results";
 
 export type NotificationChannel = "IN_APP" | "EMAIL" | "PUSH";
 
@@ -149,6 +153,21 @@ export const notificationPreferenceOptions = [
     type: "SUPPORT_REPLY",
     title: "Support replies",
     description: "We notify you when the ZidRun team replies to your support chat."
+  },
+  {
+    type: "SOCIAL_FOLLOW",
+    title: "New followers",
+    description: "We let you know when another runner starts following you."
+  },
+  {
+    type: "SOCIAL_KUDOS",
+    title: "Kudos on your runs",
+    description: "We let you know when another runner gives kudos to one of your runs."
+  },
+  {
+    type: "RACE_RESULT_PUBLISHED",
+    title: "Race results",
+    description: "We let you know when an organizer publishes your finish time or race status."
   }
 ] as const;
 
@@ -480,6 +499,81 @@ export async function notifyUserSupportReply({
     title,
     body,
     href: "/account/support",
+    channels: ["IN_APP", "PUSH"],
+    locale
+  });
+}
+
+// Social nudges (follow / kudos) and race results are in-app + push only: they're higher-frequency
+// and lower-stakes than the race/registration mails, so per-event email would be noisy. Callers fire
+// these best-effort — a notification failure must never fail the underlying action.
+export async function notifyNewFollower({
+  followingId,
+  followerName
+}: {
+  followingId: string;
+  followerName: string;
+}) {
+  const locale = await getUserLocale(followingId);
+  const { title, body } = newFollowerMessage(locale, { followerName });
+  await createNotification({
+    userId: followingId,
+    type: "SOCIAL_FOLLOW",
+    title,
+    body,
+    href: "/account/feed",
+    channels: ["IN_APP", "PUSH"],
+    locale
+  });
+}
+
+export async function notifyRunKudos({
+  runOwnerId,
+  actorName,
+  runId
+}: {
+  runOwnerId: string;
+  actorName: string;
+  runId: string;
+}) {
+  const locale = await getUserLocale(runOwnerId);
+  const { title, body } = runKudosMessage(locale, { actorName });
+  await createNotification({
+    userId: runOwnerId,
+    type: "SOCIAL_KUDOS",
+    title,
+    body,
+    href: "/account/runs",
+    metadata: { runId },
+    channels: ["IN_APP", "PUSH"],
+    locale
+  });
+}
+
+export async function notifyRaceResultPublished({
+  userId,
+  raceTitle,
+  status,
+  finishTimeSeconds
+}: {
+  userId: string;
+  raceTitle: string;
+  status: "FINISHED" | "DNF" | "DNS" | "DSQ";
+  finishTimeSeconds: number | null;
+}) {
+  const locale = await getUserLocale(userId);
+  const { title, body } = raceResultMessage(locale, {
+    raceTitle,
+    status,
+    finishTime: finishTimeSeconds === null ? null : formatFinishTime(finishTimeSeconds)
+  });
+  await createNotification({
+    userId,
+    type: "RACE_RESULT_PUBLISHED",
+    title,
+    body,
+    href: "/account/registrations",
+    metadata: { status },
     channels: ["IN_APP", "PUSH"],
     locale
   });
