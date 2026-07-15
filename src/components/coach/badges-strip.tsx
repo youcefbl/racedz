@@ -7,9 +7,27 @@ import type { CoachLocale } from "@/components/coach/types";
 import { cn } from "@/lib/utils";
 
 const HEADING = {
-  en: { title: "Achievements", of: (a: number, b: number) => `${a} of ${b}`, showAll: "Show all", showLess: "Show less" },
-  fr: { title: "Trophées", of: (a: number, b: number) => `${a} sur ${b}`, showAll: "Tout voir", showLess: "Réduire" },
-  ar: { title: "الإنجازات", of: (a: number, b: number) => `${a} من ${b}`, showAll: "عرض الكل", showLess: "عرض أقل" }
+  en: {
+    title: "Achievements",
+    of: (a: number, b: number) => `${a} of ${b}`,
+    showAll: "Show all",
+    showLess: "Show less",
+    longestRun: "Longest run"
+  },
+  fr: {
+    title: "Trophées",
+    of: (a: number, b: number) => `${a} sur ${b}`,
+    showAll: "Tout voir",
+    showLess: "Réduire",
+    longestRun: "Plus longue sortie"
+  },
+  ar: {
+    title: "الإنجازات",
+    of: (a: number, b: number) => `${a} من ${b}`,
+    showAll: "عرض الكل",
+    showLess: "عرض أقل",
+    longestRun: "أطول حصة جري"
+  }
 } as const;
 
 const META: Record<string, { icon: LucideIcon; label: Record<CoachLocale, string> }> = {
@@ -30,8 +48,24 @@ const META: Record<string, { icon: LucideIcon; label: Record<CoachLocale, string
   race_5: { icon: Trophy, label: { en: "5 races", fr: "5 courses", ar: "5 سباقات" } }
 };
 
+// Floor, never round: a locked badge must not display as already complete. 49.7 km toward the
+// 50 km badge reads "49/50", not the "50/50"-but-still-grey that rounding produced.
 function formatValue(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(0);
+  return String(Math.floor(value));
+}
+
+// A measurement, not a goal — no target, no locked state, just the runner's current best. Kept out
+// of the `badges` array so it can't skew the "2 of 15" earned count with a never-earnable tile.
+function LongestRunTile({ km, locale }: { km: number; locale: CoachLocale }) {
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-3 text-center">
+      <span className="flex size-9 items-center justify-center rounded-full bg-gray-100 text-brand-teal">
+        <RouteIcon className="size-5" aria-hidden="true" />
+      </span>
+      <span className="text-[11px] font-black leading-tight text-gray-500">{HEADING[locale].longestRun}</span>
+      <span className="text-[10px] font-bold tabular-nums text-gray-700">{km.toFixed(1)} km</span>
+    </div>
+  );
 }
 
 function BadgeTile({ badge, locale }: { badge: Badge; locale: CoachLocale }) {
@@ -65,15 +99,29 @@ function BadgeTile({ badge, locale }: { badge: Badge; locale: CoachLocale }) {
   );
 }
 
-export function BadgesStrip({ badges, locale }: { badges: Badge[]; locale: CoachLocale }) {
+const COLLAPSED_TILES = 8;
+
+export function BadgesStrip({
+  badges,
+  longestRunKm = 0,
+  locale
+}: {
+  badges: Badge[];
+  longestRunKm?: number;
+  locale: CoachLocale;
+}) {
   const t = HEADING[locale];
   const [expanded, setExpanded] = useState(false);
   if (badges.length === 0) return null;
 
+  // Only worth a tile once there's a run behind it.
+  const showLongestRun = longestRunKm > 0;
   const earnedCount = badges.filter((b) => b.earned).length;
-  // Collapsed: earned badges first, then the next few to chase.
+  // Collapsed: earned badges first, then the next few to chase. The longest-run stat takes one of
+  // the collapsed slots, so the grid stays a clean 8 either way.
   const ordered = [...badges].sort((a, b) => Number(b.earned) - Number(a.earned));
-  const shown = expanded ? ordered : ordered.slice(0, 8);
+  const badgeSlots = showLongestRun ? COLLAPSED_TILES - 1 : COLLAPSED_TILES;
+  const shown = expanded ? ordered : ordered.slice(0, badgeSlots);
 
   return (
     <div className="mb-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -83,11 +131,12 @@ export function BadgesStrip({ badges, locale }: { badges: Badge[]; locale: Coach
         <span className="ms-auto text-xs font-semibold text-gray-500">{t.of(earnedCount, badges.length)}</span>
       </div>
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+        {showLongestRun ? <LongestRunTile km={longestRunKm} locale={locale} /> : null}
         {shown.map((badge) => (
           <BadgeTile key={badge.id} badge={badge} locale={locale} />
         ))}
       </div>
-      {badges.length > 8 ? (
+      {badges.length > shown.length ? (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}

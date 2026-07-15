@@ -605,9 +605,11 @@ export async function getRunnerBadges(userId: string, records: PersonalRecords):
   return computeBadges({
     totalRuns: records.totalRuns,
     totalDistanceKm: records.totalDistanceKm,
-    longestRunKm: records.longestRunKm,
     longestStreakWeeks: records.longestStreakWeeks,
-    raceFinishes
+    raceFinishes,
+    runsAt10k: records.runsAt10k,
+    runsAtHalf: records.runsAtHalf,
+    runsAtMarathon: records.runsAtMarathon
   });
 }
 

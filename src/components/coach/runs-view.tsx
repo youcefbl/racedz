@@ -80,7 +80,9 @@ export function RunsView({
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       {records ? <RecordsSummary records={records} locale={locale} /> : null}
-      {badges.length > 0 ? <BadgesStrip badges={badges} locale={locale} /> : null}
+      {badges.length > 0 ? (
+        <BadgesStrip badges={badges} longestRunKm={records?.longestRunKm ?? 0} locale={locale} />
+      ) : null}
       <GpxImport
         locale={locale}
         onImported={async () => {
