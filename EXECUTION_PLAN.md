@@ -4,23 +4,23 @@
 codebase on **2026-07-13**; anything already implemented was removed (see "Verified DONE — removed"
 at the bottom for what was dropped and why). Only **MISSING** or **PARTIAL** work remains here.
 
-## 📊 Overall progress — 17 / 46 items · **37%** _(checkbox count, 2026-07-14)_
+## 📊 Overall progress — 19 / 46 items · **41%** _(checkbox count, 2026-07-14)_
 
-`█████████░░░░░░░░░░░░░░░░░` **37%**
+`██████████░░░░░░░░░░░░░░░░` **41%**
 
 | Tier | Bar | Done | Left | Total | % |
 |---|---|---:|---:|---:|---:|
-| 🔴 **P0** — production hardening | `█████░░░░░` | 8 | 8 | 16 | 50% |
+| 🔴 **P0** — production hardening | `██████░░░░` | 10 | 6 | 16 | 63% |
 | 🟠 **P1** — launch UX & product | `███████░░░` | 7 | 3 | 10 | 70% |
 | 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 2 | 13 | 15 | 13% |
 | 🟢 **P3** — later | `░░░░░░░░░░` | 0 | 5 | 5 | 0% |
-| **Overall** | `████░░░░░░` | **17** | **29** | **46** | **37%** |
+| **Overall** | `████░░░░░░` | **19** | **27** | **46** | **41%** |
 
-> Of the **33 remaining**, ~6 are **owner/external** ops, not dev work — OpenAI billing, deploy the
-> pending migrations, Caddy reload, `google-services.json`, and the two external reviews (security +
-> sports-health). The other ~27 are development items. **Nearest to launch:** P0 (10 left, half of them
-> owner ops) then P1 (4 left). _Note: the social-post race importer (Phase 1) was a net-new feature, not
-> a plan item, so it isn't in this count — see the progress log below._
+> Of the **27 remaining**, ~5 are **owner/external** ops, not dev work — OpenAI billing, Caddy reload,
+> `google-services.json`, and the two external reviews (security + sports-health). The other ~22 are
+> development items. **Nearest to launch:** P0 (6 left — of which only the **dependency upgrade** is dev
+> work; the rest are owner ops) then P1 (3 left). _Note: the social-post race importer (Phase 1) was a
+> net-new feature, not a plan item, so it isn't in this count — see the progress log below._
 
 Legend: 🔴 blocker before production · 🟠 launch sprint · 🟡 scale/after-launch · 🟢 later
 Effort: S = <½ day · M = ~1–2 days · L = ~3–5 days · XL = 1–3 weeks
@@ -118,12 +118,11 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 - [x] ✅ **Mark past races COMPLETED** — DONE: `src/lib/race-lifecycle.ts` `completePastRaces()` + cron route
       `POST /api/internal/cron/complete-past-races` (CRON_SECRET-guarded, idempotent). **Owner: schedule it
       daily** alongside the other `internal/cron/*` jobs.
-- [ ] **Deploy the 2026-07-14 migrations** *(owner)* — `npx prisma migrate deploy` for `add_support_chat` and
-      `add_onboarding_and_appearance_prefs` (its onboarding backfill — treat existing users as onboarded — runs
-      inside the migration). Applied to the local DB only so far. — S
-- [ ] **Commit the perf i18n split** *(dev)* — `src/lib/i18n-content.ts` + the `terms/privacy/faq` pages are
-      verified but still **uncommitted** (they were left out to avoid entangling with the in-progress social feature
-      in the working tree). Commit them in isolation. — S
+- [x] ✅ **Deploy the 2026-07-14 migrations** *(owner)* — DONE (owner-confirmed 2026-07-14). `add_support_chat`
+      and `add_onboarding_and_appearance_prefs` (incl. the onboarding backfill that treats existing users as
+      onboarded) are deployed. Local `prisma migrate status`: 42 migrations, schema up to date.
+- [x] ✅ **Commit the perf i18n split** *(dev)* — DONE. `src/lib/i18n-content.ts` + the `terms/privacy/faq`
+      pages are committed (`7bdcf99`); nothing left uncommitted.
 - [ ] **Android push + Crashlytics** *(owner)* — ship `android/app/google-services.json`, rebuild APK, get
       users on it, **then** set `NEXT_PUBLIC_NATIVE_PUSH_ENABLED=true` + server `FIREBASE_*`. Same file lights
       up the already-wired Crashlytics.
