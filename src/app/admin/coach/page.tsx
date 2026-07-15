@@ -229,7 +229,7 @@ function RecentErrors({ errors }: { errors: CoachErrorRow[] }) {
 
   return (
     <details className="mb-6 overflow-hidden rounded-lg border border-orange-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-orange-100 bg-orange-50 px-5 py-3 text-sm font-black text-brand-orange">
+      <summary className="flex cursor-pointer list-none items-center gap-2 border-b border-orange-100 bg-orange-50 px-5 py-3 text-sm font-black text-brand-orangeText">
         <TriangleAlert className="size-4" aria-hidden={true} />
         Recent failed AI requests ({errors.length})
       </summary>

@@ -198,8 +198,13 @@ export function CoachConversation({
               <Send className="size-5" aria-hidden="true" />
             </Button>
           </div>
-          {recording ? <p className="mt-2 text-xs font-bold text-red-600">{copy.recording}</p> : null}
-          {transcribing ? <p className="mt-2 text-xs font-semibold text-gray-500">{copy.transcribing}</p> : null}
+          {/* Persistent live region: recording/transcribing are the only feedback that the mic
+              is actually on, and a status inserted at the same moment as its live region is
+              announced unreliably. Keeping the region mounted makes the swap announce. */}
+          <div aria-live="polite">
+            {recording ? <p className="mt-2 text-xs font-bold text-red-600">{copy.recording}</p> : null}
+            {transcribing ? <p className="mt-2 text-xs font-semibold text-gray-500">{copy.transcribing}</p> : null}
+          </div>
           {localError ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{localError}</p> : null}
         </form>
       </section>

@@ -286,7 +286,10 @@ export const dictionaries = {
         bestPace: "Best pace",
         longestDistance: "Longest distance",
         empty: "No public runs yet. Share a run to appear here.",
-        shareCta: "Record & share a run"
+        shareCta: "Record & share a run",
+        runnerFallback: "Runner",
+        kmUnit: "km",
+        paceUnit: "/km"
       },
       contact: {
         title: "Contact us",
@@ -919,7 +922,10 @@ export const dictionaries = {
         bestPace: "Meilleure allure",
         longestDistance: "Plus longue distance",
         empty: "Aucune sortie publique pour le moment. Partagez une sortie pour apparaître ici.",
-        shareCta: "Enregistrer et partager"
+        shareCta: "Enregistrer et partager",
+        runnerFallback: "Coureur",
+        kmUnit: "km",
+        paceUnit: "/km"
       },
       contact: {
         title: "Contactez-nous",
@@ -1551,7 +1557,10 @@ export const dictionaries = {
         bestPace: "أفضل وتيرة",
         longestDistance: "أطول مسافة",
         empty: "لا توجد جريات علنية بعد. شارك جريًا لتظهر هنا.",
-        shareCta: "سجّل وشارك جريًا"
+        shareCta: "سجّل وشارك جريًا",
+        runnerFallback: "عدّاء",
+        kmUnit: "كم",
+        paceUnit: "/كم"
       },
       contact: {
         title: "اتصل بنا",

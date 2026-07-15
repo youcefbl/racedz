@@ -205,6 +205,16 @@ a {
   border-color: var(--border) !important;
 }
 
+/* Tailwind's `divide-*` compiles to its own selector (`.divide-gray-200 > :not([hidden]) ~
+   :not([hidden])`), so the `.border-gray-*` remap above never catches it — list/table dividers
+   would keep their light `#e5e7eb` on dark/race backgrounds. Remap them to the same token. */
+[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+[data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme="race"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+[data-theme="race"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border) !important;
+}
+
 /* `.shadow-sm` is everywhere (every card / list row) — give it a cheap single-layer shadow in
    dark/race. Only `.shadow-soft` (elevated surfaces) keeps the richer multi-layer `--soft-shadow`. */
 [data-theme="dark"] .shadow-sm,
@@ -396,7 +406,9 @@ textarea {
   gap: 4px;
   padding: 8px 0 6px;
   font-size: 11px;
-  font-weight: 800;
+  /* 600 is the project-wide weight ceiling (tailwind.config.ts caps font-bold/black at 600).
+     Raw CSS bypasses that cap, so these native-chrome rules have to honour it by hand. */
+  font-weight: 600;
   color: var(--text-muted);
   text-decoration: none;
   transition: color 0.15s ease;
@@ -470,7 +482,8 @@ textarea {
 
 .native-app .native-header-title {
   font-size: 1.2rem;
-  font-weight: 900;
+  /* Matches the 600 ceiling every other heading in the app renders at. */
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-strong);
   white-space: nowrap;
@@ -478,25 +491,28 @@ textarea {
   text-overflow: ellipsis;
 }
 
+/* Both header controls are 44x44 — the minimum comfortable touch target. The icon inside stays
+   visually small; it's the hit box that grows, so the chrome doesn't get heavier. */
 .native-app .native-header-back {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin-inline-start: 2px;
+  width: 44px;
+  height: 44px;
+  /* Pull the larger box back toward the edge so the icon keeps its original optical position. */
+  margin-inline-start: -2px;
   border-radius: 999px;
   color: var(--primary);
 }
 
-/* The back chevron flips for RTL automatically via the icon; nudge tap target. */
+/* The back chevron flips for RTL automatically via the icon. */
 .native-app .native-header-action {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   color: var(--text);
 }
@@ -515,7 +531,7 @@ textarea {
   background: var(--accent);
   color: #fff;
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1;
 }
 

@@ -39,6 +39,12 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
     followingIds = new Set(rows.map((row) => row.followingId));
   }
 
+  const units: BoardUnits = {
+    runnerFallback: content.runnerFallback,
+    kmUnit: content.kmUnit,
+    paceUnit: content.paceUnit
+  };
+
   const tabHref = (window: "all" | "month") =>
     withLocale(`/rankings?${new URLSearchParams({ ...(wilaya ? { wilaya } : {}), ...(window === "month" ? { window: "month" } : {}) }).toString()}`, locale);
 
@@ -79,8 +85,8 @@ export default async function RankingsPage({ searchParams }: RankingsPageProps) 
       </section>
 
       <section className="mx-auto grid max-w-5xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:px-8">
-        <Board title={content.bestPace} icon={Gauge} entries={pace} metric="pace" emptyText={content.empty} locale={locale} viewerId={viewerId} followingIds={followingIds} />
-        <Board title={content.longestDistance} icon={RouteIcon} entries={distance} metric="distance" emptyText={content.empty} locale={locale} viewerId={viewerId} followingIds={followingIds} />
+        <Board title={content.bestPace} icon={Gauge} entries={pace} metric="pace" emptyText={content.empty} locale={locale} viewerId={viewerId} followingIds={followingIds} units={units} />
+        <Board title={content.longestDistance} icon={RouteIcon} entries={distance} metric="distance" emptyText={content.empty} locale={locale} viewerId={viewerId} followingIds={followingIds} units={units} />
       </section>
     </div>
   );
@@ -91,12 +97,16 @@ function TabLink({ href, active, children }: { href: string; active: boolean; ch
     <a
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`rounded-md px-3 py-1.5 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 ${active ? "bg-brand-teal text-white" : "text-gray-600 hover:bg-gray-100"}`}
+      className={`inline-flex min-h-11 items-center rounded-md px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2 ${active ? "bg-brand-teal text-white" : "text-gray-600 hover:bg-gray-100"}`}
     >
       {children}
     </a>
   );
 }
+
+// Units/fallbacks are passed in already localized so the board stays a pure presentational
+// component (and so "km" / "/km" / the no-name fallback aren't hardcoded English).
+type BoardUnits = { runnerFallback: string; kmUnit: string; paceUnit: string };
 
 function Board({
   title,
@@ -106,7 +116,8 @@ function Board({
   emptyText,
   locale,
   viewerId,
-  followingIds
+  followingIds,
+  units
 }: {
   title: string;
   icon: typeof Gauge;
@@ -116,6 +127,7 @@ function Board({
   locale: Locale;
   viewerId: string | null;
   followingIds: Set<string>;
+  units: BoardUnits;
 }) {
   const coachLocale = locale === "ar" ? "ar" : locale === "fr" ? "fr" : "en";
   return (
@@ -134,18 +146,20 @@ function Board({
         <ol className="divide-y divide-gray-100">
           {entries.map((entry, index) => (
             <li key={entry.userId} className="flex items-center gap-3 px-4 py-3">
-              <span className="flex w-7 shrink-0 justify-center text-sm font-black tabular-nums text-gray-400">
+              <span className="flex w-7 shrink-0 justify-center text-sm font-black tabular-nums text-gray-500">
                 {index < 3 ? <Medal className={`size-5 ${medalColor(index)}`} aria-hidden="true" /> : index + 1}
               </span>
-              <Avatar name={entry.name} url={entry.avatarUrl} />
+              <Avatar name={entry.name} url={entry.avatarUrl} fallback={units.runnerFallback} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-gray-950">{entry.name.trim() || "Runner"}</p>
+                <p className="truncate text-sm font-black text-gray-950">{entry.name.trim() || units.runnerFallback}</p>
                 <p className="truncate text-xs font-semibold text-gray-500">
                   {entry.wilaya ?? "—"} · {formatDate(entry.startedAt, locale)}
                 </p>
               </div>
               <span className="shrink-0 text-sm font-black tabular-nums text-brand-teal">
-                {metric === "pace" ? formatPace(entry.paceSecondsPerKm) : `${entry.distanceKm.toFixed(1)} km`}
+                {metric === "pace"
+                  ? formatPace(entry.paceSecondsPerKm, units.paceUnit)
+                  : `${entry.distanceKm.toFixed(1)} ${units.kmUnit}`}
               </span>
               {viewerId && entry.userId !== viewerId ? (
                 <FollowButton userId={entry.userId} initialFollowing={followingIds.has(entry.userId)} locale={coachLocale} />
@@ -158,7 +172,7 @@ function Board({
   );
 }
 
-function Avatar({ name, url }: { name: string; url: string | null }) {
+function Avatar({ name, url, fallback }: { name: string; url: string | null; fallback: string }) {
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={url} alt="" width={36} height={36} loading="lazy" decoding="async" className="size-9 shrink-0 rounded-full object-cover" />;
@@ -171,7 +185,8 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
     .join("");
   return (
     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-xs font-black text-brand-teal">
-      {initials || "R"}
+      {/* Falls back to the first letter of the localized "Runner" rather than a hardcoded "R". */}
+      {initials || fallback.trim().charAt(0).toUpperCase()}
     </span>
   );
 }
@@ -180,11 +195,11 @@ function medalColor(index: number) {
   return ["text-amber-400", "text-gray-400", "text-orange-400"][index] ?? "text-gray-400";
 }
 
-function formatPace(secondsPerKm: number) {
+function formatPace(secondsPerKm: number, paceUnit: string) {
   if (!secondsPerKm || secondsPerKm <= 0) return "—";
   const minutes = Math.floor(secondsPerKm / 60);
   const seconds = secondsPerKm % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}${paceUnit}`;
 }
 
 function formatDate(value: Date, locale: Locale) {

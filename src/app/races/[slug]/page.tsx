@@ -184,9 +184,11 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
                 <Megaphone className="size-5 text-brand-orange" aria-hidden="true" />
                 <h2 className="text-xl font-black text-gray-950">{dictionary.raceDetail.announcementsTitle}</h2>
               </div>
+              {/* Tint only, no border: the orange carries the "read me" signal, while a border
+                  here would nest a card inside the section card. */}
               <div className="grid gap-3">
                 {race.announcements.map((announcement) => (
-                  <article key={announcement.id} className="rounded-lg border border-gray-200 bg-orange-50 p-4">
+                  <article key={announcement.id} className="rounded-lg bg-orange-50 p-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-brand-orangeText">
                       {new Intl.DateTimeFormat(locale, {
                         dateStyle: "medium",
@@ -203,9 +205,12 @@ export default async function RaceDetailsPage({ params, searchParams }: RaceDeta
 
           <div className="rounded-lg border border-gray-200 bg-white p-5">
             <h2 className="mb-4 text-xl font-black text-gray-950">{dictionary.raceDetail.categoriesTitle}</h2>
-            <div className="grid gap-3">
+            {/* Divided rows rather than a bordered box per category: these are directly
+                comparable (distance / elevation / price), so they should read as one table,
+                and a bordered card inside this bordered section card would be a nested card. */}
+            <div className="divide-y divide-gray-200">
               {race.categories.map((category) => (
-                <div key={category.id} className="grid gap-2 rounded-lg border border-gray-200 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div key={category.id} className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto] sm:items-center">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-bold text-gray-950">{category.name}</h3>

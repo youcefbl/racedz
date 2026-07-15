@@ -198,7 +198,7 @@ export function FunnelChart({ stages }: { stages: Array<{ key: string; label: st
               <span className="font-semibold text-gray-700">{stage.label}</span>
               <span className="font-bold tabular-nums text-gray-900">
                 {formatNumber(stage.count)}
-                {stepPct != null ? <span className="ml-2 text-xs font-semibold text-gray-400">{stepPct}% of prev</span> : null}
+                {stepPct != null ? <span className="ml-2 text-xs font-semibold text-gray-500">{stepPct}% of prev</span> : null}
               </span>
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
@@ -237,7 +237,7 @@ export function ProportionList({ items, emptyLabel = "No data yet" }: { items: A
             </span>
             <span className="shrink-0 font-bold tabular-nums text-gray-900">
               {formatNumber(item.value)}
-              <span className="ml-1.5 text-xs font-semibold text-gray-400">{Math.round((item.value / total) * 100)}%</span>
+              <span className="ml-1.5 text-xs font-semibold text-gray-500">{Math.round((item.value / total) * 100)}%</span>
             </span>
           </li>
         ))}

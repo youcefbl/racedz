@@ -111,7 +111,7 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
                           <span className="text-gray-400"> · </span>
                           <span className="text-gray-500">{log.actorEmail}</span>
                         </p>
-                        <p className="mt-1 break-all text-xs font-semibold text-gray-400">Target: {log.targetId}</p>
+                        <p className="mt-1 break-all text-xs font-semibold text-gray-500">Target: {log.targetId}</p>
                         {metadataItems.length ? (
                           <dl className="mt-3 grid gap-2 rounded-lg bg-gray-50 p-3">
                             {metadataItems.map((item) => (
@@ -123,7 +123,7 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
                                       <span className="break-words rounded-md bg-white px-2 py-1 font-semibold text-gray-600">
                                         {formatMetadataValue(item.before)}
                                       </span>
-                                      <span className="text-gray-400">to</span>
+                                      <span className="text-gray-500">to</span>
                                       <span className="break-words rounded-md bg-white px-2 py-1 font-semibold text-gray-900">
                                         {formatMetadataValue(item.after)}
                                       </span>

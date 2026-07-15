@@ -75,7 +75,10 @@ function QueueCard({
           <p className="text-sm font-bold text-gray-950">{title}</p>
           <p className="mt-1 text-sm leading-6 text-gray-600">{description}</p>
         </div>
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-2xl font-black text-brand-orange">
+        {/* min-w-12 + px-2 instead of a fixed size-12 box: a 4-digit queue count overflowed the
+            square. orangeText because brand-orange on orange-50 is 2.59:1 — under even the 3:1
+            large-text bar. */}
+        <div className="flex h-12 min-w-12 shrink-0 items-center justify-center rounded-lg bg-orange-50 px-2 text-2xl font-black tabular-nums text-brand-orangeText">
           {value}
         </div>
       </div>

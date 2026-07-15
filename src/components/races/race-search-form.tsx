@@ -103,7 +103,9 @@ export function RaceSearchForm({
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder={labels.keyword}
-              className="h-11 w-full rounded-lg border border-gray-300 ps-9 pe-3 text-sm outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+              // Placeholder text is real, readable copy — it needs the same contrast as body
+              // text, not the browser default light gray.
+              className="h-11 w-full rounded-lg border border-gray-300 ps-9 pe-3 text-sm outline-none placeholder:text-gray-500 focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
             />
           </div>
         </div>

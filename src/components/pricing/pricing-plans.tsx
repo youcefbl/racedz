@@ -71,7 +71,7 @@ export function PricingPlans({
               <span
                 className={cn(
                   "ms-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black",
-                  cycle === "yearly" ? "bg-white/20 text-white" : "bg-orange-50 text-brand-orange"
+                  cycle === "yearly" ? "bg-white/20 text-white" : "bg-orange-50 text-brand-orangeText"
                 )}
               >
                 −{savePercent}%
@@ -99,7 +99,7 @@ export function PricingPlans({
           {isYearly ? fill(copy.perMonthApprox, { price: nf.format(yearlyPerMonth), currency }) : " "}
         </p>
 
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1.5 text-sm font-black text-brand-orange">
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1.5 text-sm font-black text-brand-orangeText">
           <Sparkles className="size-4" aria-hidden="true" />
           {copy.trialBadge}
         </div>

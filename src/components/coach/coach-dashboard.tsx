@@ -237,7 +237,10 @@ export function CoachDashboard({
         <section className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">{copy.thisWeek}</h2>
-            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black", streak > 0 ? "bg-orange-50 text-brand-orange" : "bg-gray-100 text-gray-500")}>
+            {/* 12px bold needs 4.5:1: brand-orange on orange-50 is only 2.59:1 (orangeText is
+                the token reserved for text on orange tints, 4.88:1), and gray-500 on gray-100
+                is 4.39:1 — both just real enough to matter. */}
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black", streak > 0 ? "bg-orange-50 text-brand-orangeText" : "bg-gray-100 text-gray-600")}>
               <Flame className="size-3.5" aria-hidden="true" />
               {streak} {copy.streakLabel}
             </span>
@@ -386,7 +389,17 @@ function ProgressStat({ label, display, value, target }: { label: string; displa
     <div className="min-w-0">
       <p className="truncate text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
       <p className={cn("mt-1 truncate text-lg font-black tabular-nums", complete ? "text-green-600" : "text-gray-950")}>{display}</p>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+      {/* aria-valuetext carries the real figure ("12.4 / 20 km"); without it a screen reader
+          announces a bare "62%", which is the least useful part of this stat. */}
+      <div
+        className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"
+        role="progressbar"
+        aria-label={label}
+        aria-valuenow={percent}
+        aria-valuetext={display}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div className={cn("h-full rounded-full transition-all", complete ? "bg-green-500" : "bg-brand-orange")} style={{ width: `${percent}%` }} />
       </div>
     </div>

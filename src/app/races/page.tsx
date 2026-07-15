@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { CalendarRange, SearchX, X } from "lucide-react";
 import { RaceCard } from "@/components/races/race-card";
 import { RaceSearchForm } from "@/components/races/race-search-form";
 import { ShowPastToggle } from "@/components/races/show-past-toggle";
+import { ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { recordSearchQuery } from "@/lib/analytics/search";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
@@ -91,31 +93,33 @@ export default async function RacesPage({ searchParams }: RacesPageProps) {
           ) : null}
         </div>
       </div>
-      <div className="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {pageRaces.map((race, index) => (
-          <RaceCard key={race.id} race={race} viewLabel={dictionary.common.view} locale={locale} index={index} />
-        ))}
-      </div>
-      <Pagination basePath="/races" searchParams={paginationParams} page={page} totalPages={totalPages} locale={locale} />
       {races.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
-          <h2 className="text-lg font-bold text-gray-950">
-            {hasActiveFilters ? dictionary.races.emptyFilteredTitle : dictionary.races.emptyTitle}
-          </h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">
-            {hasActiveFilters ? dictionary.races.emptyFilteredText : dictionary.races.emptyText}
-          </p>
-          {hasActiveFilters ? (
-            <Link
-              href={withLocale("/races", locale)}
-              className="mt-5 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand-teal px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-tealDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2"
-            >
-              <X className="size-4" aria-hidden="true" />
-              {dictionary.races.clearFilters}
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+        // Two distinct dead ends: filters that matched nothing (recoverable — offer the way out)
+        // vs genuinely no races listed yet (nothing to clear, so don't imply the filters are at fault).
+        <EmptyState
+          className="mt-6"
+          icon={hasActiveFilters ? SearchX : CalendarRange}
+          title={hasActiveFilters ? dictionary.races.emptyFilteredTitle : dictionary.races.emptyTitle}
+          description={hasActiveFilters ? dictionary.races.emptyFilteredText : dictionary.races.emptyText}
+          action={
+            hasActiveFilters ? (
+              <ButtonLink href={withLocale("/races", locale)} variant="secondary">
+                <X className="size-4" aria-hidden="true" />
+                {dictionary.races.clearFilters}
+              </ButtonLink>
+            ) : null
+          }
+        />
+      ) : (
+        <>
+          <div className="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {pageRaces.map((race, index) => (
+              <RaceCard key={race.id} race={race} viewLabel={dictionary.common.view} locale={locale} index={index} />
+            ))}
+          </div>
+          <Pagination basePath="/races" searchParams={paginationParams} page={page} totalPages={totalPages} locale={locale} />
+        </>
+      )}
     </div>
   );
 }

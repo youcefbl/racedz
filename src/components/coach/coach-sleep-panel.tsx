@@ -237,7 +237,7 @@ function SleepRow({
 
       <div className="flex shrink-0 items-center gap-2">
         {entry.source === "PARSED" ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black uppercase text-brand-orange" title={copy.sleepModeText}>
+          <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-black uppercase text-brand-orangeText" title={copy.sleepModeText}>
             <Sparkles className="size-3" aria-hidden="true" />
             {copy.sleepAiBadge}
           </span>
