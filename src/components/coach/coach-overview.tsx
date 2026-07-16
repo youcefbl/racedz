@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Lightbulb, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Lightbulb, PlusCircle, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CoachCopy } from "@/components/coach/copy";
-import { formatCoachDate } from "@/components/coach/format";
-import type { CoachDashboardData, CoachLocale, CoachPlan } from "@/components/coach/types";
+import { formatCoachDate, formatEnum } from "@/components/coach/format";
+import type { CoachDashboardData, CoachLocale, CoachPlan, CoachWorkout } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 
 export function CoachOverview({
@@ -13,7 +13,8 @@ export function CoachOverview({
   locale,
   copy,
   tips,
-  onOpenPlan
+  onOpenPlan,
+  onLogWorkout
 }: {
   data: CoachDashboardData;
   latestPlan: CoachPlan | null;
@@ -21,38 +22,47 @@ export function CoachOverview({
   copy: CoachCopy;
   tips?: string[];
   onOpenPlan: () => void;
+  // Tapping the Today hero's primary action: log a run against this workout (web; native logs elsewhere).
+  onLogWorkout?: (workoutId: string) => void;
 }) {
-  const nextWorkout = latestPlan?.workouts.find((workout) => workout.status !== "COMPLETED" && new Date(workout.scheduledFor) >= startToday()) ?? null;
+  const today = startToday().getTime();
+  const dayOf = (iso: string) => {
+    const d = new Date(iso);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const todayWorkout = latestPlan?.workouts.find((workout) => dayOf(workout.scheduledFor) === today) ?? null;
+  const nextUpcoming = latestPlan?.workouts.find((workout) => workout.status !== "COMPLETED" && dayOf(workout.scheduledFor) > today) ?? null;
+  // A real session to do today (not a rest day, not already done): the one clear action.
+  const loggableToday = todayWorkout && todayWorkout.status !== "COMPLETED" && todayWorkout.workoutType !== "REST" ? todayWorkout : null;
   const latestReview = data.interactions.find((interaction) => interaction.response)?.response ?? null;
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      {/* Hero: the next thing to do — the one clear action on this screen */}
+      {/* Today hero: the one clear action for right now. */}
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-5">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{copy.nextWorkout}</p>
-            <h2 className="mt-1 text-xl font-black text-gray-950">{nextWorkout?.title ?? copy.noWorkout}</h2>
-          </div>
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
-            <CalendarDays className="size-6" aria-hidden="true" />
-          </div>
-        </div>
-        {nextWorkout ? (
-          <div className="p-5">
-            <div className="grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
-              <OverviewStat label={copy.startedAt} value={formatCoachDate(nextWorkout.scheduledFor, locale, { weekday: "short", day: "numeric", month: "short" })} />
-              <OverviewStat label={copy.distance} value={nextWorkout.targetDistanceKm ? `${nextWorkout.targetDistanceKm} km` : "—"} accent />
-              <OverviewStat label={nextWorkout.targetDurationMin ? copy.durationMinutes : copy.effort} value={nextWorkout.targetDurationMin ? `${nextWorkout.targetDurationMin} min` : nextWorkout.intensity} />
-            </div>
-            <p className="mt-4 text-sm leading-6 text-gray-600">{nextWorkout.instructions}</p>
-            <Button type="button" variant="outline" size="sm" className="mt-4" onClick={onOpenPlan}>
-              {copy.plan} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
-            </Button>
-          </div>
+        {loggableToday ? (
+          <TodayHero workout={loggableToday} locale={locale} copy={copy} onOpenPlan={onOpenPlan} onLogWorkout={onLogWorkout} />
+        ) : todayWorkout?.status === "COMPLETED" ? (
+          <HeroMessage
+            eyebrow={copy.today}
+            title={copy.todayDoneTitle}
+            text={copy.todayDoneText}
+            done
+            onOpenPlan={onOpenPlan}
+            copy={copy}
+          />
+        ) : todayWorkout?.workoutType === "REST" ? (
+          <HeroMessage eyebrow={copy.today} title={copy.restDayTitle} text={copy.restDayText} onOpenPlan={onOpenPlan} copy={copy} />
+        ) : nextUpcoming ? (
+          <UpcomingHero workout={nextUpcoming} locale={locale} copy={copy} onOpenPlan={onOpenPlan} />
+        ) : latestPlan ? (
+          <HeroMessage eyebrow={copy.today} title={copy.noSessionToday} text={copy.restDayText} onOpenPlan={onOpenPlan} copy={copy} />
         ) : (
           <div className="p-5">
-            <p className="mb-4 text-sm leading-6 text-gray-600">{copy.noReview}</p>
+            <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{copy.nextWorkout}</p>
+            <h2 className="mt-1 text-xl font-black text-gray-950">{copy.noWorkout}</h2>
+            <p className="mb-4 mt-2 text-sm leading-6 text-gray-600">{copy.noReview}</p>
             <Button type="button" onClick={onOpenPlan}>{copy.generatePlan}</Button>
           </div>
         )}
@@ -86,6 +96,130 @@ export function CoachOverview({
       </section>
 
       <CoachTip tips={tips} copy={copy} />
+    </div>
+  );
+}
+
+// Today's session with the one clear action: log it. The primary CTA is wired to the run form
+// (preselecting this workout); "View plan" stays as the calmer secondary.
+function TodayHero({
+  workout,
+  copy,
+  onOpenPlan,
+  onLogWorkout
+}: {
+  workout: CoachWorkout;
+  locale: CoachLocale;
+  copy: CoachCopy;
+  onOpenPlan: () => void;
+  onLogWorkout?: (workoutId: string) => void;
+}) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-5">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{copy.today}</p>
+          <h2 className="mt-1 text-xl font-black text-gray-950">{workout.title}</h2>
+        </div>
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
+          <CalendarDays className="size-6" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="p-5">
+        <div className="grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
+          <OverviewStat label={copy.distance} value={workout.targetDistanceKm ? `${workout.targetDistanceKm} km` : "—"} accent />
+          <OverviewStat
+            label={workout.targetDurationMin ? copy.durationMinutes : copy.effort}
+            value={workout.targetDurationMin ? `${workout.targetDurationMin} min` : workout.intensity}
+          />
+          <OverviewStat label={copy.plan} value={formatEnum(workout.workoutType)} />
+        </div>
+        <p className="mt-4 text-sm leading-6 text-gray-600">{workout.instructions}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {onLogWorkout && workout.id ? (
+            <Button type="button" onClick={() => onLogWorkout(workout.id as string)}>
+              <PlusCircle className="size-4" aria-hidden="true" />
+              {copy.logThisRun}
+            </Button>
+          ) : null}
+          <Button type="button" variant="outline" onClick={onOpenPlan}>
+            {copy.viewPlan} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Nothing to do today, but a session is coming up — show it so the runner knows what's next.
+function UpcomingHero({
+  workout,
+  locale,
+  copy,
+  onOpenPlan
+}: {
+  workout: CoachWorkout;
+  locale: CoachLocale;
+  copy: CoachCopy;
+  onOpenPlan: () => void;
+}) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-5">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{copy.nextWorkout}</p>
+          <h2 className="mt-1 text-xl font-black text-gray-950">{workout.title}</h2>
+        </div>
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
+          <CalendarDays className="size-6" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="p-5">
+        <p className="text-sm font-semibold text-gray-500">{copy.noSessionToday}</p>
+        <div className="mt-3 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
+          <OverviewStat label={copy.startedAt} value={formatCoachDate(workout.scheduledFor, locale, { weekday: "short", day: "numeric", month: "short" })} />
+          <OverviewStat label={copy.distance} value={workout.targetDistanceKm ? `${workout.targetDistanceKm} km` : "—"} accent />
+          <OverviewStat
+            label={workout.targetDurationMin ? copy.durationMinutes : copy.effort}
+            value={workout.targetDurationMin ? `${workout.targetDurationMin} min` : workout.intensity}
+          />
+        </div>
+        <p className="mt-4 text-sm leading-6 text-gray-600">{workout.instructions}</p>
+        <Button type="button" variant="outline" size="sm" className="mt-4" onClick={onOpenPlan}>
+          {copy.viewPlan} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// A simple message state for the hero (today's done, a rest day, or nothing scheduled).
+function HeroMessage({
+  eyebrow,
+  title,
+  text,
+  done = false,
+  onOpenPlan,
+  copy
+}: {
+  eyebrow: string;
+  title: string;
+  text: string;
+  done?: boolean;
+  onOpenPlan: () => void;
+  copy: CoachCopy;
+}) {
+  return (
+    <div className="p-5">
+      <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{eyebrow}</p>
+      <h2 className="mt-1 inline-flex items-center gap-2 text-xl font-black text-gray-950">
+        {done ? <CheckCircle2 className="size-5 shrink-0 text-green-600" aria-hidden="true" /> : null}
+        {title}
+      </h2>
+      <p className="mb-4 mt-2 text-sm leading-6 text-gray-600">{text}</p>
+      <Button type="button" variant="outline" size="sm" onClick={onOpenPlan}>
+        {copy.viewPlan} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+      </Button>
     </div>
   );
 }

@@ -36,6 +36,8 @@ export function CoachDashboard({
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [focusInteractionId, setFocusInteractionId] = useState<string | null>(null);
+  // Set by the Today hero's "Log this run": open the runs tab with this workout preselected in the form.
+  const [logWorkoutId, setLogWorkoutId] = useState<string | null>(null);
   // On the phone app the bottom-nav "Runs" screen owns run recording/history, so the Runs
   // tab here would be a duplicate — hide it on native, keep it on the web (no bottom nav).
   // Resolved after mount to avoid a hydration mismatch (SSR always renders the web layout).
@@ -292,7 +294,22 @@ export function CoachDashboard({
         ) : null}
 
         {view === "overview" ? (
-          <CoachOverview data={dashboard} latestPlan={latestPlan} locale={locale} copy={copy} tips={dashboard.tips} onOpenPlan={() => setView("plan")} />
+          <CoachOverview
+            data={dashboard}
+            latestPlan={latestPlan}
+            locale={locale}
+            copy={copy}
+            tips={dashboard.tips}
+            onOpenPlan={() => setView("plan")}
+            onLogWorkout={
+              views.some((v) => v.id === "runs")
+                ? (workoutId) => {
+                    setLogWorkoutId(workoutId);
+                    setView("runs");
+                  }
+                : undefined
+            }
+          />
         ) : null}
         {view === "plan" ? (
           <CoachPlanPanel
@@ -331,6 +348,8 @@ export function CoachDashboard({
             analyzedRuns={analyzedRuns}
             onViewAnalysis={viewAnalysis}
             weightKg={goal.weightKg}
+            initialWorkoutId={logWorkoutId}
+            onInitialWorkoutConsumed={() => setLogWorkoutId(null)}
           />
         ) : null}
         {view === "sleep" ? (
