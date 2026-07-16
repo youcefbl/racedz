@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { withLocale } from "@/lib/i18n";
 import { coachRequest } from "@/components/coach/api";
 import { getCoachCopy } from "@/components/coach/copy";
+import { AdherenceStrip } from "@/components/coach/adherence-strip";
 import { CoachConversation } from "@/components/coach/coach-conversation";
 import { CoachGoalForm } from "@/components/coach/coach-goal-form";
 import { CoachOverview } from "@/components/coach/coach-overview";
@@ -253,6 +254,10 @@ export function CoachDashboard({
           </div>
         </section>
 
+        {/* Plan adherence — how much of the active plan is actually done. Distinct from the volume
+            block above (logged running) and links straight to the plan tab. */}
+        <AdherenceStrip adherence={dashboard.adherence} copy={copy} onOpenPlan={() => setView("plan")} />
+
         <nav
           className={cn(
             "coach-tabs mb-5 grid rounded-lg border border-gray-200 bg-white p-1 shadow-sm",
@@ -302,6 +307,13 @@ export function CoachDashboard({
                 await refresh();
               })
             }
+            runAction={(key, request) =>
+              mutate(key, async () => {
+                await request();
+                await refresh();
+              })
+            }
+            onLogRun={views.some((v) => v.id === "runs") ? () => setView("runs") : undefined}
           />
         ) : null}
         {view === "runs" ? (
