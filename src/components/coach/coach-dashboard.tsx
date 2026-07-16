@@ -300,6 +300,7 @@ export function CoachDashboard({
             locale={locale}
             copy={copy}
             tips={dashboard.tips}
+            metrics={metrics}
             onOpenPlan={() => setView("plan")}
             onLogWorkout={
               views.some((v) => v.id === "runs")

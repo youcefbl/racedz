@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Lightbulb, PlusCircle, RefreshCw, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Lightbulb, PlusCircle, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CoachCopy } from "@/components/coach/copy";
-import { formatCoachDate, formatEnum } from "@/components/coach/format";
-import type { CoachDashboardData, CoachLocale, CoachPlan, CoachWorkout } from "@/components/coach/types";
+import { formatCoachDate, formatEnum, formatPace } from "@/components/coach/format";
+import type { CoachDashboardData, CoachLocale, CoachMetrics, CoachPlan, CoachWorkout } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 
 export function CoachOverview({
@@ -13,6 +13,7 @@ export function CoachOverview({
   locale,
   copy,
   tips,
+  metrics,
   onOpenPlan,
   onLogWorkout
 }: {
@@ -21,6 +22,7 @@ export function CoachOverview({
   locale: CoachLocale;
   copy: CoachCopy;
   tips?: string[];
+  metrics: CoachMetrics;
   onOpenPlan: () => void;
   // Tapping the Today hero's primary action: log a run against this workout (web; native logs elsewhere).
   onLogWorkout?: (workoutId: string) => void;
@@ -58,6 +60,9 @@ export function CoachOverview({
           <UpcomingHero workout={nextUpcoming} locale={locale} copy={copy} onOpenPlan={onOpenPlan} />
         ) : latestPlan ? (
           <HeroMessage eyebrow={copy.today} title={copy.noSessionToday} text={copy.restDayText} onOpenPlan={onOpenPlan} copy={copy} />
+        ) : metrics.runCountLast28Days > 0 ? (
+          // Free-runner (goal + runs, no active plan): a read on their actual training + a soft invite.
+          <FreeRunnerRead metrics={metrics} copy={copy} onOpenPlan={onOpenPlan} />
         ) : (
           <div className="p-5">
             <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{copy.nextWorkout}</p>
@@ -221,6 +226,54 @@ function HeroMessage({
         {copy.viewPlan} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
       </Button>
     </div>
+  );
+}
+
+// The free-runner's home: a read on their actual training from run history alone (volume this week +
+// trend, consistency over 4 weeks, average pace), plus a soft, framed invitation to build a plan.
+// Never nags — it acknowledges what they're already doing.
+function FreeRunnerRead({
+  metrics,
+  copy,
+  onOpenPlan
+}: {
+  metrics: CoachMetrics;
+  copy: CoachCopy;
+  onOpenPlan: () => void;
+}) {
+  const change = metrics.weeklyDistanceChangePercent;
+  const trend = change === null ? null : `${change > 0 ? "+" : ""}${Math.round(change)}%`;
+
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-5">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{copy.trainingSoFar}</p>
+          <p className="mt-1 text-sm leading-6 text-gray-600">{copy.freeRunnerIntro}</p>
+        </div>
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-brand-teal">
+          <Activity className="size-6" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="p-5">
+        <div className="grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50 py-2.5">
+          <OverviewStat
+            label={copy.thisWeek}
+            value={`${metrics.distanceLast7DaysKm.toFixed(1)} km${trend ? ` · ${trend}` : ""}`}
+            accent
+          />
+          <OverviewStat label={copy.freeRunnerRunsLabel} value={copy.freeRunnerRunsValue.replace("{count}", String(metrics.runCountLast28Days))} />
+          <OverviewStat label={copy.avgPace} value={formatPace(metrics.averagePaceLast28DaysSecondsPerKm)} />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-teal-50 p-3">
+          <p className="text-sm font-black text-gray-950">{copy.freeRunnerInvite}</p>
+          <Button type="button" size="sm" onClick={onOpenPlan}>
+            <Sparkles className="size-4" aria-hidden="true" />
+            {copy.buildMyPlan}
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }
 
