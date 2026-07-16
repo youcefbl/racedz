@@ -31,6 +31,8 @@ export type CoachRun = {
   id: string;
   goalId: string | null;
   workoutId: string | null;
+  // How this run linked to its workout (EXPLICIT / AUTO / RUNNER_CONFIRMED), null when free.
+  workoutMatchSource?: string | null;
   startedAt: string;
   distanceKm: number;
   durationSeconds: number;
@@ -87,6 +89,9 @@ export type CoachWorkout = {
   skipReason?: string | null;
   runnerNote?: string | null;
 };
+
+// A medium-confidence run→workout match the matcher surfaced for the runner to confirm (Phase 1.3).
+export type CoachSuggestedMatch = { workoutId: string; title: string; confidence: number };
 
 // Deterministic plan-adherence summary (server: src/lib/coach/adherence.ts). hasActivePlan is false
 // for a free runner, so the UI shows a "no plan" state rather than a discouraging 0%.

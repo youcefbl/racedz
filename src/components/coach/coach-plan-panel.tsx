@@ -213,6 +213,8 @@ function WorkoutRow({
   const missed = status === "SKIPPED" || (offset < 0 && status === "PLANNED");
   // Actions only on a still-open, active-plan workout that is today or upcoming.
   const canAct = actionable && status === "PLANNED" && offset >= 0;
+  // A missed session with no reason yet — invite the runner to say why (supportive, never shaming).
+  const canAddReason = actionable && status === "SKIPPED" && !workout.skipReason;
   const workoutId = workout.id;
   const busy = pendingAction === `wk-${workoutId}`;
 
@@ -237,6 +239,17 @@ function WorkoutRow({
       await coachRequest(`/api/coach/workouts/${workoutId}`, {
         method: "PATCH",
         body: JSON.stringify({ action: "reschedule", scheduledFor: date.toISOString() })
+      });
+    });
+  };
+
+  const setReason = (reason: string) => {
+    if (!workoutId) return;
+    setExpander(null);
+    runAction(`wk-${workoutId}`, async () => {
+      await coachRequest(`/api/coach/workouts/${workoutId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action: "reason", reason })
       });
     });
   };
@@ -399,6 +412,26 @@ function WorkoutRow({
                 className="inline-flex min-h-9 items-center rounded-full border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               >
                 {formatCoachDate(day.toISOString(), locale, { weekday: "short", day: "numeric", month: "short" })}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* A missed session with no reason yet — a gentle, proactive "what came up?" (never shaming). */}
+      {canAddReason ? (
+        <div className="mt-3 rounded-lg bg-gray-50 p-3">
+          <p className="text-sm font-black text-gray-950">{copy.missedAskReason}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SKIP_REASONS.map((reason) => (
+              <button
+                key={reason.value}
+                type="button"
+                onClick={() => setReason(reason.value)}
+                disabled={busy}
+                className="inline-flex min-h-9 items-center rounded-full border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50"
+              >
+                {copy[reason.key]}
               </button>
             ))}
           </div>

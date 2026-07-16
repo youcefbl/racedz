@@ -671,6 +671,27 @@ export async function skipWorkout(
   return { workoutId };
 }
 
+// Attach a reason to an already-SKIPPED workout — the "why did you miss this?" prompt shown on return
+// after a session was auto-closed with reason unknown. Only touches SKIPPED workouts on an active plan.
+export async function setWorkoutSkipReason(
+  userId: string,
+  workoutId: string,
+  reason: WorkoutSkipReason,
+  note: string | null
+) {
+  const rows = await getPrisma().$queryRaw<Array<{ id: string }>>`
+    UPDATE "TrainingWorkout" w
+    SET "skipReason" = ${reason}::"WorkoutSkipReason",
+      "runnerNote" = COALESCE(${note?.trim() || null}, w."runnerNote"), "updatedAt" = NOW()
+    FROM "TrainingPlan" p
+    WHERE w."trainingPlanId" = p."id" AND p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'SKIPPED'
+      AND w."id" = ${workoutId}
+    RETURNING w."id"
+  `;
+  if (!rows[0]) throw new CoachError("Workout was not found or is not a skipped session.", 404, "WORKOUT_NOT_SKIPPED");
+  return { workoutId };
+}
+
 // "Move workout": reschedule a still-planned workout to a new day (today or later, within the plan's
 // remaining window). Records the move in rescheduledFor.
 export async function rescheduleWorkout(userId: string, workoutId: string, scheduledFor: Date) {
