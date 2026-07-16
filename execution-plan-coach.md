@@ -14,9 +14,10 @@
 > **Branch update (2026-07-16 — `feat/coach-plan-adherence`).** Phase 1.1–1.4 backend work is now
 > implemented: workout outcomes, Africa/Algiers missed-session closure, conservative run-to-workout
 > matching, runner workout-action APIs, deterministic plan-adherence metrics, and a content-free admin
-> coach-operations report. The first runner-UI slice has shipped too — the adherence strip and the
-> per-workout skip/move/status actions — so Phase 1.5's core actions are live; the Today-hero CTA,
-> auto-match confirmation, and missed-session reason prompt are the pending UI. Phase 1.6 is
+> coach-operations report. Most of the runner UI has shipped too — the adherence strip, per-workout
+> skip/move/status actions, the run→workout match-confirmation banner, and the missed-session reason
+> prompt — so the daily loop is visible and actionable; only the Today-hero CTA (wired to the run
+> recorder) remains for Phase 1 UI. Phase 1.6 is
 > only partially complete: no-active-plan adherence degrades gracefully, but the full free-runner
 > coaching surface is not yet implemented. Adaptive planning, long-term memory, and richer location
 > personalization remain future phases. The UX review has been folded into this document (this is now
@@ -24,12 +25,12 @@
 
 ## 📊 Progress
 
-`█████░░░░░░░░░░░░░░░░░░░░` **~20% overall** (phase-weighted) · **Phase 1 (current focus) ~80%**
+`██████░░░░░░░░░░░░░░░░░░░░` **~21% overall** (phase-weighted) · **Phase 1 (current focus) ~85%**
 
 | Phase | Status | Where it stands |
 |---|---|---|
 | **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · owner ops (key rotation, OpenAI billing) + **health-data policy blocker** ⬜ |
-| **1 — Real plan adherence** | ◐ **~80%** | Backend done end-to-end; runner UI mostly shipped (detail below) |
+| **1 — Real plan adherence** | ◐ **~85%** | Backend done end-to-end; runner UI nearly complete — only the Today-hero CTA left (detail below) |
 | **2 — Adaptive planner** | ⬜ not started | Replaces the fixed weekly skeleton — the big engine bet |
 | **3 — Long-term memory** | ⬜ not started | Structured coach memory + retrieval |
 | **4 — Location personalization** | ⬜ not started | Opt-in timezone / terrain / routes |
@@ -41,17 +42,18 @@
 |---|---|---|
 | 1.1 Persist workout outcomes | ✅ | ✅ shown in the plan (Done · type) |
 | 1.2 Auto-close missed sessions | ✅ | n/a (daily cron) |
-| 1.3 Match runs → workouts | ✅ | ◐ auto-link + provenance work; **suggested-match confirm UI** ⬜ |
+| 1.3 Match runs → workouts | ✅ | ✅ auto-link + provenance + **suggested-match confirm banner** |
 | 1.4 Adherence metrics | ✅ | ✅ adherence strip (+ AI context) |
-| 1.5 Runner workout actions | ✅ APIs | ◐ skip / move / status UI ✅; **Today-hero CTA, match-confirm toast, missed-reason prompt** ⬜ |
+| 1.5 Runner workout actions | ✅ APIs | ◐ skip / move / status + match-confirm + missed-reason prompt ✅; **Today-hero CTA** ⬜ |
 | 1.6 Serve the free-runner | ◐ graceful no-plan | ⬜ full history-based no-plan experience |
 
 Legend: ✅ done · ◐ partial · ⬜ not started. Overall % weights the six phases equally; Phase 1 is
-the only one in active development, so its own ~80% is the more useful day-to-day number.
+the only one in active development, so its own ~85% is the more useful day-to-day number.
 
-**Shipped on `feat/coach-plan-adherence`:** 1.1, 1.2, 1.4 (backend + UI), 1.3/1.5 backend + APIs, the
-adherence strip + workout-action UI, and the admin coach-ops report. **Nearest remaining:** the rest of
-the Phase 1 UI slice (Today-hero CTA, match-confirmation, missed-session reason prompt), then Phase 2.
+**Shipped on `feat/coach-plan-adherence`:** 1.1, 1.2, 1.3, 1.4 (backend + UI), 1.5 backend/APIs + most
+UI, the admin coach-ops report, the adherence strip, workout actions, the run→workout match-confirm
+banner, and the missed-session reason prompt. **Nearest remaining:** the Today-hero CTA wired to the run
+recorder (closes Phase 1 UI), then Phase 2.
 
 ## Objective
 
@@ -261,7 +263,7 @@ plan rollover. It is idempotent, user-scoped when requested, skips REST/cancelle
 Africa/Algiers calendar date. Runner-provided late completion after auto-close still needs an explicit
 product rule: either permit a late match and record it as late, or keep the skipped outcome immutable.
 
-### 1.3 Match unlinked runs to planned workouts — 🟡 backend complete, UI pending
+### 1.3 Match unlinked runs to planned workouts — ✅ backend + match-confirm UI
 
 When a manual, GPS, or imported run is saved without a workout ID:
 
@@ -321,7 +323,7 @@ Remaining metric work: exclude `CANCELLED` workouts consistently from planned co
 distance, add planned-versus-completed duration, and add intensity adherence and recovery-debt
 metrics.
 
-### 1.5 Update the runner experience — 🟡 APIs + skip/move/status UI done; hero CTA, match-confirm, missed-prompt pending
+### 1.5 Update the runner experience — 🟡 APIs + skip/move/status/match-confirm/missed-reason UI done; Today-hero CTA pending
 
 Make the daily loop visible before starting Phase 2. The north-star interaction is: a runner opens the
 coach, sees what to do today and why, then starts, logs, or safely changes that workout without leaving
