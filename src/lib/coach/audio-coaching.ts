@@ -134,7 +134,10 @@ export type AudioCueEvent =
   | { kind: "oneMinuteLeft" }
   | { kind: "midStep" }
   | { kind: "lastRep" }
-  | { kind: "form"; index: number };
+  | { kind: "form"; index: number }
+  | { kind: "warmupTip" }
+  | { kind: "warmupLastMinute" }
+  | { kind: "cooldownTip" };
 
 export type AudioTickInput = {
   elapsedSec: number;
@@ -145,6 +148,10 @@ export type AudioTickInput = {
   stepRatio: number; // 0..1 progress through the current step (0 for OPEN)
   stepRemainingSec: number | null; // timed steps only
   stepRemainingM: number | null; // distance steps only
+  // Runner preference (audio settings): spoken tips during warm-up and cool-down steps —
+  // "start gently" a moment in, "one minute left" before the work begins, "ease right off"
+  // into the cool-down. Off = those steps keep only their transition announcement.
+  warmupCooldownGuidance: boolean;
 };
 
 type PendingCue = { due: number; event: AudioCueEvent };
@@ -165,6 +172,9 @@ export type AudioCoachState = {
   lastKmFired: boolean;
   oneMinuteFiredStep: number | null;
   midStepFiredStep: number | null;
+  warmupTipFiredStep: number | null;
+  warmupLastMinFiredStep: number | null;
+  cooldownTipFiredStep: number | null;
   pending: PendingCue[];
 };
 
@@ -185,6 +195,9 @@ export function createAudioCoachState(): AudioCoachState {
     lastKmFired: false,
     oneMinuteFiredStep: null,
     midStepFiredStep: null,
+    warmupTipFiredStep: null,
+    warmupLastMinFiredStep: null,
+    cooldownTipFiredStep: null,
     pending: []
   };
 }
@@ -195,6 +208,7 @@ export const STEP_PACE_GRACE_SEC = 30; // no pace judgment in a step's first 30 
 export const SPOKEN_CUE_MIN_GAP_SEC = 5; // breathing room between any two spoken cues
 export const TRANSITION_CUE_DELAY_SEC = 4; // rep-split/last-rep wait out the step announcement
 export const FORM_CUE_DELAY_SEC = 6; // form cue lands a moment into the stride
+export const PHASE_TIP_DELAY_SEC = 8; // warm-up/cool-down tip lands after the announcement settles
 const MAX_PENDING = 3; // drop stale commentary rather than monologue
 const MIN_REP_SPLIT_SEC = 20; // don't announce split times for micro-reps
 
@@ -248,6 +262,29 @@ export function collectAudioCue(profile: AudioProfile, state: AudioCoachState, i
 
   if (step) {
     const stepElapsed = elapsedSec - state.stepEnteredAtSec;
+
+    // --- Optional warm-up / cool-down guidance (runner preference, not profile-specific).
+    if (input.warmupCooldownGuidance) {
+      if (step.role === "WARMUP" && state.warmupTipFiredStep !== step.index && stepElapsed >= PHASE_TIP_DELAY_SEC) {
+        state.warmupTipFiredStep = step.index;
+        push({ kind: "warmupTip" });
+      }
+      if (
+        step.role === "WARMUP" &&
+        step.target.type === "TIME" &&
+        step.target.seconds >= 300 &&
+        input.stepRemainingSec !== null &&
+        input.stepRemainingSec <= 60 &&
+        state.warmupLastMinFiredStep !== step.index
+      ) {
+        state.warmupLastMinFiredStep = step.index;
+        push({ kind: "warmupLastMinute" });
+      }
+      if (step.role === "COOLDOWN" && state.cooldownTipFiredStep !== step.index && stepElapsed >= PHASE_TIP_DELAY_SEC) {
+        state.cooldownTipFiredStep = step.index;
+        push({ kind: "cooldownTip" });
+      }
+    }
 
     // --- Milestones on the main steady block.
     if (profile.halfwaySteady && step.role === "STEADY" && !state.halfwayFired && input.stepRatio >= 0.5) {

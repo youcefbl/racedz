@@ -16,7 +16,7 @@ import { computeSplits, estimateCalories } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { buildWorkoutStructure, estimateStructureDistanceKm, flattenStructure, summarizeStructure, type WorkoutStructure } from "@/lib/coach/workout-structure";
 import { AudioSettings } from "@/components/coach/audio-settings";
-import { loadCueDensity } from "@/lib/native/audio-prefs";
+import { loadAudioPrefs } from "@/lib/native/audio-prefs";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { announceComplete, announceStep, countdownTick, primeCues } from "@/lib/native/cues";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
@@ -115,9 +115,9 @@ export function RunRecorder({
     if (!isNativeRuntime()) return;
     const unsubscribe = runEngine.subscribe(() => setState(runEngine.getState()));
     void runEngine.init();
-    // Apply the stored voice-guidance preference even when remounting into a live run
-    // (the settings block that also loads it only renders while idle).
-    void loadCueDensity();
+    // Apply the stored voice-guidance preferences even when remounting into a live run
+    // (the settings block that also loads them only renders while idle).
+    void loadAudioPrefs();
     return unsubscribe;
   }, []);
 

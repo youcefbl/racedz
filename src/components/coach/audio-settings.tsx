@@ -3,7 +3,7 @@
 import { Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CoachLocale } from "@/components/coach/types";
-import { loadCueDensity, saveCueDensity } from "@/lib/native/audio-prefs";
+import { loadAudioPrefs, saveCueDensity, saveWarmupGuidance } from "@/lib/native/audio-prefs";
 import { isVoiceAvailable, primeCues, speakCue, type CueDensity } from "@/lib/native/cues";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,8 @@ type SettingsCopy = {
   test: string;
   sample: string;
   voiceMissing: string;
+  warmupToggle: string;
+  warmupHint: string;
 };
 
 const COPY: Record<CoachLocale, SettingsCopy> = {
@@ -30,7 +32,9 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     tones: "Tones only",
     test: "Test voice",
     sample: "Hello! This is your running coach. Have a great session.",
-    voiceMissing: "No voice found for this language on your device. Install Google Text-to-Speech language data to enable spoken cues — tones and vibrations still work."
+    voiceMissing: "No voice found for this language on your device. Install Google Text-to-Speech language data to enable spoken cues — tones and vibrations still work.",
+    warmupToggle: "Warm-up & cool-down tips",
+    warmupHint: "Spoken reminders to start gently and to ease off at the end."
   },
   fr: {
     title: "Guidage vocal",
@@ -39,7 +43,9 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     tones: "Sons seulement",
     test: "Tester la voix",
     sample: "Bonjour ! Je suis votre coach de course. Bonne séance.",
-    voiceMissing: "Aucune voix trouvée pour cette langue sur votre appareil. Installez les données vocales Google Text-to-Speech pour activer les annonces — les sons et vibrations fonctionnent quand même."
+    voiceMissing: "Aucune voix trouvée pour cette langue sur votre appareil. Installez les données vocales Google Text-to-Speech pour activer les annonces — les sons et vibrations fonctionnent quand même.",
+    warmupToggle: "Conseils échauffement & retour au calme",
+    warmupHint: "Rappels vocaux pour démarrer en douceur et relâcher en fin de séance."
   },
   ar: {
     title: "التوجيه الصوتي",
@@ -48,7 +54,9 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     tones: "نغمات فقط",
     test: "جرّب الصوت",
     sample: "مرحبًا! أنا مدرب الجري الخاص بك. حصة موفقة.",
-    voiceMissing: "لا يوجد صوت لهذه اللغة على جهازك. ثبّت بيانات اللغة في Google Text-to-Speech لتفعيل الإرشادات الصوتية — تبقى النغمات والاهتزازات تعمل."
+    voiceMissing: "لا يوجد صوت لهذه اللغة على جهازك. ثبّت بيانات اللغة في Google Text-to-Speech لتفعيل الإرشادات الصوتية — تبقى النغمات والاهتزازات تعمل.",
+    warmupToggle: "نصائح الإحماء والتهدئة",
+    warmupHint: "تذكيرات صوتية للبدء بهدوء والتخفيف في نهاية الحصة."
   }
 };
 
@@ -61,12 +69,15 @@ const OPTIONS: Array<{ value: CueDensity; key: "full" | "essential" | "tones" }>
 export function AudioSettings({ locale }: { locale: CoachLocale }) {
   const copy = COPY[locale];
   const [density, setDensity] = useState<CueDensity | null>(null); // null while loading
+  const [warmup, setWarmup] = useState(true);
   const [voiceOk, setVoiceOk] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    void loadCueDensity().then((value) => {
-      if (!cancelled) setDensity(value);
+    void loadAudioPrefs().then((prefs) => {
+      if (cancelled) return;
+      setDensity(prefs.density);
+      setWarmup(prefs.warmupGuidance);
     });
     void isVoiceAvailable(locale).then((ok) => {
       if (!cancelled) setVoiceOk(ok);
@@ -79,6 +90,11 @@ export function AudioSettings({ locale }: { locale: CoachLocale }) {
   const choose = (value: CueDensity) => {
     setDensity(value);
     void saveCueDensity(value);
+  };
+
+  const toggleWarmup = (enabled: boolean) => {
+    setWarmup(enabled);
+    void saveWarmupGuidance(enabled);
   };
 
   const testVoice = () => {
@@ -122,6 +138,22 @@ export function AudioSettings({ locale }: { locale: CoachLocale }) {
           </button>
         ))}
       </div>
+
+      {/* Warm-up/cool-down tips are "full guidance" commentary — the toggle only matters there. */}
+      {density === "full" ? (
+        <label className="mt-3 flex items-start gap-3 rounded-md border border-gray-200 p-3 text-sm font-semibold text-gray-700">
+          <input
+            type="checkbox"
+            checked={warmup}
+            onChange={(event) => toggleWarmup(event.target.checked)}
+            className="mt-0.5 size-4 accent-brand-teal"
+          />
+          <span>
+            {copy.warmupToggle}
+            <span className="mt-0.5 block text-xs font-medium text-gray-500">{copy.warmupHint}</span>
+          </span>
+        </label>
+      ) : null}
 
       {!voiceOk && density !== "tones" ? (
         <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">{copy.voiceMissing}</p>

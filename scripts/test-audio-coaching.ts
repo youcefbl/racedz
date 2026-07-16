@@ -43,6 +43,7 @@ function tick(
     stepRatio: 0,
     stepRemainingSec: null,
     stepRemainingM: null,
+    warmupCooldownGuidance: false,
     ...input
   });
 }
@@ -200,6 +201,39 @@ assert.deepEqual(paceLimitsFor("RECOVERY", step({ index: 0, role: "WARMUP" }), 3
   assert.notEqual(first!.kind, second!.kind);
 }
 
+// --- Warm-up/cool-down guidance: optional, delayed past the announcement, once per step -------
+{
+  const intervals = getAudioProfile("INTERVAL");
+  const warmup = step({ index: 0, role: "WARMUP", target: { type: "TIME", seconds: 600 } });
+  const cooldown = step({ index: 5, role: "COOLDOWN", target: { type: "TIME", seconds: 600 } });
+
+  // Toggle off: warm-up stays quiet.
+  const off = createAudioCoachState();
+  tick(intervals, off, { elapsedSec: 1, step: warmup });
+  assert.equal(tick(intervals, off, { elapsedSec: 30, step: warmup, stepRatio: 0.05 }), null);
+
+  // Toggle on: tip lands after the step announcement settles, once.
+  const on = createAudioCoachState();
+  tick(intervals, on, { elapsedSec: 1, step: warmup, warmupCooldownGuidance: true });
+  assert.equal(tick(intervals, on, { elapsedSec: 4, step: warmup, stepRatio: 0.01, warmupCooldownGuidance: true }), null);
+  const wtip = tick(intervals, on, { elapsedSec: 10, step: warmup, stepRatio: 0.02, warmupCooldownGuidance: true });
+  assert.deepEqual(wtip, { kind: "warmupTip" });
+  assert.equal(tick(intervals, on, { elapsedSec: 40, step: warmup, stepRatio: 0.07, warmupCooldownGuidance: true }), null);
+  // One minute left of a long warm-up: get ready to work.
+  const wlast = tick(intervals, on, {
+    elapsedSec: 541,
+    step: warmup,
+    stepRatio: 0.9,
+    stepRemainingSec: 59,
+    warmupCooldownGuidance: true
+  });
+  assert.deepEqual(wlast, { kind: "warmupLastMinute" });
+  // Cool-down tip after its announcement.
+  tick(intervals, on, { elapsedSec: 1800, step: cooldown, warmupCooldownGuidance: true });
+  const ctip = tick(intervals, on, { elapsedSec: 1810, step: cooldown, stepRatio: 0.02, warmupCooldownGuidance: true });
+  assert.deepEqual(ctip, { kind: "cooldownTip" });
+}
+
 // --- Copy: every event kind speaks a non-empty phrase in every locale -------------------------
 {
   const events: AudioCueEvent[] = [
@@ -214,7 +248,10 @@ assert.deepEqual(paceLimitsFor("RECOVERY", step({ index: 0, role: "WARMUP" }), 3
     { kind: "oneMinuteLeft" },
     { kind: "midStep" },
     { kind: "lastRep" },
-    { kind: "form", index: 7 }
+    { kind: "form", index: 7 },
+    { kind: "warmupTip" },
+    { kind: "warmupLastMinute" },
+    { kind: "cooldownTip" }
   ];
   for (const locale of ["en", "fr", "ar"] as const) {
     for (const event of events) {

@@ -10,6 +10,7 @@ import {
   type AudioProfileId
 } from "@/lib/coach/audio-coaching";
 import { audioCueText } from "@/lib/coach/audio-copy";
+import { isWarmupGuidanceEnabled } from "@/lib/native/audio-prefs";
 import { paceTone, speakCue } from "@/lib/native/cues";
 
 // Drives the audio coach during a guided run. Pure consumer: each engine tick is fed to the
@@ -55,7 +56,8 @@ export function useAudioCoaching(options: {
       step: guidance.current,
       stepRatio: guidance.progressRatio,
       stepRemainingSec: guidance.unit === "TIME" ? guidance.remainingValue : null,
-      stepRemainingM: guidance.unit === "DISTANCE" ? guidance.remainingValue : null
+      stepRemainingM: guidance.unit === "DISTANCE" ? guidance.remainingValue : null,
+      warmupCooldownGuidance: isWarmupGuidanceEnabled()
     });
     if (!event) return;
 

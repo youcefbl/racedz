@@ -135,5 +135,17 @@ export function audioCueText(event: AudioCueEvent, profileId: AudioProfileId, lo
       if (locale === "fr") return "Dernière fraction. Donnez tout, proprement.";
       if (locale === "ar") return "آخر تكرار. قدّم أفضل ما عندك.";
       return "Last one. Make it count.";
+    case "warmupTip":
+      if (locale === "fr") return "Commencez tout doucement. Laissez le corps monter en température.";
+      if (locale === "ar") return "ابدأ بهدوء تام. دع جسمك يسخن تدريجيًا.";
+      return "Start nice and gentle. Let your body warm up gradually.";
+    case "warmupLastMinute":
+      if (locale === "fr") return "Encore une minute d'échauffement. Préparez-vous à travailler.";
+      if (locale === "ar") return "دقيقة واحدة من الإحماء. استعد للجهد.";
+      return "One minute of warm-up left. Get ready to work.";
+    case "cooldownTip":
+      if (locale === "fr") return "Bien joué. Relâchez complètement et laissez la respiration se calmer.";
+      if (locale === "ar") return "أحسنت. أرخِ إيقاعك تمامًا ودع تنفسك يهدأ.";
+      return "Well done. Ease right off and let your breathing settle.";
   }
 }
