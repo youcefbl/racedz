@@ -11,9 +11,10 @@ import { useAudioCoaching } from "@/components/coach/use-audio-coaching";
 import { useWorkoutGuidance } from "@/components/coach/use-workout-guidance";
 import { WorkoutGuidancePanel } from "@/components/coach/workout-guidance-panel";
 import { profileForWorkoutType } from "@/lib/coach/audio-coaching";
+import { GuidedSessionPicker } from "@/components/coach/guided-session-picker";
 import { computeSplits, estimateCalories } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
-import { buildWorkoutStructure, estimateStructureDistanceKm, flattenStructure, summarizeStructure } from "@/lib/coach/workout-structure";
+import { buildWorkoutStructure, estimateStructureDistanceKm, flattenStructure, summarizeStructure, type WorkoutStructure } from "@/lib/coach/workout-structure";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
 import { announceComplete, announceStep, countdownTick, primeCues } from "@/lib/native/cues";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
@@ -66,13 +67,18 @@ export function RunRecorder({
   const [pendingCount, setPendingCount] = useState(0);
   const [batteryOk, setBatteryOk] = useState(true);
   const [bgLocation, setBgLocation] = useState<LocationPermissionState>({ fine: true, background: true });
-  // Whether the current recording is running as the guided workout (vs. a free run).
+  // Whether the current recording is running as a guided session (planned workout or library pick).
   const [guidedActive, setGuidedActive] = useState(false);
+  // A session picked from the guided library (vs. the coach's planned workout). Its structure
+  // drives the guidance and its workoutType selects the audio profile; the saved run stays free
+  // (no workoutId) — the server-side matcher decides later whether it counts toward the plan.
+  const [librarySession, setLibrarySession] = useState<{ workoutType: string; structure: WorkoutStructure } | null>(null);
   const guidedCopy = GUIDED_COPY[locale];
 
   // Derive a runnable structure from the planned workout (no stored structure needed).
   const structure = useMemo(() => (guidedWorkout ? buildWorkoutStructure(guidedWorkout) : null), [guidedWorkout]);
-  const guidedSteps = useMemo(() => (structure ? flattenStructure(structure) : []), [structure]);
+  const activeStructure = librarySession?.structure ?? structure;
+  const guidedSteps = useMemo(() => (activeStructure ? flattenStructure(activeStructure) : []), [activeStructure]);
 
   const guidance = useWorkoutGuidance(
     guidedSteps,
@@ -89,7 +95,7 @@ export function RunRecorder({
   // milestones, chosen by the workout's type (a recovery jog is coached differently from intervals).
   useAudioCoaching({
     enabled: guidedActive && guidedSteps.length > 0,
-    profileId: profileForWorkoutType(guidedWorkout?.workoutType),
+    profileId: profileForWorkoutType(librarySession?.workoutType ?? guidedWorkout?.workoutType),
     locale,
     metrics: { status: state.status, elapsedSec: state.elapsedSec, distanceM: state.distanceM, currentPace: state.currentPace },
     guidance,
@@ -173,6 +179,7 @@ export function RunRecorder({
   async function start() {
     setSaveError(null);
     setGuidedActive(false);
+    setLibrarySession(null);
     await runEngine.start();
     if (!runEngine.getState().errorCode) tapHaptic("medium");
   }
@@ -182,10 +189,27 @@ export function RunRecorder({
   async function startGuided() {
     setSaveError(null);
     primeCues();
+    setLibrarySession(null);
     setGuidedActive(true);
     await runEngine.start();
     if (runEngine.getState().errorCode) setGuidedActive(false);
     else tapHaptic("medium");
+  }
+
+  // Start a session picked from the guided library — same flow as the planned workout, but the
+  // structure comes from the template and the saved run stays unlinked.
+  async function startLibrarySession(session: { workoutType: string; structure: WorkoutStructure }) {
+    setSaveError(null);
+    primeCues();
+    setLibrarySession(session);
+    setGuidedActive(true);
+    await runEngine.start();
+    if (runEngine.getState().errorCode) {
+      setGuidedActive(false);
+      setLibrarySession(null);
+    } else {
+      tapHaptic("medium");
+    }
   }
 
   function pause() {
@@ -207,6 +231,7 @@ export function RunRecorder({
     runEngine.discard();
     setSaveError(null);
     setGuidedActive(false);
+    setLibrarySession(null);
   }
 
   async function enableBackground() {
@@ -225,10 +250,11 @@ export function RunRecorder({
     setSaveError(null);
     setSavedOffline(false);
     // Link the run to the planned workout when this was a guided session, so completing it marks
-    // the workout done and updates the plan (handled server-side in createRunnerRun).
+    // the workout done and updates the plan (handled server-side in createRunnerRun). Library
+    // sessions stay unlinked — the server-side matcher decides if one fulfils a planned workout.
     const body = {
       ...runEngine.getSavePayload(),
-      ...(guidedActive && guidedWorkout ? { workoutId: guidedWorkout.id } : {})
+      ...(guidedActive && guidedWorkout && !librarySession ? { workoutId: guidedWorkout.id } : {})
     };
     try {
       const payload = await coachRequest<{ data: { run: CoachRun } }>("/api/coach/runs", {
@@ -237,6 +263,7 @@ export function RunRecorder({
       });
       await runEngine.markSaved();
       setGuidedActive(false);
+      setLibrarySession(null);
       notifyHaptic("success");
       await onSaved(payload.data.run.id, false);
     } catch (caught) {
@@ -247,6 +274,7 @@ export function RunRecorder({
         queueRun(body, typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `q_${body.startedAt}`);
         await runEngine.markSaved();
         setGuidedActive(false);
+        setLibrarySession(null);
         setPendingCount(queuedRunCount());
         setSavedOffline(true);
         notifyHaptic("warning");
@@ -352,33 +380,38 @@ export function RunRecorder({
         ) : null}
 
         {status === "idle" ? (
-          guidedWorkout && structure ? (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-brand-teal/30 bg-teal-50 p-4">
-                <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{guidedCopy.todaySession}</p>
-                <p className="mt-1 text-lg font-black text-gray-950">{guidedWorkout.title}</p>
-                <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-gray-600">
-                  <RouteIcon className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
-                  {summarizeStructure(structure, locale)}
-                </p>
-                <p className="mt-0.5 text-xs font-semibold text-gray-500">≈ {estimateStructureDistanceKm(structure)} km</p>
-              </div>
-              <Button type="button" size="lg" className="w-full" onClick={() => void startGuided()}>
-                <Play className="size-5" aria-hidden="true" /> {guidedCopy.startGuided}
+          <div className="space-y-3">
+            {guidedWorkout && structure ? (
+              <>
+                <div className="rounded-xl border border-brand-teal/30 bg-teal-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{guidedCopy.todaySession}</p>
+                  <p className="mt-1 text-lg font-black text-gray-950">{guidedWorkout.title}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-gray-600">
+                    <RouteIcon className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+                    {summarizeStructure(structure, locale)}
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold text-gray-500">≈ {estimateStructureDistanceKm(structure)} km</p>
+                </div>
+                <Button type="button" size="lg" className="w-full" onClick={() => void startGuided()}>
+                  <Play className="size-5" aria-hidden="true" /> {guidedCopy.startGuided}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => void start()}
+                  className="w-full text-center text-sm font-bold text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline"
+                >
+                  {guidedCopy.freeRun}
+                </button>
+              </>
+            ) : (
+              <Button type="button" size="lg" className="w-full" onClick={() => void start()}>
+                <Play className="size-5" aria-hidden="true" /> {copy.startRun}
               </Button>
-              <button
-                type="button"
-                onClick={() => void start()}
-                className="w-full text-center text-sm font-bold text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline"
-              >
-                {guidedCopy.freeRun}
-              </button>
-            </div>
-          ) : (
-            <Button type="button" size="lg" className="w-full" onClick={() => void start()}>
-              <Play className="size-5" aria-hidden="true" /> {copy.startRun}
-            </Button>
-          )
+            )}
+            {/* Pick-your-own guided session (strides, Norwegian threshold, recovery, ...). Works
+                with or without a plan; the run saves unlinked and the matcher sorts it out. */}
+            <GuidedSessionPicker locale={locale} onStart={(session) => void startLibrarySession(session)} />
+          </div>
         ) : null}
 
         {status === "tracking" || status === "paused" ? (

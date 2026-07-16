@@ -138,6 +138,135 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+// ---------------------------------------------------------------------------------------------
+// Guided session library (audio-coaching plan, Phase C): sessions the runner picks directly —
+// no plan or goal required. Each template builds a structure from a couple of adjustable
+// parameters and names the workout type that selects its audio-coaching profile. Runs recorded
+// this way save as normal (free) runs; the conservative matcher decides afterwards whether one
+// counts toward a planned workout.
+// ---------------------------------------------------------------------------------------------
+
+export type GuidedSessionParam = {
+  key: string;
+  min: number;
+  max: number;
+  step: number;
+  default: number;
+};
+
+export type GuidedSessionTemplate = {
+  id: "intervals" | "norwegian" | "strides" | "recovery" | "long_run";
+  /** Selects the audio-coaching profile (profileForWorkoutType) and describes the session. */
+  workoutType: string;
+  params: GuidedSessionParam[];
+  build: (params: Record<string, number>) => WorkoutStructure;
+};
+
+const num = (params: Record<string, number>, key: string, fallback: number) => {
+  const value = params[key];
+  return Number.isFinite(value) ? (value as number) : fallback;
+};
+
+export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
+  {
+    // Classic splits: hard reps with jog recovery.
+    id: "intervals",
+    workoutType: "INTERVAL",
+    params: [
+      { key: "reps", min: 4, max: 10, step: 1, default: 6 },
+      { key: "repMeters", min: 200, max: 1000, step: 100, default: 400 }
+    ],
+    build: (params) => ({
+      blocks: [
+        { kind: "single", step: { role: "WARMUP", intensity: "EASY", target: { type: "TIME", seconds: WARMUP_SECONDS } } },
+        {
+          kind: "repeat",
+          times: num(params, "reps", 6),
+          steps: [
+            { role: "WORK", intensity: "HARD", target: { type: "DISTANCE", meters: num(params, "repMeters", 400) } },
+            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: 90 } }
+          ]
+        },
+        { kind: "single", step: { role: "COOLDOWN", intensity: "EASY", target: { type: "TIME", seconds: COOLDOWN_SECONDS } } }
+      ]
+    })
+  },
+  {
+    // Norwegian threshold: controlled work reps at "short sentences" effort, generous jog
+    // recovery. The audio profile's whole job is stopping the runner from going too hard.
+    id: "norwegian",
+    workoutType: "THRESHOLD",
+    params: [
+      { key: "reps", min: 3, max: 5, step: 1, default: 4 },
+      { key: "workMinutes", min: 3, max: 6, step: 1, default: 4 }
+    ],
+    build: (params) => ({
+      blocks: [
+        { kind: "single", step: { role: "WARMUP", intensity: "EASY", target: { type: "TIME", seconds: WARMUP_SECONDS } } },
+        {
+          kind: "repeat",
+          times: num(params, "reps", 4),
+          steps: [
+            { role: "WORK", intensity: "HARD", target: { type: "TIME", seconds: num(params, "workMinutes", 4) * 60 } },
+            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: 3 * 60 } }
+          ]
+        },
+        { kind: "single", step: { role: "COOLDOWN", intensity: "EASY", target: { type: "TIME", seconds: COOLDOWN_SECONDS } } }
+      ]
+    })
+  },
+  {
+    // Easy run finished with short relaxed pickups — form work, not a workout.
+    id: "strides",
+    workoutType: "STRIDES",
+    params: [
+      { key: "easyMinutes", min: 10, max: 40, step: 5, default: 20 },
+      { key: "reps", min: 4, max: 8, step: 1, default: 6 }
+    ],
+    build: (params) => ({
+      blocks: [
+        { kind: "single", step: { role: "STEADY", intensity: "EASY", target: { type: "TIME", seconds: num(params, "easyMinutes", 20) * 60 } } },
+        {
+          kind: "repeat",
+          times: num(params, "reps", 6),
+          steps: [
+            { role: "WORK", intensity: "HARD", target: { type: "TIME", seconds: 20 } },
+            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: 60 } }
+          ]
+        },
+        { kind: "single", step: { role: "COOLDOWN", intensity: "EASY", target: { type: "TIME", seconds: 5 * 60 } } }
+      ]
+    })
+  },
+  {
+    // Low-pace recovery jog. The audio profile only ever says "slow down".
+    id: "recovery",
+    workoutType: "RECOVERY",
+    params: [{ key: "durationMin", min: 20, max: 60, step: 5, default: 30 }],
+    build: (params) => ({
+      blocks: [{ kind: "single", step: { role: "STEADY", intensity: "EASY", target: { type: "TIME", seconds: num(params, "durationMin", 30) * 60 } } }]
+    })
+  },
+  {
+    // Long run by distance: splits, hydration and milestone company from the audio profile.
+    id: "long_run",
+    workoutType: "LONG_RUN",
+    params: [{ key: "distanceKm", min: 6, max: 32, step: 1, default: 12 }],
+    build: (params) => ({
+      blocks: [{ kind: "single", step: { role: "STEADY", intensity: "EASY", target: { type: "DISTANCE", meters: num(params, "distanceKm", 12) * 1000 } } }]
+    })
+  }
+];
+
+/** Build a template's structure with params clamped to their declared bounds. */
+export function buildGuidedSession(template: GuidedSessionTemplate, params: Record<string, number>): WorkoutStructure {
+  const clamped: Record<string, number> = {};
+  for (const param of template.params) {
+    clamped[param.key] = clamp(num(params, param.key, param.default), param.min, param.max);
+  }
+  return template.build(clamped);
+}
+
 // --- Human-readable summaries (used on the pre-start card) ---
 
 const ROLE_LABELS: Record<StepRole, Record<CoachLocale, string>> = {

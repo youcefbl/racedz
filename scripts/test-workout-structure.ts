@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import {
+  buildGuidedSession,
   buildWorkoutStructure,
   describeTarget,
   estimateStructureDistanceKm,
   flattenStructure,
-  summarizeStructure
+  summarizeStructure,
+  GUIDED_SESSION_TEMPLATES
 } from "../src/lib/coach/workout-structure";
 
 // --- INTERVAL: warm-up + N×(400 m hard / 90 s easy) + cool-down ---
@@ -72,5 +74,39 @@ assert.ok(summary.startsWith("Warm-up 10:00"), `summary was: ${summary}`);
 const easyStructure = buildWorkoutStructure({ workoutType: "EASY", targetDistanceKm: 5, targetDurationMin: null })!;
 assert.ok(estimateStructureDistanceKm(interval!) > 0);
 assert.equal(estimateStructureDistanceKm(easyStructure), 5);
+
+// --- Guided session library templates (audio plan, Phase C) ---
+{
+  // Every template builds a valid structure from its defaults, and its workout type maps cleanly.
+  for (const template of GUIDED_SESSION_TEMPLATES) {
+    const structure = buildGuidedSession(template, {});
+    const steps = flattenStructure(structure);
+    assert.ok(steps.length >= 1, template.id);
+    assert.ok(estimateStructureDistanceKm(structure) > 0, template.id);
+  }
+
+  // Norwegian: 4×4 min work with 3 min recoveries, bounded params clamp.
+  const norwegian = GUIDED_SESSION_TEMPLATES.find((t) => t.id === "norwegian")!;
+  const nw = flattenStructure(buildGuidedSession(norwegian, { reps: 4, workMinutes: 4 }));
+  const work = nw.filter((s) => s.role === "WORK");
+  assert.equal(work.length, 4);
+  assert.deepEqual(work[0]!.target, { type: "TIME", seconds: 240 });
+  const clamped = flattenStructure(buildGuidedSession(norwegian, { reps: 99, workMinutes: 0 }));
+  assert.equal(clamped.filter((s) => s.role === "WORK").length, 5); // reps max
+  assert.deepEqual(clamped.filter((s) => s.role === "WORK")[0]!.target, { type: "TIME", seconds: 180 }); // workMinutes min
+
+  // Strides: easy block first, then short pickups.
+  const strides = GUIDED_SESSION_TEMPLATES.find((t) => t.id === "strides")!;
+  const st = flattenStructure(buildGuidedSession(strides, { easyMinutes: 20, reps: 6 }));
+  assert.equal(st[0]!.role, "STEADY");
+  assert.deepEqual(st[0]!.target, { type: "TIME", seconds: 1200 });
+  assert.equal(st.filter((s) => s.role === "WORK" && s.target.type === "TIME" && s.target.seconds === 20).length, 6);
+
+  // Recovery: one easy timed block, nothing else.
+  const recovery = GUIDED_SESSION_TEMPLATES.find((t) => t.id === "recovery")!;
+  const rec = flattenStructure(buildGuidedSession(recovery, { durationMin: 30 }));
+  assert.equal(rec.length, 1);
+  assert.deepEqual(rec[0]!.target, { type: "TIME", seconds: 1800 });
+}
 
 console.log("Workout structure + guidance derivation checks passed.");
