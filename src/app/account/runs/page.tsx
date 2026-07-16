@@ -18,7 +18,7 @@ export default async function RunsPage({ searchParams }: { searchParams?: Promis
   if (!session?.user?.id) redirect("/login?callbackUrl=/account/runs");
 
   const locale = getLocale((await searchParams)?.lang);
-  const { runs, analyzedRuns, weightKg, records, todayWorkout, badges } = await getRunsScreenData(session.user.id, 50);
+  const { runs, analyzedRuns, weightKg, records, todayWorkout, badges, recentPaceSecondsPerKm } = await getRunsScreenData(session.user.id, 50);
   const initialRuns = JSON.parse(JSON.stringify(runs)) as CoachRun[];
   const recordsData = JSON.parse(JSON.stringify(records)) as RecordsSummary;
 
@@ -30,6 +30,7 @@ export default async function RunsPage({ searchParams }: { searchParams?: Promis
       records={recordsData}
       badges={badges}
       guidedWorkout={todayWorkout}
+      recentPaceSecondsPerKm={recentPaceSecondsPerKm}
       locale={locale}
     />
   );

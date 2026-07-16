@@ -865,17 +865,23 @@ export async function getRunnerBadges(userId: string, records: PersonalRecords):
 }
 
 export async function getRunsScreenData(userId: string, limit = 50) {
-  const [runs, goal, records, todayWorkout] = await Promise.all([
+  const [runs, goal, records, todayWorkout, snapshots] = await Promise.all([
     getRunnerRuns(userId, limit),
     getActiveGoal(userId),
     getRunnerRecords(userId),
-    getTodayGuidedWorkout(userId)
+    getTodayGuidedWorkout(userId),
+    getPrisma().$queryRaw<Array<{ metrics: unknown }>>`
+      SELECT "metrics" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
+    `
   ]);
   const [analyzedRuns, badges] = await Promise.all([
     getAnalyzedRunsMap(userId, runs.map((run) => run.id)),
     getRunnerBadges(userId, records)
   ]);
-  return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null, records, todayWorkout, badges };
+  // Recent average pace feeds the recorder's audio pace-guidance bands; null just mutes pace cues.
+  const snapshotMetrics = (snapshots[0]?.metrics ?? null) as { averagePaceLast28DaysSecondsPerKm?: number | null } | null;
+  const recentPaceSecondsPerKm = snapshotMetrics?.averagePaceLast28DaysSecondsPerKm ?? null;
+  return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null, records, todayWorkout, badges, recentPaceSecondsPerKm };
 }
 
 export async function createCoachInteraction(userId: string, rawInput: unknown) {

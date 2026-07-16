@@ -349,6 +349,7 @@ export function CoachDashboard({
             analyzedRuns={analyzedRuns}
             onViewAnalysis={viewAnalysis}
             weightKg={goal.weightKg}
+            recentPaceSecondsPerKm={metrics.averagePaceLast28DaysSecondsPerKm}
             initialWorkoutId={logWorkoutId}
             onInitialWorkoutConsumed={() => setLogWorkoutId(null)}
           />

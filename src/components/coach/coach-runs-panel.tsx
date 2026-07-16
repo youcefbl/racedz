@@ -28,6 +28,7 @@ export function CoachRunsPanel({
   onViewAnalysis,
   weightKg,
   guidedWorkout,
+  recentPaceSecondsPerKm,
   initialWorkoutId,
   onInitialWorkoutConsumed
 }: {
@@ -45,6 +46,8 @@ export function CoachRunsPanel({
   weightKg?: number | null;
   /** Next planned workout, offered as a guided (structured) session in the recorder. */
   guidedWorkout?: GuidedWorkout | null;
+  /** Runner's 28-day average pace, for the recorder's audio pace-guidance bands. */
+  recentPaceSecondsPerKm?: number | null;
   /** When the runner taps "Log this run" on the Today hero: open the form with this workout preselected. */
   initialWorkoutId?: string | null;
   /** Called once the panel has consumed initialWorkoutId, so the parent can clear it (this panel
@@ -249,7 +252,7 @@ export function CoachRunsPanel({
       ) : null}
 
       {/* GPS run recorder — the record hero; renders only inside the phone app */}
-      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} />
+      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} />
 
       <section>
         <div className="mb-4 flex items-center justify-between gap-3">

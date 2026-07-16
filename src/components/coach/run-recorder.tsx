@@ -7,8 +7,10 @@ import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
 import { RunMap } from "@/components/coach/run-map";
 import { RunSummary, SplitsChart } from "@/components/coach/run-summary";
+import { useAudioCoaching } from "@/components/coach/use-audio-coaching";
 import { useWorkoutGuidance } from "@/components/coach/use-workout-guidance";
 import { WorkoutGuidancePanel } from "@/components/coach/workout-guidance-panel";
+import { profileForWorkoutType } from "@/lib/coach/audio-coaching";
 import { computeSplits, estimateCalories } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { buildWorkoutStructure, estimateStructureDistanceKm, flattenStructure, summarizeStructure } from "@/lib/coach/workout-structure";
@@ -41,7 +43,8 @@ export function RunRecorder({
   copy,
   onSaved,
   weightKg,
-  guidedWorkout
+  guidedWorkout,
+  recentPaceSecondsPerKm
 }: {
   locale: CoachLocale;
   copy: CoachCopy;
@@ -51,6 +54,9 @@ export function RunRecorder({
   weightKg?: number | null;
   // The next planned workout, if any — offered as a guided (structured) session.
   guidedWorkout?: GuidedWorkout | null;
+  // Runner's 28-day average pace, used by the audio coach's pace-guidance bands. Optional —
+  // without it, pace cues simply stay silent (effort-language cues still fire).
+  recentPaceSecondsPerKm?: number | null;
 }) {
   const [native, setNative] = useState(false);
   const [state, setState] = useState<RunEngineState>(() => runEngine.getState());
@@ -78,6 +84,17 @@ export function RunRecorder({
       onCountdown: (secondsLeft) => countdownTick(secondsLeft)
     }
   );
+
+  // Profile commentary on top of the step announcements: splits, pace guidance, check-ins, and
+  // milestones, chosen by the workout's type (a recovery jog is coached differently from intervals).
+  useAudioCoaching({
+    enabled: guidedActive && guidedSteps.length > 0,
+    profileId: profileForWorkoutType(guidedWorkout?.workoutType),
+    locale,
+    metrics: { status: state.status, elapsedSec: state.elapsedSec, distanceM: state.distanceM, currentPace: state.currentPace },
+    guidance,
+    recentPaceSecondsPerKm
+  });
 
   useEffect(() => {
     setNative(isNativeRuntime());

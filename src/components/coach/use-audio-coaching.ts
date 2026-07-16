@@ -1,0 +1,65 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import type { GuidanceView } from "@/components/coach/use-workout-guidance";
+import type { CoachLocale } from "@/components/coach/types";
+import {
+  collectAudioCue,
+  createAudioCoachState,
+  getAudioProfile,
+  type AudioProfileId
+} from "@/lib/coach/audio-coaching";
+import { audioCueText } from "@/lib/coach/audio-copy";
+import { paceTone, speakCue } from "@/lib/native/cues";
+
+// Drives the audio coach during a guided run. Pure consumer: each engine tick is fed to the
+// deterministic scheduler (lib/coach/audio-coaching), and whatever single cue it returns is spoken
+// via the cue layer. Step announcements/countdowns stay with useWorkoutGuidance — this hook adds
+// the profile commentary on top (splits, pace guidance, check-ins, milestones), which is why every
+// cue here is spoken at the "full" density level. Pace cues also fire a directional tone so
+// tones-only runners still get steering.
+
+type LiveMetrics = {
+  status: "idle" | "tracking" | "paused" | "finished";
+  elapsedSec: number;
+  distanceM: number;
+  currentPace: number | null; // engine's smoothed live pace, sec/km
+};
+
+export function useAudioCoaching(options: {
+  enabled: boolean;
+  profileId: AudioProfileId;
+  locale: CoachLocale;
+  metrics: LiveMetrics;
+  guidance: GuidanceView;
+  recentPaceSecondsPerKm?: number | null;
+}) {
+  const { enabled, profileId, locale, metrics, guidance, recentPaceSecondsPerKm } = options;
+  const stateRef = useRef(createAudioCoachState());
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    // Fresh scheduler whenever a new run begins.
+    if (metrics.status === "idle") {
+      stateRef.current = createAudioCoachState();
+      return;
+    }
+    if (metrics.status !== "tracking" || !guidance.active || guidance.notStarted) return;
+
+    const event = collectAudioCue(getAudioProfile(profileId), stateRef.current, {
+      elapsedSec: metrics.elapsedSec,
+      distanceM: metrics.distanceM,
+      currentPaceSecPerKm: metrics.currentPace ?? null,
+      recentPaceSecPerKm: recentPaceSecondsPerKm ?? null,
+      step: guidance.current,
+      stepRatio: guidance.progressRatio,
+      stepRemainingSec: guidance.unit === "TIME" ? guidance.remainingValue : null,
+      stepRemainingM: guidance.unit === "DISTANCE" ? guidance.remainingValue : null
+    });
+    if (!event) return;
+
+    if (event.kind === "pace") paceTone(event.direction);
+    speakCue(audioCueText(event, profileId, locale), locale, "full");
+  }, [enabled, profileId, locale, metrics, guidance, recentPaceSecondsPerKm]);
+}
