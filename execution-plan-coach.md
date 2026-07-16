@@ -16,20 +16,21 @@
 > matching, runner workout-action APIs, deterministic plan-adherence metrics, and a content-free admin
 > coach-operations report. The full runner UI has shipped too — the adherence strip, per-workout
 > skip/move/status actions, the run→workout match-confirmation banner, the missed-session reason
-> prompt, and the Today-hero "Log this run" CTA — so the daily loop is complete and actionable. Phase 1.6 is
-> only partially complete: no-active-plan adherence degrades gracefully, but the full free-runner
-> coaching surface is not yet implemented. Adaptive planning, long-term memory, and richer location
-> personalization remain future phases. The UX review has been folded into this document (this is now
+> prompt, and the Today-hero "Log this run" CTA — so the daily loop is complete and actionable. Phase 1.6
+> (the free-runner) is done too: the overview leads with a history-based training read + a soft plan
+> invitation for runners with no active plan. **Phase 1 is complete.** Adaptive planning, long-term
+> memory, and richer location personalization remain future phases. The UX review has been folded into
+> this document (this is now
 > the single source of truth): make the daily coaching loop visible before expanding the planning engine.
 
 ## 📊 Progress
 
-`██████░░░░░░░░░░░░░░░░░░░░` **~23% overall** (phase-weighted) · **Phase 1 (current focus) ~95%**
+`███████░░░░░░░░░░░░░░░░░░░` **~25% overall** (phase-weighted) · **Phase 1 ✅ complete**
 
 | Phase | Status | Where it stands |
 |---|---|---|
 | **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · owner ops (key rotation, OpenAI billing) + **health-data policy blocker** ⬜ |
-| **1 — Real plan adherence** | ◐ **~95%** | Backend + runner UI complete (daily loop is live); only the free-runner (1.6) experience remains |
+| **1 — Real plan adherence** | ✅ **complete** | Backend + full runner UI + free-runner path — the daily loop is live |
 | **2 — Adaptive planner** | ⬜ not started | Replaces the fixed weekly skeleton — the big engine bet |
 | **3 — Long-term memory** | ⬜ not started | Structured coach memory + retrieval |
 | **4 — Location personalization** | ⬜ not started | Opt-in timezone / terrain / routes |
@@ -44,15 +45,14 @@
 | 1.3 Match runs → workouts | ✅ | ✅ auto-link + provenance + **suggested-match confirm banner** |
 | 1.4 Adherence metrics | ✅ | ✅ adherence strip (+ AI context) |
 | 1.5 Runner workout actions | ✅ APIs | ✅ skip / move / status + match-confirm + missed-reason + **Today-hero "Log this run" CTA** |
-| 1.6 Serve the free-runner | ◐ graceful no-plan | ⬜ full history-based no-plan experience |
+| 1.6 Serve the free-runner | ✅ graceful no-plan | ✅ history-based training read + soft plan invitation |
 
-Legend: ✅ done · ◐ partial · ⬜ not started. Overall % weights the six phases equally; Phase 1 is
-the only one in active development, so its own ~95% is the more useful day-to-day number.
+Legend: ✅ done · ◐ partial · ⬜ not started. Overall % weights the six phases equally.
 
-**Shipped on `feat/coach-plan-adherence`:** 1.1–1.5 (backend + full runner UI), the admin coach-ops
-report, the adherence strip, workout actions, the run→workout match-confirm banner, the missed-session
-reason prompt, and the Today-hero "Log this run" CTA wired to the run recorder. **Nearest remaining:** the
-free-runner (1.6) history-based experience, then Phase 2 (the adaptive planner).
+**Shipped on `feat/coach-plan-adherence`:** all of Phase 1 (1.1–1.6) — backend + full runner UI: the
+admin coach-ops report, the adherence strip, workout actions, the run→workout match-confirm banner, the
+missed-session reason prompt, the Today-hero "Log this run" CTA, and the free-runner training read +
+plan invitation. **Nearest remaining:** owner ops (Phase 0), then Phase 2 (the adaptive planner).
 
 ## Objective
 
@@ -375,7 +375,7 @@ not yet expose these actions, suggested-match prompts, skip-reason collection, o
 - Treat offline-tolerant run logging as a follow-up: queue a completed run locally, show “saved — will
   sync,” retry safely, and prevent duplicate submissions when connectivity returns.
 
-### 1.6 Serve the free-runner (no accepted plan) — 🟡 partial
+### 1.6 Serve the free-runner (no accepted plan) — ✅ complete
 
 The rest of this plan is plan-centric, but the baseline metrics (Phase 0) expect a low "% who accept a
 plan" and a large share of free/imported runs. If most runners never accept a plan, adherence tracking
@@ -392,11 +392,13 @@ Define what the coach gives the runner who **logs runs but has not committed to 
 Adherence metrics should degrade gracefully (clearly "no active plan") rather than read as 0% adherence,
 which would be both wrong and discouraging.
 
-The graceful no-active-plan adherence response is implemented. The full free-runner experience is not:
-the current run and interaction services still require an active goal, and the dashboard does not yet
-provide a distinct history-only coaching path or a low-friction plan invitation based on actual runs.
-The UX target is a history-based training read (volume, consistency, pace drift, and fatigue/pain
-signals) plus a soft “Want a plan built around this?” invitation.
+**Done.** Adherence degrades gracefully (the strip shows "no active plan", not 0%), and the coach
+overview now leads with a `FreeRunnerRead` for a runner who has runs but no active plan: a read on their
+actual training from run history alone — this week's volume with the week-over-week trend, runs over the
+last 4 weeks (consistency), and average pace — followed by a soft "Want a plan built around this? · Build
+my plan" invitation that never nags. A brand-new runner with no runs still gets the generate-plan
+onboarding. *Follow-up (optional):* surface pace-drift and fatigue/pain signals in the read too, and let
+the invitation generate the plan directly instead of routing through the plan tab.
 
 ### Phase 1 exit criteria
 
