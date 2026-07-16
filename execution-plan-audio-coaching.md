@@ -13,6 +13,16 @@
 > session library (strides, Norwegian 4×4, recovery run, long run, splits/intervals) — no active
 > plan required, which also serves the free-runner track (plan §1.6).
 
+> **Branch update (2026-07-16 — `feat/audio-coaching`).** Phases A–D are implemented: native TTS
+> speech with Arabic-availability fallback and the cue-density gate (A); the deterministic profile
+> engine, pace bands from the runner's 28-day average, anti-nag scheduler, and en/fr/ar spoken copy
+> (B); the guided session library — intervals, Norwegian threshold, strides, recovery, long run —
+> with parameter pickers wired into the recorder (C); and the persisted voice-guidance setting with
+> test-voice button and missing-voice hint (D). Deterministic checks: `npm run test:audio` plus new
+> template cases in `test:workout`. **Phase E is what remains:** `npx cap sync`, an APK build, the
+> on-device matrix (three languages, screen locked, Bluetooth), the Arabic/French copy review, and
+> the release. Nothing here has run on a real device yet.
+
 ## Where we actually are (audited 2026-07-16)
 
 Good news: this is an **upgrade, not greenfield**. The app already has:
