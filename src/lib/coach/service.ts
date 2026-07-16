@@ -5,7 +5,14 @@ import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import type { RunRoutePoint } from "@/components/coach/types";
 import type { WorkoutMatchSource, WorkoutSkipReason } from "@prisma/client";
-import { deriveWorkoutCompletionType, pickBestWorkoutMatch } from "@/lib/coach/adherence";
+import {
+  computePlanAdherence,
+  deriveWorkoutCompletionType,
+  pickBestWorkoutMatch,
+  EMPTY_ADHERENCE,
+  type PlanAdherence,
+  type WorkoutStatusValue
+} from "@/lib/coach/adherence";
 import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
@@ -686,12 +693,38 @@ export async function rescheduleWorkout(userId: string, workoutId: string, sched
   return { workoutId, scheduledFor };
 }
 
+// Deterministic plan-adherence summary for the runner's ACTIVE plan (Phase 1.4). Returns a
+// hasActivePlan:false zero-summary when there's no active plan, so the free-runner surface degrades
+// gracefully instead of reading as 0% adherence.
+export async function getPlanAdherence(userId: string): Promise<PlanAdherence> {
+  const rows = await getPrisma().$queryRaw<
+    Array<{ status: string; workoutType: string; targetDistanceKm: number | null; actualDistanceKm: number | null; scheduledFor: Date }>
+  >`
+    SELECT w."status"::text AS "status", w."workoutType"::text AS "workoutType",
+      w."targetDistanceKm", r."distanceKm" AS "actualDistanceKm", w."scheduledFor"
+    FROM "TrainingWorkout" w
+    INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
+    LEFT JOIN "RunnerRun" r ON r."workoutId" = w."id"
+    WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE'
+  `;
+  if (rows.length === 0) return EMPTY_ADHERENCE;
+  return computePlanAdherence(
+    rows.map((row) => ({
+      status: row.status as WorkoutStatusValue,
+      workoutType: row.workoutType,
+      targetDistanceKm: row.targetDistanceKm,
+      actualDistanceKm: row.actualDistanceKm,
+      scheduledForMs: new Date(row.scheduledFor).getTime()
+    }))
+  );
+}
+
 export async function getCoachDashboard(userId: string) {
   const prisma = getPrisma();
   // These six reads are independent — run them in parallel so the dashboard is a single
   // round-trip's worth of latency instead of six sequential ones (matters a lot when the
   // app talks to the origin over a high-latency link).
-  const [goal, runs, plans, interactions, snapshots, entitlement, sleep] = await Promise.all([
+  const [goal, runs, plans, interactions, snapshots, entitlement, sleep, adherence] = await Promise.all([
     getActiveGoal(userId),
     getRunnerRuns(userId, 10),
     prisma.$queryRaw<Array<Record<string, unknown>>>`
@@ -718,7 +751,8 @@ export async function getCoachDashboard(userId: string) {
       SELECT "metrics", "generatedAt" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
     `,
     getCoachEntitlementWithUsage(userId),
-    getSleepEntries(userId)
+    getSleepEntries(userId),
+    getPlanAdherence(userId)
   ]);
 
   // Tip categories depend on the resolved goal, so this runs after the parallel reads.
@@ -733,7 +767,7 @@ export async function getCoachDashboard(userId: string) {
   // burns another AI credit.
   const analyzedRuns = await getAnalyzedRunsMap(userId, runs.map((run) => run.id));
 
-  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns, sleep };
+  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns, sleep, adherence };
 }
 
 // runId → id of its latest non-failed POST_RUN analysis, for the given runs. Shared by the coach
@@ -966,6 +1000,10 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       }
     : null;
 
+  // Real adherence on the active plan, so the coach can reference completed/skipped sessions and adapt
+  // to misses instead of assuming the plan went perfectly.
+  const adherence = await getPlanAdherence(userId);
+
   const context = buildRunnerCoachContext({
     goal,
     runs,
@@ -982,7 +1020,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     sleep: sleepEntries.map((entry) => ({ night: entry.night, durationMinutes: entry.durationMinutes })),
     nutrition,
     targetRun,
-    recentConversation
+    recentConversation,
+    adherence
   });
 
   try {

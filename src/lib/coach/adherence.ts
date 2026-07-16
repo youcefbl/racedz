@@ -104,3 +104,85 @@ export function pickBestWorkoutMatch(
   }
   return best;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Adherence metrics (Phase 1.4)
+//
+// Deterministic summary of "what was planned vs what actually happened" for one plan. This is the
+// numeric backbone the coach reports and adapts from — the application computes it; the AI only
+// explains it. REST days are not "sessions" and never count toward planned/completed/skipped.
+// ---------------------------------------------------------------------------------------------
+
+export type WorkoutStatusValue = "PLANNED" | "COMPLETED" | "SKIPPED" | "CANCELLED";
+
+export type AdherenceWorkout = {
+  status: WorkoutStatusValue;
+  workoutType: string;
+  targetDistanceKm: number | null;
+  actualDistanceKm: number | null; // from the linked run, when completed
+  scheduledForMs: number; // scheduledFor as epoch ms, for ordering
+};
+
+export type PlanAdherence = {
+  hasActivePlan: boolean;
+  plannedSessions: number; // non-REST workouts in the plan
+  completedSessions: number;
+  skippedSessions: number;
+  remainingSessions: number; // still PLANNED (today or upcoming)
+  completionRate: number; // completed / (completed + skipped), 0..1; 0 when nothing decided yet
+  plannedDistanceKm: number;
+  completedDistanceKm: number;
+  longRun: { planned: boolean; completed: boolean };
+  consecutiveMissed: number; // trailing run of SKIPPED among decided sessions, most recent first
+};
+
+export const EMPTY_ADHERENCE: PlanAdherence = {
+  hasActivePlan: false,
+  plannedSessions: 0,
+  completedSessions: 0,
+  skippedSessions: 0,
+  remainingSessions: 0,
+  completionRate: 0,
+  plannedDistanceKm: 0,
+  completedDistanceKm: 0,
+  longRun: { planned: false, completed: false },
+  consecutiveMissed: 0
+};
+
+export function computePlanAdherence(workouts: AdherenceWorkout[]): PlanAdherence {
+  // REST days aren't sessions; exclude them from every session-level number.
+  const sessions = workouts.filter((w) => w.workoutType !== "REST");
+  const completed = sessions.filter((w) => w.status === "COMPLETED");
+  const skipped = sessions.filter((w) => w.status === "SKIPPED");
+  const remaining = sessions.filter((w) => w.status === "PLANNED");
+  const decided = completed.length + skipped.length;
+
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  const longRunWorkouts = sessions.filter((w) => w.workoutType === "LONG_RUN" && w.status !== "CANCELLED");
+
+  // consecutiveMissed: order decided sessions oldest→newest, then count SKIPPED from the newest end.
+  const decidedByDate = sessions
+    .filter((w) => w.status === "COMPLETED" || w.status === "SKIPPED")
+    .sort((a, b) => a.scheduledForMs - b.scheduledForMs);
+  let consecutiveMissed = 0;
+  for (let i = decidedByDate.length - 1; i >= 0; i -= 1) {
+    if (decidedByDate[i].status === "SKIPPED") consecutiveMissed += 1;
+    else break;
+  }
+
+  return {
+    hasActivePlan: true,
+    plannedSessions: sessions.length,
+    completedSessions: completed.length,
+    skippedSessions: skipped.length,
+    remainingSessions: remaining.length,
+    completionRate: decided > 0 ? Math.round((completed.length / decided) * 100) / 100 : 0,
+    plannedDistanceKm: round1(sessions.reduce((sum, w) => sum + (w.targetDistanceKm ?? 0), 0)),
+    completedDistanceKm: round1(completed.reduce((sum, w) => sum + (w.actualDistanceKm ?? 0), 0)),
+    longRun: {
+      planned: longRunWorkouts.length > 0,
+      completed: longRunWorkouts.some((w) => w.status === "COMPLETED")
+    },
+    consecutiveMissed
+  };
+}

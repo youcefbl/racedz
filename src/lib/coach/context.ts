@@ -1,4 +1,5 @@
 import type { RunRoutePoint } from "@/components/coach/types";
+import type { PlanAdherence } from "@/lib/coach/adherence";
 import type { CoachMetrics, ConsistencyAssessment, IntensityDistribution, MetricRun } from "@/lib/coach/metrics";
 import { computeSplits } from "@/lib/coach/run-stats";
 import type { CoachInteractionInput, CoachWorkout } from "@/lib/coach/schemas";
@@ -99,6 +100,7 @@ export function buildRunnerCoachContext(input: {
   nutrition?: string | null;
   targetRun?: TargetRun | null;
   recentConversation?: ConversationTurn[];
+  adherence?: PlanAdherence | null;
 }) {
   const context = {
     request: {
@@ -168,6 +170,10 @@ export function buildRunnerCoachContext(input: {
         runnerQuestion: truncate(turn.runnerQuestion, MAX_NOTE_CHARS),
         coachSummary: truncate(turn.coachSummary, MAX_SUMMARY_CHARS)
       })),
+    // What was actually planned vs done on the active plan (completed / skipped / completion rate /
+    // consecutive misses), so the coach can reference real adherence and adapt to missed sessions
+    // instead of assuming everything went to plan. Null when the runner has no active plan.
+    planAdherence: input.adherence ?? null,
     fixedSafetyDecision: input.safety,
     fixedWeeklyPlanSkeleton: input.skeleton
   };
