@@ -546,6 +546,10 @@ model RunnerRun {
   userId                  String
   goalId                  String?
   workoutId               String?         @unique
+  // How this run got linked to its workout (Phase 1.3), and how sure that link is (0–1).
+  // EXPLICIT/RUNNER_CONFIRMED = 1; AUTO carries the matcher's score. Null when the run is free.
+  workoutMatchSource      WorkoutMatchSource?
+  workoutMatchConfidence  Float?
   startedAt               DateTime
   distanceKm              Float
   durationSeconds         Int
@@ -872,6 +876,16 @@ enum WorkoutSkipReason {
   TRAVEL
   MOTIVATION
   OTHER
+}
+
+// How a run came to be linked to a planned workout (Phase 1.3). EXPLICIT = the runner logged the
+// run against a specific workout; AUTO = the deterministic matcher linked it; RUNNER_CONFIRMED = the
+// runner accepted a suggested match. Bad AUTO links are the main risk, so the source is recorded for
+// audit and the matcher is biased toward asking rather than auto-linking.
+enum WorkoutMatchSource {
+  EXPLICIT
+  AUTO
+  RUNNER_CONFIRMED
 }
 
 enum CoachInteractionType {
