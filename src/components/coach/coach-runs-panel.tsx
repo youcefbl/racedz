@@ -1,17 +1,18 @@
 "use client";
 
 import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
-import { memo, useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MatchConfirmBanner, type MatchPrompt } from "@/components/coach/match-confirm-banner";
 import { RunRecorder, type GuidedWorkout } from "@/components/coach/run-recorder";
 import { RunPhotoUploader } from "@/components/coach/run-photos";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { RunMap } from "@/components/coach/run-map";
 import { RunSummary } from "@/components/coach/run-summary";
-import type { CoachLocale, CoachPlan, CoachRun } from "@/components/coach/types";
+import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +27,9 @@ export function CoachRunsPanel({
   analyzedRuns,
   onViewAnalysis,
   weightKg,
-  guidedWorkout
+  guidedWorkout,
+  initialWorkoutId,
+  onInitialWorkoutConsumed
 }: {
   runs: CoachRun[];
   plan: CoachPlan | null;
@@ -42,6 +45,11 @@ export function CoachRunsPanel({
   weightKg?: number | null;
   /** Next planned workout, offered as a guided (structured) session in the recorder. */
   guidedWorkout?: GuidedWorkout | null;
+  /** When the runner taps "Log this run" on the Today hero: open the form with this workout preselected. */
+  initialWorkoutId?: string | null;
+  /** Called once the panel has consumed initialWorkoutId, so the parent can clear it (this panel
+   *  remounts on tab switches, so leaving it set would re-open the form on every future visit). */
+  onInitialWorkoutConsumed?: () => void;
 }) {
   const [showForm, setShowForm] = useState(runs.length === 0);
   const [effort, setEffort] = useState(5);
@@ -49,6 +57,10 @@ export function CoachRunsPanel({
   const [pain, setPain] = useState(0);
   const [distance, setDistance] = useState(5);
   const [duration, setDuration] = useState(35);
+  // The workout the run will be logged against (the form's plan <select>), driven by the Today hero.
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string>("");
+  // Handle each "log this workout" request from the hero once, so a data refresh doesn't reopen the form.
+  const handledWorkoutRef = useRef<string | null>(null);
   const [share, setShare] = useState(false);
   const [formPhotos, setFormPhotos] = useState<string[]>([]);
   // Local, per-run photo overrides so a photo added/removed on a history row shows instantly,
@@ -62,6 +74,8 @@ export function CoachRunsPanel({
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // How the just-logged run linked to the plan, awaiting the runner's confirm/undo. Null = nothing to ask.
+  const [matchPrompt, setMatchPrompt] = useState<MatchPrompt | null>(null);
   // Open the most recent GPS run by default so its map + per-km splits show without a
   // tap; older runs stay collapsed to avoid mounting many maps at once.
   const [expandedRun, setExpandedRun] = useState<string | null>(
@@ -71,36 +85,68 @@ export function CoachRunsPanel({
   const pace = useMemo(() => (distance > 0 && duration > 0 ? Math.round((duration * 60) / distance) : null), [distance, duration]);
   const plannedWorkouts = plan?.workouts.filter((workout) => workout.status !== "COMPLETED") ?? [];
 
+  // Today hero → "Log this run": open the form, preselect the workout, and prefill its target distance.
+  useEffect(() => {
+    if (!initialWorkoutId || handledWorkoutRef.current === initialWorkoutId) return;
+    handledWorkoutRef.current = initialWorkoutId;
+    const workout = plan?.workouts.find((candidate) => candidate.id === initialWorkoutId);
+    if (workout) {
+      setShowForm(true);
+      setSelectedWorkoutId(initialWorkoutId);
+      if (workout.targetDistanceKm) setDistance(workout.targetDistanceKm);
+    }
+    onInitialWorkoutConsumed?.();
+  }, [initialWorkoutId, plan, onInitialWorkoutConsumed]);
+
   function submit(formData: FormData) {
     setError(null);
     setSuccess(null);
     startSaving(async () => {
       try {
-        const payload = await coachRequest<{ data: { run: CoachRun } }>("/api/coach/runs", {
-          method: "POST",
-          body: JSON.stringify({
-            workoutId: optionalString(formData, "workoutId"),
-            startedAt: new Date(String(formData.get("startedAt"))).toISOString(),
-            distanceKm: distance,
-            durationSeconds: Math.round(duration * 60),
-            elevationGainM: optionalNumber(formData, "elevationGainM"),
-            averageHeartRate: optionalNumber(formData, "averageHeartRate"),
-            perceivedEffort: effort,
-            fatigueLevel: fatigue,
-            painLevel: pain,
-            isPublic: share,
-            title: optionalString(formData, "title"),
-            symptoms: optionalString(formData, "symptoms"),
-            notes: optionalString(formData, "notes"),
-            photos: formPhotos
-          })
-        });
+        const payload = await coachRequest<{ data: { run: CoachRun; suggestedMatch: CoachSuggestedMatch | null } }>(
+          "/api/coach/runs",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              workoutId: optionalString(formData, "workoutId"),
+              startedAt: new Date(String(formData.get("startedAt"))).toISOString(),
+              distanceKm: distance,
+              durationSeconds: Math.round(duration * 60),
+              elevationGainM: optionalNumber(formData, "elevationGainM"),
+              averageHeartRate: optionalNumber(formData, "averageHeartRate"),
+              perceivedEffort: effort,
+              fatigueLevel: fatigue,
+              painLevel: pain,
+              isPublic: share,
+              title: optionalString(formData, "title"),
+              symptoms: optionalString(formData, "symptoms"),
+              notes: optionalString(formData, "notes"),
+              photos: formPhotos
+            })
+          }
+        );
         const analyze = formData.get("analyzeNow") === "on";
         setSuccess(copy.runSaved);
         setFormPhotos([]);
+        setSelectedWorkoutId("");
         setShowForm(false);
+
+        // Surface how the run linked to the plan (Phase 1.3): an auto-linked run gets a confirmation
+        // with an undo, a medium-confidence match asks the runner to confirm, and an explicit or free
+        // run says nothing. Skipped entirely when the runner already picked the workout themselves.
+        const savedRun = payload.data.run;
+        const suggested = payload.data.suggestedMatch;
+        if (!optionalString(formData, "workoutId") && savedRun.workoutMatchSource === "AUTO" && savedRun.workoutId) {
+          const title = plan?.workouts.find((workout) => workout.id === savedRun.workoutId)?.title ?? null;
+          setMatchPrompt({ kind: "auto", runId: savedRun.id, workoutId: savedRun.workoutId, title });
+        } else if (suggested) {
+          setMatchPrompt({ kind: "suggest", runId: savedRun.id, workoutId: suggested.workoutId, title: suggested.title });
+        } else {
+          setMatchPrompt(null);
+        }
+
         try {
-          await onSaved(payload.data.run.id, analyze);
+          await onSaved(savedRun.id, analyze);
         } catch (caught) {
           setError(copy.runSavedFeedbackFailed.replace("{error}", caught instanceof Error ? caught.message : "—"));
         }
@@ -163,8 +209,45 @@ export function CoachRunsPanel({
     [copy]
   );
 
+  // Accept a suggested match: link the just-logged run to the workout, then refresh.
+  function confirmMatch() {
+    if (!matchPrompt) return;
+    const { runId, workoutId } = matchPrompt;
+    setMatchPrompt(null);
+    startSaving(async () => {
+      try {
+        await coachRequest(`/api/coach/runs/${runId}/match`, { method: "POST", body: JSON.stringify({ workoutId }) });
+        await onSaved("", false);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
+      }
+    });
+  }
+
+  // "Not this workout" / "free run": unlink an auto-matched run; a suggested match was never linked,
+  // so it just dismisses.
+  function freeRunMatch() {
+    if (!matchPrompt) return;
+    const { kind, runId } = matchPrompt;
+    setMatchPrompt(null);
+    if (kind !== "auto") return;
+    startSaving(async () => {
+      try {
+        await coachRequest(`/api/coach/runs/${runId}/match`, { method: "DELETE" });
+        await onSaved("", false);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : copy.runUpdateFailed);
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
+      {/* Match confirmation — how the run just logged linked to the plan (Phase 1.3). */}
+      {matchPrompt ? (
+        <MatchConfirmBanner prompt={matchPrompt} saving={saving} copy={copy} onConfirm={confirmMatch} onFreeRun={freeRunMatch} />
+      ) : null}
+
       {/* GPS run recorder — the record hero; renders only inside the phone app */}
       <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} />
 
@@ -212,7 +295,12 @@ export function CoachRunsPanel({
                 </Field>
                 {plannedWorkouts.length > 0 ? (
                   <Field label={copy.plan} className="sm:col-span-2">
-                    <select name="workoutId" className={inputClass}>
+                    <select
+                      name="workoutId"
+                      value={selectedWorkoutId}
+                      onChange={(event) => setSelectedWorkoutId(event.target.value)}
+                      className={inputClass}
+                    >
                       <option value="">-</option>
                       {plannedWorkouts.map((workout) => (
                         <option key={workout.id ?? workout.scheduledFor} value={workout.id}>{workout.title} - {workout.targetDistanceKm ?? "-"} km</option>

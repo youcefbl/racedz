@@ -31,6 +31,8 @@ export type CoachRun = {
   id: string;
   goalId: string | null;
   workoutId: string | null;
+  // How this run linked to its workout (EXPLICIT / AUTO / RUNNER_CONFIRMED), null when free.
+  workoutMatchSource?: string | null;
   startedAt: string;
   distanceKm: number;
   durationSeconds: number;
@@ -82,6 +84,28 @@ export type CoachWorkout = {
   intensity: string;
   instructions: string;
   status?: string;
+  // Phase 1 outcome metadata (present on persisted workouts; absent on freshly generated skeletons).
+  completionType?: string | null;
+  skipReason?: string | null;
+  runnerNote?: string | null;
+};
+
+// A medium-confidence run→workout match the matcher surfaced for the runner to confirm (Phase 1.3).
+export type CoachSuggestedMatch = { workoutId: string; title: string; confidence: number };
+
+// Deterministic plan-adherence summary (server: src/lib/coach/adherence.ts). hasActivePlan is false
+// for a free runner, so the UI shows a "no plan" state rather than a discouraging 0%.
+export type CoachAdherence = {
+  hasActivePlan: boolean;
+  plannedSessions: number;
+  completedSessions: number;
+  skippedSessions: number;
+  remainingSessions: number;
+  completionRate: number;
+  plannedDistanceKm: number;
+  completedDistanceKm: number;
+  longRun: { planned: boolean; completed: boolean };
+  consecutiveMissed: number;
 };
 
 export type CoachPlan = {
@@ -154,6 +178,8 @@ export type CoachDashboardData = {
   analyzedRuns?: Record<string, string>;
   // Recent nights of logged sleep, newest first.
   sleep?: CoachSleepEntry[];
+  // Plan-adherence summary for the active plan (null-safe: hasActivePlan:false when there's no plan).
+  adherence?: CoachAdherence;
 };
 
 export type CoachApiError = {

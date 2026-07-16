@@ -4,6 +4,15 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import type { RunRoutePoint } from "@/components/coach/types";
+import type { WorkoutMatchSource, WorkoutSkipReason } from "@prisma/client";
+import {
+  computePlanAdherence,
+  deriveWorkoutCompletionType,
+  pickBestWorkoutMatch,
+  EMPTY_ADHERENCE,
+  type PlanAdherence,
+  type WorkoutStatusValue
+} from "@/lib/coach/adherence";
 import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
@@ -347,9 +356,20 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
 
   if (!goal) throw new CoachError("Create an active coaching goal before logging a coached run.", 409, "ACTIVE_GOAL_REQUIRED");
 
+  // Resolve the workout link. An explicit workoutId is a runner-picked link (confidence 1); an
+  // unlinked run is run through the matcher, which only auto-links a same-day run within a tight
+  // distance band and otherwise returns a suggestion for the runner to confirm (Phase 1.3).
+  let linkedWorkoutId: string | null = input.workoutId ?? null;
+  let matchSource: WorkoutMatchSource | null = input.workoutId ? "EXPLICIT" : null;
+  let matchConfidence: number | null = input.workoutId ? 1 : null;
+  let linkTargetKm: number | null = null;
+  let suggestedMatch: { workoutId: string; title: string; confidence: number } | null = null;
+
   if (input.workoutId) {
-    const workouts = await prisma.$queryRaw<Array<{ id: string; completedRunId: string | null }>>`
-      SELECT workout."id", completed_run."id" AS "completedRunId"
+    const workouts = await prisma.$queryRaw<
+      Array<{ id: string; completedRunId: string | null; targetDistanceKm: number | null }>
+    >`
+      SELECT workout."id", workout."targetDistanceKm", completed_run."id" AS "completedRunId"
       FROM "TrainingWorkout" workout
       INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
       LEFT JOIN "RunnerRun" completed_run ON completed_run."workoutId" = workout."id"
@@ -358,6 +378,42 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     `;
     if (!workouts[0]) throw new CoachError("Training workout was not found.", 404, "WORKOUT_NOT_FOUND");
     if (workouts[0].completedRunId) throw new CoachError("This workout already has a completed run.", 409, "WORKOUT_ALREADY_COMPLETED");
+    linkTargetKm = workouts[0].targetDistanceKm;
+  } else {
+    // Candidate PLANNED, running-type workouts in the active plan within ±1 Algiers day of the run,
+    // not already claimed by another run. dayDelta is the whole-day gap between the two local dates.
+    const candidates = await prisma.$queryRaw<
+      Array<{ id: string; workoutType: string; targetDistanceKm: number | null; title: string; dayDelta: number }>
+    >`
+      SELECT w."id", w."workoutType"::text AS "workoutType", w."targetDistanceKm", w."title",
+        ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+            - (${input.startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date)::int AS "dayDelta"
+      FROM "TrainingWorkout" w
+      INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
+      WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'PLANNED'
+        AND w."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
+        AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
+        AND ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+            - (${input.startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date) <= 1
+    `;
+    const best = pickBestWorkoutMatch(
+      input.distanceKm,
+      candidates.map((c) => ({
+        workoutId: c.id,
+        workoutType: c.workoutType,
+        targetDistanceKm: c.targetDistanceKm,
+        dayDelta: Number(c.dayDelta)
+      }))
+    );
+    if (best?.scored.tier === "AUTO") {
+      linkedWorkoutId = best.candidate.workoutId;
+      matchSource = "AUTO";
+      matchConfidence = best.scored.confidence;
+      linkTargetKm = best.candidate.targetDistanceKm;
+    } else if (best?.scored.tier === "SUGGEST") {
+      const cand = candidates.find((c) => c.id === best.candidate.workoutId);
+      suggestedMatch = { workoutId: best.candidate.workoutId, title: cand?.title ?? "", confidence: best.scored.confidence };
+    }
   }
 
   const runId = randomUUID();
@@ -401,12 +457,12 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   const photosJson = input.photos && input.photos.length > 0 ? JSON.stringify(input.photos) : null;
   const rows = await prisma.$queryRaw<RunRow[]>`
     INSERT INTO "RunnerRun" (
-      "id", "userId", "goalId", "workoutId", "startedAt", "distanceKm", "durationSeconds",
+      "id", "userId", "goalId", "workoutId", "workoutMatchSource", "workoutMatchConfidence", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "weather", "isPublic", "perceivedEffort",
       "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "updatedAt"
     ) VALUES (
-      ${runId}, ${userId}, ${goal.id}, ${input.workoutId ?? null}, ${input.startedAt}, ${input.distanceKm},
+      ${runId}, ${userId}, ${goal.id}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
@@ -415,16 +471,30 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     RETURNING *
   `;
 
-  if (input.workoutId) {
+  if (linkedWorkoutId) {
+    // Record the outcome, not just the status flip. completionConfidence mirrors how the link was
+    // made (1 for an explicit/runner link, the matcher's score for an AUTO link); completionType is
+    // derived deterministically from distance vs the plan. Any prior skip metadata is cleared so a
+    // reopened-then-completed workout doesn't keep a stale skip reason.
+    const completionType = deriveWorkoutCompletionType(linkTargetKm, input.distanceKm);
     await prisma.$executeRaw`
-      UPDATE "TrainingWorkout" SET "status" = 'COMPLETED', "updatedAt" = NOW()
-      WHERE "id" = ${input.workoutId}
+      UPDATE "TrainingWorkout" SET
+        "status" = 'COMPLETED',
+        "completedAt" = ${input.startedAt},
+        "completionType" = ${completionType}::"WorkoutCompletionType",
+        "completionConfidence" = ${matchConfidence},
+        "skippedAt" = NULL,
+        "skipReason" = NULL,
+        "updatedAt" = NOW()
+      WHERE "id" = ${linkedWorkoutId}
     `;
   }
 
   const metrics = await refreshCoachSnapshot(userId, goal);
   const safety = evaluateCoachSafety(rows[0], metrics, { chronicConditions: goal.chronicConditions });
-  return { run: rows[0], metrics, safety };
+  // suggestedMatch is non-null only for a medium-confidence unlinked run — the client can offer a
+  // one-tap "was this your <title>?" confirm; ignoring it simply leaves the run free.
+  return { run: rows[0], metrics, safety, suggestedMatch };
 }
 
 // A single run the caller owns, with the fields needed to build a GPX export.
@@ -480,12 +550,194 @@ export async function deleteRun(userId: string, runId: string) {
   await prisma.$executeRaw`DELETE FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId}`;
 
   if (run.workoutId) {
+    // Reopen the workout and clear the completion metadata, so a deleted run leaves no ghost outcome.
     await prisma.$executeRaw`
-      UPDATE "TrainingWorkout" SET "status" = 'PLANNED', "updatedAt" = NOW()
+      UPDATE "TrainingWorkout" SET
+        "status" = 'PLANNED',
+        "completedAt" = NULL,
+        "completionType" = NULL,
+        "completionConfidence" = NULL,
+        "updatedAt" = NOW()
       WHERE "id" = ${run.workoutId}
     `;
   }
   return { id: run.id };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Runner workout actions (Phase 1.5) + confirm/reject a match (Phase 1.3). All are ownership- and
+// state-validated server-side: a runner can only act on a workout in one of their own ACTIVE plans,
+// and can't attach a run to an arbitrary or already-claimed workout.
+// ---------------------------------------------------------------------------------------------
+
+type OwnedWorkoutRow = {
+  id: string;
+  status: string;
+  targetDistanceKm: number | null;
+  completedRunId: string | null;
+  dayDeltaFromRun: number | null;
+};
+
+// Confirm a suggested match: attach one of the runner's free runs to a planned workout. Validates
+// ownership (both sides), that the workout is still open and unclaimed, and that the run is within a
+// day of it — so a client can't bind a run to an unrelated or far-off workout.
+export async function confirmWorkoutMatch(userId: string, runId: string, workoutId: string) {
+  const prisma = getPrisma();
+  const runRows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null; startedAt: Date; distanceKm: number }>>`
+    SELECT "id", "workoutId", "startedAt", "distanceKm" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+  `;
+  const run = runRows[0];
+  if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+  if (run.workoutId) throw new CoachError("This run is already linked to a workout.", 409, "RUN_ALREADY_LINKED");
+
+  const workoutRows = await prisma.$queryRaw<OwnedWorkoutRow[]>`
+    SELECT w."id", w."status"::text AS "status", w."targetDistanceKm", completed."id" AS "completedRunId",
+      ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+          - (${run.startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date)::int AS "dayDeltaFromRun"
+    FROM "TrainingWorkout" w
+    INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
+    LEFT JOIN "RunnerRun" completed ON completed."workoutId" = w."id"
+    WHERE w."id" = ${workoutId} AND p."userId" = ${userId} AND p."status" = 'ACTIVE'
+    LIMIT 1
+  `;
+  const workout = workoutRows[0];
+  if (!workout) throw new CoachError("Training workout was not found.", 404, "WORKOUT_NOT_FOUND");
+  if (workout.status !== "PLANNED" || workout.completedRunId) {
+    throw new CoachError("This workout can no longer be matched.", 409, "WORKOUT_NOT_MATCHABLE");
+  }
+  if (workout.dayDeltaFromRun === null || workout.dayDeltaFromRun > 1) {
+    throw new CoachError("This run is too far from the workout's day to link.", 409, "MATCH_OUT_OF_RANGE");
+  }
+
+  const completionType = deriveWorkoutCompletionType(workout.targetDistanceKm, run.distanceKm);
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE "RunnerRun" SET "workoutId" = ${workoutId}, "workoutMatchSource" = 'RUNNER_CONFIRMED'::"WorkoutMatchSource", "workoutMatchConfidence" = 1, "updatedAt" = NOW()
+      WHERE "id" = ${runId} AND "userId" = ${userId}
+    `,
+    prisma.$executeRaw`
+      UPDATE "TrainingWorkout" SET "status" = 'COMPLETED', "completedAt" = ${run.startedAt},
+        "completionType" = ${completionType}::"WorkoutCompletionType", "completionConfidence" = 1,
+        "skippedAt" = NULL, "skipReason" = NULL, "updatedAt" = NOW()
+      WHERE "id" = ${workoutId}
+    `
+  ]);
+  return { runId, workoutId };
+}
+
+// "Mark as free run": detach a run from its workout (e.g. a wrong auto-match), reopening the workout.
+export async function unlinkRunFromWorkout(userId: string, runId: string) {
+  const prisma = getPrisma();
+  const rows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null }>>`
+    SELECT "id", "workoutId" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+  `;
+  const run = rows[0];
+  if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+  if (!run.workoutId) return { runId, workoutId: null };
+
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE "RunnerRun" SET "workoutId" = NULL, "workoutMatchSource" = NULL, "workoutMatchConfidence" = NULL, "updatedAt" = NOW()
+      WHERE "id" = ${runId} AND "userId" = ${userId}
+    `,
+    prisma.$executeRaw`
+      UPDATE "TrainingWorkout" SET "status" = 'PLANNED', "completedAt" = NULL, "completionType" = NULL,
+        "completionConfidence" = NULL, "updatedAt" = NOW()
+      WHERE "id" = ${run.workoutId}
+    `
+  ]);
+  return { runId, workoutId: run.workoutId };
+}
+
+// "I can't do this today": mark a still-planned workout SKIPPED with an optional reason and note.
+export async function skipWorkout(
+  userId: string,
+  workoutId: string,
+  reason: WorkoutSkipReason | null,
+  note: string | null
+) {
+  const prisma = getPrisma();
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "TrainingWorkout" w
+    SET "status" = 'SKIPPED', "skippedAt" = NOW(),
+      "skipReason" = ${reason ? Prisma.sql`${reason}::"WorkoutSkipReason"` : Prisma.sql`NULL`},
+      "runnerNote" = ${note?.trim() || null}, "updatedAt" = NOW()
+    FROM "TrainingPlan" p
+    WHERE w."trainingPlanId" = p."id" AND p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'PLANNED'
+      AND w."id" = ${workoutId}
+    RETURNING w."id"
+  `;
+  if (!rows[0]) throw new CoachError("Workout was not found or can no longer be skipped.", 404, "WORKOUT_NOT_SKIPPABLE");
+  return { workoutId };
+}
+
+// Attach a reason to an already-SKIPPED workout — the "why did you miss this?" prompt shown on return
+// after a session was auto-closed with reason unknown. Only touches SKIPPED workouts on an active plan.
+export async function setWorkoutSkipReason(
+  userId: string,
+  workoutId: string,
+  reason: WorkoutSkipReason,
+  note: string | null
+) {
+  const rows = await getPrisma().$queryRaw<Array<{ id: string }>>`
+    UPDATE "TrainingWorkout" w
+    SET "skipReason" = ${reason}::"WorkoutSkipReason",
+      "runnerNote" = COALESCE(${note?.trim() || null}, w."runnerNote"), "updatedAt" = NOW()
+    FROM "TrainingPlan" p
+    WHERE w."trainingPlanId" = p."id" AND p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'SKIPPED'
+      AND w."id" = ${workoutId}
+    RETURNING w."id"
+  `;
+  if (!rows[0]) throw new CoachError("Workout was not found or is not a skipped session.", 404, "WORKOUT_NOT_SKIPPED");
+  return { workoutId };
+}
+
+// "Move workout": reschedule a still-planned workout to a new day (today or later, within the plan's
+// remaining window). Records the move in rescheduledFor.
+export async function rescheduleWorkout(userId: string, workoutId: string, scheduledFor: Date) {
+  const prisma = getPrisma();
+  const startOfTodayUtc = new Date();
+  startOfTodayUtc.setUTCHours(0, 0, 0, 0);
+  if (scheduledFor.getTime() < startOfTodayUtc.getTime()) {
+    throw new CoachError("Pick today or a future day to move this workout to.", 400, "RESCHEDULE_IN_PAST");
+  }
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "TrainingWorkout" w
+    SET "scheduledFor" = ${scheduledFor}, "rescheduledFor" = ${scheduledFor}, "updatedAt" = NOW()
+    FROM "TrainingPlan" p
+    WHERE w."trainingPlanId" = p."id" AND p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'PLANNED'
+      AND w."id" = ${workoutId}
+      AND ${scheduledFor}::timestamptz <= (p."endsOn" + INTERVAL '1 day')
+    RETURNING w."id"
+  `;
+  if (!rows[0]) throw new CoachError("Workout was not found or can no longer be moved.", 404, "WORKOUT_NOT_RESCHEDULABLE");
+  return { workoutId, scheduledFor };
+}
+
+// Deterministic plan-adherence summary for the runner's ACTIVE plan (Phase 1.4). Returns a
+// hasActivePlan:false zero-summary when there's no active plan, so the free-runner surface degrades
+// gracefully instead of reading as 0% adherence.
+export async function getPlanAdherence(userId: string): Promise<PlanAdherence> {
+  const rows = await getPrisma().$queryRaw<
+    Array<{ status: string; workoutType: string; targetDistanceKm: number | null; actualDistanceKm: number | null; scheduledFor: Date }>
+  >`
+    SELECT w."status"::text AS "status", w."workoutType"::text AS "workoutType",
+      w."targetDistanceKm", r."distanceKm" AS "actualDistanceKm", w."scheduledFor"
+    FROM "TrainingWorkout" w
+    INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
+    LEFT JOIN "RunnerRun" r ON r."workoutId" = w."id"
+    WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE'
+  `;
+  if (rows.length === 0) return EMPTY_ADHERENCE;
+  return computePlanAdherence(
+    rows.map((row) => ({
+      status: row.status as WorkoutStatusValue,
+      workoutType: row.workoutType,
+      targetDistanceKm: row.targetDistanceKm,
+      actualDistanceKm: row.actualDistanceKm,
+      scheduledForMs: new Date(row.scheduledFor).getTime()
+    }))
+  );
 }
 
 export async function getCoachDashboard(userId: string) {
@@ -493,7 +745,7 @@ export async function getCoachDashboard(userId: string) {
   // These six reads are independent — run them in parallel so the dashboard is a single
   // round-trip's worth of latency instead of six sequential ones (matters a lot when the
   // app talks to the origin over a high-latency link).
-  const [goal, runs, plans, interactions, snapshots, entitlement, sleep] = await Promise.all([
+  const [goal, runs, plans, interactions, snapshots, entitlement, sleep, adherence] = await Promise.all([
     getActiveGoal(userId),
     getRunnerRuns(userId, 10),
     prisma.$queryRaw<Array<Record<string, unknown>>>`
@@ -520,7 +772,8 @@ export async function getCoachDashboard(userId: string) {
       SELECT "metrics", "generatedAt" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
     `,
     getCoachEntitlementWithUsage(userId),
-    getSleepEntries(userId)
+    getSleepEntries(userId),
+    getPlanAdherence(userId)
   ]);
 
   // Tip categories depend on the resolved goal, so this runs after the parallel reads.
@@ -535,7 +788,7 @@ export async function getCoachDashboard(userId: string) {
   // burns another AI credit.
   const analyzedRuns = await getAnalyzedRunsMap(userId, runs.map((run) => run.id));
 
-  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns, sleep };
+  return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns, sleep, adherence };
 }
 
 // runId → id of its latest non-failed POST_RUN analysis, for the given runs. Shared by the coach
@@ -768,6 +1021,10 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       }
     : null;
 
+  // Real adherence on the active plan, so the coach can reference completed/skipped sessions and adapt
+  // to misses instead of assuming the plan went perfectly.
+  const adherence = await getPlanAdherence(userId);
+
   const context = buildRunnerCoachContext({
     goal,
     runs,
@@ -784,7 +1041,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     sleep: sleepEntries.map((entry) => ({ night: entry.night, durationMinutes: entry.durationMinutes })),
     nutrition,
     targetRun,
-    recentConversation
+    recentConversation,
+    adherence
   });
 
   try {
@@ -866,6 +1124,41 @@ const AUTO_PLAN_SUMMARY: Record<"en" | "fr" | "ar", string> = {
 };
 
 /**
+ * Close missed sessions (Phase 1.2). A PLANNED workout in an ACTIVE plan whose scheduled day is
+ * before today — and that has no linked run — is a missed session, so it becomes SKIPPED. This is
+ * what lets the coach state real adherence instead of leaving stale PLANNED rows behind.
+ *
+ * "Today" is evaluated in Africa/Algiers (UTC+1, no DST): Algeria is a single timezone, so we use it
+ * as a constant rather than a per-runner field (see the plan's timezone assumption). The date math is
+ * done in SQL so it's independent of the server's own timezone — `scheduledFor` is a UTC-naive
+ * timestamp, read as UTC then converted to the Algiers calendar date.
+ *
+ * REST days are never "missed". skipReason stays NULL ("reason unknown") until the runner tells us on
+ * their next visit — we never notify or punish here (principle: a missed run triggers a supportive
+ * adjustment, not a catch-up block). Idempotent: already-closed workouts aren't touched. Pass a
+ * userId to scope it to one runner (used by the rollover, to close the previous plan before the next
+ * one is created); omit it for the daily batch across all runners.
+ */
+export async function closeMissedWorkouts(userId?: string): Promise<{ closed: number }> {
+  const prisma = getPrisma();
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "TrainingWorkout" w
+    SET "status" = 'SKIPPED', "skippedAt" = NOW(), "updatedAt" = NOW()
+    FROM "TrainingPlan" p
+    WHERE w."trainingPlanId" = p."id"
+      AND p."status" = 'ACTIVE'
+      AND w."status" = 'PLANNED'
+      AND w."workoutType" <> 'REST'
+      AND (w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+          < (NOW() AT TIME ZONE 'Africa/Algiers')::date
+      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
+      ${userId ? Prisma.sql`AND p."userId" = ${userId}` : Prisma.empty}
+    RETURNING w."id"
+  `;
+  return { closed: rows.length };
+}
+
+/**
  * Make sure the runner has an ACTIVE plan whose week includes today. When their active plan's week
  * has ended (and there's no pending draft), generate the next week from the deterministic safety
  * skeleton — starting today — and activate it. No AI call, so it's free and safe to run daily.
@@ -880,6 +1173,10 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   todayUtcMidnight.setUTCHours(0, 0, 0, 0);
   if (new Date(goal.targetDate).getTime() < todayUtcMidnight.getTime()) return { created: false };
   const prisma = getPrisma();
+
+  // Close the previous plan's missed sessions before we supersede it and generate the next week, so
+  // the plan being retired reflects reality and no past PLANNED workout is orphaned on the old plan.
+  await closeMissedWorkouts(userId);
 
   // Skip when a current-week active plan already covers today, or a draft is awaiting acceptance.
   const existing = await prisma.$queryRaw<Array<{ status: string }>>`
