@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { notifyExpiringCoachAccess, rolloverTrainingPlans } from "@/lib/coach/reminders";
+import { closeMissedWorkouts } from "@/lib/coach/service";
 import { expireStaleCoachSubscriptions } from "@/lib/coach-admin";
 
 // Constant-time string compare so the secret can't be recovered via response timing.
@@ -36,12 +37,14 @@ export async function POST(request: Request) {
 
   try {
     // Daily coach maintenance, in order: flip lapsed subscriptions to EXPIRED (so entitlement and
-    // reporting are accurate), roll plans forward for anyone whose week ended, then warn runners
-    // whose access is ending soon.
+    // reporting are accurate), close yesterday's missed sessions across all active plans (so plan
+    // adherence is current before anything reads or rolls the plan), roll plans forward for anyone
+    // whose week ended, then warn runners whose access is ending soon.
     await expireStaleCoachSubscriptions();
+    const missed = await closeMissedWorkouts();
     const rollover = await rolloverTrainingPlans();
     const expiryWarnings = await notifyExpiringCoachAccess();
-    return NextResponse.json({ data: { rollover, expiryWarnings } });
+    return NextResponse.json({ data: { missed, rollover, expiryWarnings } });
   } catch (error) {
     console.error("Plan rollover job failed", error);
     Sentry.captureException(error, { tags: { cron: "plan-rollover" } });

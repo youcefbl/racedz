@@ -889,6 +889,41 @@ const AUTO_PLAN_SUMMARY: Record<"en" | "fr" | "ar", string> = {
 };
 
 /**
+ * Close missed sessions (Phase 1.2). A PLANNED workout in an ACTIVE plan whose scheduled day is
+ * before today — and that has no linked run — is a missed session, so it becomes SKIPPED. This is
+ * what lets the coach state real adherence instead of leaving stale PLANNED rows behind.
+ *
+ * "Today" is evaluated in Africa/Algiers (UTC+1, no DST): Algeria is a single timezone, so we use it
+ * as a constant rather than a per-runner field (see the plan's timezone assumption). The date math is
+ * done in SQL so it's independent of the server's own timezone — `scheduledFor` is a UTC-naive
+ * timestamp, read as UTC then converted to the Algiers calendar date.
+ *
+ * REST days are never "missed". skipReason stays NULL ("reason unknown") until the runner tells us on
+ * their next visit — we never notify or punish here (principle: a missed run triggers a supportive
+ * adjustment, not a catch-up block). Idempotent: already-closed workouts aren't touched. Pass a
+ * userId to scope it to one runner (used by the rollover, to close the previous plan before the next
+ * one is created); omit it for the daily batch across all runners.
+ */
+export async function closeMissedWorkouts(userId?: string): Promise<{ closed: number }> {
+  const prisma = getPrisma();
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "TrainingWorkout" w
+    SET "status" = 'SKIPPED', "skippedAt" = NOW(), "updatedAt" = NOW()
+    FROM "TrainingPlan" p
+    WHERE w."trainingPlanId" = p."id"
+      AND p."status" = 'ACTIVE'
+      AND w."status" = 'PLANNED'
+      AND w."workoutType" <> 'REST'
+      AND (w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+          < (NOW() AT TIME ZONE 'Africa/Algiers')::date
+      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
+      ${userId ? Prisma.sql`AND p."userId" = ${userId}` : Prisma.empty}
+    RETURNING w."id"
+  `;
+  return { closed: rows.length };
+}
+
+/**
  * Make sure the runner has an ACTIVE plan whose week includes today. When their active plan's week
  * has ended (and there's no pending draft), generate the next week from the deterministic safety
  * skeleton — starting today — and activate it. No AI call, so it's free and safe to run daily.
@@ -903,6 +938,10 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   todayUtcMidnight.setUTCHours(0, 0, 0, 0);
   if (new Date(goal.targetDate).getTime() < todayUtcMidnight.getTime()) return { created: false };
   const prisma = getPrisma();
+
+  // Close the previous plan's missed sessions before we supersede it and generate the next week, so
+  // the plan being retired reflects reality and no past PLANNED workout is orphaned on the old plan.
+  await closeMissedWorkouts(userId);
 
   // Skip when a current-week active plan already covers today, or a draft is awaiting acceptance.
   const existing = await prisma.$queryRaw<Array<{ status: string }>>`
