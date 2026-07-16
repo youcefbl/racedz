@@ -11,6 +11,15 @@
 > the user-locale sync item marked done (shipped with notification i18n). No data backfill/cutover is
 > planned because production has no real runner accounts yet.
 
+> **Branch update (2026-07-16 — `feat/coach-plan-adherence`).** Phase 1.1–1.4 backend work is now
+> implemented: workout outcomes, Africa/Algiers missed-session closure, conservative run-to-workout
+> matching, runner workout-action APIs, deterministic plan-adherence metrics, and a content-free admin
+> coach-operations report. Phase 1.5 is API-complete but its runner UI is still pending. Phase 1.6 is
+> only partially complete: no-active-plan adherence degrades gracefully, but the full free-runner
+> coaching surface is not yet implemented. Adaptive planning, long-term memory, and richer location
+> personalization remain future phases. The UX review has been folded into this document (this is now
+> the single source of truth): make the daily coaching loop visible before expanding the planning engine.
+
 ## Objective
 
 Make the AI Coach ZidRun's main runner feature: a highly personalized, adaptive coaching loop that connects a runner's goal, training plan, workouts, run history, missed sessions, recovery signals, location, race context, and conversations.
@@ -45,6 +54,13 @@ The coach already has a strong MVP foundation:
 - Deterministic safety limits and provider-failure persistence.
 - Daily plan reminders, inactivity nudges, and weekly plan rollover jobs.
 - Mobile guided workouts and a runner dashboard.
+- Workout outcome metadata: completion type/confidence, skip reason, rescheduling, and runner notes.
+- Automatic closure of past planned workouts as `SKIPPED` using the Africa/Algiers calendar date.
+- Conservative run-to-workout matching with `AUTO`, `SUGGEST`, and free-run outcomes.
+- Match provenance and confidence persisted on linked runs.
+- Server-side workout actions for skip, reschedule, confirm-match, and mark-as-free-run.
+- Deterministic active-plan adherence metrics exposed to the dashboard and AI context.
+- Admin-only, content-free coach-operations reporting for runs, outcomes, adherence, AI usage, and cost.
 
 Relevant implementation areas:
 
@@ -53,6 +69,8 @@ Relevant implementation areas:
 - [Planning skeleton](src/lib/coach/planning.ts)
 - [Safety enforcement](src/lib/coach/safety.ts)
 - [OpenAI adapter](src/lib/coach/openai.ts)
+- [Adherence and matching helpers](src/lib/coach/adherence.ts)
+- [Coach operations report](src/lib/coach/report.ts)
 - [Coach dashboard](src/components/coach/coach-dashboard.tsx)
 
 ### Current limitations
@@ -63,14 +81,22 @@ The current system is a personalized explanation layer over a relatively simple 
 2. Runs older than approximately 56 days are excluded from coach calculations and context.
 3. Previous goals, race registrations, race results, and personal records are not meaningfully included in coaching context.
 4. Location is limited mainly to Wilaya/city; commune, timezone, preferred run time, terrain, and usual routes are not used.
-5. A workout is marked complete only when a run is explicitly linked to its `workoutId`.
-6. Free runs and imported runs are usually not matched to planned workouts.
-7. Missed workouts are visually inferred in the UI but are not persisted as `SKIPPED`.
-8. The coach does not receive the actual active plan with workout completion statuses. It receives a newly generated fixed weekly skeleton.
+5. Workout outcomes are now persisted, but an explicit client-selected workout can still be linked without the same date, distance, and type validation used by the matcher.
+6. Free runs and imported runs now pass through conservative matching; suggestions and runner actions are API-only, with no runner-facing UI yet.
+7. Past workouts are now auto-closed as `SKIPPED`, but auto-closed rows keep a null skip reason until the runner supplies one.
+8. The coach now receives an adherence summary, but not the complete workout-level active-plan state, reasons, or match details.
 9. The deterministic plan mainly uses experience, recent distance, available days, and long-run day.
 10. Target race distance, target time, race date, race elevation, sleep, nutrition, injury history, and weather do not materially shape the generated workout schedule.
 11. The AI's generated upcoming workouts are replaced by the deterministic skeleton before saving, so AI personalization mostly affects explanations rather than the plan itself.
 12. Weekly rollover depends on an externally scheduled cron job. Production must verify that the cron jobs are configured and monitored.
+13. The free-runner path only avoids a false `0%` adherence summary; run logging and coach interaction still require an active goal, and there is no complete no-plan coaching experience.
+14. Confirming a suggested match validates ownership, state, and date proximity, but does not yet enforce compatible workout type or distance tolerance.
+15. Rescheduling uses a UTC start-of-day check while missed-session closure uses Africa/Algiers date logic; these must share one timezone helper before broader use.
+16. Cancelled workouts are excluded from completion-rate decisions but are currently included in some planned-session and planned-distance totals; adherence metric semantics need tightening.
+17. The branch adds backend APIs but does not yet connect skip, reschedule, match confirmation, or free-run actions to the runner UI.
+18. Adaptive plan generation has not started; adherence is now available as input, but the next plan still uses the existing deterministic skeleton.
+19. The coach opens on an overview/stats experience instead of answering “what should I do today?” in the first screen; the new adherence and matching data is currently invisible to runners.
+20. Run logging is not yet offline-tolerant, and the new coach surfaces still need explicit mobile, RTL, loading-state, reduced-motion, and contrast QA.
 
 ## Product principles
 
@@ -99,6 +125,9 @@ The current system is a personalized explanation layer over a relatively simple 
   it, and EXECUTION_PLAN.md's coach-onboarding item already flags this as a prerequisite. Write the
   policy line (what health data is stored, consent model, retention/expiry, deletion) before any phase
   that persists health or precise-location data.
+- Define the runner-facing data-control contract: what is stored, why it is used, how long it is kept,
+  and how export/delete work. The eventual `Your data` screen should make this visible instead of
+  leaving it only in policy or support flows.
 - Verify the two coach cron endpoints are scheduled:
   - `/api/internal/cron/plan-rollover`
   - `/api/internal/cron/training-reminder`
@@ -107,6 +136,15 @@ The current system is a personalized explanation layer over a relatively simple 
   the first baseline is effectively the beta cohort — treat these as the metrics to instrument, not
   historical numbers to read today.)*
 
+### Completed in this branch
+
+- Content-free admin report API: `GET /api/admin/coach/report?days=30`.
+- Report aggregates run sources, linked/free runs, match provenance, auto-link confidence, workout outcomes, skip reasons, active-plan adherence, AI request status, token totals, and estimated cost.
+
+The report is an observability API only; no admin UI or alerting has been added yet. The branch commit
+reports end-to-end aggregate verification, while the repository's standard test scripts still need
+dedicated checked-in regression coverage for the new report.
+
 ### Baseline metrics
 
 - Goal creation completion rate.
@@ -114,7 +152,8 @@ The current system is a personalized explanation layer over a relatively simple 
 - Runs logged per coached runner per week.
 - Percentage of runs linked to a workout.
 - Percentage of planned workouts completed.
-- Number of workouts visually missed but still stored as `PLANNED`.
+- Number of auto-closed workouts with an unknown skip reason.
+- Auto-link precision, suggestion confirmation rate, and unlink/correction rate.
 - AI request success/failure rate and cost.
 - Weekly active coached runners.
 - Seven-day and thirty-day retention.
@@ -129,7 +168,7 @@ The current system is a personalized explanation layer over a relatively simple 
 
 This is the highest-priority engineering phase.
 
-### 1.1 Persist workout outcomes
+### 1.1 Persist workout outcomes — ✅ backend complete
 
 Use the existing workout status values and add outcome information where needed.
 
@@ -156,7 +195,12 @@ Recommended skip reasons:
 
 If a separate event model is preferred, add `WorkoutOutcome` rather than overloading `TrainingWorkout`. Keep the workout's final status authoritative.
 
-### 1.2 Automatically close missed sessions
+Implemented in `20260716120000_add_workout_outcome` and `src/lib/coach/adherence.ts`. Explicit links
+record completion metadata; distance below 75% of a known target is classified as `PARTIAL`. The
+intensity-based completion variants remain intentionally unused until planned versus actual effort
+data is available.
+
+### 1.2 Automatically close missed sessions — ✅ backend complete
 
 At the end of each runner's local training day:
 
@@ -179,7 +223,12 @@ later.
 rows to retroactively close. When real accounts exist, revisit whether a cutover date is needed before
 enabling auto-close.)*
 
-### 1.3 Match unlinked runs to planned workouts
+Implemented by `closeMissedWorkouts()` and wired into the plan-rollover cron and per-runner weekly
+plan rollover. It is idempotent, user-scoped when requested, skips REST/cancelled plans, and uses the
+Africa/Algiers calendar date. Runner-provided late completion after auto-close still needs an explicit
+product rule: either permit a late match and record it as late, or keep the skipped outcome immutable.
+
+### 1.3 Match unlinked runs to planned workouts — 🟡 backend complete, UI pending
 
 When a manual, GPS, or imported run is saved without a workout ID:
 
@@ -200,12 +249,20 @@ downstream*. Being uncertain (ask the runner) is cheaper than being wrong (silen
   within ~15% **and** the type is compatible — a narrow, high-precision band. When unsure, drop to
   "ask," never to auto-link.
 - Ask-to-confirm (step 5) covers same/adjacent-day near-misses; everything else stays a free run.
-- Persist the match provenance (`AUTO`, `RUNNER_CONFIRMED`, `RUNNER_MANUAL`) and the confidence score
+- Persist the match provenance (`EXPLICIT`, `AUTO`, `RUNNER_CONFIRMED`) and the confidence score
   alongside the link, so a later audit can find and unwind bad auto-links.
 - Start the thresholds deliberately conservative and loosen them only once the confirm-rate data shows
   auto-links are being accepted. Log the precision/recall of auto-links as a Phase 0 metric.
 
-### 1.4 Add adherence metrics
+Implemented in `src/lib/coach/adherence.ts` and `createRunnerRun()`. The matcher auto-links only a
+same-day compatible running workout within 15% of a known target; weaker candidates return a
+`suggestedMatch` without linking. The branch also adds confirmation and unlink endpoints.
+
+Before calling this complete, apply the same distance/type compatibility checks inside
+`confirmWorkoutMatch()`. The current endpoint checks ownership, active-plan state, unclaimed status,
+and date proximity, but a caller could confirm a same-day run against a materially different workout.
+
+### 1.4 Add adherence metrics — ✅ backend complete, metric follow-up pending
 
 Create deterministic metrics for:
 
@@ -222,7 +279,32 @@ Create deterministic metrics for:
 
 Expose these metrics in the dashboard and coach context.
 
-### 1.5 Update the runner experience
+Implemented by `computePlanAdherence()` and `getPlanAdherence()`. The summary includes planned,
+completed, skipped, remaining, completion rate, planned/completed distance, long-run completion, and
+consecutive missed sessions. It is returned in the dashboard payload and sent as `planAdherence` to
+the AI context. The free-runner/no-active-plan case returns an explicit empty state instead of `0%`.
+
+Remaining metric work: exclude `CANCELLED` workouts consistently from planned counts and planned
+distance, add planned-versus-completed duration, and add intensity adherence and recovery-debt
+metrics.
+
+### 1.5 Update the runner experience — 🟡 API complete, UI pending
+
+Make the daily loop visible before starting Phase 2. The north-star interaction is: a runner opens the
+coach, sees what to do today and why, then starts, logs, or safely changes that workout without leaving
+the first screen.
+
+#### Today-first home
+
+- Replace the default stats-first view with a Today card as the primary coach surface.
+- Show one primary action: `Start guided workout` when a workout is planned, or `Log a run` when it is
+  not. Keep `I cannot do this today` and `Move` as secondary actions.
+- Include the workout's purpose, distance/duration, target effort, goal context, and weather guidance
+  when weather data is available.
+- Make REST days explicit: “Rest day — recovery is training too,” with optional walk or cross-training
+  logging rather than an empty plan state.
+- Add a compact adherence strip such as `4 of 6 complete · 22/30 km`, with a link to the detailed plan.
+- Preserve a clear no-active-plan state; never display `0% adherence` to a free runner.
 
 Add clear actions to every workout:
 
@@ -234,7 +316,32 @@ Add clear actions to every workout:
 
 After a missed workout, show supportive language and the next safe action. Do not shame the runner or suggest automatically making up every missed kilometre.
 
-### 1.6 Serve the free-runner (no accepted plan)
+The branch adds `PATCH /api/coach/workouts/[id]` for skip/reschedule and
+`POST|DELETE /api/coach/runs/[id]/match` for confirm/free-run. The runner-facing plan and run panels do
+not yet expose these actions, suggested-match prompts, skip-reason collection, or rescheduling UI.
+
+#### Make the adherence loop trustworthy
+
+- Show a non-blocking confirmation after an automatic link: “Logged and counted as your Tempo” with an
+  Undo/free-run action.
+- Show a one-tap prompt for `suggestedMatch`: “Was this your planned Tempo?” with Confirm and Free run.
+- Celebrate free runs as training instead of presenting them as adherence failures.
+- Surface auto-closed workouts on the next visit with supportive reason chips: schedule, fatigue, pain,
+  illness/travel, other, or skip. Never shame the runner or imply that all missed distance must be
+  caught up.
+- Keep all actions server-validated and require explicit confirmation before chat-triggered changes.
+
+#### UX quality requirements
+
+- Keep the primary action thumb-reachable on mobile and audit the full surface in English, French, and
+  Arabic, including RTL progress bars, directional icons, and numbers.
+- Use real skeleton/loading states for plan generation and AI replies, with disabled duplicate-submit
+  protection and clear failure recovery.
+- Preserve AA contrast and reduced-motion behavior across light, dark, and race themes.
+- Treat offline-tolerant run logging as a follow-up: queue a completed run locally, show “saved — will
+  sync,” retry safely, and prevent duplicate submissions when connectivity returns.
+
+### 1.6 Serve the free-runner (no accepted plan) — 🟡 partial
 
 The rest of this plan is plan-centric, but the baseline metrics (Phase 0) expect a low "% who accept a
 plan" and a large share of free/imported runs. If most runners never accept a plan, adherence tracking
@@ -251,17 +358,53 @@ Define what the coach gives the runner who **logs runs but has not committed to 
 Adherence metrics should degrade gracefully (clearly "no active plan") rather than read as 0% adherence,
 which would be both wrong and discouraging.
 
+The graceful no-active-plan adherence response is implemented. The full free-runner experience is not:
+the current run and interaction services still require an active goal, and the dashboard does not yet
+provide a distinct history-only coaching path or a low-friction plan invitation based on actual runs.
+The UX target is a history-based training read (volume, consistency, pace drift, and fatigue/pain
+signals) plus a soft “Want a plan built around this?” invitation.
+
 ### Phase 1 exit criteria
 
-- A run can be accurately linked, partially linked, or left free.
-- Planned workouts become completed or skipped deterministically.
-- The coach can state actual plan adherence with numbers.
-- Missed runs produce a stored reason or a clear “reason unknown” state.
-- Tests cover one missed run, multiple missed runs, free runs, imported runs, and rescheduling.
+- ✅ A run can be auto-linked conservatively, suggested for confirmation, or left free.
+- ✅ Planned workouts become completed or skipped deterministically on the backend.
+- ✅ The coach can state active-plan adherence with numbers.
+- ✅ Missed workouts can carry a stored reason or a clear “reason unknown” state.
+- 🟡 Runner UI actions and suggested-match confirmation are still outstanding.
+- 🟡 Dedicated checked-in regression tests for the new adherence/report code are still outstanding.
 
-## Phase 2 — Build an adaptive deterministic planning engine
+### Phase 1 follow-ups before declaring the runner experience complete
+
+- Add runner UI for skip, reschedule, confirm-match, and mark-as-free-run.
+- Validate confirmed matches with the same type/distance rules as automatic matches.
+- Unify Algiers local-date handling through one shared helper, including rescheduling and late logs.
+- Define late completion after auto-close.
+- Exclude cancelled workouts consistently from adherence totals.
+- Add checked-in tests for matcher thresholds, timezone boundaries, actions, concurrency, and report aggregates.
+- Reject skip actions for REST workouts and define whether a late completion can reopen an auto-closed workout.
+
+### UX delivery slice and measurement
+
+The next coherent sprint should ship the Today-first card, adherence strip, workout actions, match
+confirmation, and supportive missed-session prompt together. Measure the result with the coach-ops
+report and product analytics:
+
+- Suggested-match confirmation rate and auto-link correction/unlink rate.
+- Skip-reason capture rate, workout-action completion rate, and run-link rate.
+- Seven-day return rate and percentage of runners completing the primary daily action.
+- No-plan runners who view their history-based coaching read or accept a plan invitation.
+
+Quick check-in, contextual chat replies, and “why this plan” are follow-on experiences. They must use
+explicit confirmation and server-side validation for actions; a pre-workout sleep/fatigue/pain check-in
+may gate the existing deterministic safety flow before the adaptive planner is available.
+
+## Phase 2 — Build an adaptive deterministic planning engine — ⏳ not started
 
 Replace the current weekly skeleton with a planner that creates safe candidate sessions from the runner's full current state.
+
+Phase 1.4 now supplies real adherence input, but no adaptive behavior has been implemented yet. The
+current plan generator still uses the existing skeleton and the AI's generated workout list is still
+replaced by the deterministic safety skeleton.
 
 ### Planner inputs
 
@@ -433,6 +576,10 @@ The first screen should show:
 6. Progress toward the goal.
 7. The next adjustment.
 
+The Phase 1 UX slice should deliver the Today card, primary action, adherence strip, and supportive
+workout actions first. Phase 5 makes Coach the default product surface once those interactions have
+proved useful, rather than treating a redesign alone as the feature.
+
 ### Adaptive check-ins
 
 Use in-app, push, and email notifications carefully:
@@ -460,6 +607,25 @@ Keep chat as a powerful support surface for:
 
 The chat should be able to trigger structured actions, such as moving a workout or starting a recovery week, but only after explicit runner confirmation and server-side validation.
 
+Use contextual quick replies instead of a blank prompt, including `Why this workout?`, `I only have
+30 minutes`, `I missed Tuesday`, `My knee hurts`, `It's too hot`, and `How should I pace race day?`.
+Replies should cite the relevant workout/run or clearly say when information is unavailable. Structured
+actions must show the proposed change and require confirmation before mutation.
+
+### Trust, onboarding, and motivation UX
+
+- Split goal onboarding into essential inputs and an optional personalization section. Ask for health
+  data with a short explanation, explicit consent, and an easy skip path.
+- After plan generation, show “Why this plan?” with the runner's days, recent volume, target race, and
+  training phase. Distinguish stored facts from coach assumptions.
+- Make trial value concrete with actual runner progress (runs logged, plan completion, or goal progress)
+  rather than only a countdown.
+- Celebrate meaningful milestones—personal bests, completed long runs, streaks, and race progress—at
+  appropriate moments. Use the race theme and shareable cards sparingly.
+- Use forgiving streak semantics: a rest day should not break a streak, and one missed run should not
+  erase the runner's progress narrative.
+- Show progress toward the goal and current training phase, not only weekly totals.
+
 ## Cost and context budget
 
 Phases 2–3 add planner inputs and long-term memory retrieval, which means more tokens per call — on a
@@ -477,9 +643,12 @@ Growing context without a ceiling is a latency and cost regression waiting to ha
 
 Likely schema changes:
 
-- Workout completion metadata and skip reasons.
-- Workout rescheduling or outcome table.
-- Workout-to-run match confidence and matching source.
+- ~~Workout completion metadata and skip reasons.~~ **✅ Done** — migration
+  `20260716120000_add_workout_outcome`.
+- ~~Workout rescheduling or outcome table.~~ **✅ Partially done** — rescheduling metadata and runner
+  note live on `TrainingWorkout`; late-completion history and richer outcome events remain.
+- ~~Workout-to-run match confidence and matching source.~~ **✅ Done** — migration
+  `20260716130000_add_run_workout_match`.
 - Local timezone and preferred training time.
 - Optional runner terrain and training preferences.
 - Coach memory records.
@@ -513,6 +682,11 @@ Add fixtures for:
 - Run from a previous goal.
 - Rescheduled workout.
 - English, French, and Arabic output.
+
+The branch commit messages report focused matcher, outcome, auto-close, action, adherence, and report
+checks. However, no new dedicated test script/file was added to the branch, and the standard
+`test:coach` command still covers the pre-existing metrics/planning/safety cases. Convert the reported
+checks into committed regression tests before relying on this phase in CI.
 
 ### Authorization tests
 
@@ -591,14 +765,17 @@ Start with 50–100 runners after:
 ## Recommended implementation order
 
 1. Rotate the exposed credential and verify production secret handling.
-2. Implement workout status closure, skip reasons, and run-to-workout matching.
-3. Add real adherence metrics to the dashboard and coach context.
-4. Replace the weekly skeleton with a goal-relative adaptive planner.
-5. Add missed-run recovery and rescheduling flows.
-6. Add structured long-term memory and paginated conversation history.
-7. Add richer location, schedule, terrain, and race personalization.
-8. Rebuild the Coach home as the runner's primary daily surface.
-9. Add evaluations, authorization tests, export/deletion, monitoring, and closed beta.
+2. Finish Phase 1 backend integrity follow-ups: confirmed-match validation, cancelled-workout metric semantics, shared timezone handling, and late-log behavior.
+3. Add checked-in regression tests for Phase 1 and wire the admin report into monitoring.
+4. Ship the Today-first daily loop: home card, adherence strip, workout actions, match confirmation, and supportive missed-session recovery.
+5. Complete the free-runner history-only coaching path.
+6. Add the quick check-in, contextual chat replies, and “why this plan” trust surfaces with explicit action confirmation.
+7. Replace the weekly skeleton with a goal-relative adaptive planner using adherence.
+8. Add missed-run recovery and rescheduling behavior to plan generation.
+9. Add structured long-term memory and paginated conversation history.
+10. Add richer location, schedule, terrain, and race personalization.
+11. Make Coach the app's default primary surface after the daily loop proves useful.
+12. Add evaluations, authorization tests, export/deletion, monitoring, and closed beta.
 
 ## Definition of success
 
