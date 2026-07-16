@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import type { RunRoutePoint } from "@/components/coach/types";
+import { deriveWorkoutCompletionType } from "@/lib/coach/adherence";
 import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
@@ -347,9 +348,12 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
 
   if (!goal) throw new CoachError("Create an active coaching goal before logging a coached run.", 409, "ACTIVE_GOAL_REQUIRED");
 
+  let linkedWorkoutTargetKm: number | null = null;
   if (input.workoutId) {
-    const workouts = await prisma.$queryRaw<Array<{ id: string; completedRunId: string | null }>>`
-      SELECT workout."id", completed_run."id" AS "completedRunId"
+    const workouts = await prisma.$queryRaw<
+      Array<{ id: string; completedRunId: string | null; targetDistanceKm: number | null }>
+    >`
+      SELECT workout."id", workout."targetDistanceKm", completed_run."id" AS "completedRunId"
       FROM "TrainingWorkout" workout
       INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
       LEFT JOIN "RunnerRun" completed_run ON completed_run."workoutId" = workout."id"
@@ -358,6 +362,7 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     `;
     if (!workouts[0]) throw new CoachError("Training workout was not found.", 404, "WORKOUT_NOT_FOUND");
     if (workouts[0].completedRunId) throw new CoachError("This workout already has a completed run.", 409, "WORKOUT_ALREADY_COMPLETED");
+    linkedWorkoutTargetKm = workouts[0].targetDistanceKm;
   }
 
   const runId = randomUUID();
@@ -416,8 +421,20 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   `;
 
   if (input.workoutId) {
+    // Record the outcome, not just the status flip. This is an explicit runner link, so the
+    // confidence is 1; auto-matched links (Phase 1.3) will write a lower score. completionType is
+    // derived deterministically from distance vs the plan. Any prior skip metadata is cleared so a
+    // reopened-then-completed workout doesn't keep a stale skip reason.
+    const completionType = deriveWorkoutCompletionType(linkedWorkoutTargetKm, input.distanceKm);
     await prisma.$executeRaw`
-      UPDATE "TrainingWorkout" SET "status" = 'COMPLETED', "updatedAt" = NOW()
+      UPDATE "TrainingWorkout" SET
+        "status" = 'COMPLETED',
+        "completedAt" = ${input.startedAt},
+        "completionType" = ${completionType}::"WorkoutCompletionType",
+        "completionConfidence" = 1,
+        "skippedAt" = NULL,
+        "skipReason" = NULL,
+        "updatedAt" = NOW()
       WHERE "id" = ${input.workoutId}
     `;
   }
@@ -480,8 +497,14 @@ export async function deleteRun(userId: string, runId: string) {
   await prisma.$executeRaw`DELETE FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId}`;
 
   if (run.workoutId) {
+    // Reopen the workout and clear the completion metadata, so a deleted run leaves no ghost outcome.
     await prisma.$executeRaw`
-      UPDATE "TrainingWorkout" SET "status" = 'PLANNED', "updatedAt" = NOW()
+      UPDATE "TrainingWorkout" SET
+        "status" = 'PLANNED',
+        "completedAt" = NULL,
+        "completionType" = NULL,
+        "completionConfidence" = NULL,
+        "updatedAt" = NOW()
       WHERE "id" = ${run.workoutId}
     `;
   }

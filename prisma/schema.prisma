@@ -611,6 +611,14 @@ model TrainingWorkout {
   intensity         String
   instructions      String
   status            WorkoutStatus    @default(PLANNED)
+  // Outcome metadata (Phase 1 — plan adherence). `status` stays authoritative; these describe it.
+  completedAt          DateTime? // when a linked run closed this workout as COMPLETED
+  completionType       WorkoutCompletionType? // how it was done (AS_PLANNED / PARTIAL / …)
+  completionConfidence Float? // 0–1; how sure the link is (1 = explicit runner link, lower = auto-matched)
+  skippedAt            DateTime? // when it was closed as SKIPPED (runner action or auto-close)
+  skipReason           WorkoutSkipReason? // why it was missed, when known
+  rescheduledFor       DateTime? // new local date if the runner moved it
+  runnerNote           String? // optional free-text the runner attached to the outcome
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -841,6 +849,29 @@ enum WorkoutStatus {
   COMPLETED
   SKIPPED
   CANCELLED
+}
+
+// How a planned workout was actually carried out, once it has an outcome. Distinct from
+// WorkoutStatus (which stays authoritative): a COMPLETED workout can still be PARTIAL, and the
+// richer intensity variants are filled in as the run-matching / runner-action phases land.
+enum WorkoutCompletionType {
+  AS_PLANNED
+  PARTIAL
+  EASIER_THAN_PLANNED
+  HARDER_THAN_PLANNED
+}
+
+// Why a planned workout was missed. Set when a workout is closed as SKIPPED — by the runner
+// ("I can't do this today") or, once known, on their next visit after an auto-close.
+enum WorkoutSkipReason {
+  SCHEDULE
+  FATIGUE
+  PAIN_OR_SYMPTOMS
+  WEATHER
+  ILLNESS
+  TRAVEL
+  MOTIVATION
+  OTHER
 }
 
 enum CoachInteractionType {
