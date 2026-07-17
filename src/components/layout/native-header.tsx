@@ -10,7 +10,7 @@ import { tapHaptic } from "@/lib/native/haptics";
 // App-style top bar shown ONLY inside the native app (toggled by `.native-app` in CSS).
 // Contextual: a left-aligned screen title, a back chevron on non-root screens, and a
 // notifications bell. Theme/language/account live in the Settings + Account screens, not here.
-const TAB_ROOTS = new Set(["/", "/races", "/account/coach", "/account"]);
+const TAB_ROOTS = new Set(["/", "/races", "/account/coach", "/account/runs", "/account"]);
 
 export function NativeHeader({ user }: { user?: HeaderUser }) {
   const pathname = usePathname();
@@ -66,6 +66,7 @@ function getScreenTitle(pathname: string, dict: ReturnType<typeof getDictionary>
   if (pathname.startsWith("/account/notification-settings")) return dict.account.settings;
   if (pathname.startsWith("/account/notifications")) return dict.notifications.title;
   if (pathname.startsWith("/account/profile")) return dict.account.profile;
+  if (pathname.startsWith("/account/runs")) return nav.runs;
   if (pathname.startsWith("/account/registrations")) return nav.account;
   if (pathname.startsWith("/account")) return nav.account;
   if (pathname.startsWith("/races")) return nav.races;

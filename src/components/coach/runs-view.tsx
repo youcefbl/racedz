@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import { getCoachCopy } from "@/components/coach/copy";
@@ -39,6 +39,7 @@ export function RunsView({
   const router = useRouter();
   const copy = getCoachCopy(locale);
   const [runs, setRuns] = useState<CoachRun[]>(initialRuns);
+  const optimisticRun = useRef<CoachRun | null>(null);
   const [analyzedRuns, setAnalyzedRuns] = useState<Record<string, string>>(initialAnalyzedRuns);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
@@ -46,7 +47,19 @@ export function RunsView({
     try {
       const res = await fetch("/api/coach/runs", { headers: { accept: "application/json" } });
       const json = (await res.json().catch(() => null)) as { data?: CoachRun[] } | null;
-      if (json?.data) setRuns(json.data);
+      if (json?.data) {
+        setRuns(() => {
+          const pending = optimisticRun.current;
+          if (!pending) return json.data!;
+          if (json.data!.some((run) => run.id === pending.id)) {
+            optimisticRun.current = null;
+            return json.data!;
+          }
+          // A just-saved run can briefly miss a follow-up GET on a slow or cached connection.
+          // Keep it visible until the server response catches up.
+          return [pending, ...json.data!.filter((run) => run.id !== pending.id)];
+        });
+      }
     } catch {
       /* keep the current list */
     }
@@ -80,16 +93,7 @@ export function RunsView({
   );
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
-      {records ? <RecordsSummary records={records} locale={locale} /> : null}
-      {badges.length > 0 ? <BadgesStrip badges={badges} locale={locale} /> : null}
-      <GpxImport
-        locale={locale}
-        onImported={async () => {
-          await refresh();
-          router.refresh();
-        }}
-      />
+    <div className="mx-auto max-w-2xl px-4 py-3">
       <CoachRunsPanel
         runs={runs}
         plan={null}
@@ -101,11 +105,30 @@ export function RunsView({
         recentPaceSecondsPerKm={recentPaceSecondsPerKm}
         analyzedRuns={analyzedRuns}
         onViewAnalysis={openAnalysis}
-        onSaved={async (_runId, analyzeNow) => {
-          await refresh();
+        onSaved={async (_runId, analyzeNow, savedRun) => {
+          if (savedRun) {
+            optimisticRun.current = savedRun;
+            setRuns((current) => [savedRun, ...current.filter((run) => run.id !== savedRun.id)]);
+          }
+          // The POST response is enough to show the run. Refresh in the background so records,
+          // matching, and server-side enrichment catch up without blocking save feedback.
+          void refresh();
           if (analyzeNow && _runId) await analyze(_runId);
         }}
         onAnalyze={analyze}
+        afterRecorder={
+          <div className="space-y-4">
+            {records ? <RecordsSummary records={records} locale={locale} /> : null}
+            {badges.length > 0 ? <BadgesStrip badges={badges} locale={locale} /> : null}
+            <GpxImport
+              locale={locale}
+              onImported={async () => {
+                await refresh();
+                router.refresh();
+              }}
+            />
+          </div>
+        }
       />
     </div>
   );
