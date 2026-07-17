@@ -25,13 +25,13 @@
 
 ## 📊 Progress
 
-`███████░░░░░░░░░░░░░░░░░░░` **~25% overall** (phase-weighted) · **Phase 1 ✅ complete**
+`████████░░░░░░░░░░░░░░░░░░` **~28% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 (current focus) ~30%**
 
 | Phase | Status | Where it stands |
 |---|---|---|
 | **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · owner ops (key rotation, OpenAI billing) + **health-data policy blocker** ⬜ |
 | **1 — Real plan adherence** | ✅ **complete** | Backend + full runner UI + free-runner path — the daily loop is live |
-| **2 — Adaptive planner** | ⬜ not started | Replaces the fixed weekly skeleton — the big engine bet |
+| **2 — Adaptive planner** | ◐ **~30%** | Deterministic engine + both-path integration + phase/adaptations→AI context ✅; pace targets, real-longest cap, beginner tuning next — see [COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) |
 | **3 — Long-term memory** | ⬜ not started | Structured coach memory + retrieval |
 | **4 — Location personalization** | ⬜ not started | Opt-in timezone / terrain / routes |
 | **5 — Coach as main surface** | ⬜ not started | Today-first home, adaptive check-ins, chat as control surface |
@@ -434,13 +434,21 @@ Quick check-in, contextual chat replies, and “why this plan” are follow-on e
 explicit confirmation and server-side validation for actions; a pre-workout sleep/fatigue/pain check-in
 may gate the existing deterministic safety flow before the adaptive planner is available.
 
-## Phase 2 — Build an adaptive deterministic planning engine — ⏳ not started
+## Phase 2 — Build an adaptive deterministic planning engine — ◐ first increment shipped
 
 Replace the current weekly skeleton with a planner that creates safe candidate sessions from the runner's full current state.
 
-Phase 1.4 now supplies real adherence input, but no adaptive behavior has been implemented yet. The
-current plan generator still uses the existing skeleton and the AI's generated workout list is still
-replaced by the deterministic safety skeleton.
+**Shipped (`src/lib/coach/adaptive-planner.ts`, `buildAdaptivePlan`):** a pure, versioned engine that owns
+training phase (baseline→base→build→peak→taper→recovery from weeks-to-race), weekly load progression (phase
+factor × goal multiplier, capped by the 10% rule / peak volume / experience ceiling), session mix (long run
++ spaced quality by goal, rest easy), and load adaptation (pain −30%, fatigue −15%, ≥2 missed −10%). Wired
+into **both** generation paths (AI interaction + no-AI weekly rollover), driven by real adherence; the
+planner's phase + adaptation notes now flow into the AI context so the coach can name the phase and explain
+load changes. Verified with 19 unit checks + a 3-profile DB simulation (beginner-5K / intermediate-half /
+advanced-marathon produce meaningfully different, phase-appropriate weeks). See
+[COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) for the simulation output and the prioritized next
+tweaks (pace targets, real-recent-longest cap, beginner tuning, plan-summary phase, and live-AI validation
+once billing is on).
 
 ### Planner inputs
 

@@ -17,7 +17,7 @@ import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/cont
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
-import { buildWeeklyPlanSkeleton } from "@/lib/coach/planning";
+import { buildAdaptivePlan } from "@/lib/coach/adaptive-planner";
 import { computePersonalRecords, type PersonalRecords } from "@/lib/coach/records";
 import { computeBadges, type Badge } from "@/lib/coach/badges";
 import { getNutritionCoachSummary } from "@/lib/coach/nutrition";
@@ -740,6 +740,25 @@ export async function getPlanAdherence(userId: string): Promise<PlanAdherence> {
   );
 }
 
+// Map the stored goal + recent metrics + adherence into the adaptive planner (Phase 2). Returns the full
+// plan (phase, adaptations, and the week of workouts) so callers can also feed the phase + why-load-changed
+// notes into the AI context. This is the deterministic backbone; the AI only explains/personalizes it.
+function buildAdaptivePlanForGoal(goal: GoalRow, metrics: CoachMetrics, adherence: PlanAdherence | null) {
+  return buildAdaptivePlan({
+    goalType: goal.goalType,
+    experienceLevel: goal.experienceLevel,
+    targetDate: new Date(goal.targetDate),
+    targetDistanceKm: goal.targetDistanceKm,
+    currentWeeklyDistanceKm: goal.currentWeeklyDistanceKm,
+    peakWeeklyDistanceKm: goal.peakWeeklyDistanceKm,
+    longestRecentRunKm: goal.longestRecentRunKm,
+    availableTrainingDays: goal.availableTrainingDays,
+    preferredLongRunDay: goal.preferredLongRunDay,
+    metrics,
+    adherence
+  });
+}
+
 export async function getCoachDashboard(userId: string) {
   const prisma = getPrisma();
   // These six reads are independent — run them in parallel so the dashboard is a single
@@ -941,7 +960,10 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     metrics,
     { chronicConditions: goal.chronicConditions }
   );
-  const skeleton = buildWeeklyPlanSkeleton(goal, metrics);
+  // Real adherence on the active plan drives both the adaptive planner and the AI context below.
+  const adherence = await getPlanAdherence(userId);
+  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence);
+  const skeleton = adaptivePlan.workouts;
   const interactionId = randomUUID();
 
   await prisma.$executeRaw`
@@ -1028,10 +1050,6 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       }
     : null;
 
-  // Real adherence on the active plan, so the coach can reference completed/skipped sessions and adapt
-  // to misses instead of assuming the plan went perfectly.
-  const adherence = await getPlanAdherence(userId);
-
   const context = buildRunnerCoachContext({
     goal,
     runs,
@@ -1049,7 +1067,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     nutrition,
     targetRun,
     recentConversation,
-    adherence
+    adherence,
+    trainingPhase: adaptivePlan.phase,
+    planAdaptations: adaptivePlan.adaptations
   });
 
   try {
@@ -1196,7 +1216,9 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
 
   const runs = await getRunsForMetrics(userId);
   const metrics = calculateCoachMetrics(runs);
-  const skeleton = buildWeeklyPlanSkeleton(goal, metrics);
+  // Adapt the auto-rolled week to how the plan just ended (we closed missed sessions above first).
+  const adherence = await getPlanAdherence(userId);
+  const skeleton = buildAdaptivePlanForGoal(goal, metrics, adherence).workouts;
   if (skeleton.length === 0) return { created: false };
 
   const locale = goal.preferredLocale === "fr" || goal.preferredLocale === "ar" ? goal.preferredLocale : "en";
