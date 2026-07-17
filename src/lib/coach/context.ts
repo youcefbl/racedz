@@ -1,5 +1,6 @@
 import type { RunRoutePoint } from "@/components/coach/types";
 import type { PlanAdherence } from "@/lib/coach/adherence";
+import type { ActivePlanContext } from "@/lib/coach/plan-context";
 import type { CoachMetrics, ConsistencyAssessment, IntensityDistribution, MetricRun } from "@/lib/coach/metrics";
 import { computeSplits } from "@/lib/coach/run-stats";
 import type { CoachInteractionInput, CoachWorkout } from "@/lib/coach/schemas";
@@ -105,6 +106,9 @@ export function buildRunnerCoachContext(input: {
   // so the coach can name the phase ("you're in your base weeks") and explain why the week changed.
   trainingPhase?: string | null;
   planAdaptations?: string[];
+  // The runner's actual active plan, workout by workout (status + linked run) — so the coach knows
+  // exactly which sessions were completed / missed / skipped, not just the aggregate adherence.
+  activePlan?: ActivePlanContext | null;
 }) {
   const context = {
     request: {
@@ -182,6 +186,9 @@ export function buildRunnerCoachContext(input: {
     // load (missed sessions, fatigue, pain). Lets the coach explain the "why" instead of guessing.
     trainingPhase: input.trainingPhase ?? null,
     planAdaptations: input.planAdaptations ?? [],
+    // The actual active plan, session by session (completed / skipped-with-reason / rescheduled + the
+    // real run), so the coach references what genuinely happened rather than a fresh generated week.
+    activePlan: input.activePlan ?? null,
     fixedSafetyDecision: input.safety,
     fixedWeeklyPlanSkeleton: input.skeleton
   };

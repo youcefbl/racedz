@@ -40,6 +40,9 @@ export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachRes
     nextWorkout: null,
     upcomingWorkouts: [],
     recoveryAdvice: [],
-    requiresProfessionalAdvice: false
+    requiresProfessionalAdvice: false,
+    usedSignals: [],
+    dataGaps: [],
+    followUpQuestion: null
   };
 }

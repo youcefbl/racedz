@@ -59,7 +59,10 @@ const safeResponse = enforceCoachSafety(
       instructions: "Run 100 hard sprints."
     })),
     recoveryAdvice: [],
-    requiresProfessionalAdvice: false
+    requiresProfessionalAdvice: false,
+    usedSignals: [],
+    dataGaps: [],
+    followUpQuestion: null
   },
   caution,
   skeleton,
