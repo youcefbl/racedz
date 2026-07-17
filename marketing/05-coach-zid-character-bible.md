@@ -43,7 +43,7 @@ The P0 deliverable named in `04-avatar-and-tools.md` §"Golden rules" #2. Locks 
 
 | Source | Says | Verdict |
 |---|---|---|
-| `public/zidrun-logo.svg` + `02-brand-voice-and-assets.md` | `#8BC53F` lime · `#F47A20` orange | ✅ **This is the brand** |
+| `public/brand/zidrun-logo.svg` + `02-brand-voice-and-assets.md` | `#8BC53F` lime · `#F47A20` orange | ✅ **This is the brand** |
 | `tailwind.config.ts` → `brand.teal` | `#15803D` (a *green*, key misnamed for legacy classes) | ⚠️ misleading key name |
 | `www/index.html` (stale static landing) | `#0F766E` real teal | ❌ off-brand, ignore |
 

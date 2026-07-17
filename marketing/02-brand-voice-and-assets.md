@@ -41,17 +41,24 @@ Use this as the style guide for everything posted. Consistency here is what make
 - **Off-white:** `#FAFAFA`
 
 **Logo files (in repo):**
-- `public/zidrun-logo.svg` — full color, light backgrounds
-- `public/zidrun-logo-dark.svg` — for dark backgrounds (green/orange mark, light wordmark)
-- `public/zidrun-logo-race.svg` — flashy "race" variant
-- `public/zidrun-logo.png` — raster fallback
-- `brand-explore/export/` — additional exports (mark-only, shiny, dark)
+- `public/brand/zidrun-logo.svg` — full color, light backgrounds
+- `public/brand/zidrun-logo-dark.svg` — for dark backgrounds (green/orange mark, light wordmark)
+- `public/brand/zidrun-logo-race.svg` — flashy "race" variant
+- `public/brand/zidrun-mark.svg` — mark-only avatar/export source
+- `public/brand/zidrun-mark-race.svg` — race-mode mark-only variant
+- `public/brand/zidrun-logo.png` — raster wordmark fallback
+- `public/brand/zidrun-mark.png` — raster mark fallback
+- `public/icon.svg`, `public/icon-192.png`, `public/icon-512.png`, `public/maskable-512.png`, `public/apple-icon.png` — generated PWA/app icons
 
 **Logo usage rules:**
 - Keep clear space around the mark; never stretch, recolor, or rotate.
 - On busy photos, use the dark variant or a mono/white version with the Z mark only.
 - App icon / profile avatar = the **Z mark alone** (green+orange) on white or ink.
 - Never put the green blade on a green background or orange on orange — keep contrast.
+
+**Product UI captures (in repo):**
+- `public/app/` — public app screenshots and UI captures for landing pages, launch materials, app-store/web-store previews, and social demos.
+- Do not store UI screenshots in `public/uploads/`; that folder is for runtime user uploads only.
 
 - **Typography (graphics):** bold geometric/italic sans for headlines to echo the wordmark's forward lean (e.g. Montserrat/Poppins italic); clean sans for body.
 - **Photo style:** real Algerian runners, real cities, golden-hour, motion, sweat, finish-line joy. Avoid sterile stock.

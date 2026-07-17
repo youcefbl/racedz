@@ -8,7 +8,7 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 
 - Planning and implementation roadmap: `TODO.md`
 - Historical full brief: `algeria-races-codex-brief.md`
-- Brand asset: `public/racedz-logo.png`
+- Brand assets: `public/brand/` for logo and mark exports; root-level `public/icon-*` files are generated PWA/app icons.
 - AWS deployment plan and cost estimate: `docs/AWS_DEPLOYMENT_PLAN.md`
 - Prisma schema: `prisma/schema.prisma`
 - Seed data: `prisma/seed.ts`
