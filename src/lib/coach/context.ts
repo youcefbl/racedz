@@ -101,6 +101,10 @@ export function buildRunnerCoachContext(input: {
   targetRun?: TargetRun | null;
   recentConversation?: ConversationTurn[];
   adherence?: PlanAdherence | null;
+  // The deterministic planner's current training phase and any load adjustments it made this week —
+  // so the coach can name the phase ("you're in your base weeks") and explain why the week changed.
+  trainingPhase?: string | null;
+  planAdaptations?: string[];
 }) {
   const context = {
     request: {
@@ -174,6 +178,10 @@ export function buildRunnerCoachContext(input: {
     // consecutive misses), so the coach can reference real adherence and adapt to missed sessions
     // instead of assuming everything went to plan. Null when the runner has no active plan.
     planAdherence: input.adherence ?? null,
+    // The training phase the deterministic planner placed this week in, and the reasons it eased or cut
+    // load (missed sessions, fatigue, pain). Lets the coach explain the "why" instead of guessing.
+    trainingPhase: input.trainingPhase ?? null,
+    planAdaptations: input.planAdaptations ?? [],
     fixedSafetyDecision: input.safety,
     fixedWeeklyPlanSkeleton: input.skeleton
   };
