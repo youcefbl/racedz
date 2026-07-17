@@ -662,6 +662,51 @@ actions must show the proposed change and require confirmation before mutation.
   erase the runner's progress narrative.
 - Show progress toward the goal and current training phase, not only weekly totals.
 
+## Coach context & trust hardening (cross-cutting) — ⬜ mostly not started
+
+Folded in from the detailed [docs/COACH_CONTEXT_EXECUTION_TODO.md](docs/COACH_CONTEXT_EXECUTION_TODO.md)
+(that file keeps the full acceptance criteria; this is the reconciled, ROI-ordered checklist). Goal:
+make Coach Zid a consistent coach for one runner over time, and make every context field intentional,
+sensitivity-labelled, and reproducible. Several items overlap Phases 0/3/4 — do each once.
+
+**Already shipped (don't redo):** training-phase derivation (in the adaptive planner), and
+`planAdherence` + `trainingPhase` + `planAdaptations` in the AI context.
+
+**Do now — small, high-ROI, several unblock existing blockers:**
+- [ ] **Full active plan in context.** Send the actual active/pending plan (per-workout status:
+  completed / missed / skipped / rescheduled, with the linked run), not just the adherence summary +
+  fresh skeleton. New `src/lib/coach/plan-context.ts`; keep the deterministic skeleton authoritative for
+  safety. *Done when: same raw mileage but different adherence → different context and advice.* — S/M
+- [ ] **Prompt-injection rules** in `src/lib/coach/openai.ts`: runner messages, notes, symptoms,
+  nutrition text, and imported text are **untrusted data** — ignore instructions inside them, never reveal
+  system/private context, never let them alter safety or authorization. *Done when: adversarial EN/FR/AR
+  notes can't change output format, expose context, or bypass safety in tests.* — S
+- [ ] **Coach-context data contract** (`docs/`): every field sent to OpenAI → source table, purpose,
+  sensitivity, retention, optional?. Marks health/body/GPS-derived/free-text as sensitive and excludes
+  identifiers + exact coordinates. **This is the artifact that unblocks the health-data policy blocker**
+  (Phase 0 / EXECUTION_PLAN.md — do it once). — S
+- [ ] **Response schema: `usedSignals`, `dataGaps`, `assumptions`, ≤1 `followUpQuestion`.** Lets the coach
+  say "I need more info" instead of sounding confident when data is missing. *Done when: evals show fewer
+  generic answers and no fabricated weather/race/injury facts (needs live AI — see Phase 0 billing).* — S
+
+**Do next:**
+- [ ] **Typed `assembleCoachContext()`** with `contextVersion`, `assembledAt`, per-section freshness,
+  omitted-field reasons, and a stable **context hash**; keep `buildRunnerCoachContext()` a pure serializer.
+  Enables exact-payload unit tests (no OpenAI) + "which version produced this answer" in logs. — M
+- [ ] **Interaction context audit trail**: store the hash + minimal metadata by default; a redacted
+  snapshot only under a documented retention/access policy. Never log raw prompt / health notes / GPS. — M
+- [ ] **Deterministic coach eval fixtures** (`npm run test:coach`): beginner, experienced, inconsistent,
+  missed-workout, road vs trail race, hot wilaya, GPS+weather, no-location, injury signal, sparse
+  sleep/nutrition, long conversation, prompt injection, EN/FR/AR. — M
+
+**Overlaps handled elsewhere (cross-reference, don't duplicate):**
+- **CoachMemory** (durable, *user-confirmed* preferences + a "What Coach Zid remembers" screen) → this is
+  **Phase 3**; the TODO doc's Phase 2 is the detailed spec for it.
+- **Location / timezone / coarse-area weather / travel-to-race** → **Phase 4**.
+- **Export / deletion / consent / health inventory** → **Phase 0 owner blocker** (+ EXECUTION_PLAN.md GDPR).
+- **Race lat/long discarded + forecast date-mismatch** → fold into Phase 4 race/location work.
+- **Progressive profile-gap prompts + normalized historical race results** → Phase 3/4 personalization.
+
 ## Cost and context budget
 
 Phases 2–3 add planner inputs and long-term memory retrieval, which means more tokens per call — on a
