@@ -1,6 +1,6 @@
 "use client";
 
-import { BatteryCharging, Footprints, MapPin, MapPinOff, Pause, Play, Route as RouteIcon, Square, TimerReset } from "lucide-react";
+import { AlertTriangle, BatteryCharging, Footprints, MapPin, MapPinOff, Pause, Play, Route as RouteIcon, Square, TimerReset } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -12,6 +12,7 @@ import { useWorkoutGuidance } from "@/components/coach/use-workout-guidance";
 import { WorkoutGuidancePanel } from "@/components/coach/workout-guidance-panel";
 import { profileForWorkoutType } from "@/lib/coach/audio-coaching";
 import { GuidedSessionPicker } from "@/components/coach/guided-session-picker";
+import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { computeSplits, estimateCalories } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
 import { buildWorkoutStructure, estimateStructureDistanceKm, flattenStructure, summarizeStructure, type WorkoutStructure } from "@/lib/coach/workout-structure";
@@ -41,10 +42,10 @@ export type GuidedWorkout = {
 let persistedGuidedActive = false;
 let persistedLibrarySession: { workoutType: string; structure: WorkoutStructure } | null = null;
 
-const GUIDED_COPY: Record<CoachLocale, { todaySession: string; startGuided: string; freeRun: string }> = {
-  en: { todaySession: "Today's session", startGuided: "Start guided workout", freeRun: "Just free run instead" },
-  fr: { todaySession: "Séance du jour", startGuided: "Démarrer la séance guidée", freeRun: "Faire une course libre" },
-  ar: { todaySession: "حصة اليوم", startGuided: "ابدأ الحصة الموجَّهة", freeRun: "الجري الحر بدلاً من ذلك" }
+const GUIDED_COPY: Record<CoachLocale, { todaySession: string; startGuided: string; freeRun: string; moreOptions: string }> = {
+  en: { todaySession: "Today's session", startGuided: "Start guided workout", freeRun: "Just free run instead", moreOptions: "More ways to run" },
+  fr: { todaySession: "Séance du jour", startGuided: "Démarrer la séance guidée", freeRun: "Faire une course libre", moreOptions: "Plus de façons de courir" },
+  ar: { todaySession: "حصة اليوم", startGuided: "ابدأ الحصة الموجَّهة", freeRun: "الجري الحر بدلاً من ذلك", moreOptions: "خيارات جري إضافية" }
 };
 
 export function RunRecorder({
@@ -57,7 +58,7 @@ export function RunRecorder({
 }: {
   locale: CoachLocale;
   copy: CoachCopy;
-  onSaved: (runId: string, analyze: boolean) => Promise<void>;
+  onSaved: (runId: string, analyze: boolean, run?: CoachRun) => Promise<void>;
   // Runner's weight (from their goal), used for the live calories estimate. Optional —
   // estimateCalories falls back to a default when it's unknown.
   weightKg?: number | null;
@@ -70,6 +71,7 @@ export function RunRecorder({
   const [native, setNative] = useState(false);
   const [state, setState] = useState<RunEngineState>(() => runEngine.getState());
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedOffline, setSavedOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -197,6 +199,7 @@ export function RunRecorder({
 
   async function start() {
     setSaveError(null);
+    setSaved(false);
     setGuidedActive(false);
     setLibrarySession(null);
     await runEngine.start();
@@ -207,6 +210,7 @@ export function RunRecorder({
   // lets audio + speech fire later, mid-run, without a fresh user interaction.
   async function startGuided() {
     setSaveError(null);
+    setSaved(false);
     primeCues();
     setLibrarySession(null);
     setGuidedActive(true);
@@ -219,6 +223,7 @@ export function RunRecorder({
   // structure comes from the template and the saved run stays unlinked.
   async function startLibrarySession(session: { workoutType: string; structure: WorkoutStructure }) {
     setSaveError(null);
+    setSaved(false);
     primeCues();
     setLibrarySession(session);
     setGuidedActive(true);
@@ -283,8 +288,9 @@ export function RunRecorder({
       await runEngine.markSaved();
       setGuidedActive(false);
       setLibrarySession(null);
+      setSaved(true);
       notifyHaptic("success");
-      await onSaved(payload.data.run.id, false);
+      await onSaved(payload.data.run.id, false, payload.data.run);
     } catch (caught) {
       const err = caught as Error & { code?: string };
       const offline = typeof navigator !== "undefined" && !navigator.onLine;
@@ -344,6 +350,10 @@ export function RunRecorder({
           : 2;
   // Live calorie estimate from distance + moving time (falls back to a default weight).
   const calories = estimateCalories(distanceKm, state.movingSec || state.elapsedSec, weightKg);
+  // Live "this isn't a run on foot" check. Cadence is only known once the run finishes, so
+  // mid-run only the speed signal can fire (a car/e-bike moving faster than anyone can run);
+  // the full cadence-based check runs on the finish summary and the saved run card.
+  const liveNonFoot = detectNonFootActivity({ distanceKm, movingSeconds: state.movingSec, avgCadence: null });
 
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -367,6 +377,11 @@ export function RunRecorder({
         {savedOffline ? (
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
             {copy.savedOffline}
+          </div>
+        ) : null}
+        {saved ? (
+          <div role="status" className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-bold text-green-800">
+            {copy.runSaved}
           </div>
         ) : null}
 
@@ -427,16 +442,33 @@ export function RunRecorder({
                 <Play className="size-5" aria-hidden="true" /> {copy.startRun}
               </Button>
             )}
-            {/* Pick-your-own guided session (strides, Norwegian threshold, recovery, ...). Works
-                with or without a plan; the run saves unlinked and the matcher sorts it out. */}
-            <GuidedSessionPicker locale={locale} onStart={(session) => void startLibrarySession(session)} />
-            <AudioSettings locale={locale} />
+            <details className="rounded-xl border border-gray-200 bg-white">
+              <summary className="flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-bold text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
+                {guidedCopy.moreOptions}
+                <span className="text-xs font-semibold text-gray-500">{guidedCopy.freeRun}</span>
+              </summary>
+              <div className="space-y-3 border-t border-gray-200 p-3">
+                {/* Pick-your-own guided session (strides, Norwegian threshold, recovery, ...). Works
+                    with or without a plan; the run saves unlinked and the matcher sorts it out. */}
+                <GuidedSessionPicker locale={locale} onStart={(session) => void startLibrarySession(session)} />
+                <AudioSettings locale={locale} />
+              </div>
+            </details>
           </div>
         ) : null}
 
         {status === "tracking" || status === "paused" ? (
           <div className="space-y-5">
             {guidedActive ? <WorkoutGuidancePanel view={guidance} steps={guidedSteps} locale={locale} /> : null}
+            {liveNonFoot ? (
+              <div className="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-black text-amber-900">{copy.nonFootWarnTitle}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">{copy.nonFootWarnSpeed}</p>
+                </div>
+              </div>
+            ) : null}
             {state.pointCount > 0 ? (
               <RunMap points={trackPoints} live className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
             ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatCoachDateTime, formatDuration, formatPace } from "@/components/coach/format";
@@ -14,6 +14,7 @@ import { RunMap } from "@/components/coach/run-map";
 import { RunSummary } from "@/components/coach/run-summary";
 import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
+import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { cn } from "@/lib/utils";
 
 export function CoachRunsPanel({
@@ -30,14 +31,15 @@ export function CoachRunsPanel({
   guidedWorkout,
   recentPaceSecondsPerKm,
   initialWorkoutId,
-  onInitialWorkoutConsumed
+  onInitialWorkoutConsumed,
+  afterRecorder
 }: {
   runs: CoachRun[];
   plan: CoachPlan | null;
   locale: CoachLocale;
   copy: CoachCopy;
   pendingAction: string | null;
-  onSaved: (runId: string, analyze: boolean) => Promise<void>;
+  onSaved: (runId: string, analyze: boolean, run?: CoachRun) => Promise<void>;
   onAnalyze: (runId: string) => Promise<void>;
   /** runId → id of the existing POST_RUN analysis, when the run has already been analyzed. */
   analyzedRuns?: Record<string, string>;
@@ -53,6 +55,8 @@ export function CoachRunsPanel({
   /** Called once the panel has consumed initialWorkoutId, so the parent can clear it (this panel
    *  remounts on tab switches, so leaving it set would re-open the form on every future visit). */
   onInitialWorkoutConsumed?: () => void;
+  /** Content placed below the start-run action and above run history. */
+  afterRecorder?: ReactNode;
 }) {
   const [showForm, setShowForm] = useState(runs.length === 0);
   const [effort, setEffort] = useState(5);
@@ -149,7 +153,7 @@ export function CoachRunsPanel({
         }
 
         try {
-          await onSaved(savedRun.id, analyze);
+          await onSaved(savedRun.id, analyze, savedRun);
         } catch (caught) {
           setError(copy.runSavedFeedbackFailed.replace("{error}", caught instanceof Error ? caught.message : "—"));
         }
@@ -253,6 +257,7 @@ export function CoachRunsPanel({
 
       {/* GPS run recorder — the record hero; renders only inside the phone app */}
       <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} />
+      {afterRecorder}
 
       <section>
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -446,6 +451,12 @@ const RunRow = memo(function RunRow({
 }) {
   const hasRoute = Boolean(run.route && run.route.length > 1);
   const photos = photoOverride ?? run.photos ?? [];
+  // Runs that look recorded on wheels/a motor rather than on foot (see motion-check).
+  const nonFoot = detectNonFootActivity({
+    distanceKm: run.distanceKm,
+    movingSeconds: run.movingTimeSeconds ?? run.durationSeconds,
+    avgCadence: run.avgCadence
+  });
   return (
     <article className={cn("overflow-hidden rounded-xl border bg-white shadow-sm transition-colors", isOpen ? "border-brand-teal" : "border-gray-200")}>
       <div className="p-4">
@@ -486,6 +497,13 @@ const RunRow = memo(function RunRow({
           {run.avgCadence != null && run.avgCadence > 0 ? <RunChip icon={Footprints} label={`${run.avgCadence} spm`} /> : null}
           <RunChip icon={Activity} label={`${copy.effort} ${run.perceivedEffort}/10`} />
         </div>
+
+        {nonFoot ? (
+          <p className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800" title={nonFoot === "speed" ? copy.nonFootWarnSpeed : copy.nonFootWarnCadence}>
+            <AlertTriangle className="size-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+            {copy.nonFootBadge}
+          </p>
+        ) : null}
 
         {/* Actions */}
         <div className="mt-4 flex flex-wrap items-center gap-2">

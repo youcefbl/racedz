@@ -1,8 +1,10 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
 import type { RunRoutePoint } from "@/components/coach/types";
+import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { computeSplits, elevationSeries, estimateCalories, paceSeries, smoothedElevationGainM, type SeriesPoint } from "@/lib/coach/run-stats";
 
 // Strava-style run analytics derived from the GPS route: stats, per-km splits,
@@ -37,9 +39,22 @@ export function RunSummary({
   const elevGain = points.length > 1 ? smoothedElevationGainM(points) : Math.round(elevationGainM ?? 0);
   // Use the stored calories for saved runs; estimate for the live finish screen.
   const calories = caloriesProp ?? estimateCalories(distanceKm, movingSeconds || durationSeconds, weightKg);
+  // Flag runs that look recorded on wheels/a motor rather than on foot (see motion-check).
+  const nonFoot = detectNonFootActivity({ distanceKm, movingSeconds: movingSeconds || durationSeconds, avgCadence });
 
   return (
     <div className="space-y-5">
+      {nonFoot ? (
+        <div className="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 p-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-black text-amber-900">{copy.nonFootWarnTitle}</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+              {nonFoot === "speed" ? copy.nonFootWarnSpeed : copy.nonFootWarnCadence}
+            </p>
+          </div>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
         <Stat label={copy.statTime} value={formatDuration(durationSeconds)} big />
