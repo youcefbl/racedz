@@ -134,7 +134,10 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
     nextWorkout: null,
     upcomingWorkouts: [],
     recoveryAdvice: [copy],
-    requiresProfessionalAdvice: true
+    requiresProfessionalAdvice: true,
+    usedSignals: [],
+    dataGaps: [],
+    followUpQuestion: null
   };
 }
 

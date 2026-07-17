@@ -218,7 +218,15 @@ export const coachResponseSchema = z.object({
   nextWorkout: coachWorkoutSchema.nullable(),
   upcomingWorkouts: z.array(coachWorkoutSchema).max(7),
   recoveryAdvice: z.array(z.string().min(1).max(300)).max(6),
-  requiresProfessionalAdvice: z.boolean()
+  requiresProfessionalAdvice: z.boolean(),
+  // Transparency & anti-hallucination (Phase: context hardening). Required arrays (empty when none)
+  // and a nullable single follow-up keep the response strict-mode compatible.
+  // Which context signals the coach actually leaned on (e.g. "adherence", "recent pace", "sleep").
+  usedSignals: z.array(z.string().min(1).max(80)).max(8),
+  // Important information that was missing, so the coach flags uncertainty instead of inventing facts.
+  dataGaps: z.array(z.string().min(1).max(200)).max(6),
+  // At most one clarifying question when personalization is limited by missing data; null otherwise.
+  followUpQuestion: z.string().min(1).max(300).nullable()
 });
 
 export type CoachLocale = z.infer<typeof coachLocaleSchema>;

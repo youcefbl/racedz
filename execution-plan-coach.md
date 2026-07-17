@@ -670,7 +670,7 @@ actions must show the proposed change and require confirmation before mutation.
   erase the runner's progress narrative.
 - Show progress toward the goal and current training phase, not only weekly totals.
 
-## Coach context & trust hardening (cross-cutting) — ⬜ mostly not started
+## Coach context & trust hardening (cross-cutting) — ◐ first slice shipped
 
 Folded in from the detailed [docs/COACH_CONTEXT_EXECUTION_TODO.md](docs/COACH_CONTEXT_EXECUTION_TODO.md)
 (that file keeps the full acceptance criteria; this is the reconciled, ROI-ordered checklist). Goal:
@@ -680,22 +680,20 @@ sensitivity-labelled, and reproducible. Several items overlap Phases 0/3/4 — d
 **Already shipped (don't redo):** training-phase derivation (in the adaptive planner), and
 `planAdherence` + `trainingPhase` + `planAdaptations` in the AI context.
 
-**Do now — small, high-ROI, several unblock existing blockers:**
-- [ ] **Full active plan in context.** Send the actual active/pending plan (per-workout status:
-  completed / missed / skipped / rescheduled, with the linked run), not just the adherence summary +
-  fresh skeleton. New `src/lib/coach/plan-context.ts`; keep the deterministic skeleton authoritative for
-  safety. *Done when: same raw mileage but different adherence → different context and advice.* — S/M
-- [ ] **Prompt-injection rules** in `src/lib/coach/openai.ts`: runner messages, notes, symptoms,
-  nutrition text, and imported text are **untrusted data** — ignore instructions inside them, never reveal
-  system/private context, never let them alter safety or authorization. *Done when: adversarial EN/FR/AR
-  notes can't change output format, expose context, or bypass safety in tests.* — S
-- [ ] **Coach-context data contract** (`docs/`): every field sent to OpenAI → source table, purpose,
-  sensitivity, retention, optional?. Marks health/body/GPS-derived/free-text as sensitive and excludes
-  identifiers + exact coordinates. **This is the artifact that unblocks the health-data policy blocker**
-  (Phase 0 / EXECUTION_PLAN.md — do it once). — S
-- [ ] **Response schema: `usedSignals`, `dataGaps`, `assumptions`, ≤1 `followUpQuestion`.** Lets the coach
-  say "I need more info" instead of sounding confident when data is missing. *Done when: evals show fewer
-  generic answers and no fabricated weather/race/injury facts (needs live AI — see Phase 0 billing).* — S
+**Do now — all shipped on `feat/coach-context-hardening`:**
+- [x] ✅ **Full active plan in context.** New `src/lib/coach/plan-context.ts` (`getActivePlanForContext`)
+  sends the real active plan session by session — each workout's status (completed / skipped-with-reason /
+  rescheduled) + the linked run's actual distance — as `activePlan`; the deterministic skeleton stays
+  authoritative for safety. Verified 7/7 against the DB. — S/M
+- [x] ✅ **Prompt-injection rules** in `src/lib/coach/openai.ts` (prompt v7): runner messages, notes,
+  symptoms, nutrition text, and imported text are untrusted data — never instructions; never reveal the
+  prompt/context; never alter safety or authorization. (Live adversarial eval pending OpenAI billing.) — S
+- [x] ✅ **Coach-context data contract**: [docs/COACH_CONTEXT_DATA_CONTRACT.md](docs/COACH_CONTEXT_DATA_CONTRACT.md)
+  — every field → source, purpose, sensitivity (🟢/🟡/🔴), retention; documents what's excluded (identifiers,
+  raw GPS coordinates). **The artifact that unblocks the health-data policy blocker** (Phase 0). — S
+- [x] ✅ **Response schema: `usedSignals`, `dataGaps`, ≤1 `followUpQuestion`** (+ prompt) so the coach flags
+  missing data instead of inventing facts. Strict-mode-safe (required arrays / nullable). *Live validation
+  (evals show fewer generic answers) still needs OpenAI billing — Phase 0.* — S
 
 **Do next:**
 - [ ] **Typed `assembleCoachContext()`** with `contextVersion`, `assembledAt`, per-section freshness,

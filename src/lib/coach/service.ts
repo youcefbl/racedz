@@ -18,6 +18,7 @@ import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildAdaptivePlan } from "@/lib/coach/adaptive-planner";
+import { getActivePlanForContext } from "@/lib/coach/plan-context";
 import { computePersonalRecords, type PersonalRecords } from "@/lib/coach/records";
 import { computeBadges, type Badge } from "@/lib/coach/badges";
 import { getNutritionCoachSummary } from "@/lib/coach/nutrition";
@@ -962,6 +963,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   );
   // Real adherence on the active plan drives both the adaptive planner and the AI context below.
   const adherence = await getPlanAdherence(userId);
+  // The active plan session by session (what actually happened), for the AI context.
+  const activePlan = await getActivePlanForContext(userId);
   const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence);
   const skeleton = adaptivePlan.workouts;
   const interactionId = randomUUID();
@@ -1069,7 +1072,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     recentConversation,
     adherence,
     trainingPhase: adaptivePlan.phase,
-    planAdaptations: adaptivePlan.adaptations
+    planAdaptations: adaptivePlan.adaptations,
+    activePlan
   });
 
   try {
