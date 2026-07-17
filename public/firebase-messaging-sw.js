@@ -44,7 +44,7 @@ if (Object.values(firebaseConfig).every(Boolean)) {
     const title = payload.notification?.title || payload.data?.title || "ZidRun";
     const options = {
       body: payload.notification?.body || payload.data?.body || "You have a new ZidRun notification.",
-      icon: "/racedz-logo.png",
+      icon: "/icon-192.png",
       badge: "/favicon.ico",
       data: {
         href: payload.data?.href || "/"

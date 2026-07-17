@@ -16,9 +16,11 @@ export type Badge = {
 export type BadgeInput = {
   totalRuns: number;
   totalDistanceKm: number;
-  longestRunKm: number;
   longestStreakWeeks: number;
   raceFinishes: number;
+  runsAt10k: number;
+  runsAtHalf: number;
+  runsAtMarathon: number;
 };
 
 type CatalogEntry = { id: string; category: BadgeCategory; metric: keyof BadgeInput; target: number };
@@ -34,9 +36,12 @@ const CATALOG: CatalogEntry[] = [
   { id: "dist_250", category: "DISTANCE", metric: "totalDistanceKm", target: 250 },
   { id: "dist_1000", category: "DISTANCE", metric: "totalDistanceKm", target: 1000 },
 
-  { id: "long_10k", category: "DISTANCE", metric: "longestRunKm", target: 10 },
-  { id: "long_half", category: "DISTANCE", metric: "longestRunKm", target: 21.1 },
-  { id: "long_marathon", category: "DISTANCE", metric: "longestRunKm", target: 42.2 },
+  // Landmark distances count *completed* runs at that distance (see runsAt* in records.ts), so an
+  // unearned one honestly reads 0/1. Every target here is a whole number of things done — never a
+  // partial measurement — which is what makes the bare "3/4" progress text safe to read.
+  { id: "long_10k", category: "DISTANCE", metric: "runsAt10k", target: 1 },
+  { id: "long_half", category: "DISTANCE", metric: "runsAtHalf", target: 1 },
+  { id: "long_marathon", category: "DISTANCE", metric: "runsAtMarathon", target: 1 },
 
   { id: "streak_4", category: "CONSISTENCY", metric: "longestStreakWeeks", target: 4 },
   { id: "streak_12", category: "CONSISTENCY", metric: "longestStreakWeeks", target: 12 },

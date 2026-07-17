@@ -119,7 +119,7 @@ export function RunsView({
         afterRecorder={
           <div className="space-y-4">
             {records ? <RecordsSummary records={records} locale={locale} /> : null}
-            {badges.length > 0 ? <BadgesStrip badges={badges} locale={locale} /> : null}
+            {badges.length > 0 ? <BadgesStrip badges={badges} longestRunKm={records?.longestRunKm ?? 0} locale={locale} /> : null}
             <GpxImport
               locale={locale}
               onImported={async () => {

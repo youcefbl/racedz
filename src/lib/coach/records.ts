@@ -30,10 +30,22 @@ export type PersonalRecords = {
   best10k: PersonalRecord | null; // estimated best 10 km time (runs that covered >= 10 km)
   currentStreakWeeks: number;
   longestStreakWeeks: number;
+  // How many runs actually *covered* each landmark distance. These count completions, so a runner
+  // who has never gone the distance sits at a true 0 — unlike a longest-run-vs-threshold ratio,
+  // which reads as "5 of 42 marathons" when it means "5 km of the 42.2 km you need".
+  runsAt10k: number;
+  runsAtHalf: number;
+  runsAtMarathon: number;
 };
 
 // Pace PRs need a fairness floor so a 200 m sprint can't set an all-time pace record.
 const MIN_PACE_DISTANCE_KM = 1;
+
+// Official IAAF distances. A run counts only once it covers the real distance — no GPS-shortfall
+// tolerance, so the badge means what it says.
+const TEN_K_KM = 10;
+const HALF_MARATHON_KM = 21.0975;
+const MARATHON_KM = 42.195;
 
 function toDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
@@ -100,6 +112,9 @@ export function computePersonalRecords(runs: RecordRun[], now: Date = new Date()
   let longestRunAt: Date | null = null;
   let longestRunId: string | null = null;
   let fastestPace: PersonalRecord | null = null;
+  let runsAt10k = 0;
+  let runsAtHalf = 0;
+  let runsAtMarathon = 0;
 
   for (const run of runs) {
     totalDistanceKm += run.distanceKm;
@@ -109,6 +124,9 @@ export function computePersonalRecords(runs: RecordRun[], now: Date = new Date()
       longestRunAt = toDate(run.startedAt);
       longestRunId = run.id;
     }
+    if (run.distanceKm >= TEN_K_KM) runsAt10k += 1;
+    if (run.distanceKm >= HALF_MARATHON_KM) runsAtHalf += 1;
+    if (run.distanceKm >= MARATHON_KM) runsAtMarathon += 1;
     if (run.distanceKm >= MIN_PACE_DISTANCE_KM && run.averagePaceSecondsPerKm > 0) {
       if (!fastestPace || run.averagePaceSecondsPerKm < fastestPace.seconds) {
         fastestPace = { seconds: run.averagePaceSecondsPerKm, atRunId: run.id, achievedAt: toDate(run.startedAt) };
@@ -129,6 +147,9 @@ export function computePersonalRecords(runs: RecordRun[], now: Date = new Date()
     best5k: bestDistanceRecord(runs, 5, 5),
     best10k: bestDistanceRecord(runs, 10, 10),
     currentStreakWeeks: current,
-    longestStreakWeeks: longest
+    longestStreakWeeks: longest,
+    runsAt10k,
+    runsAtHalf,
+    runsAtMarathon
   };
 }

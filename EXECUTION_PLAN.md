@@ -195,9 +195,13 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
       (goals, runs+GPS, sleep logs, payment-proof files). **Promote to P0 if launching in an EU-data context.** — M
 - [ ] **Trial-ending lifecycle nudge** *(dev+marketing)* — in-app + push/email "2 days left," subscribe prompt
       after a PB/great run. — M
-- [ ] **Coach richer onboarding** (PLAN_2026 WS2) — history/volume/injury/chronic-condition profile + Zod +
-      multi-step form + condition-aware safety gating + plan personalization. **Needs a health-data
-      privacy/consent/retention policy line first.** — XL
+- [ ] **Coach context personalization hardening** — the richer onboarding fields are now present, but
+      the context still needs actual-plan adherence, confirmed long-term memory, target-race/timezone
+      realism, privacy-safe location enrichment, reproducible context versions, and stronger outcome
+      evaluation. Execute the prioritized checklist in
+      [`docs/COACH_CONTEXT_EXECUTION_TODO.md`](docs/COACH_CONTEXT_EXECUTION_TODO.md). **P0 first:**
+      data contract/consent, prompt-injection tests, actual plan state + adherence, and context audit
+      fixtures. — XL
 - [ ] **Notifications polish** — improve branded email template further; payment-proof review notifications;
       race reminder jobs. — M
 - [ ] **Mobile — remaining PWA/Capacitor** — logo/SVG, manifest (`manifest.ts`), and the icon set are DONE.

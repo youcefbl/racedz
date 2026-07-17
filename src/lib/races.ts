@@ -45,7 +45,7 @@ export const sampleRaces: RaceEvent[] = [
       slug: "alger-running-club",
       url: "/organizations/alger-running-club"
     },
-    mainImageUrl: "/racedz-logo.png",
+    mainImageUrl: "/brand/zidrun-logo.png",
     rules: "Participants must wear their bib visibly and respect the marked route.",
     requiredDocuments: "Medical certificate optional for the 5K and required for the 10K.",
     contactEmail: "events@zidrun.com",
@@ -80,7 +80,7 @@ export const sampleRaces: RaceEvent[] = [
       slug: "oran-trail-team",
       url: "/organizations/oran-trail-team"
     },
-    mainImageUrl: "/racedz-logo.png",
+    mainImageUrl: "/brand/zidrun-logo.png",
     rules: "Road closures apply. Runners must pass all timing checkpoints.",
     requiredDocuments: "Medical certificate required.",
     contactEmail: "oran@zidrun.com",
@@ -114,7 +114,7 @@ export const sampleRaces: RaceEvent[] = [
       slug: "kabylie-mountain-runners",
       url: "/organizations/kabylie-mountain-runners"
     },
-    mainImageUrl: "/racedz-logo.png",
+    mainImageUrl: "/brand/zidrun-logo.png",
     rules: "Mandatory equipment checks happen before bib collection.",
     requiredDocuments: "Medical certificate and emergency contact required.",
     contactEmail: "trail@zidrun.com",
@@ -162,7 +162,7 @@ export const sampleRaces: RaceEvent[] = [
       slug: "racedz-platform",
       url: "/"
     },
-    mainImageUrl: "/racedz-logo.png",
+    mainImageUrl: "/brand/zidrun-logo.png",
     rules: "Open to runners aged 14 and above for 10K, all ages for the family 5K.",
     contactEmail: "constantine@zidrun.com",
     maxParticipants: 1200,

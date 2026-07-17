@@ -24,4 +24,4 @@
 3. Pull copy from `posts/` and pair with the visuals briefed there.
 4. Track results against the KPIs in the plan; iterate weekly.
 
-> Prepared as a senior-marketing-manager deliverable. Brand: green `#8BC53F`, accent orange `#F47A20`, ink `#141618`. Logo: the ZidRun green+orange "Z" speed-blade + "idRun" wordmark (`public/zidrun-logo.svg`).
+> Prepared as a senior-marketing-manager deliverable. Brand: green `#8BC53F`, accent orange `#F47A20`, ink `#141618`. Logo: the ZidRun green+orange "Z" speed-blade + "idRun" wordmark (`public/brand/zidrun-logo.svg`).

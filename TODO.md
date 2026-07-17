@@ -210,6 +210,9 @@ The first useful version must let:
    - Add exportable admin audit reports later only if compliance/support needs justify it.
 
 4. Runner AI coach MVP ([detailed plan](docs/AI_COACH_MVP_PLAN.md)):
+   - Execute the context-personalization backlog in [`docs/COACH_CONTEXT_EXECUTION_TODO.md`](docs/COACH_CONTEXT_EXECUTION_TODO.md):
+     start with actual plan/adherence context, prompt-injection tests, the sensitive-data contract,
+     reproducible context versions, and confirmed user-controlled coaching memory.
    - Confirm coaching product rules and have initial safety rules reviewed by a qualified running coach or sports-health professional.
    - Enable OpenAI project billing/quota and rerun the live provider test; the configured key currently returns `insufficient_quota`.
    - Complete cross-theme and RTL visual QA for the coach workflow.
