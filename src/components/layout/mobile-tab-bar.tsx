@@ -38,7 +38,7 @@ export function MobileTabBar() {
           key={tab.href}
           href={withLocale(tab.href, locale)}
           aria-current={tab.active ? "page" : undefined}
-          className={cn("mobile-tab", tab.active && "mobile-tab-active")}
+          className={cn("mobile-tab", tab.active && "mobile-tab-active", tab.href === "/account/runs" && "mobile-tab-primary")}
           onClick={() => tapHaptic("light")}
         >
           <span className="mobile-tab-icon" aria-hidden="true">
