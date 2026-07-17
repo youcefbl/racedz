@@ -35,6 +35,12 @@ export type GuidedWorkout = {
   targetDurationMin: number | null;
 };
 
+// The active guided-session identity survives remounts at module scope (like the run engine and
+// the guidance progress): switching dashboard tabs mid-run remounts this component, and losing
+// these would silently end all voice coaching — and misattribute a library run's audio profile.
+let persistedGuidedActive = false;
+let persistedLibrarySession: { workoutType: string; structure: WorkoutStructure } | null = null;
+
 const GUIDED_COPY: Record<CoachLocale, { todaySession: string; startGuided: string; freeRun: string }> = {
   en: { todaySession: "Today's session", startGuided: "Start guided workout", freeRun: "Just free run instead" },
   fr: { todaySession: "Séance du jour", startGuided: "Démarrer la séance guidée", freeRun: "Faire une course libre" },
@@ -70,11 +76,19 @@ export function RunRecorder({
   const [batteryOk, setBatteryOk] = useState(true);
   const [bgLocation, setBgLocation] = useState<LocationPermissionState>({ fine: true, background: true });
   // Whether the current recording is running as a guided session (planned workout or library pick).
-  const [guidedActive, setGuidedActive] = useState(false);
+  const [guidedActive, setGuidedActiveState] = useState(persistedGuidedActive);
   // A session picked from the guided library (vs. the coach's planned workout). Its structure
   // drives the guidance and its workoutType selects the audio profile; the saved run stays free
   // (no workoutId) — the server-side matcher decides later whether it counts toward the plan.
-  const [librarySession, setLibrarySession] = useState<{ workoutType: string; structure: WorkoutStructure } | null>(null);
+  const [librarySession, setLibrarySessionState] = useState(persistedLibrarySession);
+  const setGuidedActive = (value: boolean) => {
+    persistedGuidedActive = value;
+    setGuidedActiveState(value);
+  };
+  const setLibrarySession = (value: { workoutType: string; structure: WorkoutStructure } | null) => {
+    persistedLibrarySession = value;
+    setLibrarySessionState(value);
+  };
   const guidedCopy = GUIDED_COPY[locale];
 
   // Derive a runnable structure from the planned workout (no stored structure needed).

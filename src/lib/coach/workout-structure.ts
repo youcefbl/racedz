@@ -122,6 +122,14 @@ export function buildWorkoutStructure(workout: BuildInput): WorkoutStructure | n
     };
   }
 
+  // Library-born types that may later appear on planned workouts: give them their real structure
+  // (their audio profiles expect WORK reps — falling through to a single steady block would leave
+  // form cues, rep splits, and control checks silently dead).
+  if (type === "THRESHOLD" || type === "STRIDES") {
+    const template = GUIDED_SESSION_TEMPLATES.find((t) => t.workoutType === type);
+    if (template) return buildGuidedSession(template, {});
+  }
+
   // EASY / LONG_RUN / RECOVERY / RACE and anything else: one steady effort toward the target, so the
   // runner still gets a live progress bar and an end cue. Distance target preferred; else time; else
   // an open-ended run.
@@ -134,7 +142,7 @@ export function buildWorkoutStructure(workout: BuildInput): WorkoutStructure | n
   return { blocks: [{ kind: "single", step: { role: "STEADY", intensity, target: steadyTarget } }] };
 }
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 

@@ -107,6 +107,13 @@ assert.equal(estimateStructureDistanceKm(easyStructure), 5);
   const rec = flattenStructure(buildGuidedSession(recovery, { durationMin: 30 }));
   assert.equal(rec.length, 1);
   assert.deepEqual(rec[0]!.target, { type: "TIME", seconds: 1800 });
+
+  // A planned workout typed THRESHOLD/STRIDES gets its real repped structure, not the
+  // steady-run fallback (its audio profile expects WORK reps).
+  const plannedThreshold = flattenStructure(buildWorkoutStructure({ workoutType: "THRESHOLD", targetDistanceKm: null, targetDurationMin: null })!);
+  assert.equal(plannedThreshold.filter((s) => s.role === "WORK").length, 4);
+  const plannedStrides = flattenStructure(buildWorkoutStructure({ workoutType: "STRIDES", targetDistanceKm: null, targetDurationMin: null })!);
+  assert.ok(plannedStrides.some((s) => s.role === "WORK" && s.target.type === "TIME" && s.target.seconds === 20));
 }
 
 console.log("Workout structure + guidance derivation checks passed.");

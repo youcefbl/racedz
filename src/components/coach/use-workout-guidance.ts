@@ -46,6 +46,14 @@ function targetOf(step: ExecStep): { unit: "TIME" | "DISTANCE" | "OPEN"; value: 
   return { unit: "OPEN", value: null };
 }
 
+// Progress lives at module scope, not in a ref: the run engine is a singleton that keeps
+// recording across screen changes, and this hook's host component remounts on every tab switch —
+// a mid-run remount must resume the workout exactly where it was, not restart (or kill) it.
+// Only one recorder is ever live at a time, and the idle reset below covers run-to-run reuse.
+const sharedProgress: { current: Progress } = {
+  current: { started: false, completed: false, stepIndex: 0, anchorElapsed: 0, anchorDistance: 0, lastCountdown: 0 }
+};
+
 export function useWorkoutGuidance(
   steps: ExecStep[],
   metrics: LiveMetrics,
@@ -57,14 +65,6 @@ export function useWorkoutGuidance(
   }
 ): GuidanceView {
   const { enabled, onAdvance, onComplete, onCountdown } = options;
-  const progress = useRef<Progress>({
-    started: false,
-    completed: false,
-    stepIndex: 0,
-    anchorElapsed: 0,
-    anchorDistance: 0,
-    lastCountdown: 0
-  });
   const metricsRef = useRef(metrics);
   metricsRef.current = metrics;
   const [, bump] = useState(0);
@@ -74,12 +74,12 @@ export function useWorkoutGuidance(
 
   useEffect(() => {
     if (!enabled || steps.length === 0) return;
-    const st = progress.current;
+    const st = sharedProgress.current;
 
     // Reset when a fresh run begins (engine went back to idle).
     if (status === "idle") {
       if (st.started || st.completed) {
-        progress.current = { started: false, completed: false, stepIndex: 0, anchorElapsed: 0, anchorDistance: 0, lastCountdown: 0 };
+        sharedProgress.current = { started: false, completed: false, stepIndex: 0, anchorElapsed: 0, anchorDistance: 0, lastCountdown: 0 };
         forceRender();
       }
       return;
@@ -143,7 +143,7 @@ export function useWorkoutGuidance(
 
   const skip = useCallback(() => {
     if (!enabled || steps.length === 0) return;
-    const st = progress.current;
+    const st = sharedProgress.current;
     if (!st.started || st.completed) return;
     const live = metricsRef.current;
     if (st.stepIndex === steps.length - 1) {
@@ -163,7 +163,7 @@ export function useWorkoutGuidance(
   if (!enabled || steps.length === 0) {
     return emptyView(steps.length);
   }
-  const st = progress.current;
+  const st = sharedProgress.current;
   const total = steps.length;
 
   if (!st.started) {

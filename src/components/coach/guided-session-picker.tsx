@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { CoachLocale } from "@/components/coach/types";
 import {
   buildGuidedSession,
+  clamp,
   estimateStructureDistanceKm,
   summarizeStructure,
   GUIDED_SESSION_TEMPLATES,
@@ -149,7 +150,7 @@ export function GuidedSessionPicker({
     if (!spec) return;
     setParams((current) => {
       const next = (current[key] ?? spec.default) + delta * spec.step;
-      return { ...current, [key]: Math.min(spec.max, Math.max(spec.min, next)) };
+      return { ...current, [key]: clamp(next, spec.min, spec.max) };
     });
   };
 

@@ -100,19 +100,22 @@ export type PaceLimits = { fastLimit: number | null; slowLimit: number | null };
 export function paceLimitsFor(profileId: AudioProfileId, step: ExecStep, recentPaceSecPerKm: number): PaceLimits {
   // Pace is only judged on the session's purpose steps — never on warm-up/recovery/cool-down.
   if (step.role !== "STEADY" && step.role !== "WORK") return { fastLimit: null, slowLimit: null };
+  // The reference is a distance-weighted 28-day average over ALL runs (easy + hard mixed), so the
+  // runner's normal easy pace sits close to it. Every margin below leaves the whole "normal" range
+  // silent and only fires when the runner is unambiguously outside the session's intent.
   switch (profileId) {
     case "RECOVERY":
-      // Recovery must be slower than the everyday average — warn once it approaches it.
-      return { fastLimit: recentPaceSecPerKm + 30, slowLimit: null };
+      // Recovery should be slower than the everyday average — warn only when clearly beating it.
+      return { fastLimit: recentPaceSecPerKm - 15, slowLimit: null };
     case "EASY":
-      // Easy days shouldn't beat the runner's overall average pace.
-      return { fastLimit: recentPaceSecPerKm, slowLimit: null };
+      // Easy days shouldn't turn into moderate runs: warn well past the everyday average.
+      return { fastLimit: recentPaceSecPerKm - 45, slowLimit: null };
     case "THRESHOLD":
-      // Threshold sits ~45-60 s/km under easy average; warn only on clear overspeed.
-      return { fastLimit: recentPaceSecPerKm - 75, slowLimit: null };
+      // True threshold sits ~60-90 s/km under the mixed average; warn only on egregious overspeed.
+      return { fastLimit: recentPaceSecPerKm - 105, slowLimit: null };
     case "TEMPO":
-      // Comfortably-hard band: clearly faster than average, but not a race.
-      return { fastLimit: recentPaceSecPerKm - 75, slowLimit: recentPaceSecPerKm + 30 };
+      // Comfortably-hard band, kept wide: racing, or jogging the tempo block.
+      return { fastLimit: recentPaceSecPerKm - 90, slowLimit: recentPaceSecPerKm + 45 };
     default:
       return { fastLimit: null, slowLimit: null };
   }
@@ -142,7 +145,9 @@ export type AudioCueEvent =
 export type AudioTickInput = {
   elapsedSec: number;
   distanceM: number;
-  currentPaceSecPerKm: number | null; // engine's smoothed live pace
+  // Engine's live pace. NOT smoothed — it's derived from the latest GPS fix's speed, so a single
+  // bad fix can spike it; the dwell requirement below is what protects against false corrections.
+  currentPaceSecPerKm: number | null;
   recentPaceSecPerKm: number | null; // runner's 28-day average, for the limit bands
   step: ExecStep | null; // current guidance step (null before start / after completion)
   stepRatio: number; // 0..1 progress through the current step (0 for OPEN)
@@ -159,7 +164,9 @@ type PendingCue = { due: number; event: AudioCueEvent };
 export type AudioCoachState = {
   stepIndex: number | null;
   stepEnteredAtSec: number;
-  lastRepRoleWasWork: boolean;
+  prevStepRole: string | null; // role of the step we were in before the current one
+  paceBreachDirection: "faster" | "slower" | null; // current out-of-band direction, if any
+  paceBreachSinceSec: number | null; // when the current breach started (for the dwell rule)
   lastKmMark: number;
   lastKmAtSec: number;
   lastSpokenAtSec: number;
@@ -182,7 +189,9 @@ export function createAudioCoachState(): AudioCoachState {
   return {
     stepIndex: null,
     stepEnteredAtSec: 0,
-    lastRepRoleWasWork: false,
+    prevStepRole: null,
+    paceBreachDirection: null,
+    paceBreachSinceSec: null,
     lastKmMark: 0,
     lastKmAtSec: 0,
     lastSpokenAtSec: -999,
@@ -205,6 +214,7 @@ export function createAudioCoachState(): AudioCoachState {
 // Anti-nag constants (exported so tests can pin them).
 export const PACE_CUE_MIN_GAP_SEC = 90; // never two pace corrections within 90 s
 export const STEP_PACE_GRACE_SEC = 30; // no pace judgment in a step's first 30 s
+export const PACE_DWELL_SEC = 15; // pace must stay out of band this long — one bad GPS fix never speaks
 export const SPOKEN_CUE_MIN_GAP_SEC = 5; // breathing room between any two spoken cues
 export const TRANSITION_CUE_DELAY_SEC = 4; // rep-split/last-rep wait out the step announcement
 export const FORM_CUE_DELAY_SEC = 6; // form cue lands a moment into the stride
@@ -230,12 +240,9 @@ export function collectAudioCue(profile: AudioProfile, state: AudioCoachState, i
   // the speech layer).
   if (step && state.stepIndex !== step.index) {
     const prevEntered = state.stepEnteredAtSec;
-    const hadPrev = state.stepIndex !== null;
-    if (hadPrev && profile.repSplit) {
+    if (profile.repSplit && state.prevStepRole === "WORK") {
       const repSeconds = Math.round(elapsedSec - prevEntered);
-      // Only WORK reps get spoken times; we detect "previous was WORK" by the new step following
-      // a rep (the recovery/next step's rep counter still points at the same or next rep).
-      if (state.lastRepRoleWasWork && repSeconds >= MIN_REP_SPLIT_SEC) {
+      if (repSeconds >= MIN_REP_SPLIT_SEC) {
         push({ kind: "repSplit", seconds: repSeconds }, elapsedSec + TRANSITION_CUE_DELAY_SEC);
       }
     }
@@ -248,7 +255,15 @@ export function collectAudioCue(profile: AudioProfile, state: AudioCoachState, i
     }
     state.stepIndex = step.index;
     state.stepEnteredAtSec = elapsedSec;
-    state.lastRepRoleWasWork = step.role === "WORK";
+    state.prevStepRole = step.role;
+    // A new pace judgment starts fresh in the new step.
+    state.paceBreachDirection = null;
+    state.paceBreachSinceSec = null;
+    // The step announcement (spoken by the guidance hook on this same tick) owns the speech
+    // channel: mark it as the last spoken cue so the flush gap below keeps every immediate-due
+    // commentary cue (splits, check-ins, hydration) clear of it — the speech layer is
+    // newest-cue-wins, so speaking over the announcement would cut it off mid-word.
+    state.lastSpokenAtSec = elapsedSec;
   }
 
   // --- Km splits.
@@ -331,23 +346,36 @@ export function collectAudioCue(profile: AudioProfile, state: AudioCoachState, i
       push({ kind: "midStep" });
     }
 
-    // --- Pace guidance (the strictly rationed one).
-    if (
-      profile.paceGuidance !== "none" &&
-      input.currentPaceSecPerKm !== null &&
-      input.recentPaceSecPerKm !== null &&
-      stepElapsed >= STEP_PACE_GRACE_SEC &&
-      elapsedSec - state.lastPaceCueAtSec >= PACE_CUE_MIN_GAP_SEC
-    ) {
+    // --- Pace guidance (the strictly rationed one). The live pace is a single GPS fix, so a cue
+    // needs a sustained breach (dwell) — one glitchy reading under a bridge must never speak.
+    if (profile.paceGuidance !== "none" && input.currentPaceSecPerKm !== null && input.recentPaceSecPerKm !== null && stepElapsed >= STEP_PACE_GRACE_SEC) {
       const limits = paceLimitsFor(profile.id, step, input.recentPaceSecPerKm);
       const pace = input.currentPaceSecPerKm;
-      if (limits.fastLimit !== null && pace < limits.fastLimit) {
-        state.lastPaceCueAtSec = elapsedSec;
-        push({ kind: "pace", direction: "slower" });
-      } else if (profile.paceGuidance === "band" && limits.slowLimit !== null && pace > limits.slowLimit) {
-        state.lastPaceCueAtSec = elapsedSec;
-        push({ kind: "pace", direction: "faster" });
+      const breach: "faster" | "slower" | null =
+        limits.fastLimit !== null && pace < limits.fastLimit
+          ? "slower"
+          : profile.paceGuidance === "band" && limits.slowLimit !== null && pace > limits.slowLimit
+            ? "faster"
+            : null;
+      if (!breach) {
+        state.paceBreachDirection = null;
+        state.paceBreachSinceSec = null;
+      } else {
+        if (state.paceBreachDirection !== breach || state.paceBreachSinceSec === null) {
+          state.paceBreachDirection = breach;
+          state.paceBreachSinceSec = elapsedSec;
+        }
+        if (
+          elapsedSec - state.paceBreachSinceSec >= PACE_DWELL_SEC &&
+          elapsedSec - state.lastPaceCueAtSec >= PACE_CUE_MIN_GAP_SEC
+        ) {
+          state.lastPaceCueAtSec = elapsedSec;
+          push({ kind: "pace", direction: breach });
+        }
       }
+    } else {
+      state.paceBreachDirection = null;
+      state.paceBreachSinceSec = null;
     }
 
     // --- Periodic company: check-ins and hydration.

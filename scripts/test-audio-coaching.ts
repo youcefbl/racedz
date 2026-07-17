@@ -7,6 +7,7 @@ import {
   profileForWorkoutType,
   FORM_CUE_DELAY_SEC,
   PACE_CUE_MIN_GAP_SEC,
+  PACE_DWELL_SEC,
   SPOKEN_CUE_MIN_GAP_SEC,
   TRANSITION_CUE_DELAY_SEC,
   type AudioCoachState,
@@ -56,30 +57,42 @@ assert.equal(profileForWorkoutType("THRESHOLD"), "THRESHOLD");
 assert.equal(profileForWorkoutType("SOMETHING_NEW"), "EASY");
 assert.equal(profileForWorkoutType(null), "EASY");
 
-// --- Pace limits ---------------------------------------------------------------------------
+// --- Pace limits: every band leaves the runner's normal range silent -------------------------
 const recovery = getAudioProfile("RECOVERY");
 const steady = step({ index: 0 });
-assert.deepEqual(paceLimitsFor("RECOVERY", steady, 360), { fastLimit: 390, slowLimit: null });
-assert.deepEqual(paceLimitsFor("EASY", steady, 360), { fastLimit: 360, slowLimit: null });
-assert.deepEqual(paceLimitsFor("TEMPO", steady, 360), { fastLimit: 285, slowLimit: 390 });
+assert.deepEqual(paceLimitsFor("RECOVERY", steady, 360), { fastLimit: 345, slowLimit: null });
+assert.deepEqual(paceLimitsFor("EASY", steady, 360), { fastLimit: 315, slowLimit: null });
+assert.deepEqual(paceLimitsFor("THRESHOLD", steady, 360), { fastLimit: 255, slowLimit: null });
+assert.deepEqual(paceLimitsFor("TEMPO", steady, 360), { fastLimit: 270, slowLimit: 405 });
 // Warm-ups are never pace-judged.
 assert.deepEqual(paceLimitsFor("RECOVERY", step({ index: 0, role: "WARMUP" }), 360), { fastLimit: null, slowLimit: null });
 
-// --- Recovery run: ceiling-only pace cues, rationed -----------------------------------------
+// --- Recovery run: ceiling-only pace cues, dwell-gated and rationed ---------------------------
 {
   const state = createAudioCoachState();
-  // Enter the steady step; too fast from the start (pace 330 vs ceiling 390... 330 < 390 → slower).
-  const base = { step: steady, stepRatio: 0.1, currentPaceSecPerKm: 330, recentPaceSecPerKm: 360 };
+  // Clearly too fast for recovery: pace 320 vs ceiling 345 (recent 360 − 15).
+  const base = { step: steady, stepRatio: 0.1, currentPaceSecPerKm: 320, recentPaceSecPerKm: 360 };
   // Inside the 30 s grace window: silent.
   assert.equal(tick(recovery, state, { elapsedSec: 10, ...base }), null);
-  // After grace: one "slower" cue.
-  const cue = tick(recovery, state, { elapsedSec: 40, ...base });
+  // Breach starts after grace, but a single reading never speaks (dwell).
+  assert.equal(tick(recovery, state, { elapsedSec: 40, ...base }), null);
+  // Still breaching after the dwell window: now it speaks.
+  const cue = tick(recovery, state, { elapsedSec: 40 + PACE_DWELL_SEC + 1, ...base });
   assert.deepEqual(cue, { kind: "pace", direction: "slower" });
-  // Still fast 30 s later: rationed (90 s minimum gap).
-  assert.equal(tick(recovery, state, { elapsedSec: 70, ...base }), null);
-  // After the gap: allowed again.
-  const cue2 = tick(recovery, state, { elapsedSec: 40 + PACE_CUE_MIN_GAP_SEC, ...base });
+  // Still fast shortly after: rationed (90 s minimum gap).
+  assert.equal(tick(recovery, state, { elapsedSec: 80, ...base }), null);
+  // After the gap (breach persisted): allowed again.
+  const cue2 = tick(recovery, state, { elapsedSec: 56 + PACE_CUE_MIN_GAP_SEC, ...base });
   assert.deepEqual(cue2, { kind: "pace", direction: "slower" });
+  // A pace back inside the band resets the dwell — a later single-tick spike stays silent.
+  const glitch = createAudioCoachState();
+  tick(recovery, glitch, { elapsedSec: 1, step: steady, stepRatio: 0.05 });
+  assert.equal(tick(recovery, glitch, { elapsedSec: 200, ...base }), null); // breach tick (GPS spike)
+  assert.equal(
+    tick(recovery, glitch, { elapsedSec: 201, step: steady, stepRatio: 0.2, currentPaceSecPerKm: 400, recentPaceSecPerKm: 360 }),
+    null
+  ); // back in band → dwell reset
+  assert.equal(tick(recovery, glitch, { elapsedSec: 210, ...base, stepRatio: 0.25 }), null); // fresh breach, dwell restarts
   // Recovery never says "faster", even when far above any pace.
   const slowState = createAudioCoachState();
   tick(recovery, slowState, { elapsedSec: 1, step: steady, stepRatio: 0.1 });
@@ -132,14 +145,16 @@ assert.deepEqual(paceLimitsFor("RECOVERY", step({ index: 0, role: "WARMUP" }), 3
 
   const state = createAudioCoachState();
   tick(intervals, state, { elapsedSec: 1, step: work(0, 1, 2), stepRatio: 0 });
-  // WORK rep took 95 s, then transition to recovery: the rep split waits out the announcement...
+  // WORK rep took 95 s, then transition to recovery: the rep split waits out the announcement
+  // (the transition itself claims the speech channel, so delay + spoken gap both apply)...
   assert.equal(tick(intervals, state, { elapsedSec: 96, step: rec(1, 1, 2), stepRatio: 0 }), null);
-  // ...and lands after the delay.
-  const repSplit = tick(intervals, state, { elapsedSec: 96 + TRANSITION_CUE_DELAY_SEC, step: rec(1, 1, 2), stepRatio: 0.05 });
+  assert.equal(tick(intervals, state, { elapsedSec: 96 + TRANSITION_CUE_DELAY_SEC, step: rec(1, 1, 2), stepRatio: 0.04 }), null);
+  // ...and lands once the announcement has had its breathing room.
+  const repSplit = tick(intervals, state, { elapsedSec: 96 + SPOKEN_CUE_MIN_GAP_SEC, step: rec(1, 1, 2), stepRatio: 0.06 });
   assert.deepEqual(repSplit, { kind: "repSplit", seconds: 95 });
   // Final rep starts → delayed "last one" encouragement.
   assert.equal(tick(intervals, state, { elapsedSec: 186, step: work(2, 2, 2), stepRatio: 0 }), null);
-  const lastRep = tick(intervals, state, { elapsedSec: 186 + TRANSITION_CUE_DELAY_SEC, step: work(2, 2, 2), stepRatio: 0.1 });
+  const lastRep = tick(intervals, state, { elapsedSec: 186 + SPOKEN_CUE_MIN_GAP_SEC, step: work(2, 2, 2), stepRatio: 0.1 });
   assert.deepEqual(lastRep, { kind: "lastRep" });
 }
 
@@ -199,6 +214,21 @@ assert.deepEqual(paceLimitsFor("RECOVERY", step({ index: 0, role: "WARMUP" }), 3
   });
   assert.ok(second !== null);
   assert.notEqual(first!.kind, second!.kind);
+}
+
+// --- A km split landing on a step transition never talks over the announcement ---------------
+{
+  const tempo = getAudioProfile("TEMPO");
+  const warm = step({ index: 0, role: "WARMUP", target: { type: "TIME", seconds: 600 } });
+  const block = step({ index: 1, role: "STEADY", intensity: "MODERATE", target: { type: "TIME", seconds: 1200 } });
+  const state = createAudioCoachState();
+  tick(tempo, state, { elapsedSec: 1, step: warm });
+  tick(tempo, state, { elapsedSec: 300, distanceM: 990, step: warm, stepRatio: 0.5 });
+  // Step transition AND km crossing on the same tick: the announcement owns the channel.
+  assert.equal(tick(tempo, state, { elapsedSec: 600, distanceM: 2001, step: block, stepRatio: 0 }), null);
+  // The split speaks only after the spoken-cue gap.
+  const deferred = tick(tempo, state, { elapsedSec: 600 + SPOKEN_CUE_MIN_GAP_SEC, distanceM: 2030, step: block, stepRatio: 0.01 });
+  assert.deepEqual(deferred, { kind: "split", km: 2, splitSec: 600 });
 }
 
 // --- Warm-up/cool-down guidance: optional, delayed past the announcement, once per step -------

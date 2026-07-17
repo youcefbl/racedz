@@ -870,7 +870,7 @@ export async function getRunsScreenData(userId: string, limit = 50) {
     getActiveGoal(userId),
     getRunnerRecords(userId),
     getTodayGuidedWorkout(userId),
-    getPrisma().$queryRaw<Array<{ metrics: unknown }>>`
+    getPrisma().$queryRaw<Array<{ metrics: CoachMetrics }>>`
       SELECT "metrics" FROM "CoachSnapshot" WHERE "userId" = ${userId} LIMIT 1
     `
   ]);
@@ -879,8 +879,7 @@ export async function getRunsScreenData(userId: string, limit = 50) {
     getRunnerBadges(userId, records)
   ]);
   // Recent average pace feeds the recorder's audio pace-guidance bands; null just mutes pace cues.
-  const snapshotMetrics = (snapshots[0]?.metrics ?? null) as { averagePaceLast28DaysSecondsPerKm?: number | null } | null;
-  const recentPaceSecondsPerKm = snapshotMetrics?.averagePaceLast28DaysSecondsPerKm ?? null;
+  const recentPaceSecondsPerKm = snapshots[0]?.metrics?.averagePaceLast28DaysSecondsPerKm ?? null;
   return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null, records, todayWorkout, badges, recentPaceSecondsPerKm };
 }
 

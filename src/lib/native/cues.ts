@@ -183,8 +183,8 @@ function speakNative(text: string, locale: CoachLocale): void {
       const supported = await loadNativeLanguages();
       const lang = resolveNativeLang(locale, supported);
       if (!lang) return; // no voice for this language — tones + haptics carry the cue
-      // Newest cue wins: a step transition must not queue behind a pending split announcement.
-      await TextToSpeech.stop().catch(() => {});
+      // Newest cue wins: the plugin's default queue strategy is FLUSH, which stops any in-flight
+      // utterance when a new one arrives — no separate stop() round-trip needed.
       await TextToSpeech.speak({ text, lang, rate: 1.0, pitch: 1.0, volume: 1.0 });
     } catch {
       /* engine hiccup — stay silent, never throw into the recorder */
