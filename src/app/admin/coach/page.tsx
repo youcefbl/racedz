@@ -15,6 +15,7 @@ import {
   type PendingCoachRequestRow
 } from "@/lib/coach-admin";
 import { parsePagination } from "@/lib/pagination";
+import { COACH_CURRENCY, COACH_PLANS } from "@/lib/coach/plans";
 import { AdminShell, EmptyState, FilterBar, StatCard } from "../_components/admin-ui";
 import {
   activateCoachSubscriptionAction,
@@ -62,7 +63,7 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
               <span className="font-bold text-gray-800">Paid:</span> 20 requests/day.
             </li>
             <li>
-              <span className="font-bold text-gray-800">Pricing:</span> 500 DA/month or 4000 DA/year, activated manually after payment.
+              <span className="font-bold text-gray-800">Pricing:</span> {COACH_PLANS.MONTHLY.priceDa.toLocaleString()} {COACH_CURRENCY}/month, {COACH_PLANS.THREE_MONTH.priceDa.toLocaleString()} {COACH_CURRENCY} for 3 months, or {COACH_PLANS.YEARLY.priceDa.toLocaleString()} {COACH_CURRENCY}/year, activated manually after payment.
             </li>
           </ul>
         </div>
@@ -157,8 +158,9 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
                               <label className="grid gap-1 text-xs font-bold text-gray-600">
                                 Plan
                                 <select name="plan" defaultValue="MONTHLY" className={inputClass}>
-                                  <option value="MONTHLY">Monthly (790 DA)</option>
-                                  <option value="YEARLY">Yearly (4,900 DA)</option>
+                                  <option value="MONTHLY">Monthly ({COACH_PLANS.MONTHLY.priceDa.toLocaleString()} {COACH_CURRENCY})</option>
+                                  <option value="THREE_MONTH">3 months ({COACH_PLANS.THREE_MONTH.priceDa.toLocaleString()} {COACH_CURRENCY})</option>
+                                  <option value="YEARLY">Yearly ({COACH_PLANS.YEARLY.priceDa.toLocaleString()} {COACH_CURRENCY})</option>
                                   <option value="CUSTOM">Custom</option>
                                 </select>
                               </label>

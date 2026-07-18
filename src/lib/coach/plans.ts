@@ -5,17 +5,19 @@
 
 export const COACH_CURRENCY = "DA";
 
-export type CoachPlanId = "MONTHLY" | "YEARLY" | "CUSTOM";
+export type CoachPlanId = "MONTHLY" | "THREE_MONTH" | "YEARLY" | "CUSTOM";
 
 export const COACH_PLANS = {
   MONTHLY: { months: 1, priceDa: 790 },
+  THREE_MONTH: { months: 3, priceDa: 1990 },
   YEARLY: { months: 12, priceDa: 4900 }
 } as const;
 
-// The two plans a runner can request from the subscribe page, in display order. CUSTOM is
+// The plans a runner can request from the subscribe page, in display order. CUSTOM is
 // admin-only (set at activation) so it isn't offered here.
 export const COACH_REQUESTABLE_PLANS = [
   { id: "MONTHLY" as const, ...COACH_PLANS.MONTHLY },
+  { id: "THREE_MONTH" as const, ...COACH_PLANS.THREE_MONTH },
   { id: "YEARLY" as const, ...COACH_PLANS.YEARLY }
 ];
 
@@ -41,7 +43,7 @@ export function studentPrice(priceDa: number): number {
   return Math.round(priceDa * (1 - STUDENT_PROMO.percentOff / 100));
 }
 
-// Resolve the charge (months + amount) for an activation. MONTHLY/YEARLY come from the config
+// Resolve the charge (months + amount) for an activation. Requestable plans come from the config
 // (optionally with the student discount); CUSTOM keeps whatever the admin typed.
 export function resolvePlanCharge(
   plan: CoachPlanId,

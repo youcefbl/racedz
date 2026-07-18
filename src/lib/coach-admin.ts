@@ -249,7 +249,7 @@ export async function getCoachUserUsage(
 export async function activateCoachSubscription(input: {
   actorId: string;
   userId: string;
-  plan: "MONTHLY" | "YEARLY" | "CUSTOM";
+  plan: "MONTHLY" | "THREE_MONTH" | "YEARLY" | "CUSTOM";
   months: number;
   amountDa: number | null;
   note: string | null;

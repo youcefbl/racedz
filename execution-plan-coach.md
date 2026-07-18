@@ -670,7 +670,7 @@ actions must show the proposed change and require confirmation before mutation.
   erase the runner's progress narrative.
 - Show progress toward the goal and current training phase, not only weekly totals.
 
-## Coach context & trust hardening (cross-cutting) — ◐ first slice shipped
+## Coach context & trust hardening (cross-cutting) — ◐ do-now + do-next slices shipped
 
 Folded in from the detailed [docs/COACH_CONTEXT_EXECUTION_TODO.md](docs/COACH_CONTEXT_EXECUTION_TODO.md)
 (that file keeps the full acceptance criteria; this is the reconciled, ROI-ordered checklist). Goal:
@@ -695,15 +695,17 @@ sensitivity-labelled, and reproducible. Several items overlap Phases 0/3/4 — d
   missing data instead of inventing facts. Strict-mode-safe (required arrays / nullable). *Live validation
   (evals show fewer generic answers) still needs OpenAI billing — Phase 0.* — S
 
-**Do next:**
-- [ ] **Typed `assembleCoachContext()`** with `contextVersion`, `assembledAt`, per-section freshness,
-  omitted-field reasons, and a stable **context hash**; keep `buildRunnerCoachContext()` a pure serializer.
-  Enables exact-payload unit tests (no OpenAI) + "which version produced this answer" in logs. — M
-- [ ] **Interaction context audit trail**: store the hash + minimal metadata by default; a redacted
-  snapshot only under a documented retention/access policy. Never log raw prompt / health notes / GPS. — M
-- [ ] **Deterministic coach eval fixtures** (`npm run test:coach`): beginner, experienced, inconsistent,
-  missed-workout, road vs trail race, hot wilaya, GPS+weather, no-location, injury signal, sparse
-  sleep/nutrition, long conversation, prompt injection, EN/FR/AR. — M
+**Do next — shipped on `feat/coach-context-envelope`:**
+- [x] ✅ **Typed `assembleCoachContext()`** (`context.ts`): wraps the pure `buildRunnerCoachContext` with a
+  `CoachContextEnvelope` — `contextVersion` (`ctx-v1`), `assembledAt`, a stable sha256 **hash** of the
+  exact payload, and per-section present/omitted reasons. — M
+- [x] ✅ **Interaction context audit trail**: `CoachInteraction.contextVersion` + `contextHash` (migration
+  `add_coach_context_provenance`), written on both the success and failure paths. Content-free — no raw
+  prompt / health / GPS stored. — M
+- [x] ✅ **Deterministic coach eval fixtures** (`scripts/test-coach-context.ts`, wired into
+  `npm run test:coach`): privacy exclusions (no identifiers/coordinates), section presence/omission
+  reasons, hash determinism, EN/FR/AR localization, untrusted-content-as-data, and pain→safety. Live-AI
+  behavioural evals (injection resistance, fewer generic answers) still need OpenAI billing (Phase 0). — M
 
 **Overlaps handled elsewhere (cross-reference, don't duplicate):**
 - **CoachMemory** (durable, *user-confirmed* preferences + a "What Coach Zid remembers" screen) → this is

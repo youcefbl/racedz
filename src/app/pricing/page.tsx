@@ -9,12 +9,13 @@ import { getLocale, withLocale, type Locale } from "@/lib/i18n";
 
 export const metadata = {
   title: "Pricing — ZidRun",
-  description: "Race calendar and run tracking are free forever. The AI coach is free for 7 days, then 790 DA/month or 4,900 DA/year."
+  description: "Race calendar and run tracking are free forever. The AI coach is free for 7 days, then 790 DA/month, 1,990 DA for 3 months, or 4,900 DA/year."
 };
 
 // Prices come from the shared plan config (same source the admin activation uses), so the number
 // a runner sees here is the number that gets billed. Only the surrounding words are translated.
 const MONTHLY = COACH_PLANS.MONTHLY.priceDa;
+const THREE_MONTHS = COACH_PLANS.THREE_MONTH.priceDa;
 const YEARLY = COACH_PLANS.YEARLY.priceDa;
 const CURRENCY = COACH_CURRENCY;
 const STUDENT_CODE = STUDENT_PROMO.code;
@@ -114,6 +115,7 @@ export default async function PricingPage({ searchParams }: { searchParams?: Pro
           <div className="mt-10">
             <PricingPlans
               monthly={MONTHLY}
+              threeMonths={THREE_MONTHS}
               yearly={YEARLY}
               currency={CURRENCY}
               studentCode={STUDENT_CODE}
@@ -187,11 +189,14 @@ const COPY: Record<Locale, PricingCopy> = {
     closingCta: "Start free — 7-day coach trial",
     plans: {
       monthly: "Monthly",
+      threeMonths: "3 months",
       yearly: "Yearly",
       perMonth: "/mo",
+      perThreeMonths: "/3 mo",
       perYear: "/yr",
       perMonthApprox: "≈ {price} {currency}/mo",
       save: "Save {percent}%",
+      mostPopular: "Most popular",
       bestValue: "Best value",
       coachTitle: "ZidRun Coach",
       coachSubtitle: "Your AI running coach",
@@ -233,11 +238,14 @@ const COPY: Record<Locale, PricingCopy> = {
     closingCta: "Commencer — essai de 7 jours",
     plans: {
       monthly: "Mensuel",
+      threeMonths: "3 mois",
       yearly: "Annuel",
       perMonth: "/mois",
+      perThreeMonths: "/3 mois",
       perYear: "/an",
       perMonthApprox: "≈ {price} {currency}/mois",
       save: "−{percent}%",
+      mostPopular: "Le plus choisi",
       bestValue: "Meilleur prix",
       coachTitle: "ZidRun Coach",
       coachSubtitle: "Votre coach de course doté d'IA",
@@ -279,11 +287,14 @@ const COPY: Record<Locale, PricingCopy> = {
     closingCta: "ابدأ مجانًا — تجربة لمدة 7 أيام",
     plans: {
       monthly: "شهري",
+      threeMonths: "3 أشهر",
       yearly: "سنوي",
       perMonth: "/شهر",
+      perThreeMonths: "/3 أشهر",
       perYear: "/سنة",
       perMonthApprox: "≈ {price} {currency}/شهر",
       save: "−{percent}%",
+      mostPopular: "الأكثر اختيارًا",
       bestValue: "أفضل قيمة",
       coachTitle: "ZidRun Coach",
       coachSubtitle: "مدربك للجري بالذكاء الاصطناعي",

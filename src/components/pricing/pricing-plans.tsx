@@ -7,11 +7,14 @@ import { cn } from "@/lib/utils";
 
 export type PricingPlansCopy = {
   monthly: string;
+  threeMonths: string;
   yearly: string;
   perMonth: string;
+  perThreeMonths: string;
   perYear: string;
   perMonthApprox: string; // "≈ {price} {currency}/mo"
   save: string; // "Save {percent}%"
+  mostPopular: string;
   bestValue: string;
   coachTitle: string;
   coachSubtitle: string;
@@ -25,6 +28,7 @@ export type PricingPlansCopy = {
 
 export function PricingPlans({
   monthly,
+  threeMonths,
   yearly,
   currency,
   studentCode,
@@ -33,6 +37,7 @@ export function PricingPlans({
   localeTag
 }: {
   monthly: number;
+  threeMonths: number;
   yearly: number;
   currency: string;
   studentCode: string;
@@ -40,13 +45,18 @@ export function PricingPlans({
   copy: PricingPlansCopy;
   localeTag: string;
 }) {
-  const [cycle, setCycle] = useState<"monthly" | "yearly">("yearly");
+  const [cycle, setCycle] = useState<"monthly" | "threeMonths" | "yearly">("threeMonths");
   const nf = new Intl.NumberFormat(localeTag);
+  const threeMonthsPerMonth = Math.round(threeMonths / 3);
   const yearlyPerMonth = Math.round(yearly / 12);
-  const savePercent = Math.round((1 - yearly / (monthly * 12)) * 100);
+  const threeMonthsSavePercent = Math.round((1 - threeMonths / (monthly * 3)) * 100);
+  const yearlySavePercent = Math.round((1 - yearly / (monthly * 12)) * 100);
+  const isThreeMonths = cycle === "threeMonths";
   const isYearly = cycle === "yearly";
-  const price = isYearly ? yearly : monthly;
-  const unit = isYearly ? copy.perYear : copy.perMonth;
+  const price = isYearly ? yearly : isThreeMonths ? threeMonths : monthly;
+  const unit = isYearly ? copy.perYear : isThreeMonths ? copy.perThreeMonths : copy.perMonth;
+  const monthlyEquivalent = isYearly ? yearlyPerMonth : isThreeMonths ? threeMonthsPerMonth : null;
+  const badge = isThreeMonths ? copy.mostPopular : isYearly ? copy.bestValue : null;
 
   const fill = (template: string, values: Record<string, string>) =>
     template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
@@ -54,27 +64,27 @@ export function PricingPlans({
   return (
     <div className="mx-auto max-w-md">
       {/* Billing cycle toggle */}
-      <div className="mx-auto mb-6 grid w-full max-w-xs grid-cols-2 gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-sm">
-        {(["monthly", "yearly"] as const).map((option) => (
+      <div className="mx-auto mb-6 grid w-full max-w-md grid-cols-3 gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-sm">
+        {(["monthly", "threeMonths", "yearly"] as const).map((option) => (
           <button
             key={option}
             type="button"
             onClick={() => setCycle(option)}
             aria-pressed={cycle === option}
             className={cn(
-              "relative min-h-11 rounded-full px-4 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
+              "relative min-h-11 rounded-full px-2 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal sm:px-3 sm:text-sm",
               cycle === option ? "bg-brand-teal text-white shadow-sm" : "text-gray-600 hover:text-gray-950"
             )}
           >
-            {option === "monthly" ? copy.monthly : copy.yearly}
-            {option === "yearly" ? (
+            {option === "monthly" ? copy.monthly : option === "threeMonths" ? copy.threeMonths : copy.yearly}
+            {option !== "monthly" ? (
               <span
                 className={cn(
                   "ms-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black",
-                  cycle === "yearly" ? "bg-white/20 text-white" : "bg-orange-50 text-brand-orangeText"
+                  cycle === option ? "bg-white/20 text-white" : "bg-orange-50 text-brand-orangeText"
                 )}
               >
-                −{savePercent}%
+                −{option === "threeMonths" ? threeMonthsSavePercent : yearlySavePercent}%
               </span>
             ) : null}
           </button>
@@ -83,10 +93,12 @@ export function PricingPlans({
 
       {/* Plan card */}
       <div className="relative overflow-hidden rounded-2xl border-2 border-brand-teal bg-white p-6 shadow-soft sm:p-8">
-        <span className="absolute end-4 top-4 inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-black text-brand-teal">
-          <Sparkles className="size-3.5" aria-hidden="true" />
-          {copy.bestValue}
-        </span>
+        {badge ? (
+          <span className="absolute end-4 top-4 inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-black text-brand-teal">
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            {badge}
+          </span>
+        ) : null}
 
         <h3 className="text-lg font-black text-gray-950">{copy.coachTitle}</h3>
         <p className="mt-1 text-sm font-semibold text-gray-500">{copy.coachSubtitle}</p>
@@ -96,7 +108,7 @@ export function PricingPlans({
           <span className="pb-1 text-sm font-black text-gray-500">{currency}{unit}</span>
         </div>
         <p className="mt-1 min-h-5 text-sm font-bold text-brand-teal">
-          {isYearly ? fill(copy.perMonthApprox, { price: nf.format(yearlyPerMonth), currency }) : " "}
+          {monthlyEquivalent ? fill(copy.perMonthApprox, { price: nf.format(monthlyEquivalent), currency }) : " "}
         </p>
 
         <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1.5 text-sm font-black text-brand-orangeText">

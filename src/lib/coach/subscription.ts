@@ -13,7 +13,7 @@ import { resolveCoachPaymentProofPath } from "@/lib/storage";
 // scope returns an authenticated app-route URL (not a public /uploads path), which this validates —
 // preventing arbitrary URLs from being stored.
 const PROOF_PATH = /^\/api\/coach\/subscription\/proof\/[0-9]{4}-[0-9]{2}\/[a-f0-9-]+\.(jpg|png|webp|gif)$/;
-const REQUESTABLE_PLANS = ["MONTHLY", "YEARLY"] as const;
+const REQUESTABLE_PLANS = ["MONTHLY", "THREE_MONTH", "YEARLY"] as const;
 type RequestablePlan = (typeof REQUESTABLE_PLANS)[number];
 
 export type CoachSubscriptionRequestRow = {

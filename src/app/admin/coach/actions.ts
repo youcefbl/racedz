@@ -16,7 +16,7 @@ export async function activateCoachSubscriptionAction(formData: FormData) {
   const userId = getFormString(formData, "userId");
   const plan = getFormString(formData, "plan");
 
-  if (plan !== "MONTHLY" && plan !== "YEARLY" && plan !== "CUSTOM") {
+  if (plan !== "MONTHLY" && plan !== "THREE_MONTH" && plan !== "YEARLY" && plan !== "CUSTOM") {
     throw new Error("Invalid subscription plan.");
   }
 
@@ -24,7 +24,7 @@ export async function activateCoachSubscriptionAction(formData: FormData) {
   const amountRaw = String(formData.get("amountDa") ?? "").trim();
   const noteRaw = String(formData.get("note") ?? "").trim();
 
-  // MONTHLY/YEARLY derive months + price from the shared config (with the optional student
+  // Requestable plans derive months + price from the shared config (with the optional student
   // discount); CUSTOM keeps the admin's typed months. An explicit amount always overrides.
   const charge = resolvePlanCharge(plan, {
     student,

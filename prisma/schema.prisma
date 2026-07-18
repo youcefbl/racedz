@@ -683,6 +683,8 @@ model CoachInteraction {
   authorId      String?
   model         String?
   promptVersion String
+  contextVersion String? // shape-version of the assembled coach context (see COACH_CONTEXT_VERSION)
+  contextHash    String? // sha256 (16 hex) of the exact context payload sent, for reproducibility — no content stored
   errorCode     String?
   acceptedAt    DateTime?
   createdAt     DateTime               @default(now())
@@ -773,6 +775,7 @@ model CoachSubscriptionRequest {
 
 enum CoachSubscriptionPlan {
   MONTHLY
+  THREE_MONTH
   YEARLY
   CUSTOM
 }

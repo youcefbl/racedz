@@ -13,7 +13,7 @@ import {
   type PlanAdherence,
   type WorkoutStatusValue
 } from "@/lib/coach/adherence";
-import { buildRunnerCoachContext, type ConversationTurn } from "@/lib/coach/context";
+import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
@@ -1053,7 +1053,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       }
     : null;
 
-  const context = buildRunnerCoachContext({
+  const envelope = assembleCoachContext({
     goal,
     runs,
     metrics,
@@ -1075,6 +1075,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     planAdaptations: adaptivePlan.adaptations,
     activePlan
   });
+  const context = envelope.context;
 
   try {
     const generated = await generateCoachResponse(context, interactionId);
@@ -1087,7 +1088,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       await tx.$executeRaw`
         UPDATE "CoachInteraction"
         SET "status" = 'COMPLETED', "response" = CAST(${JSON.stringify(response)} AS JSONB),
-            "model" = ${generated.model}, "completedAt" = NOW()
+            "model" = ${generated.model}, "completedAt" = NOW(),
+            "contextVersion" = ${envelope.meta.contextVersion}, "contextHash" = ${envelope.meta.hash}
         WHERE "id" = ${interactionId}
       `;
       await tx.$executeRaw`
@@ -1111,7 +1113,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         UPDATE "CoachInteraction"
-        SET "status" = 'FAILED', "model" = ${providerError.model}, "errorCode" = ${providerError.code}, "completedAt" = NOW()
+        SET "status" = 'FAILED', "model" = ${providerError.model}, "errorCode" = ${providerError.code}, "completedAt" = NOW(),
+            "contextVersion" = ${envelope.meta.contextVersion}, "contextHash" = ${envelope.meta.hash}
         WHERE "id" = ${interactionId}
       `;
       await tx.$executeRaw`

@@ -37,7 +37,7 @@ export type SubscriptionView = {
   cancelledAt: string | null;
 };
 
-type PlanView = { id: "MONTHLY" | "YEARLY"; months: number; priceDa: number };
+type PlanView = { id: "MONTHLY" | "THREE_MONTH" | "YEARLY"; months: number; priceDa: number };
 type PaymentDetails = { baridiMobNumber: string | null; ccpAccount: string | null; ccpKey: string | null; note: string | null };
 
 const initialState: SubscribeState = {};
@@ -69,7 +69,8 @@ export function CoachSubscribeView({
   const underReview = state.success || Boolean(pendingRequest);
   const wasDeclined = !pendingRequest && lastRequest?.status === "REJECTED";
   const fmtDate = (iso: string) => formatCoachDate(iso, locale, { year: "numeric", month: "short", day: "numeric" });
-  const planLabel = (id: string) => (id === "YEARLY" ? copy.planYearly : id === "MONTHLY" ? copy.planMonthly : id);
+  const planLabel = (id: string) =>
+    id === "YEARLY" ? copy.planYearly : id === "THREE_MONTH" ? copy.planThreeMonths : id === "MONTHLY" ? copy.planMonthly : id;
 
   return (
     <div className="min-h-[70vh] bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -261,7 +262,7 @@ function SubscribeForm({
 
       {/* Plan picker */}
       <p className="mb-2 text-sm font-black text-gray-950">{copy.choosePlan}</p>
-      <div className="mb-5 grid gap-3 sm:grid-cols-2">
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
         {plans.map((plan) => (
           <button
             key={plan.id}

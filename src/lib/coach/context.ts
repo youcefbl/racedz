@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { RunRoutePoint } from "@/components/coach/types";
 import type { PlanAdherence } from "@/lib/coach/adherence";
 import type { ActivePlanContext } from "@/lib/coach/plan-context";
@@ -194,6 +195,61 @@ export function buildRunnerCoachContext(input: {
   };
 
   return compactIfNeeded(context);
+}
+
+// Version of the context *shape* (not the prompt). Bump when the set/structure of context fields
+// changes, so a stored interaction can be traced to how its context was assembled.
+export const COACH_CONTEXT_VERSION = "ctx-v1-2026-07-18";
+
+type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
+
+// The context plus reproducibility metadata: which version + a stable hash of the exact payload sent,
+// when it was assembled, and why each optional section was present or omitted. `buildRunnerCoachContext`
+// stays a pure serializer; this wraps it. Store only meta (version + hash) with the interaction — never
+// the raw context — so an answer can be traced without logging health / GPS / free text.
+export type CoachContextEnvelope = {
+  context: ReturnType<typeof buildRunnerCoachContext>;
+  meta: {
+    contextVersion: string;
+    assembledAt: string;
+    hash: string;
+    sections: Record<string, string>; // "present" | "omitted:<reason>"
+  };
+};
+
+export function assembleCoachContext(input: CoachContextInput, now: Date = new Date()): CoachContextEnvelope {
+  const context = buildRunnerCoachContext(input);
+  const hash = createHash("sha256").update(JSON.stringify(context)).digest("hex").slice(0, 16);
+  return {
+    context,
+    meta: {
+      contextVersion: COACH_CONTEXT_VERSION,
+      assembledAt: now.toISOString(),
+      hash,
+      sections: describeContextSections(input)
+    }
+  };
+}
+
+// Per-section presence + the reason a section was left out — the "why isn't sleep here?" answer for
+// support/eval, without exposing any content.
+function describeContextSections(input: CoachContextInput): Record<string, string> {
+  const s = (present: boolean, omittedReason: string) => (present ? "present" : `omitted:${omittedReason}`);
+  const isPostRun = input.interaction.type === "POST_RUN";
+  return {
+    recentRuns: s(input.runs.length > 0, "no-runs-logged"),
+    location: s(Boolean(input.location?.wilaya || input.location?.city), "no-location"),
+    targetRace: s(Boolean(input.targetRace), "no-target-race"),
+    environment: s(Boolean(input.forecast), isPostRun ? "post-run-uses-run-weather" : "no-forecast"),
+    analysedRun: s(Boolean(input.targetRun), "not-a-post-run"),
+    sleep: s((input.sleep?.length ?? 0) > 0, "no-sleep-logged"),
+    nutrition: s(Boolean(input.nutrition), "no-nutrition-logged"),
+    activePlan: s(Boolean(input.activePlan), "no-active-plan"),
+    adherence: s(Boolean(input.adherence?.hasActivePlan), "no-active-plan"),
+    recentConversation: s((input.recentConversation?.length ?? 0) > 0, "no-prior-conversation"),
+    consistency: s(Boolean(input.consistency), "insufficient-data"),
+    intensity: s(Boolean(input.intensity), "insufficient-data")
+  };
 }
 
 function describeRun(run: ContextRun) {
