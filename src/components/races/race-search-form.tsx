@@ -110,7 +110,7 @@ export function RaceSearchForm({
           </div>
         </div>
         <div className="flex items-end">
-          <button className="h-11 w-full rounded-lg bg-brand-orange px-6 text-sm font-semibold text-white transition hover:bg-brand-orangeDark md:w-auto">
+          <button className="h-11 w-full rounded-lg bg-brand-orange px-6 text-sm font-semibold text-[#18001c] transition hover:bg-brand-orangeDark md:w-auto">
             {labels.submit}
           </button>
         </div>

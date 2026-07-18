@@ -201,7 +201,7 @@ function Row({
       </span>
       <span className="flex-1 text-sm font-bold text-gray-900">{label}</span>
       {badge && badge > 0 ? (
-        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-black text-white">
+        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-black text-[#18001c]">
           {badge > 9 ? "9+" : badge}
         </span>
       ) : null}
