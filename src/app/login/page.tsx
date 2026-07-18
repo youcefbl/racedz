@@ -75,7 +75,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-2">
                 <span className="font-black">{t.coachPromoTitle}</span>
-                <span className="rounded-full bg-brand-orange px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-white">
+                <span className="rounded-full bg-brand-orange px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-[#18001c]">
                   {trialBadge}
                 </span>
               </span>

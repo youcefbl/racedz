@@ -12,7 +12,7 @@ import { RunPhotoUploader } from "@/components/coach/run-photos";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { RunMap } from "@/components/coach/run-map";
 import { RunSummary } from "@/components/coach/run-summary";
-import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch } from "@/components/coach/types";
+import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { cn } from "@/lib/utils";
@@ -88,9 +88,37 @@ export function CoachRunsPanel({
   const [expandedRun, setExpandedRun] = useState<string | null>(
     () => runs.find((run) => run.route && run.route.length > 1)?.id ?? null
   );
+  // List rows carry only a downsampled route preview (enough for the thumbnail). The expanded
+  // card needs every point — the Leaflet map and the per-km splits in RunSummary are both
+  // computed from it — so fetch the full route once per run and cache it here.
+  const [fullRoutes, setFullRoutes] = useState<Record<string, RunRoutePoint[]>>({});
   const [saving, startSaving] = useTransition();
   const pace = useMemo(() => (distance > 0 && duration > 0 ? Math.round((duration * 60) / distance) : null), [distance, duration]);
   const plannedWorkouts = plan?.workouts.filter((workout) => workout.status !== "COMPLETED") ?? [];
+
+  // Fetch the expanded run's full route once. Until it lands the card renders the preview, so
+  // the map still draws (coarsely) rather than flashing empty; a failure just leaves the
+  // preview in place instead of surfacing an error for a purely cosmetic upgrade.
+  useEffect(() => {
+    const runId = expandedRun;
+    if (!runId || fullRoutes[runId]) return;
+    const run = runs.find((candidate) => candidate.id === runId);
+    if (!run?.route || run.route.length < 2) return;
+
+    let cancelled = false;
+    coachRequest<{ data: { route: RunRoutePoint[] | null } }>(`/api/coach/runs/${runId}`)
+      .then((payload) => {
+        const route = payload?.data?.route;
+        if (cancelled || !Array.isArray(route) || route.length < 2) return;
+        setFullRoutes((current) => ({ ...current, [runId]: route }));
+      })
+      .catch(() => {
+        /* keep the preview */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [expandedRun, fullRoutes, runs]);
 
   // Today hero → "Log this run": open the form, preselect the workout, and prefill its target distance.
   useEffect(() => {
@@ -379,6 +407,7 @@ export function CoachRunsPanel({
                 key={run.id}
                 run={run}
                 isOpen={expandedRun === run.id}
+                fullRoute={fullRoutes[run.id]}
                 photoOverride={photoOverrides[run.id]}
                 analysisId={analyzedRuns?.[run.id]}
                 saving={saving}
@@ -421,6 +450,7 @@ export function CoachRunsPanel({
 const RunRow = memo(function RunRow({
   run,
   isOpen,
+  fullRoute,
   photoOverride,
   analysisId,
   saving,
@@ -436,6 +466,8 @@ const RunRow = memo(function RunRow({
 }: {
   run: CoachRun;
   isOpen: boolean;
+  /** Full-fidelity route, fetched on expand. Falls back to the row's downsampled preview. */
+  fullRoute: RunRoutePoint[] | undefined;
   photoOverride: string[] | undefined;
   analysisId: string | undefined;
   saving: boolean;
@@ -450,6 +482,8 @@ const RunRow = memo(function RunRow({
   onUpdatePhotos: (run: CoachRun, next: string[]) => void;
 }) {
   const hasRoute = Boolean(run.route && run.route.length > 1);
+  // Prefer the full route once it arrives; the preview keeps the map drawn in the meantime.
+  const detailRoute = fullRoute ?? run.route;
   const photos = photoOverride ?? run.photos ?? [];
   // Runs that look recorded on wheels/a motor rather than on foot (see motion-check).
   const nonFoot = detectNonFootActivity({
@@ -537,11 +571,11 @@ const RunRow = memo(function RunRow({
           {run.notes ? (
             <p className="whitespace-pre-line rounded-lg bg-white px-3 py-2.5 text-sm leading-6 text-gray-700 shadow-sm">{run.notes}</p>
           ) : null}
-          {hasRoute && run.route ? (
+          {hasRoute && detailRoute ? (
             <>
-              <RunMap points={run.route} className="h-56 w-full overflow-hidden rounded-lg border border-gray-200" />
+              <RunMap points={detailRoute} className="h-56 w-full overflow-hidden rounded-lg border border-gray-200" />
               <RunSummary
-                points={run.route}
+                points={detailRoute}
                 distanceKm={run.distanceKm}
                 durationSeconds={run.durationSeconds}
                 movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}

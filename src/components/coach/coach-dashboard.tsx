@@ -396,7 +396,7 @@ function TrialBanner({
   return (
     <section className="mb-5 flex flex-col gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-orange text-white">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-orange text-[#18001c]">
           <Sparkles className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -406,7 +406,7 @@ function TrialBanner({
       </div>
       <Link
         href={withLocale("/account/coach/subscribe", locale)}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand-orange px-5 text-sm font-black text-white transition hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
+        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand-orange px-5 text-sm font-black text-[#18001c] transition hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange"
       >
         {copy.trialBannerCta}
         <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />

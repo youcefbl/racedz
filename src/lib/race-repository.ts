@@ -16,6 +16,30 @@ export function revalidateRacesCache() {
   revalidateTag(RACES_CACHE_TAG);
 }
 
+/**
+ * The race data store could not be reached. Thrown (not swallowed) so a real outage is
+ * distinguishable from "there are genuinely no races here".
+ *
+ * Previously every query error fell back to mock data, which meant a database outage rendered
+ * as an empty result list on search pages and as "Race not found" on detail pages — the same
+ * output as a legitimately empty query. Users read that as "no races in this wilaya" or "this
+ * race was deleted", and because every response was still HTTP 200, uptime monitoring never
+ * fired either. Route-level error boundaries now turn this into a visible, retryable error.
+ */
+export class RaceDataUnavailableError extends Error {
+  constructor(operation: string, options?: { cause?: unknown }) {
+    super(`Race data is temporarily unavailable (${operation}).`, options);
+    this.name = "RaceDataUnavailableError";
+  }
+}
+
+// Mock data is a deliberate convenience for running the app with no DATABASE_URL set. A query
+// that *fails* is a different situation entirely and must not be papered over with fixtures.
+function onQueryFailure(operation: string, error: unknown): never {
+  console.error(`[race-repository] ${operation} failed:`, error);
+  throw new RaceDataUnavailableError(operation, { cause: error });
+}
+
 type PrismaRaceEvent = {
   id: string;
   source: string;
@@ -96,8 +120,8 @@ async function fetchUpcomingRaceEvents(limit?: number) {
     })) as PrismaRaceEvent[];
 
     return races.map(mapRaceEvent);
-  } catch {
-    return getMockUpcomingRaces(limit);
+  } catch (error) {
+    onQueryFailure("upcoming race events", error);
   }
 }
 
@@ -121,8 +145,8 @@ async function fetchRaceEventBySlug(slug: string) {
     if (!race) return undefined;
     const optionalDetails = await getRaceOptionalDetails(prisma, race.id);
     return { ...mapRaceEvent(race), ...mapOptionalDetails(optionalDetails), announcements: await getPublicRaceAnnouncements(race.id) };
-  } catch {
-    return getMockRaceBySlug(slug);
+  } catch (error) {
+    onQueryFailure("race by slug", error);
   }
 }
 
@@ -146,8 +170,8 @@ export async function getRaceEventById(id: string) {
     if (!race) return undefined;
     const optionalDetails = await getRaceOptionalDetails(prisma, race.id);
     return { ...mapRaceEvent(race), ...mapOptionalDetails(optionalDetails), announcements: await getPublicRaceAnnouncements(race.id) };
-  } catch {
-    return getMockRaceById(id);
+  } catch (error) {
+    onQueryFailure("race by id", error);
   }
 }
 
@@ -201,8 +225,8 @@ async function fetchRaceEvents(filters: RaceFilters) {
     })) as PrismaRaceEvent[];
 
     return sortRaceEvents(races.map(mapRaceEvent), filters.sort);
-  } catch {
-    return filterRaces(filters);
+  } catch (error) {
+    onQueryFailure("race search", error);
   }
 }
 

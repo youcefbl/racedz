@@ -180,7 +180,7 @@ export function NutritionView({ initialDays, locale }: { initialDays: NutritionD
                 type="button"
                 onClick={() => setMealType(m)}
                 aria-pressed={mealType === m}
-                className={`rounded-full px-3 py-1.5 text-xs font-black transition ${mealType === m ? "bg-brand-orange text-white" : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
+                className={`rounded-full px-3 py-1.5 text-xs font-black transition ${mealType === m ? "bg-brand-orange text-[#18001c]" : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300"}`}
               >
                 {t.meals[m]}
               </button>

@@ -506,14 +506,60 @@ export async function getRunnerRunForExport(userId: string, runId: string) {
   });
 }
 
-export async function getRunnerRuns(userId: string, limit = 50) {
+// A run list carries one `route` per run, and a GPS route is up to MAX_ROUTE_POINTS (1500)
+// points — by far the largest column on the row (measured: 99.7% of the row's bytes). Sending
+// every point for every run made /account/runs a ~9 MB response that took ~88s to become
+// interactive on a low-end phone. List views only need the route's *shape* (a 56px SVG
+// thumbnail), so they get a downsampled preview; the full route is fetched per-run on demand
+// (see getRunnerRunDetail) when a card expands and needs the map + per-km splits.
+export const ROUTE_PREVIEW_POINTS = 64;
+
+// Evenly-spaced subsample that always keeps the first and last point, so the thumbnail's
+// start/end markers land where the run actually started and ended.
+function downsampleRoute(points: unknown, max: number): unknown {
+  if (!Array.isArray(points) || points.length <= max) return points;
+  const step = Math.ceil(points.length / max);
+  const out: unknown[] = [];
+  for (let i = 0; i < points.length; i += step) out.push(points[i]);
+  const last = points[points.length - 1];
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
+function withRoutePreview(rows: RunRow[], max: number): RunRow[] {
+  return rows.map((row) => (row.route ? { ...row, route: downsampleRoute(row.route, max) } : row));
+}
+
+/**
+ * Runs for a list view. Routes come back downsampled to `routePoints` (default
+ * ROUTE_PREVIEW_POINTS) — enough for the thumbnail, ~95% smaller on the wire. Pass
+ * `routePoints: null` only when the caller genuinely needs every GPS point.
+ */
+export async function getRunnerRuns(
+  userId: string,
+  limit = 50,
+  options: { routePoints?: number | null } = {}
+) {
   const safeLimit = Math.min(100, Math.max(1, limit));
-  return getPrisma().$queryRaw<RunRow[]>`
+  const rows = await getPrisma().$queryRaw<RunRow[]>`
     SELECT * FROM "RunnerRun"
     WHERE "userId" = ${userId}
     ORDER BY "startedAt" DESC
     LIMIT ${safeLimit}
   `;
+  const routePoints = options.routePoints === undefined ? ROUTE_PREVIEW_POINTS : options.routePoints;
+  return routePoints === null ? rows : withRoutePreview(rows, routePoints);
+}
+
+// A single run the caller owns, with its route intact. Backs the on-demand fetch an expanded
+// run card makes for its full-fidelity map and per-km splits.
+export async function getRunnerRunDetail(userId: string, runId: string) {
+  const rows = await getPrisma().$queryRaw<RunRow[]>`
+    SELECT * FROM "RunnerRun"
+    WHERE "id" = ${runId} AND "userId" = ${userId}
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
 }
 
 // Partial update of a run the caller owns: visibility and/or photos. Each field is only

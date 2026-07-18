@@ -66,7 +66,7 @@ export default async function AdminSupportPage({ searchParams }: { searchParams?
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   <span className="text-xs text-gray-400">{formatDateTime(thread.lastMessageAt)}</span>
                   {thread.unreadCount > 0 ? (
-                    <span className="inline-flex min-w-5 items-center justify-center gap-1 rounded-full bg-brand-orange px-1.5 text-xs font-black text-white">
+                    <span className="inline-flex min-w-5 items-center justify-center gap-1 rounded-full bg-brand-orange px-1.5 text-xs font-black text-[#18001c]">
                       <MessageCircle className="size-3" aria-hidden="true" />
                       {thread.unreadCount > 9 ? "9+" : thread.unreadCount}
                     </span>
