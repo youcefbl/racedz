@@ -1,4 +1,4 @@
-# ZidRun UI Roadmap
+# ZidRun UI Roadmap---
 
 This file is the focused source of truth for public website and product UI improvements. Keep `TODO.md` for product/backend planning, and use this file when the work is mainly visual design, UX, navigation, layout, content hierarchy, or responsive polish.
 
