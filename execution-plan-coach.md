@@ -25,14 +25,14 @@
 
 ## 📊 Progress
 
-`████████████░░░░░░░░░░░░░` **~44% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 ✅ · next: Phase 3 (memory)**
+`██████████████░░░░░░░░░░░` **~52% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 ✅ · Phase 3 ◐ ~55%**
 
 | Phase | Status | Where it stands |
 |---|---|---|
 | **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · key rotation + OpenAI billing ✅ (live evals pass) · **health-data policy blocker** ⬜ |
 | **1 — Real plan adherence** | ✅ **complete** | Backend + full runner UI + free-runner path — the daily loop is live |
 | **2 — Adaptive planner** | ✅ **complete** | Engine + integration + phase/adaptations→AI context + real-longest long-run cap + numeric pace targets + beginner strides + duration-based beginner sessions + phase-aware summary + **live eval harness (11 scenarios)** ✅. All of findings #2–#7 closed; planner tests 59 checks — see [COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) |
-| **3 — Long-term memory** | ⬜ not started | Structured coach memory + retrieval |
+| **3 — Long-term memory** | ◐ **~55%** | Sourced memory model + retrieval + extraction + runner data-control API ✅ (health kinds gated off pending the policy blocker); memory UI, paginated history, human-coach notes remain |
 | **4 — Location personalization** | ⬜ not started | Opt-in timezone / terrain / routes |
 | **5 — Coach as main surface** | ⬜ not started | Today-first home, adaptive check-ins, chat as control surface |
 
@@ -567,7 +567,32 @@ review (below).
 - Sleep, fatigue, pain, and adherence can reduce or change upcoming workload.
 - Plan changes are visible and require runner acceptance when significant.
 
-## Phase 3 — Build useful long-term coaching memory
+## Phase 3 — Build useful long-term coaching memory — ◐ first increment shipped
+
+**Shipped (2026-07-19):** `CoachMemory` (model + migration), `src/lib/coach/memory.ts` (pure selection
+and validation rules), `src/lib/coach/memory-store.ts` (persistence, supersede, runner data controls),
+retrieval into the AI context as a `coachMemory` section, `memoryCandidates` on the response schema for
+extraction, and `/api/coach/memory` for inspect/export/dismiss/confirm/delete. 31 deterministic checks in
+`scripts/test-coach-memory.ts`; 2 live scenarios in `scripts/test-coach-live.ts`.
+
+**Health kinds are gated OFF.** `INJURY_STATUS` / `RECOVERY_STATUS` exist in the enum but every write
+path refuses them via `WRITABLE_MEMORY_KINDS`, because the health-data privacy/consent/retention policy
+line is still an open **Phase 0 blocker**. This is the enforcement point — when the policy lands, adding
+the kinds to that allowlist is the only code change needed.
+
+**Exit criteria status:**
+
+| Criterion | Status |
+|---|---|
+| Remembers a prior preference after >6 interactions | ✅ retrieval is by relevance and recency, not conversation depth — live-verified |
+| Does not repeat advice the runner rejected | ✅ `REJECTED_SUGGESTION` kind, prioritised in retrieval, prompt rule — live-verified |
+| Old goals do not contaminate current-goal adherence | ✅ memory is goal-scoped; retired-goal facts are filtered out |
+| Memory can be deleted and exported | ◐ API done; **runner-facing UI still to build** |
+
+**Remaining:** the runner-facing memory screen (inspect/correct/delete), paginated conversation history,
+human-coach notes into the same pipeline, and the health kinds once the policy exists.
+
+### Original specification
 
 Do not send an indefinitely growing chat transcript. Store structured memory and retrieve relevant history.
 
