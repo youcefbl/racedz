@@ -437,7 +437,7 @@ Quick check-in, contextual chat replies, and “why this plan” are follow-on e
 explicit confirmation and server-side validation for actions; a pre-workout sleep/fatigue/pain check-in
 may gate the existing deterministic safety flow before the adaptive planner is available.
 
-## Phase 2 — Build an adaptive deterministic planning engine — ◐ first increment shipped
+## Phase 2 — Build an adaptive deterministic planning engine — ✅ complete
 
 Replace the current weekly skeleton with a planner that creates safe candidate sessions from the runner's full current state.
 
@@ -450,8 +450,31 @@ planner's phase + adaptation notes now flow into the AI context so the coach can
 load changes. Verified with 19 unit checks + a 3-profile DB simulation (beginner-5K / intermediate-half /
 advanced-marathon produce meaningfully different, phase-appropriate weeks). See
 [COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) for the simulation output and the prioritized next
-tweaks (pace targets, real-recent-longest cap, beginner tuning, plan-summary phase, and live-AI validation
-once billing is on).
+tweaks.
+
+**Phase 2 is now complete.** All findings #2–#7 shipped: the real-recent-longest long-run cap, numeric
+pace targets on every session, beginner strides in place of structured intervals, duration-based beginner
+sessions, a phase-and-volume plan summary, and full live-AI validation. The deterministic suite is at 59
+checks (`scripts/test-adaptive-planner.ts`), and `scripts/test-coach-live.ts` runs 11 real scenarios
+against the provider for qualitative review.
+
+### ⚠️ Carried into Phase 3 — audit onboarding-sourced planner inputs (PRIORITY)
+
+Two production bugs of the *same shape* surfaced during Phase 2, one of them a safety issue:
+
+| Bug | Effect |
+|---|---|
+| Long-run cap read `goal.longestRecentRunKm` | Cap never moved as the runner progressed, so long runs stalled for a whole block |
+| Weekly volume anchored on `goal.currentWeeklyDistanceKm` | A runner back from a 36-day layoff was prescribed **41.8 km against a stated 38 km — more than before the break** |
+
+Both inputs are captured once at goal creation and never updated, yet both feed load decisions. The
+remaining input of this class is `peakWeeklyDistanceKm`, used as a volume ceiling — stale-low it freezes
+progression, and it is never raised when the runner actually exceeds it.
+
+**The rule to apply:** a planner input describing what the runner *does* must come from run history.
+Onboarding values are a fallback for runners with no history, or a ceiling — never a load anchor for a
+runner we have data on. Audit all three, derive from `CoachMetrics` where possible, and regression-test
+each.
 
 ### Planner inputs
 
@@ -875,10 +898,11 @@ Start with 50–100 runners after:
 6. Add the quick check-in, contextual chat replies, and “why this plan” trust surfaces with explicit action confirmation.
 7. Replace the weekly skeleton with a goal-relative adaptive planner using adherence.
 8. Add missed-run recovery and rescheduling behavior to plan generation.
-9. Add structured long-term memory and paginated conversation history.
-10. Add richer location, schedule, terrain, and race personalization.
-11. Make Coach the app's default primary surface after the daily loop proves useful.
-12. Add evaluations, authorization tests, export/deletion, monitoring, and closed beta.
+9. **Audit onboarding-sourced planner inputs** (see Phase 2) — two bugs of this shape have already shipped to main; do this before adding memory on top of the same inputs.
+10. Add structured long-term memory and paginated conversation history.
+11. Add richer location, schedule, terrain, and race personalization.
+12. Make Coach the app's default primary surface after the daily loop proves useful.
+13. Add evaluations, authorization tests, export/deletion, monitoring, and closed beta.
 
 ## Definition of success
 
