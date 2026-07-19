@@ -25,13 +25,13 @@
 
 ## 📊 Progress
 
-`████████░░░░░░░░░░░░░░░░░░` **~28% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 (current focus) ~30%**
+`█████████░░░░░░░░░░░░░░░░░` **~33% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 (current focus) ~45%**
 
 | Phase | Status | Where it stands |
 |---|---|---|
-| **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · owner ops (key rotation, OpenAI billing) + **health-data policy blocker** ⬜ |
+| **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · key rotation + OpenAI billing ✅ (live evals pass) · **health-data policy blocker** ⬜ |
 | **1 — Real plan adherence** | ✅ **complete** | Backend + full runner UI + free-runner path — the daily loop is live |
-| **2 — Adaptive planner** | ◐ **~30%** | Deterministic engine + both-path integration + phase/adaptations→AI context ✅; pace targets, real-longest cap, beginner tuning next — see [COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) |
+| **2 — Adaptive planner** | ◐ **~45%** | Deterministic engine + both-path integration + phase/adaptations→AI context + **real-longest long-run cap** + planner test suite (20 checks) ✅; numeric pace targets, beginner tuning next — see [COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) |
 | **3 — Long-term memory** | ⬜ not started | Structured coach memory + retrieval |
 | **4 — Location personalization** | ⬜ not started | Opt-in timezone / terrain / routes |
 | **5 — Coach as main surface** | ⬜ not started | Today-first home, adaptive check-ins, chat as control surface |
