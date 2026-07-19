@@ -24,6 +24,13 @@ fi
 echo "Building ZidRun image..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build app
 
+# Building on the production host accumulates BuildKit cache fast — a Next.js build leaves a couple of
+# GB behind each time. On a small instance that silently fills the disk until Postgres cannot write,
+# which is how a migration once failed mid-apply with "no space left on device". Keep a week of cache
+# so incremental rebuilds stay quick, and drop the rest.
+echo "Pruning stale build cache..."
+docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+
 echo "Starting PostgreSQL..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres
 
