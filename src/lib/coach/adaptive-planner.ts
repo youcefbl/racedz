@@ -119,7 +119,7 @@ export function buildAdaptivePlan(input: AdaptivePlannerInput, now = new Date())
 
   const adaptations: string[] = [];
   const phase = determinePhase({ weeksToRace, exp, input, returning, isFitnessGoal, adaptations });
-  const weeklyVolumeKm = computeWeeklyVolume({ phase, exp, params, input, adaptations });
+  const weeklyVolumeKm = computeWeeklyVolume({ phase, exp, params, input, returning, adaptations });
 
   const week = buildWeek({ phase, exp, params, isFitnessGoal, weeklyVolumeKm, input, now });
 
@@ -177,17 +177,24 @@ const PHASE_FACTOR: Record<PlanPhase, number> = {
   RECOVERY: 0.5
 };
 
+// After a long layoff, start at roughly half of what the runner used to do. Fitness comes back quickly;
+// tendons, ligaments and running-specific durability do not, and that gap is where return-from-break
+// injuries happen.
+const RETURNING_VOLUME_SHARE = 0.55;
+
 function computeWeeklyVolume({
   phase,
   exp,
   params,
   input,
+  returning,
   adaptations
 }: {
   phase: PlanPhase;
   exp: Experience;
   params: (typeof GOAL_PARAMS)[GoalType];
   input: AdaptivePlannerInput;
+  returning: boolean;
   adaptations: string[];
 }): number {
   const recent = Math.max(input.metrics.distanceLast7DaysKm, 0);
@@ -199,6 +206,19 @@ function computeWeeklyVolume({
   // absolute allowance so a runner coming off a light week isn't frozen).
   if (phase === "BASE" || phase === "BUILD" || phase === "BASELINE") {
     volume = Math.min(volume, Math.max(recent, input.currentWeeklyDistanceKm) * 1.1 + 3);
+  }
+
+  // Returning from a break: `currentWeeklyDistanceKm` is what the runner told us at onboarding, so on
+  // its own it anchors the week to a volume they have not run in weeks — and the goal multiplier then
+  // scales it *up*, handing someone back from a layoff more than they did before it. Cap hard against
+  // what they used to do instead of building on it.
+  if (returning) {
+    const priorVolumeKm = Math.max(input.metrics.distanceLast7DaysKm, input.currentWeeklyDistanceKm);
+    const capped = Math.min(volume, priorVolumeKm * RETURNING_VOLUME_SHARE);
+    if (capped < volume) {
+      adaptations.push("Restarting at roughly half your previous volume — fitness returns faster than tendons do.");
+      volume = capped;
+    }
   }
 
   // Ceilings: known peak volume, then the hard experience cap.
@@ -287,10 +307,10 @@ function buildWeek({
   const referencePace = input.metrics.averagePaceLast28DaysSecondsPerKm;
 
   const workouts: PlannedWorkout[] = runDates.map((date) => {
-    if (date === longRunDate) return workout(date, "LONG_RUN", longRunKm, phase, isFitnessGoal, referencePace);
-    if (qualityDates.includes(date)) return workout(date, qualityKind, qualityKm, phase, isFitnessGoal, referencePace);
+    if (date === longRunDate) return workout(date, "LONG_RUN", longRunKm, phase, isFitnessGoal, referencePace, exp);
+    if (qualityDates.includes(date)) return workout(date, qualityKind, qualityKm, phase, isFitnessGoal, referencePace, exp);
     const easyKind: SessionKind = phase === "RECOVERY" || phase === "BASELINE" ? "RECOVERY" : "EASY";
-    return workout(date, easyKind, easyEach || round1(weeklyVolumeKm / runDates.length), phase, isFitnessGoal, referencePace);
+    return workout(date, easyKind, easyEach || round1(weeklyVolumeKm / runDates.length), phase, isFitnessGoal, referencePace, exp);
   });
 
   return { workouts, longRunKm, qualityCount: qualityDates.length };
@@ -357,21 +377,39 @@ export const PHASE_LABEL: Record<PlanPhase, string> = {
   RECOVERY: "Recovery"
 };
 
+// Beginners execute a session better on time than on distance — "run 25 minutes easy" is a target you
+// can meet on any route, while a small distance target invites pushing the pace to get it over with.
+// Derived from the session's own pace target, so it inherits the same no-invention rule: a beginner
+// with no run history gets distance only, until they have logged enough for a reference pace.
+const DURATION_ROUNDING_MIN = 5;
+
+function beginnerDurationMin(kind: SessionKind, distanceKm: number, paceSecondsPerKm: number | null, exp: Experience): number | null {
+  if (exp !== "BEGINNER" || paceSecondsPerKm === null) return null;
+  // Quality work stays distance/effort-led; the time target is for the easy running that fills the week.
+  if (kind === "TEMPO" || kind === "INTERVAL") return null;
+  const minutes = (distanceKm * paceSecondsPerKm) / 60;
+  const rounded = Math.round(minutes / DURATION_ROUNDING_MIN) * DURATION_ROUNDING_MIN;
+  return Math.max(DURATION_ROUNDING_MIN, rounded);
+}
+
 function workout(
   date: Date,
   kind: SessionKind,
   distanceKm: number,
   phase: PlanPhase,
   isFitnessGoal: boolean,
-  referencePaceSecondsPerKm: number | null
+  referencePaceSecondsPerKm: number | null,
+  exp: Experience
 ): PlannedWorkout {
   const km = round1(distanceKm);
   const phaseTag = isFitnessGoal ? "" : `${PHASE_LABEL[phase]} · `;
-  const spec: Record<SessionKind, { title: string; intensity: string; instructions: string }> = {
+  const spec: Record<SessionKind, { title: string; intensity: string; instructions: string; timedInstructions?: string }> = {
     LONG_RUN: {
       title: "Long run",
       intensity: "Comfortable, conversational effort",
-      instructions: "Keep it easy and steady — build endurance, not speed. Fuel and hydrate; stop if anything hurts."
+      instructions: "Keep it easy and steady — build endurance, not speed. Fuel and hydrate; stop if anything hurts.",
+      timedInstructions:
+        "Stay out for the time shown and let the distance be whatever it turns out to be — time on your feet is what builds endurance at this stage. Keep it easy and steady, fuel and hydrate, and stop if anything hurts."
     },
     TEMPO: {
       title: "Tempo run",
@@ -386,30 +424,42 @@ function workout(
     EASY: {
       title: "Easy run",
       intensity: "Relaxed, conversational",
-      instructions: "Fully conversational pace — this is where fitness is built. Slower is fine."
+      instructions: "Fully conversational pace — this is where fitness is built. Slower is fine.",
+      timedInstructions:
+        "Run for the time shown rather than chasing the distance — the kilometres are just roughly what it works out to. Keep it fully conversational; slower is fine."
     },
     RECOVERY: {
       title: "Recovery jog",
       intensity: "Very easy",
-      instructions: "Gentle and short — the point is to move and recover, not to train."
+      instructions: "Gentle and short — the point is to move and recover, not to train.",
+      timedInstructions:
+        "Jog gently for the time shown — the point is to move and recover, not to train. Distance does not matter here."
     },
     STRIDES: {
       title: "Easy run + strides",
       intensity: "Relaxed, with short relaxed pickups",
       instructions:
-        "Run the whole session easy and conversational. In the last third, add 4–6 strides: about 20 seconds of smooth, relaxed speed — fast but never straining — with a full easy jog or walk until you feel recovered between each. This teaches your legs to turn over quickly without the strain of a hard interval session."
+        "Run the whole session easy and conversational. In the last third, add 4–6 strides: about 20 seconds of smooth, relaxed speed — fast but never straining — with a full easy jog or walk until you feel recovered between each. This teaches your legs to turn over quickly without the strain of a hard interval session.",
+      timedInstructions:
+        "Run for the time shown, easy and conversational throughout. In the last third, add 4–6 strides: about 20 seconds of smooth, relaxed speed — fast but never straining — with a full easy jog or walk until you feel recovered between each. This teaches your legs to turn over quickly without the strain of a hard interval session."
     }
   };
   const s = spec[kind] ?? spec.EASY;
+  const pace = derivePace(kind, referencePaceSecondsPerKm);
+  const durationMin = beginnerDurationMin(kind, km, pace, exp);
   return {
     scheduledFor: date.toISOString(),
     workoutType: KIND_TO_TYPE[kind],
     title: `${phaseTag}${s.title}`.trim(),
     targetDistanceKm: km,
-    targetDurationMin: null,
+    targetDurationMin: durationMin,
+    // When there is a time target, use the session's timed wording. The minutes themselves stay in
+    // targetDurationMin (which the UI renders) rather than being interpolated into the prose — an
+    // interpolated string could never match the exact-lookup translation table, so beginners would
+    // silently drop back to English in French and Arabic.
+    instructions: durationMin === null ? s.instructions : (s.timedInstructions ?? s.instructions),
     intensity: s.intensity,
-    instructions: s.instructions,
-    targetPaceSecondsPerKm: derivePace(kind, referencePaceSecondsPerKm)
+    targetPaceSecondsPerKm: pace
   };
 }
 

@@ -80,6 +80,24 @@ const workoutText: Record<string, { fr: string; ar: string }> = {
     fr: "Doux et court — l'objectif est de bouger et de récupérer, pas de s'entraîner.",
     ar: "خفيف وقصير — الهدف هو الحركة والاستشفاء، لا التدريب."
   },
+  // Time-target variants (beginners): the minutes live in targetDurationMin, never in the prose, so
+  // these stay exact-match translatable.
+  "Run for the time shown rather than chasing the distance — the kilometres are just roughly what it works out to. Keep it fully conversational; slower is fine.": {
+    fr: "Courez pendant la durée indiquée plutôt que de chercher la distance — les kilomètres ne sont qu'une estimation de ce que cela donne. Restez à une allure où vous pouvez parler ; plus lent, c'est très bien.",
+    ar: "اجرِ للمدة المحددة بدل السعي وراء المسافة — الكيلومترات مجرد تقدير لما ستقطعه. حافظ على وتيرة تسمح لك بالحديث؛ والأبطأ جيد تمامًا."
+  },
+  "Jog gently for the time shown — the point is to move and recover, not to train. Distance does not matter here.": {
+    fr: "Trottinez doucement pendant la durée indiquée — l'objectif est de bouger et de récupérer, pas de s'entraîner. La distance n'a aucune importance ici.",
+    ar: "اهرول بلطف للمدة المحددة — الهدف هو الحركة والاستشفاء، لا التدريب. المسافة لا تهم هنا."
+  },
+  "Stay out for the time shown and let the distance be whatever it turns out to be — time on your feet is what builds endurance at this stage. Keep it easy and steady, fuel and hydrate, and stop if anything hurts.": {
+    fr: "Restez dehors pendant la durée indiquée et laissez la distance être ce qu'elle sera — à ce stade, c'est le temps passé à courir qui construit l'endurance. Restez facile et régulier, alimentez-vous et hydratez-vous, et arrêtez-vous en cas de douleur.",
+    ar: "ابقَ في الجري للمدة المحددة ودع المسافة تكون كما تأتي — في هذه المرحلة، الوقت الذي تقضيه على قدميك هو ما يبني التحمّل. حافظ على وتيرة سهلة وثابتة، وتناول ما يكفي من الطعام والماء، وتوقّف إذا شعرت بأي ألم."
+  },
+  "Run for the time shown, easy and conversational throughout. In the last third, add 4–6 strides: about 20 seconds of smooth, relaxed speed — fast but never straining — with a full easy jog or walk until you feel recovered between each. This teaches your legs to turn over quickly without the strain of a hard interval session.": {
+    fr: "Courez pendant la durée indiquée, facilement et à une allure où vous pouvez parler. Dans le dernier tiers, ajoutez 4 à 6 accélérations : environ 20 secondes de vitesse souple et relâchée — rapide mais jamais en forçant — avec un footing très facile ou de la marche jusqu'à récupération complète entre chacune. Cela apprend à vos jambes à tourner vite sans la contrainte d'une vraie séance de fractionné.",
+    ar: "اجرِ للمدة المحددة، بوتيرة سهلة تسمح بالحديث طوال الحصة. في الثلث الأخير، أضف 4 إلى 6 تسارعات: نحو 20 ثانية من السرعة السلسة والمسترخية — سريعة دون إجهاد — مع هرولة سهلة أو مشي حتى تستعيد أنفاسك تمامًا بين كل تسارع. هذا يعوّد ساقيك على التردد السريع دون إرهاق حصة التدريب المتقطع الشاقة."
+  },
   "Run the whole session easy and conversational. In the last third, add 4–6 strides: about 20 seconds of smooth, relaxed speed — fast but never straining — with a full easy jog or walk until you feel recovered between each. This teaches your legs to turn over quickly without the strain of a hard interval session.": {
     fr: "Courez toute la séance facilement, à une allure où vous pouvez parler. Dans le dernier tiers, ajoutez 4 à 6 accélérations : environ 20 secondes de vitesse souple et relâchée — rapide mais jamais en forçant — avec un footing très facile ou de la marche jusqu'à récupération complète entre chacune. Cela apprend à vos jambes à tourner vite sans la contrainte d'une vraie séance de fractionné.",
     ar: "اجعل الحصة كلها سهلة وبوتيرة تسمح بالحديث. في الثلث الأخير، أضف 4 إلى 6 تسارعات: نحو 20 ثانية من السرعة السلسة والمسترخية — سريعة دون إجهاد — مع هرولة سهلة أو مشي حتى تستعيد أنفاسك تمامًا بين كل تسارع. هذا يعوّد ساقيك على التردد السريع دون إرهاق حصة التدريب المتقطع الشاقة."

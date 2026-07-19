@@ -80,9 +80,11 @@ What the simulation exposed, ordered by leverage. (#1 already done this pass.)
    an intermediate 5K runner still gets true intervals. Progressing beginners *on* to real intervals once
    they hold volume is a deliberate follow-up, not part of this change.
 
-5. **Beginner sessions could be duration-based.** `targetDurationMin` is always null. Beginners train
-   better on time ("run 25 min easy") than tiny distances. **Fix:** emit duration targets for beginner
-   easy runs (and pass both to the UI, which already renders duration).
+5. **✅ Beginner sessions are duration-based.** *(done 2026-07-19)* Beginner easy/long/recovery sessions
+   now carry `targetDurationMin`, derived from the session's own pace target and rounded to whole
+   5-minute blocks, with time-target wording ("run for the time shown; the distance is roughly what it
+   works out to"). Same no-invention rule as pace: no reference pace means no time target. Quality work
+   stays effort-led, and intermediates/advanced stay distance-led.
 
 6. **✅ Plan summary names the phase + volume.** *(done 2026-07-19)* The generic `AUTO_PLAN_SUMMARY`
    became `buildAutoPlanSummary(locale, phase, volume)` — "Base week · ~45 km — building your endurance.
@@ -97,13 +99,67 @@ What the simulation exposed, ordered by leverage. (#1 already done this pass.)
    *Caveat:* these ran on hand-assembled contexts via `generateCoachResponse`, so they validate the
    prompt and schema, not the DB/entitlement plumbing around them.
 
+## Full live evaluation (2026-07-19)
+
+`scripts/test-coach-live.ts` is the qualitative harness — 11 real interactions across profiles and
+scenarios, run manually because they cost money (~43k in / 11k out tokens per full pass on
+`gpt-5.4-mini`). It mirrors the production pipeline (real metrics → real planner → real safety →
+`generateCoachResponse` → `enforceCoachSafety`), asserts what can be checked mechanically, and prints
+each reply for human review of the parts no assertion can judge.
+
+```
+npx tsx scripts/test-coach-live.ts            # all cases
+npx tsx scripts/test-coach-live.ts beginner   # filter by id
+npx tsx scripts/test-coach-live.ts --quiet    # assertions only
+```
+
+**Cases:** beginner first week · beginner with no history · intermediate adherence (2 skipped for
+fatigue) · direct pace question · advanced marathoner · knee pain (safety) · returning after a 5-week
+break · prompt injection · off-topic · French · Arabic.
+
+### What the live pass found
+
+1. **🐛 Returning runners were prescribed MORE than before their break — fixed.** After a 36-day layoff
+   the planner produced **41.8 km/week against a stated 38 km**. `currentWeeklyDistanceKm` is a frozen
+   onboarding claim, so it anchored the week to a volume the runner had not touched in weeks, and the
+   goal multiplier (×1.1) then scaled it *up*. The 10%-progression clamp did not catch it because it
+   also reads the stated value. Returning weeks are now capped at ~55% of prior volume with an
+   explanatory adaptation note; the same runner now gets **20.9 km**. This is the same staleness class
+   as the long-run cap bug (#2) — **any planner input sourced from onboarding rather than from run
+   history should be treated as suspect.**
+2. **🐛 The harness was testing a layer no runner sees — fixed.** It asserted on the raw model reply,
+   but production always pipes that through `enforceCoachSafety`, which replaces the model's workouts
+   with the deterministic (and, under CAUTION, reduced) skeleton. A "coach prescribed a tempo to an
+   injured runner" failure was an artefact of the harness, not a real defect. The harness now enforces
+   safety exactly as the service does.
+3. **⚠️ `dataGaps` is not reliably populated.** Across repeated passes the same
+   no-history beginner returned `["no recent runs","no sleep logged","no recent pace data"]` on one run
+   and `[]` on another. Same for naming the training phase in prose. Not safety-critical, but the
+   transparency fields are advertised as consistent and are not. Worth firming up in the prompt and
+   asserting over repeated samples rather than one.
+
+### What the live pass confirmed
+
+- Profiles produce genuinely different coaching: beginner (~12 km, time targets, no jargon, no race-time
+  pressure), intermediate (~45 km, pace numbers, adherence-aware), advanced (~89 km, references goal
+  pace vs current pace, does not lecture an 11-year veteran on hydration).
+- The pace work lands: asked what pace to run its tempo at, the coach answers with the exact computed
+  target, in min/km, and ties it to the runner's own recent average.
+- Safety dominates when it should: knee pain produced a professional-referral recommendation, a
+  reduced plan, no hard sessions, and a genuinely useful triage follow-up question.
+- Injection, off-topic, French and Arabic all behave correctly.
+
 ## Suggested next iteration
 
-#2, #3, #4, #6 and #7 are done. **Remaining: #5 (duration-based beginner sessions)** — `targetDurationMin`
-is still always null, and beginners train better on time ("run 25 min easy") than on small distances; the
-UI already renders duration, so this is mostly planner work.
+All of #2–#7 are done. Remaining work, in order of value:
 
-Two follow-ups this pass created rather than closed:
+1. **Audit every planner input sourced from onboarding.** Two bugs of the same shape have now surfaced
+   (long-run cap, returning volume). `currentWeeklyDistanceKm`, `peakWeeklyDistanceKm` and
+   `longestRecentRunKm` are all frozen at goal creation and all feed load decisions. They should either
+   be refreshed from run history or treated as ceilings only, never as anchors.
+2. **Firm up `dataGaps` / phase-naming consistency** and assert them over repeated samples.
+
+Two follow-ups earlier passes created rather than closed:
 
 - **Progress beginners on to real intervals.** They now get strides indefinitely; once a beginner holds
   volume for several weeks, structured intervals should unlock.

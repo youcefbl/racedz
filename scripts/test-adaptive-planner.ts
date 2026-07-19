@@ -14,6 +14,10 @@ function check(label: string, condition: boolean, detail?: string) {
   else failures.push(`${label}${detail ? ` — ${detail}` : ""}`);
 }
 
+function run5(daysAgo: number, distanceKm: number) {
+  return { daysAgo, distanceKm };
+}
+
 // Build metrics from synthetic runs so the metric shape always matches production.
 function metricsFrom(runs: Array<{ daysAgo: number; distanceKm: number }>, over: Partial<CoachMetrics> = {}): CoachMetrics {
   const base = calculateCoachMetrics(
@@ -138,6 +142,29 @@ const HALF_PLAN = {
   check("taper shortens the long run", phaseAt(2).longRunKm < phaseAt(8).longRunKm);
 }
 
+// ── Returning after a break ──────────────────────────────────────────────────
+// Found by the live harness: currentWeeklyDistanceKm is a frozen onboarding claim, so on its own it
+// anchored a returning runner's week to a volume they had not run in weeks — and the goal multiplier
+// then scaled it *up*, handing someone back from a 5-week layoff MORE than they did before it.
+{
+  const longGone = [run5(36, 10), run5(40, 12)];
+  const returning = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 14, metrics: metricsFrom(longGone) }, NOW);
+
+  check("a long layoff is treated as a rebuild", returning.phase === "BASELINE", returning.phase);
+  check(
+    "returning volume is well below the pre-break weekly volume",
+    returning.weeklyVolumeKm < HALF_PLAN.currentWeeklyDistanceKm,
+    `${returning.weeklyVolumeKm} km vs stated ${HALF_PLAN.currentWeeklyDistanceKm} km`
+  );
+  check(
+    "returning volume is roughly half of what they used to run",
+    returning.weeklyVolumeKm <= HALF_PLAN.currentWeeklyDistanceKm * 0.6,
+    `${returning.weeklyVolumeKm} km`
+  );
+  check("the restart is explained to the runner", returning.adaptations.some((a) => /half your previous volume|rebuilding/i.test(a)), JSON.stringify(returning.adaptations));
+  check("the long run is scaled down too", returning.longRunKm <= returning.weeklyVolumeKm * 0.35 + 0.001, `${returning.longRunKm} km`);
+}
+
 // ── Pace targets (#3) ────────────────────────────────────────────────────────
 {
   // ~5:30/km average across recent runs.
@@ -206,6 +233,52 @@ const HALF_PLAN = {
   );
   check("an intermediate 5K runner still gets real intervals", intermediate.workouts.some((w) => w.workoutType === "INTERVAL"));
   check("strides are stored as an EASY workout type", beginner.workouts.filter((w) => w.title.includes("strides")).every((w) => w.workoutType === "EASY"));
+}
+
+// ── Duration-based beginner sessions (#5) ────────────────────────────────────
+{
+  const runs = [4, 3, 5, 4].map((distanceKm, i) => ({ daysAgo: i * 2 + 1, distanceKm }));
+  const beginnerProfile = {
+    ...HALF_PLAN,
+    goalType: "FIVE_K" as const,
+    experienceLevel: "BEGINNER" as const,
+    targetDistanceKm: 5,
+    targetDate: new Date(NOW.getTime() + 8 * 7 * 86_400_000),
+    currentWeeklyDistanceKm: 16,
+    peakWeeklyDistanceKm: 20,
+    longestRecentRunKm: 5
+  };
+  const beginner = buildAdaptivePlan({ ...beginnerProfile, metrics: metricsFrom(runs) }, NOW);
+  const easyish = beginner.workouts.filter((w) => w.workoutType === "EASY" || w.workoutType === "LONG_RUN" || w.workoutType === "RECOVERY");
+
+  check("beginner easy/long sessions carry a time target", easyish.every((w) => (w.targetDurationMin ?? 0) > 0), easyish.map((w) => `${w.workoutType}=${w.targetDurationMin}`).join(" "));
+  check("time targets are rounded to whole 5-minute blocks", easyish.every((w) => (w.targetDurationMin ?? 0) % 5 === 0));
+  check("time target is consistent with distance and pace", easyish.every((w) => {
+    const expected = ((w.targetDistanceKm ?? 0) * (w.targetPaceSecondsPerKm ?? 0)) / 60;
+    return Math.abs((w.targetDurationMin ?? 0) - expected) <= 2.5001;
+  }));
+  check("timed sessions use the time-target wording", easyish.every((w) => /time shown|time on your feet/.test(w.instructions)));
+
+  // Same no-invention rule as pace: no reference pace, no derived duration.
+  const noHistory = buildAdaptivePlan({ ...beginnerProfile, metrics: metricsFrom([]) }, NOW);
+  check("no time target is invented without a reference pace", noHistory.workouts.every((w) => w.targetDurationMin === null));
+  check("untimed sessions keep the distance-led wording", noHistory.workouts.every((w) => !/time shown|time on your feet/.test(w.instructions)));
+
+  // Time targets are a beginner affordance only.
+  const intermediate = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 14, metrics: metricsFrom([10, 8, 12, 7, 9].map((distanceKm, i) => ({ daysAgo: i * 3 + 1, distanceKm }))) }, NOW);
+  check("intermediates stay distance-led", intermediate.workouts.every((w) => w.targetDurationMin === null));
+
+  // A strides session IS an easy run, so it gets a time target like the rest of the easy running.
+  // True quality work (tempo/interval) stays effort-led — but a beginner never receives any.
+  const strides = beginner.workouts.filter((w) => w.title.includes("strides"));
+  check("the beginner strides session is present", strides.length === 1, `found ${strides.length}`);
+  check("the strides session is timed like the other easy running", strides.every((w) => (w.targetDurationMin ?? 0) > 0));
+
+  // Timed instructions must localize too, or beginners read English.
+  for (const locale of ["fr", "ar"] as const) {
+    const localized = easyish.map((w) => localizeWorkout(w, locale));
+    check(`${locale}: timed instructions are translated`, localized.every((w) => !/time shown|time on your feet/.test(w.instructions)), localized.map((w) => w.instructions.slice(0, 40)).join(" | "));
+  }
 }
 
 // ── Localization of planner output ───────────────────────────────────────────
