@@ -62,7 +62,8 @@ const safeResponse = enforceCoachSafety(
     requiresProfessionalAdvice: false,
     usedSignals: [],
     dataGaps: [],
-    followUpQuestion: null
+    followUpQuestion: null,
+    memoryCandidates: []
   },
   caution,
   skeleton,

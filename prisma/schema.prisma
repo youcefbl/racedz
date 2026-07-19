@@ -54,6 +54,7 @@ model User {
   runnerRuns                  RunnerRun[]
   trainingPlans               TrainingPlan[]
   coachSnapshots              CoachSnapshot[]
+  coachMemories               CoachMemory[]
   coachInteractions           CoachInteraction[]
   aiUsageLogs                 AiUsageLog[]
   coachSubscriptions          CoachSubscription[]
@@ -633,6 +634,83 @@ model TrainingWorkout {
   completedRun RunnerRun?
 
   @@index([trainingPlanId, scheduledFor])
+}
+
+/// Structured long-term coaching memory (Phase 3). Deliberately NOT a chat transcript: each row is one
+/// small, sourced, timestamped fact so retrieval can select what is relevant instead of replaying an
+/// ever-growing conversation into the prompt.
+///
+/// Health-related kinds (INJURY_STATUS, RECOVERY_STATUS) are defined here but MUST NOT be written until
+/// the health-data privacy/consent/retention policy exists — see the Phase 0 blocker in
+/// execution-plan-coach.md. `WRITABLE_MEMORY_KINDS` in src/lib/coach/memory.ts is the enforcement point.
+model CoachMemory {
+  id     String @id @default(cuid())
+  userId String
+  /// Null when the fact holds across goals (e.g. "prefers running before work"); set when it is only
+  /// true for one goal, so retiring a goal does not contaminate the next one.
+  goalId String?
+
+  kind CoachMemoryKind
+  /// Stable slug identifying what the fact is about, so a newer value can supersede an older one
+  /// (e.g. kind=SCHEDULE key=preferred_time). Not runner-visible.
+  key   String
+  /// The fact itself, in the runner's own words where possible.
+  value String
+
+  source              CoachMemorySource
+  /// The interaction this was learned from, for the audit trail the memory-quality rules require.
+  sourceInteractionId String?
+  /// Only meaningful for AI_INFERRED facts; runner-stated facts are not guesses.
+  confidence          Float?
+
+  status      CoachMemoryStatus @default(ACTIVE)
+  /// Last time the runner explicitly confirmed this is still true.
+  confirmedAt DateTime?
+  /// Facts that must not be trusted indefinitely without reconfirmation.
+  expiresAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, kind])
+  @@index([userId, kind, key, status])
+}
+
+enum CoachMemoryKind {
+  PREFERENCE
+  COACHING_TONE
+  SCHEDULE
+  TERRAIN
+  CONSTRAINT
+  COMMITMENT
+  STRATEGY_WORKED
+  STRATEGY_FAILED
+  REJECTED_SUGGESTION
+  COACH_NOTE
+  // Blocked pending the health-data policy line. See WRITABLE_MEMORY_KINDS.
+  INJURY_STATUS
+  RECOVERY_STATUS
+}
+
+enum CoachMemorySource {
+  /// The runner said it. Treated as fact.
+  RUNNER_STATED
+  /// The coach inferred it. Never presented to the runner as something they said.
+  AI_INFERRED
+  /// Derived deterministically by the app from runner data (plans, runs, outcomes).
+  SYSTEM_DERIVED
+  /// Written by a human coach.
+  HUMAN_COACH
+}
+
+enum CoachMemoryStatus {
+  ACTIVE
+  /// Replaced by a newer value for the same key.
+  SUPERSEDED
+  /// The runner corrected or removed it. Never retrieved, and never re-learned automatically.
+  DISMISSED
 }
 
 model CoachSnapshot {

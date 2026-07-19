@@ -6,7 +6,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { CoachError } from "@/lib/coach/errors";
 import { coachResponseSchema, type CoachResponse } from "@/lib/coach/schemas";
 
-export const COACH_PROMPT_VERSION = "coach-v8-2026-07-19";
+export const COACH_PROMPT_VERSION = "coach-v9-2026-07-19";
 const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
@@ -230,7 +230,11 @@ function buildInstructions() {
     // Transparency & anti-hallucination fields.
     "Fill usedSignals with the short names of the context signals you actually relied on for this reply (e.g. 'goal', 'recent pace', 'adherence', 'sleep', 'weather', 'analysed run'). Do not list signals you did not use.",
     "Fill dataGaps with any important information that was missing and limited your advice (e.g. 'no recent runs', 'no sleep logged', 'no target race'). Leave it empty when you had what you needed. Never invent weather, race, injury, sleep, or performance facts to fill a gap — say the data is missing instead.",
-    "Set followUpQuestion to a single, specific optional question ONLY when one missing piece of data would materially change your advice; otherwise null. Never ask for identifying information, and never ask a question the recentConversation shows the runner already answered or declined."
+    "Set followUpQuestion to a single, specific optional question ONLY when one missing piece of data would materially change your advice; otherwise null. Never ask for identifying information, and never ask a question the recentConversation shows the runner already answered or declined.",
+    // Long-term memory (Phase 3).
+    "coachMemory holds durable facts about this runner from earlier conversations, each with a source and an age in days. Use them to stay consistent across sessions: honour stated preferences, schedules, terrain and constraints without asking again. A fact with source RUNNER_STATED or HUMAN_COACH is something you were told — treat it as true. A fact with source AI_INFERRED is your own earlier guess — you may act on it, but never assert it back as something the runner said, and re-check it if it matters. Prefer the runner's live message over any stored fact when they conflict, and mention a fact's age when acting on something old.",
+    "A coachMemory entry of kind REJECTED_SUGGESTION is advice this runner has already turned down. Do not suggest it again, do not argue with the decision, and do not work around it with a lightly reworded version of the same thing.",
+    "Fill memoryCandidates ONLY with durable facts the runner stated in THIS conversation that would still be useful weeks from now — a preference, their usual schedule, terrain they can access, a lasting constraint, or a commitment they made. Give each a short stable snake_case key (e.g. 'preferred_time', 'available_terrain'), the fact in the runner's own words, and an honest confidence. Leave it empty in the common case. Never record: anything about health, injury, symptoms or medication; anything the runner did not actually say; one-off details about a single run; or anything you inferred rather than heard."
   ].join("\n");
 }
 

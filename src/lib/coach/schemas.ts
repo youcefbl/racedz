@@ -226,7 +226,20 @@ export const coachResponseSchema = z.object({
   // Important information that was missing, so the coach flags uncertainty instead of inventing facts.
   dataGaps: z.array(z.string().min(1).max(200)).max(6),
   // At most one clarifying question when personalization is limited by missing data; null otherwise.
-  followUpQuestion: z.string().min(1).max(300).nullable()
+  followUpQuestion: z.string().min(1).max(300).nullable(),
+  // Durable facts the runner stated in THIS conversation that are worth remembering (Phase 3). The
+  // model proposes; the application validates against the writable-kind allowlist before storing, so a
+  // proposal here is never a guarantee of a write. Health facts are refused at the write layer.
+  memoryCandidates: z
+    .array(
+      z.object({
+        kind: z.enum(["PREFERENCE", "COACHING_TONE", "SCHEDULE", "TERRAIN", "CONSTRAINT", "COMMITMENT"]),
+        key: z.string().min(1).max(64),
+        value: z.string().min(1).max(300),
+        confidence: z.number().min(0).max(1)
+      })
+    )
+    .max(3)
 });
 
 export type CoachLocale = z.infer<typeof coachLocaleSchema>;

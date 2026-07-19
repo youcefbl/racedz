@@ -37,6 +37,7 @@ import {
 import { buildBlockedCoachResponse, enforceCoachSafety, evaluateCoachSafety, type EnforcedCoachResponse } from "@/lib/coach/safety";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
+import { getMemoryForContext, writeMemories } from "@/lib/coach/memory-store";
 import { getTipsForProfile } from "@/lib/coach/tips";
 import { buildOffTopicCoachResponse, evaluateTopicality } from "@/lib/coach/topicality";
 import { fetchForecastConditions, fetchRunWeather, resolveCoordinates, type ForecastConditions, type RunWeather } from "@/lib/coach/weather";
@@ -1017,6 +1018,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const adherence = await getPlanAdherence(userId);
   // The active plan session by session (what actually happened), for the AI context.
   const activePlan = await getActivePlanForContext(userId);
+  // Long-term memory: relevant, budget-capped facts from earlier conversations (Phase 3).
+  const memory = await getMemoryForContext(userId, goal.id);
   const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence, consistency.status);
   const skeleton = adaptivePlan.workouts;
   const interactionId = randomUUID();
@@ -1125,7 +1128,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     adherence,
     trainingPhase: adaptivePlan.phase,
     planAdaptations: adaptivePlan.adaptations,
-    activePlan
+    activePlan,
+    memory
   });
   const context = envelope.context;
 
@@ -1155,6 +1159,30 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         )
       `;
     });
+
+    // Persist any durable facts the runner stated this conversation. Runs after the interaction is
+    // committed and is deliberately non-fatal: memory is an enhancement, and failing to store a
+    // preference must never turn a successful coaching reply into an error for the runner.
+    if (response.memoryCandidates.length > 0) {
+      try {
+        await writeMemories(
+          userId,
+          response.memoryCandidates.map((candidate) => ({
+            kind: candidate.kind,
+            key: candidate.key,
+            value: candidate.value,
+            // The model only ever proposes; the fact came from the runner but the extraction is the
+            // model's reading of it, so it is stored as an inference with its confidence attached.
+            source: "AI_INFERRED" as const,
+            confidence: candidate.confidence,
+            goalId: goal.id,
+            sourceInteractionId: interactionId
+          }))
+        );
+      } catch (memoryError) {
+        console.error("[coach] failed to persist memory candidates", memoryError);
+      }
+    }
 
     return { id: interactionId, status: "COMPLETED" as const, response, safety, plan };
   } catch (error) {

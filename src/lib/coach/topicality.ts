@@ -43,6 +43,7 @@ export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachRes
     requiresProfessionalAdvice: false,
     usedSignals: [],
     dataGaps: [],
-    followUpQuestion: null
+    followUpQuestion: null,
+    memoryCandidates: []
   };
 }

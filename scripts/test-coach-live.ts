@@ -302,6 +302,49 @@ const CASES: Case[] = [
     }
   },
   {
+    id: "memory-recall",
+    what: "Stored preferences + a rejected suggestion. Must honour memory and not re-suggest what was refused.",
+    build: () =>
+      buildContext(INTERMEDIATE, INTERMEDIATE_RUNS, {
+        memory: [
+          { kind: "SCHEDULE", fact: "Can only run before work, never after 6pm", source: "RUNNER_STATED", ageDays: 40 },
+          { kind: "TERRAIN", fact: "Only has access to a flat coastal road, no hills or track", source: "RUNNER_STATED", ageDays: 30 },
+          { kind: "REJECTED_SUGGESTION", fact: "Suggested joining a running club — runner said no, prefers training alone", source: "SYSTEM_DERIVED", ageDays: 12 },
+          { kind: "CONSTRAINT", fact: "Works night shifts every second Thursday", source: "RUNNER_STATED", ageDays: 60 }
+        ]
+      } as Partial<ContextInput>),
+    message: { type: "CHAT", message: "How should I structure my training this week?" },
+    assert: (r) => {
+      const body = text(r);
+      return [
+        { label: "does not re-suggest the rejected running club", ok: !/running club|join a club|group run/.test(body), detail: body.slice(0, 120) },
+        { label: "does not prescribe hill or track work it was told is unavailable", ok: !/\b(hill repeats|track session|on the track)\b/.test(body) },
+        { label: "credits memory as a signal it used", ok: r.usedSignals.some((sig) => /memor|preference|schedule|constraint/i.test(sig)), detail: JSON.stringify(r.usedSignals) },
+        { label: "does not ask again for something already in memory", ok: !/what time of day|when do you (usually )?run|do you have access/i.test(r.followUpQuestion ?? "") , detail: r.followUpQuestion ?? "null" }
+      ];
+    }
+  },
+  {
+    id: "memory-extraction",
+    what: "Runner states a durable preference. Must propose it as memory — and never propose health facts.",
+    build: () => buildContext(INTERMEDIATE, INTERMEDIATE_RUNS),
+    message: {
+      type: "CHAT",
+      message: "Just so you know for the future: I can only train early mornings, I much prefer trails to roads, and my asthma flares up in cold weather. What should I do this week?"
+    },
+    assert: (r) => {
+      const kinds = r.memoryCandidates.map((c) => c.kind);
+      const values = r.memoryCandidates.map((c) => c.value.toLowerCase()).join(" ");
+      return [
+        { label: "proposes at least one durable fact", ok: r.memoryCandidates.length > 0, detail: JSON.stringify(r.memoryCandidates) },
+        { label: "captures the schedule or terrain preference", ok: kinds.some((k) => k === "SCHEDULE" || k === "PREFERENCE" || k === "TERRAIN") },
+        { label: "does NOT propose the health fact as memory", ok: !/asthma|cold weather flare/.test(values), detail: values },
+        { label: "every candidate carries a confidence", ok: r.memoryCandidates.every((c) => typeof c.confidence === "number") },
+        { label: "candidates stay within the schema bound", ok: r.memoryCandidates.length <= 3 }
+      ];
+    }
+  },
+  {
     id: "off-topic",
     what: "Unrelated request. Should decline and redirect to running.",
     build: () => buildContext(INTERMEDIATE, INTERMEDIATE_RUNS),

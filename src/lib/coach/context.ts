@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { RunRoutePoint } from "@/components/coach/types";
 import type { PlanAdherence } from "@/lib/coach/adherence";
+import type { MemoryContextItem } from "@/lib/coach/memory";
 import type { ActivePlanContext } from "@/lib/coach/plan-context";
 import type { CoachMetrics, ConsistencyAssessment, IntensityDistribution, MetricRun } from "@/lib/coach/metrics";
 import { computeSplits } from "@/lib/coach/run-stats";
@@ -89,6 +90,9 @@ export function buildRunnerCoachContext(input: {
   goal: ContextGoal;
   runs: ContextRun[];
   metrics: CoachMetrics;
+  // Long-term coaching memory (Phase 3): a small set of sourced, relevant facts, already selected and
+  // budget-capped by selectMemoryForContext. Never the raw conversation history.
+  memory?: MemoryContextItem[] | null;
   // Paced sessions from the adaptive planner. The pace targets are computed deterministically and
   // passed in as data — the coach explains them, it never invents them.
   skeleton: Array<CoachWorkout & { targetPaceSecondsPerKm?: number | null }>;
@@ -193,7 +197,10 @@ export function buildRunnerCoachContext(input: {
     // real run), so the coach references what genuinely happened rather than a fresh generated week.
     activePlan: input.activePlan ?? null,
     fixedSafetyDecision: input.safety,
-    fixedWeeklyPlanSkeleton: input.skeleton
+    fixedWeeklyPlanSkeleton: input.skeleton,
+    // Facts carry their source so the coach can use a runner-stated preference confidently while
+    // treating its own earlier inference as a guess to check rather than a fact to assert.
+    coachMemory: input.memory && input.memory.length > 0 ? input.memory : null
   };
 
   return compactIfNeeded(context);
@@ -250,7 +257,8 @@ function describeContextSections(input: CoachContextInput): Record<string, strin
     adherence: s(Boolean(input.adherence?.hasActivePlan), "no-active-plan"),
     recentConversation: s((input.recentConversation?.length ?? 0) > 0, "no-prior-conversation"),
     consistency: s(Boolean(input.consistency), "insufficient-data"),
-    intensity: s(Boolean(input.intensity), "insufficient-data")
+    intensity: s(Boolean(input.intensity), "insufficient-data"),
+    coachMemory: s((input.memory?.length ?? 0) > 0, "no-memory-stored")
   };
 }
 

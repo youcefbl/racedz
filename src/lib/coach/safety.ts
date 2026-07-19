@@ -148,7 +148,8 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
     requiresProfessionalAdvice: true,
     usedSignals: [],
     dataGaps: [],
-    followUpQuestion: null
+    followUpQuestion: null,
+    memoryCandidates: []
   };
 }
 
