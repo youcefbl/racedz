@@ -25,7 +25,7 @@
 
 ## 📊 Progress
 
-`████████████░░░░░░░░░░░░░` **~42% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 ✅ complete**
+`████████████░░░░░░░░░░░░░` **~44% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 ✅ · next: Phase 3 (memory)**
 
 | Phase | Status | Where it stands |
 |---|---|---|
@@ -458,7 +458,7 @@ sessions, a phase-and-volume plan summary, and full live-AI validation. The dete
 checks (`scripts/test-adaptive-planner.ts`), and `scripts/test-coach-live.ts` runs 11 real scenarios
 against the provider for qualitative review.
 
-### ⚠️ Carried into Phase 3 — audit onboarding-sourced planner inputs (PRIORITY)
+### ✅ Onboarding-sourced planner inputs — audited and fixed (2026-07-19)
 
 Two production bugs of the *same shape* surfaced during Phase 2, one of them a safety issue:
 
@@ -471,10 +471,17 @@ Both inputs are captured once at goal creation and never updated, yet both feed 
 remaining input of this class is `peakWeeklyDistanceKm`, used as a volume ceiling — stale-low it freezes
 progression, and it is never raised when the runner actually exceeds it.
 
-**The rule to apply:** a planner input describing what the runner *does* must come from run history.
+**The rule now applied:** a planner input describing what the runner *does* comes from run history.
 Onboarding values are a fallback for runners with no history, or a ceiling — never a load anchor for a
-runner we have data on. Audit all three, derive from `CoachMetrics` where possible, and regression-test
-each.
+runner we have data on.
+
+All three are fixed: weekly volume and the 10%-progression clamp derive from observed running once there
+are ≥3 logged runs in 28 days; the peak ceiling is `max(declared, best actual 7-day block)`; the
+long-run cap is `max(declared, actual longest)`. The beginner BASELINE check now judges observed volume
+too. This also surfaced a copy bug — brand-new runners were told they were "returning from a break" —
+fixed by passing `consistencyStatus` so the planner can tell `NO_RUNS_YET` from `RETURNING_AFTER_BREAK`.
+Planner tests at 68 checks; all 11 live scenarios pass. See
+[COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md).
 
 ### Planner inputs
 
@@ -898,7 +905,7 @@ Start with 50–100 runners after:
 6. Add the quick check-in, contextual chat replies, and “why this plan” trust surfaces with explicit action confirmation.
 7. Replace the weekly skeleton with a goal-relative adaptive planner using adherence.
 8. Add missed-run recovery and rescheduling behavior to plan generation.
-9. **Audit onboarding-sourced planner inputs** (see Phase 2) — two bugs of this shape have already shipped to main; do this before adding memory on top of the same inputs.
+9. ✅ **Audit onboarding-sourced planner inputs** (see Phase 2) — done 2026-07-19.
 10. Add structured long-term memory and paginated conversation history.
 11. Add richer location, schedule, terrain, and race personalization.
 12. Make Coach the app's default primary surface after the daily loop proves useful.
