@@ -100,6 +100,9 @@ export type CoachMetrics = {
   averageEffortLast7Days: number | null;
   maximumFatigueLast7Days: number;
   maximumPainLast7Days: number;
+  // The longest single run actually completed in the last 28 days. The planner caps long-run growth
+  // against this so the cap tracks real progression, instead of the onboarding value that never moves.
+  longestRunLast28DaysKm: number | null;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -219,7 +222,8 @@ export function calculateCoachMetrics(runs: MetricRun[], now = new Date()): Coac
       recentPace !== null && previousPace !== null ? round(((recentPace - previousPace) / previousPace) * 100) : null,
     averageEffortLast7Days: last7.length > 0 ? round(last7.reduce((total, run) => total + run.perceivedEffort, 0) / last7.length) : null,
     maximumFatigueLast7Days: Math.max(0, ...last7.map((run) => run.fatigueLevel)),
-    maximumPainLast7Days: Math.max(0, ...last7.map((run) => run.painLevel))
+    maximumPainLast7Days: Math.max(0, ...last7.map((run) => run.painLevel)),
+    longestRunLast28DaysKm: last28.length > 0 ? round(Math.max(...last28.map((run) => run.distanceKm))) : null
   };
 }
 

@@ -56,10 +56,13 @@ What the simulation exposed, ordered by leverage. (#1 already done this pass.)
    discarded before reaching the coach; now threaded through so feedback can say "you're in your base
    weeks" and "I eased this week after two missed runs."
 
-2. **Long-run cap should use *actual* recent longest, not the static goal field.** The planner caps
-   long-run growth against `goal.longestRecentRunKm`, which is frozen at goal-creation. As the runner
-   completes longer runs, the cap never moves, so long runs stall. **Fix:** derive the recent longest from
-   run history (metrics) and pass that in. High value for multi-week progression accuracy.
+2. **✅ Long-run cap now uses *actual* recent longest.** *(done 2026-07-18)* The planner capped long-run
+   growth against `goal.longestRecentRunKm`, frozen at goal-creation, so the cap never moved and long runs
+   stalled for the whole block. `CoachMetrics` had no longest-run field at all, so the fix added
+   `longestRunLast28DaysKm` (computed from run history) and the planner now caps against
+   `max(onboarding, actual)` — the onboarding value still covers runners with no history.
+   Guarded by `scripts/test-adaptive-planner.ts`, which was confirmed to fail on the old behaviour
+   (a runner built up to 18 km stayed pinned at the 12 km onboarding-derived cap).
 
 3. **Numeric pace/effort targets on quality sessions.** Sessions carry distance + a verbal intensity
    ("comfortably hard") but no pace. **Fix:** derive target paces from `averagePaceLast28Days` (easy/long
@@ -77,14 +80,20 @@ What the simulation exposed, ordered by leverage. (#1 already done this pass.)
 6. **Plan summary should name the phase + volume.** `AUTO_PLAN_SUMMARY` is generic. **Fix:** "Base week ·
    ~45 km — building your endurance" reads better on the plan card and reinforces the periodization.
 
-7. **Coach *text* feedback is unvalidated — OpenAI billing is blocked** (`insufficient_quota`). The
-   deterministic plan is fully testable and verified; the AI's explanation of it is not. **Owner op:**
-   enable billing, then run one real interaction per profile and review whether the coach references the
-   phase, the adaptations, and the runner's real numbers (the context now carries all three).
+7. **✅ Coach *text* feedback validated live.** *(done 2026-07-18)* Billing was restored and the first
+   live evals ran against `gpt-5.4-mini` through the real prompt + structured-output schema:
+   the coach cited the actual completed/skipped sessions, the **fatigue** skip reason and the **base**
+   phase (`usedSignals` named `plan adherence` / `active plan`); a sparse runner produced 5 `dataGaps`,
+   exactly one `followUpQuestion` and **no invented weather**; and a prompt-injection payload placed in
+   both a run note and the chat message produced neither compliance nor a prompt leak.
+   *Caveat:* these ran on hand-assembled contexts via `generateCoachResponse`, so they validate the
+   prompt and schema, not the DB/entitlement plumbing around them.
 
 ## Suggested next iteration
 
-Do #2 and #3 together (both are small, both sharpen every plan and give the coach real numbers), then #4–#6
-as a polish pass. Re-run this profile simulation after each change to confirm the three journeys stay
-distinct and safe. Once billing is on (#7), extend the simulation to capture the coach's actual worded
-feedback per profile and tune the prompt/context from there.
+#2 and #7 are done. **Next: #3 (numeric pace targets)** — it is the highest-leverage remaining item and
+the one the live evals argued for: the coach references real numbers well when the context carries them,
+and quality sessions currently carry none. #3 needs a storage decision first — either a new
+`targetPaceSecondsPerKm` column on the workout (clean, needs a migration) or folding the pace into the
+existing `intensity`/`instructions` text (no migration, weaker for the UI). Then #4–#6 as a polish pass.
+Re-run the profile simulation after each change to confirm the three journeys stay distinct and safe.

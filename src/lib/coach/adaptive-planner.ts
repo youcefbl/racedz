@@ -216,8 +216,12 @@ function buildWeek({
 
   // Long run: a share of weekly volume, capped by recent longest (+10%), the goal cap, and shortened in taper.
   let longRunKm = weeklyVolumeKm * params.longShare;
-  if (input.longestRecentRunKm && input.longestRecentRunKm > 0) {
-    longRunKm = Math.min(longRunKm, input.longestRecentRunKm * 1.1 + 1);
+  // Cap against the longest run the runner has *actually* done recently, falling back to the value
+  // captured at onboarding. Taking the max of the two matters: the onboarding field is frozen at goal
+  // creation, so on its own the cap never moves and long runs stall as the runner progresses.
+  const longestActualKm = Math.max(input.longestRecentRunKm ?? 0, input.metrics.longestRunLast28DaysKm ?? 0);
+  if (longestActualKm > 0) {
+    longRunKm = Math.min(longRunKm, longestActualKm * 1.1 + 1);
   }
   longRunKm = Math.min(longRunKm, params.longRunCapKm);
   if (phase === "TAPER") longRunKm *= 0.7;
