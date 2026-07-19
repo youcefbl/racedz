@@ -15,7 +15,7 @@ import {
 } from "@/lib/coach/adherence";
 import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
-import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
+import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics, type ConsistencyAssessment } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildAdaptivePlan, type PlanPhase } from "@/lib/coach/adaptive-planner";
 import { getActivePlanForContext } from "@/lib/coach/plan-context";
@@ -790,7 +790,12 @@ export async function getPlanAdherence(userId: string): Promise<PlanAdherence> {
 // Map the stored goal + recent metrics + adherence into the adaptive planner (Phase 2). Returns the full
 // plan (phase, adaptations, and the week of workouts) so callers can also feed the phase + why-load-changed
 // notes into the AI context. This is the deterministic backbone; the AI only explains/personalizes it.
-function buildAdaptivePlanForGoal(goal: GoalRow, metrics: CoachMetrics, adherence: PlanAdherence | null) {
+function buildAdaptivePlanForGoal(
+  goal: GoalRow,
+  metrics: CoachMetrics,
+  adherence: PlanAdherence | null,
+  consistencyStatus: ConsistencyAssessment["status"] | null = null
+) {
   return buildAdaptivePlan({
     goalType: goal.goalType,
     experienceLevel: goal.experienceLevel,
@@ -802,7 +807,8 @@ function buildAdaptivePlanForGoal(goal: GoalRow, metrics: CoachMetrics, adherenc
     availableTrainingDays: goal.availableTrainingDays,
     preferredLongRunDay: goal.preferredLongRunDay,
     metrics,
-    adherence
+    adherence,
+    consistencyStatus
   });
 }
 
@@ -1011,7 +1017,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const adherence = await getPlanAdherence(userId);
   // The active plan session by session (what actually happened), for the AI context.
   const activePlan = await getActivePlanForContext(userId);
-  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence);
+  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence, consistency.status);
   const skeleton = adaptivePlan.workouts;
   const interactionId = randomUUID();
 
@@ -1321,7 +1327,12 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   const metrics = calculateCoachMetrics(runs);
   // Adapt the auto-rolled week to how the plan just ended (we closed missed sessions above first).
   const adherence = await getPlanAdherence(userId);
-  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence);
+  const adaptivePlan = buildAdaptivePlanForGoal(
+    goal,
+    metrics,
+    adherence,
+    assessConsistency(runs, goal.availableTrainingDays.length).status
+  );
   const skeleton = adaptivePlan.workouts;
   if (skeleton.length === 0) return { created: false };
 

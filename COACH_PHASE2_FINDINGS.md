@@ -151,13 +151,38 @@ break · prompt injection · off-topic · French · Arabic.
 
 ## Suggested next iteration
 
-All of #2–#7 are done. Remaining work, in order of value:
+All of #2–#7 are done, and the onboarding-input audit that followed them is done too (below).
+Remaining: **firm up `dataGaps` / phase-naming consistency** and assert them over repeated samples.
 
-1. **Audit every planner input sourced from onboarding.** Two bugs of the same shape have now surfaced
-   (long-run cap, returning volume). `currentWeeklyDistanceKm`, `peakWeeklyDistanceKm` and
-   `longestRecentRunKm` are all frozen at goal creation and all feed load decisions. They should either
-   be refreshed from run history or treated as ceilings only, never as anchors.
-2. **Firm up `dataGaps` / phase-naming consistency** and assert them over repeated samples.
+## Onboarding-input audit (2026-07-19) — ✅ done
+
+Two shipped bugs had the same root cause, so all three onboarding-sourced planner inputs were audited.
+**The rule now applied: an input describing what the runner *does* comes from run history; the
+onboarding value is a fallback when there is no history, or a ceiling — never a load anchor.**
+
+| Input | Was | Now |
+|---|---|---|
+| `currentWeeklyDistanceKm` | Anchored weekly volume *and* the 10%-progression clamp, so a runner who declared 38 km but runs 15 was planned at 38 — and the clamp meant to catch that read the same stale number | Volume derives from observed running (`max(last 7 days, last 28 days ÷ 4)`) once there are ≥3 logged runs in 28 days; the stated value only fills the gap for runners with no history |
+| `peakWeeklyDistanceKm` | A hard ceiling frozen at onboarding, so a runner who outgrew their declared peak stayed capped at it indefinitely | Ceiling is `max(declared peak, best actual 7-day block in the last 28 days)`, still under the hard experience ceiling |
+| `longestRecentRunKm` | Capped long-run growth; never moved (fixed earlier as #2) | `max(declared, actual longest in 28 days)` |
+
+New metrics: `bestWeeklyDistanceLast28DaysKm` (alongside `longestRunLast28DaysKm`).
+
+**Effect on the live profiles** — every plan moved toward what the runner actually does: intermediate
+44.8 → 37.5 km, advanced 88.8 → 82.2 km, beginner 11.9 → 9.9 km. All 11 live assertions still pass.
+
+**Trade-off accepted:** a runner who logs only some of their runs will now be under-prescribed rather
+than over-prescribed. That is the safer failure direction, and it is why the threshold is 3 runs rather
+than 1.
+
+### A copy bug this surfaced
+
+Because the 28-day window shows zero runs for *both* a five-week layoff and a runner who has never run,
+a brand-new runner was being told "Returning from a break" and "Restarting at roughly half your previous
+volume" — a break and a previous volume that never existed. Those notes feed the AI context, so the
+coach repeated the fiction. The planner now receives `consistencyStatus` (already computed by
+`assessConsistency`, which reads the full run list rather than the 28-day window) and distinguishes
+`NO_RUNS_YET` from `RETURNING_AFTER_BREAK`. Genuine returners keep the welcome-back framing.
 
 Two follow-ups earlier passes created rather than closed:
 

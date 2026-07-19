@@ -96,7 +96,8 @@ function buildContext(g: Goal, runs: Run[], extra: Partial<ContextInput> = {}) {
       availableTrainingDays: g.availableTrainingDays,
       preferredLongRunDay: g.preferredLongRunDay,
       metrics,
-      adherence: (extra.adherence as never) ?? null
+      adherence: (extra.adherence as never) ?? null,
+      consistencyStatus: assessConsistency(runs, g.availableTrainingDays.length, NOW).status
     },
     NOW
   );

@@ -1,5 +1,5 @@
 import type { PlanAdherence } from "@/lib/coach/adherence";
-import type { CoachMetrics } from "@/lib/coach/metrics";
+import type { CoachMetrics, ConsistencyAssessment } from "@/lib/coach/metrics";
 import type { CoachWorkout } from "@/lib/coach/schemas";
 
 // Deterministic adaptive planning engine (Phase 2). Produces one safe week of candidate sessions from
@@ -37,6 +37,10 @@ export type AdaptivePlannerInput = {
   preferredLongRunDay: number | null;
   metrics: CoachMetrics;
   adherence?: PlanAdherence | null;
+  // Distinguishes a runner who has never logged a run from one returning after time off. The 28-day
+  // metrics window cannot tell these apart — both show zero recent runs — but the difference decides
+  // whether "welcome back" or "let's get started" is the true thing to say.
+  consistencyStatus?: ConsistencyAssessment["status"] | null;
 };
 
 export type AdaptivePlan = {
@@ -108,6 +112,28 @@ const GOAL_PARAMS: Record<GoalType, { longShare: number; qualityBias: QualityBia
   OTHER: { longShare: 0.3, qualityBias: "MIXED", volumeMult: 1.0, longRunCapKm: 22 }
 };
 
+// Once a runner has this many logged runs in the last 28 days, their actual behaviour — not what they
+// told us at onboarding — is the trustworthy read on their weekly volume.
+const HISTORY_THRESHOLD_RUNS = 3;
+
+/**
+ * The weekly volume to plan from.
+ *
+ * `currentWeeklyDistanceKm` is captured once at goal creation and never updated, so for anyone with
+ * real history it is a claim, not a measurement — and it has now produced two shipped bugs by being
+ * treated as a load anchor. Prefer observed running whenever there is enough of it; fall back to the
+ * stated value only for runners we have no data on.
+ *
+ * The 28-day average is taken alongside the last 7 days because a single quiet week would otherwise
+ * ratchet the plan down sharply. Under-prescribing a runner who logs only some of their runs is the
+ * safer failure direction than over-prescribing one who logs all of them.
+ */
+function effectiveWeeklyVolumeKm(input: AdaptivePlannerInput): number {
+  const hasHistory = input.metrics.runCountLast28Days >= HISTORY_THRESHOLD_RUNS;
+  if (!hasHistory) return input.currentWeeklyDistanceKm;
+  return Math.max(input.metrics.distanceLast7DaysKm, input.metrics.distanceLast28DaysKm / 4);
+}
+
 export function buildAdaptivePlan(input: AdaptivePlannerInput, now = new Date()): AdaptivePlan {
   const exp = input.experienceLevel;
   const params = GOAL_PARAMS[input.goalType] ?? GOAL_PARAMS.OTHER;
@@ -118,8 +144,9 @@ export function buildAdaptivePlan(input: AdaptivePlannerInput, now = new Date())
   const returning = input.metrics.runCountLast7Days === 0 && input.metrics.distanceLast28DaysKm < WEEKLY_FLOOR[exp];
 
   const adaptations: string[] = [];
-  const phase = determinePhase({ weeksToRace, exp, input, returning, isFitnessGoal, adaptations });
-  const weeklyVolumeKm = computeWeeklyVolume({ phase, exp, params, input, returning, adaptations });
+  const effectiveWeeklyKm = effectiveWeeklyVolumeKm(input);
+  const phase = determinePhase({ weeksToRace, exp, input, effectiveWeeklyKm, returning, isFitnessGoal, adaptations });
+  const weeklyVolumeKm = computeWeeklyVolume({ phase, exp, params, input, effectiveWeeklyKm, returning, adaptations });
 
   const week = buildWeek({ phase, exp, params, isFitnessGoal, weeklyVolumeKm, input, now });
 
@@ -138,6 +165,7 @@ function determinePhase({
   weeksToRace,
   exp,
   input,
+  effectiveWeeklyKm,
   returning,
   isFitnessGoal,
   adaptations
@@ -145,12 +173,17 @@ function determinePhase({
   weeksToRace: number;
   exp: Experience;
   input: AdaptivePlannerInput;
+  effectiveWeeklyKm: number;
   returning: boolean;
   isFitnessGoal: boolean;
   adaptations: string[];
 }): PlanPhase {
   if (returning) {
-    adaptations.push("Returning from a break — rebuilding with easy running.");
+    adaptations.push(
+      input.consistencyStatus === "NO_RUNS_YET"
+        ? "No runs logged yet — starting with easy, conservative running."
+        : "Returning from a break — rebuilding with easy running."
+    );
     return "BASELINE";
   }
   if (!isFitnessGoal && weeksToRace <= 0) {
@@ -162,9 +195,9 @@ function determinePhase({
   if (weeksToRace <= 2) return "TAPER";
   if (weeksToRace <= 4) return "PEAK";
   if (weeksToRace <= 9) return "BUILD";
-  // Far out, or a beginner still building volume → base.
-  const recent = Math.max(input.metrics.distanceLast7DaysKm, input.currentWeeklyDistanceKm);
-  if (exp === "BEGINNER" && recent < WEEKLY_FLOOR.BEGINNER * 1.6) return "BASELINE";
+  // Far out, or a beginner still building volume → base. Judged on observed volume: a beginner who
+  // declared 20 km/week but runs 5 needs the baseline phase, not the extra load and quality of BASE.
+  if (exp === "BEGINNER" && effectiveWeeklyKm < WEEKLY_FLOOR.BEGINNER * 1.6) return "BASELINE";
   return "BASE";
 }
 
@@ -187,6 +220,7 @@ function computeWeeklyVolume({
   exp,
   params,
   input,
+  effectiveWeeklyKm,
   returning,
   adaptations
 }: {
@@ -194,18 +228,20 @@ function computeWeeklyVolume({
   exp: Experience;
   params: (typeof GOAL_PARAMS)[GoalType];
   input: AdaptivePlannerInput;
+  effectiveWeeklyKm: number;
   returning: boolean;
   adaptations: string[];
 }): number {
-  const recent = Math.max(input.metrics.distanceLast7DaysKm, 0);
-  const anchor = Math.max(recent, input.currentWeeklyDistanceKm, WEEKLY_FLOOR[exp]);
+  const anchor = Math.max(effectiveWeeklyKm, WEEKLY_FLOOR[exp]);
 
   let volume = anchor * PHASE_FACTOR[phase] * params.volumeMult;
 
   // Injury-prevention: in progressing phases never jump more than ~10% over recent actual (plus a small
   // absolute allowance so a runner coming off a light week isn't frozen).
   if (phase === "BASE" || phase === "BUILD" || phase === "BASELINE") {
-    volume = Math.min(volume, Math.max(recent, input.currentWeeklyDistanceKm) * 1.1 + 3);
+    // Clamp against observed volume too — reading the stated value here made the clamp toothless for
+    // exactly the runners it exists to protect.
+    volume = Math.min(volume, effectiveWeeklyKm * 1.1 + 3);
   }
 
   // Returning from a break: `currentWeeklyDistanceKm` is what the runner told us at onboarding, so on
@@ -216,13 +252,21 @@ function computeWeeklyVolume({
     const priorVolumeKm = Math.max(input.metrics.distanceLast7DaysKm, input.currentWeeklyDistanceKm);
     const capped = Math.min(volume, priorVolumeKm * RETURNING_VOLUME_SHARE);
     if (capped < volume) {
-      adaptations.push("Restarting at roughly half your previous volume — fitness returns faster than tendons do.");
+      adaptations.push(
+        input.consistencyStatus === "NO_RUNS_YET"
+          ? "Starting well below the weekly volume you described, until there is real running to build on."
+          : "Restarting at roughly half your previous volume — fitness returns faster than tendons do."
+      );
       volume = capped;
     }
   }
 
-  // Ceilings: known peak volume, then the hard experience cap.
-  volume = Math.min(volume, input.peakWeeklyDistanceKm ?? WEEKLY_CEILING[exp], WEEKLY_CEILING[exp]);
+  // Ceilings: known peak volume, then the hard experience cap. The declared peak is also frozen at
+  // onboarding, so take the best week the runner has actually run alongside it — otherwise a runner who
+  // has since outgrown what they declared stays capped at it indefinitely.
+  const observedPeakKm = input.metrics.bestWeeklyDistanceLast28DaysKm ?? 0;
+  const knownPeakKm = Math.max(input.peakWeeklyDistanceKm ?? 0, observedPeakKm);
+  volume = Math.min(volume, knownPeakKm > 0 ? knownPeakKm : WEEKLY_CEILING[exp], WEEKLY_CEILING[exp]);
 
   // --- Adaptation: reduce or ease the upcoming week ---
   const pain = input.metrics.maximumPainLast7Days;

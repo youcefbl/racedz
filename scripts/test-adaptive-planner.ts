@@ -50,7 +50,11 @@ const HALF_PLAN = {
 // longestRecentRunKm is frozen at goal creation. A runner who has since built up to 18 km must not be
 // capped at their onboarding 10 km — otherwise long runs stall for the whole training block.
 {
-  const grown = [18, 16, 15, 14].map((distanceKm, i) => ({ daysAgo: i * 7 + 1, distanceKm }));
+  // Four full weeks of ~45 km, with the long run built up to 18 km. The weekly volume has to be high
+  // enough that the long-run *cap* is the binding constraint — otherwise this asserts nothing.
+  const grown = [0, 1, 2, 3].flatMap((week) =>
+    [18, 10, 9, 8].map((distanceKm, day) => ({ daysAgo: week * 7 + day * 2 + 1, distanceKm }))
+  );
   const withHistory = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 10, metrics: metricsFrom(grown) }, NOW);
   const stale = buildAdaptivePlan(
     { ...HALF_PLAN, longestRecentRunKm: 10, metrics: metricsFrom(grown, { longestRunLast28DaysKm: null }) },
@@ -142,6 +146,55 @@ const HALF_PLAN = {
   check("taper shortens the long run", phaseAt(2).longRunKm < phaseAt(8).longRunKm);
 }
 
+// ── Onboarding-sourced inputs must not anchor load ───────────────────────────
+// currentWeeklyDistanceKm, peakWeeklyDistanceKm and longestRecentRunKm are all captured once at goal
+// creation and never updated. Two shipped bugs came from treating them as measurements, so each is
+// pinned here: observed running wins when we have it, the stated value only fills a gap.
+{
+  // Claims 38 km/week, actually runs ~15. The plan must follow the running, not the claim.
+  const overclaimed = [5, 5, 5].map((distanceKm, i) => ({ daysAgo: i * 2 + 1, distanceKm }));
+  const plan = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 14, metrics: metricsFrom(overclaimed) }, NOW);
+  check(
+    "an over-claimed weekly volume does not inflate the plan",
+    plan.weeklyVolumeKm < HALF_PLAN.currentWeeklyDistanceKm * 0.75,
+    `${plan.weeklyVolumeKm} km vs claimed ${HALF_PLAN.currentWeeklyDistanceKm} km`
+  );
+
+  // A beginner who declared a volume they do not run belongs in BASELINE, not BASE.
+  const beginnerOverclaim = buildAdaptivePlan(
+    {
+      ...HALF_PLAN,
+      goalType: "FIVE_K",
+      experienceLevel: "BEGINNER",
+      currentWeeklyDistanceKm: 30,
+      peakWeeklyDistanceKm: null,
+      longestRecentRunKm: 4,
+      targetDate: new Date(NOW.getTime() + 16 * 7 * 86_400_000),
+      metrics: metricsFrom([2, 2, 3].map((distanceKm, i) => ({ daysAgo: i * 2 + 1, distanceKm })))
+    },
+    NOW
+  );
+  check("a beginner is phased on what they run, not what they declared", beginnerOverclaim.phase === "BASELINE", beginnerOverclaim.phase);
+
+  // With no history at all the stated value is all we have, so it must still be honoured.
+  const noHistory = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 14, metrics: metricsFrom([]) }, NOW);
+  check("the stated volume still drives the plan when there is no history", noHistory.weeklyVolumeKm > 15, `${noHistory.weeklyVolumeKm} km`);
+
+  // A runner who has outgrown their declared peak must not stay capped at it.
+  const outgrown = [0, 1, 2, 3].flatMap((week) => [16, 14, 12, 12, 10].map((distanceKm, day) => ({ daysAgo: week * 7 + day + 1, distanceKm })));
+  const declaredLowPeak = buildAdaptivePlan({ ...HALF_PLAN, peakWeeklyDistanceKm: 40, longestRecentRunKm: 16, metrics: metricsFrom(outgrown) }, NOW);
+  check(
+    "an outgrown declared peak does not cap a runner below what they already run",
+    declaredLowPeak.weeklyVolumeKm > 40,
+    `${declaredLowPeak.weeklyVolumeKm} km vs declared peak 40 km`
+  );
+  check(
+    "the hard experience ceiling still applies above the declared peak",
+    declaredLowPeak.weeklyVolumeKm <= 90.001,
+    `${declaredLowPeak.weeklyVolumeKm} km`
+  );
+}
+
 // ── Returning after a break ──────────────────────────────────────────────────
 // Found by the live harness: currentWeeklyDistanceKm is a frozen onboarding claim, so on its own it
 // anchored a returning runner's week to a volume they had not run in weeks — and the goal multiplier
@@ -162,6 +215,18 @@ const HALF_PLAN = {
     `${returning.weeklyVolumeKm} km`
   );
   check("the restart is explained to the runner", returning.adaptations.some((a) => /half your previous volume|rebuilding/i.test(a)), JSON.stringify(returning.adaptations));
+
+  // A runner who has never logged a run is NOT returning from a break. The 28-day metrics window
+  // cannot tell the two apart, so the planner is told which it is; without that it claimed a break
+  // and a "previous volume" that never existed.
+  const brandNew = buildAdaptivePlan(
+    { ...HALF_PLAN, longestRecentRunKm: null, metrics: metricsFrom([]), consistencyStatus: "NO_RUNS_YET" },
+    NOW
+  );
+  check("a never-run runner is not told they are returning from a break", !brandNew.adaptations.some((a) => /returning from a break/i.test(a)), JSON.stringify(brandNew.adaptations));
+  check("a never-run runner is not told about a previous volume", !brandNew.adaptations.some((a) => /previous volume/i.test(a)), JSON.stringify(brandNew.adaptations));
+  check("a never-run runner still gets a conservative start", brandNew.weeklyVolumeKm < HALF_PLAN.currentWeeklyDistanceKm, `${brandNew.weeklyVolumeKm} km`);
+  check("a genuine returner still gets the welcome-back framing", returning.adaptations.some((a) => /returning from a break/i.test(a)), JSON.stringify(returning.adaptations));
   check("the long run is scaled down too", returning.longRunKm <= returning.weeklyVolumeKm * 0.35 + 0.001, `${returning.longRunKm} km`);
 }
 

@@ -103,6 +103,9 @@ export type CoachMetrics = {
   // The longest single run actually completed in the last 28 days. The planner caps long-run growth
   // against this so the cap tracks real progression, instead of the onboarding value that never moves.
   longestRunLast28DaysKm: number | null;
+  // The biggest single 7-day block of running in the last 28 days. Used as an observed peak-volume
+  // ceiling, so a runner who has outgrown the peak they declared at onboarding is not held back by it.
+  bestWeeklyDistanceLast28DaysKm: number | null;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -223,7 +226,21 @@ export function calculateCoachMetrics(runs: MetricRun[], now = new Date()): Coac
     averageEffortLast7Days: last7.length > 0 ? round(last7.reduce((total, run) => total + run.perceivedEffort, 0) / last7.length) : null,
     maximumFatigueLast7Days: Math.max(0, ...last7.map((run) => run.fatigueLevel)),
     maximumPainLast7Days: Math.max(0, ...last7.map((run) => run.painLevel)),
-    longestRunLast28DaysKm: last28.length > 0 ? round(Math.max(...last28.map((run) => run.distanceKm))) : null
+    longestRunLast28DaysKm: last28.length > 0 ? round(Math.max(...last28.map((run) => run.distanceKm))) : null,
+    bestWeeklyDistanceLast28DaysKm:
+      last28.length > 0
+        ? round(
+            Math.max(
+              ...[0, 1, 2, 3].map((week) =>
+                sumDistance(
+                  last28.filter(
+                    (run) => run.timestamp >= currentTime - (week + 1) * 7 * DAY_MS && run.timestamp < currentTime - week * 7 * DAY_MS
+                  )
+                )
+              )
+            )
+          )
+        : null
   };
 }
 
