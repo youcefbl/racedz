@@ -64,21 +64,29 @@ What the simulation exposed, ordered by leverage. (#1 already done this pass.)
    Guarded by `scripts/test-adaptive-planner.ts`, which was confirmed to fail on the old behaviour
    (a runner built up to 18 km stayed pinned at the 12 km onboarding-derived cap).
 
-3. **Numeric pace/effort targets on quality sessions.** Sessions carry distance + a verbal intensity
-   ("comfortably hard") but no pace. **Fix:** derive target paces from `averagePaceLast28Days` (easy/long
-   = +8–12%, tempo = −5–8%) or from `targetTimeSeconds` when set. Makes tempo/interval sessions actionable
-   and gives the coach concrete numbers to reference.
+3. **✅ Numeric pace targets on every session.** *(done 2026-07-19)* Sessions carried distance + a verbal
+   intensity but no pace. The planner now derives `targetPaceSecondsPerKm` from the runner's own recent
+   average pace (recovery +18%, easy +10%, long +8%, tempo −7%, interval −12%), stored on a new nullable
+   `TrainingWorkout.targetPaceSecondsPerKm` column, rendered on the plan card, and passed to the AI as
+   authoritative data. Deliberate choices: paces are derived **only** from actual recent running (never
+   from goal race pace), so a runner with no history gets *no* target instead of an invented one;
+   implausible reference paces are rejected by sanity rails; and a safety-reduced session drops its pace
+   entirely rather than carrying a tempo pace onto a recovery jog. **Live-verified:** asked what pace to
+   run its tempo at, the coach replied "about 5:07/km (307 sec/km)" — exactly the computed target.
 
-4. **Beginner quality should be gentler than structured intervals.** The 5K beginner got a structured
-   INTERVAL at 12 km/wk — a lot of intensity for that base. **Fix:** beginners' first quality = strides /
-   light fartlek (add a `STRIDES`-style easy+ session or a "relaxed pickups" variant) before true intervals.
+4. **✅ Beginner quality is now strides, not structured intervals.** *(done 2026-07-19)* A beginner's
+   quality slot became an "Easy run + strides" session (4–6 × ~20s relaxed pickups in the last third),
+   stored as an `EASY` workout type since that is what it is. Intermediates and above are unchanged —
+   an intermediate 5K runner still gets true intervals. Progressing beginners *on* to real intervals once
+   they hold volume is a deliberate follow-up, not part of this change.
 
 5. **Beginner sessions could be duration-based.** `targetDurationMin` is always null. Beginners train
    better on time ("run 25 min easy") than tiny distances. **Fix:** emit duration targets for beginner
    easy runs (and pass both to the UI, which already renders duration).
 
-6. **Plan summary should name the phase + volume.** `AUTO_PLAN_SUMMARY` is generic. **Fix:** "Base week ·
-   ~45 km — building your endurance" reads better on the plan card and reinforces the periodization.
+6. **✅ Plan summary names the phase + volume.** *(done 2026-07-19)* The generic `AUTO_PLAN_SUMMARY`
+   became `buildAutoPlanSummary(locale, phase, volume)` — "Base week · ~45 km — building your endurance.
+   Ask your coach any time to adjust it." — with per-phase intent copy in all three locales.
 
 7. **✅ Coach *text* feedback validated live.** *(done 2026-07-18)* Billing was restored and the first
    live evals ran against `gpt-5.4-mini` through the real prompt + structured-output schema:
@@ -91,9 +99,20 @@ What the simulation exposed, ordered by leverage. (#1 already done this pass.)
 
 ## Suggested next iteration
 
-#2 and #7 are done. **Next: #3 (numeric pace targets)** — it is the highest-leverage remaining item and
-the one the live evals argued for: the coach references real numbers well when the context carries them,
-and quality sessions currently carry none. #3 needs a storage decision first — either a new
-`targetPaceSecondsPerKm` column on the workout (clean, needs a migration) or folding the pace into the
-existing `intensity`/`instructions` text (no migration, weaker for the UI). Then #4–#6 as a polish pass.
+#2, #3, #4, #6 and #7 are done. **Remaining: #5 (duration-based beginner sessions)** — `targetDurationMin`
+is still always null, and beginners train better on time ("run 25 min easy") than on small distances; the
+UI already renders duration, so this is mostly planner work.
+
+Two follow-ups this pass created rather than closed:
+
+- **Progress beginners on to real intervals.** They now get strides indefinitely; once a beginner holds
+  volume for several weeks, structured intervals should unlock.
+- **Anchor quality paces to goal race pace where one exists.** Paces derive purely from recent average
+  pace today. For a runner with a target time, tempo pace arguably belongs relative to goal pace — but
+  that is goal-type-dependent and was left out rather than guessed at.
+
+A pre-existing i18n gap was also fixed along the way: the planner emits composite "Phase · Title" headings
+that `localizeWorkout` looked up whole and always missed, so **every French and Arabic runner was reading
+an English plan**. Titles now translate per-segment, with the planner's full string set added in fr/ar.
+
 Re-run the profile simulation after each change to confirm the three journeys stay distinct and safe.

@@ -612,6 +612,9 @@ model TrainingWorkout {
   title             String
   targetDistanceKm  Float?
   targetDurationMin Int?
+  // Numeric pace target in seconds per km, derived by the adaptive planner from the runner's own
+  // recent average pace. Null when there is no trustworthy reference pace to derive it from.
+  targetPaceSecondsPerKm Int?
   intensity         String
   instructions      String
   status            WorkoutStatus    @default(PLANNED)

@@ -17,7 +17,7 @@ import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
-import { buildAdaptivePlan } from "@/lib/coach/adaptive-planner";
+import { buildAdaptivePlan, type PlanPhase } from "@/lib/coach/adaptive-planner";
 import { getActivePlanForContext } from "@/lib/coach/plan-context";
 import { computePersonalRecords, type PersonalRecords } from "@/lib/coach/records";
 import { computeBadges, type Badge } from "@/lib/coach/badges";
@@ -34,7 +34,7 @@ import {
   type CoachResponse,
   type CreateCoachGoalInput
 } from "@/lib/coach/schemas";
-import { buildBlockedCoachResponse, enforceCoachSafety, evaluateCoachSafety } from "@/lib/coach/safety";
+import { buildBlockedCoachResponse, enforceCoachSafety, evaluateCoachSafety, type EnforcedCoachResponse } from "@/lib/coach/safety";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { getTipsForProfile } from "@/lib/coach/tips";
@@ -1195,13 +1195,63 @@ export async function updateTrainingPlanStatus(userId: string, planId: string, s
   });
 }
 
-// Short, localized summary for an auto-generated (rule-based) weekly plan, so the plan card reads
-// naturally and points the runner at the coach if they want changes.
-const AUTO_PLAN_SUMMARY: Record<"en" | "fr" | "ar", string> = {
-  en: "Your training week, generated automatically to keep you consistent. Ask your coach any time to adjust it.",
-  fr: "Votre semaine d'entraînement, générée automatiquement pour vous aider à rester régulier. Demandez à votre coach de l'ajuster.",
-  ar: "أسبوعك التدريبي، أُنشئ تلقائيًا لمساعدتك على الحفاظ على انتظامك. اسأل مدربك في أي وقت لتعديله."
+// Short, localized summary for an auto-generated (rule-based) weekly plan. It names the training phase
+// and the week's volume ("Base week · ~45 km") so the plan card says something specific about *this*
+// week and quietly teaches the periodization, instead of reading the same generic line every week.
+const PHASE_SUMMARY_I18N: Record<PlanPhase, { en: string; fr: string; ar: string }> = {
+  BASELINE: { en: "Baseline week", fr: "Semaine de reprise", ar: "أسبوع تأسيس" },
+  BASE: { en: "Base week", fr: "Semaine de base", ar: "أسبوع بناء القاعدة" },
+  BUILD: { en: "Build week", fr: "Semaine de développement", ar: "أسبوع تطوير" },
+  PEAK: { en: "Peak week", fr: "Semaine de pic", ar: "أسبوع الذروة" },
+  TAPER: { en: "Taper week", fr: "Semaine d'affûtage", ar: "أسبوع تخفيف" },
+  RECOVERY: { en: "Recovery week", fr: "Semaine de récupération", ar: "أسبوع استشفاء" }
 };
+
+const PHASE_INTENT_I18N: Record<PlanPhase, { en: string; fr: string; ar: string }> = {
+  BASELINE: {
+    en: "easing back into consistent running",
+    fr: "pour reprendre une pratique régulière en douceur",
+    ar: "للعودة تدريجيًا إلى الجري المنتظم"
+  },
+  BASE: {
+    en: "building your endurance",
+    fr: "pour développer votre endurance",
+    ar: "لبناء قدرتك على التحمّل"
+  },
+  BUILD: {
+    en: "adding some quality work on top of your base",
+    fr: "pour ajouter du travail de qualité à votre base",
+    ar: "لإضافة عمل نوعي فوق قاعدتك"
+  },
+  PEAK: {
+    en: "your biggest training load before the taper",
+    fr: "votre charge d'entraînement la plus élevée avant l'affûtage",
+    ar: "أعلى حِمل تدريبي قبل مرحلة التخفيف"
+  },
+  TAPER: {
+    en: "backing off so you arrive at the start line fresh",
+    fr: "pour lever le pied et arriver frais sur la ligne de départ",
+    ar: "لتخفيف الحِمل حتى تصل إلى خط الانطلاق في كامل نشاطك"
+  },
+  RECOVERY: {
+    en: "recovering properly before the next block",
+    fr: "pour bien récupérer avant le prochain bloc",
+    ar: "للتعافي جيدًا قبل الكتلة التدريبية القادمة"
+  }
+};
+
+function buildAutoPlanSummary(locale: "en" | "fr" | "ar", phase: PlanPhase, weeklyVolumeKm: number): string {
+  const phaseLabel = PHASE_SUMMARY_I18N[phase][locale];
+  const intent = PHASE_INTENT_I18N[phase][locale];
+  const volume = Math.round(weeklyVolumeKm);
+  if (locale === "fr") {
+    return `${phaseLabel} · ~${volume} km — ${intent}. Demandez à votre coach de l'ajuster à tout moment.`;
+  }
+  if (locale === "ar") {
+    return `${phaseLabel} · ~${volume} كم — ${intent}. اسأل مدربك في أي وقت لتعديله.`;
+  }
+  return `${phaseLabel} · ~${volume} km — ${intent}. Ask your coach any time to adjust it.`;
+}
 
 /**
  * Close missed sessions (Phase 1.2). A PLANNED workout in an ACTIVE plan whose scheduled day is
@@ -1271,7 +1321,8 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   const metrics = calculateCoachMetrics(runs);
   // Adapt the auto-rolled week to how the plan just ended (we closed missed sessions above first).
   const adherence = await getPlanAdherence(userId);
-  const skeleton = buildAdaptivePlanForGoal(goal, metrics, adherence).workouts;
+  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence);
+  const skeleton = adaptivePlan.workouts;
   if (skeleton.length === 0) return { created: false };
 
   const locale = goal.preferredLocale === "fr" || goal.preferredLocale === "ar" ? goal.preferredLocale : "en";
@@ -1295,17 +1346,19 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
       INSERT INTO "TrainingPlan" (
         "id", "userId", "goalId", "version", "startsOn", "endsOn", "status", "source", "summary", "updatedAt"
       ) VALUES (
-        ${planId}, ${userId}, ${goal.id}, ${version}, ${startsOn}, ${endsOn}, 'ACTIVE', 'RULE_BASED', ${AUTO_PLAN_SUMMARY[locale]}, NOW()
+        ${planId}, ${userId}, ${goal.id}, ${version}, ${startsOn}, ${endsOn}, 'ACTIVE', 'RULE_BASED',
+        ${buildAutoPlanSummary(locale, adaptivePlan.phase, adaptivePlan.weeklyVolumeKm)}, NOW()
       )
     `;
     for (const workout of workouts) {
       await tx.$executeRaw`
         INSERT INTO "TrainingWorkout" (
           "id", "trainingPlanId", "scheduledFor", "workoutType", "title", "targetDistanceKm",
-          "targetDurationMin", "intensity", "instructions", "status", "updatedAt"
+          "targetDurationMin", "targetPaceSecondsPerKm", "intensity", "instructions", "status", "updatedAt"
         ) VALUES (
           ${randomUUID()}, ${planId}, ${new Date(workout.scheduledFor)}, ${workout.workoutType}::"CoachWorkoutType",
-          ${workout.title}, ${workout.targetDistanceKm}, ${workout.targetDurationMin}, ${workout.intensity},
+          ${workout.title}, ${workout.targetDistanceKm}, ${workout.targetDurationMin},
+          ${workout.targetPaceSecondsPerKm ?? null}, ${workout.intensity},
           ${workout.instructions}, 'PLANNED', NOW()
         )
       `;
@@ -1314,7 +1367,7 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   return { created: true };
 }
 
-async function saveDraftPlan(userId: string, goalId: string, response: CoachResponse) {
+async function saveDraftPlan(userId: string, goalId: string, response: EnforcedCoachResponse) {
   if (response.upcomingWorkouts.length === 0) return null;
   const prisma = getPrisma();
   const dates = response.upcomingWorkouts.map((workout) => new Date(workout.scheduledFor));
@@ -1342,10 +1395,11 @@ async function saveDraftPlan(userId: string, goalId: string, response: CoachResp
       await tx.$executeRaw`
         INSERT INTO "TrainingWorkout" (
           "id", "trainingPlanId", "scheduledFor", "workoutType", "title", "targetDistanceKm",
-          "targetDurationMin", "intensity", "instructions", "status", "updatedAt"
+          "targetDurationMin", "targetPaceSecondsPerKm", "intensity", "instructions", "status", "updatedAt"
         ) VALUES (
           ${randomUUID()}, ${planId}, ${new Date(workout.scheduledFor)}, ${workout.workoutType}::"CoachWorkoutType",
-          ${workout.title}, ${workout.targetDistanceKm}, ${workout.targetDurationMin}, ${workout.intensity},
+          ${workout.title}, ${workout.targetDistanceKm}, ${workout.targetDurationMin},
+          ${workout.targetPaceSecondsPerKm ?? null}, ${workout.intensity},
           ${workout.instructions}, 'PLANNED', NOW()
         )
       `;

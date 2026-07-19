@@ -89,7 +89,9 @@ export function buildRunnerCoachContext(input: {
   goal: ContextGoal;
   runs: ContextRun[];
   metrics: CoachMetrics;
-  skeleton: CoachWorkout[];
+  // Paced sessions from the adaptive planner. The pace targets are computed deterministically and
+  // passed in as data — the coach explains them, it never invents them.
+  skeleton: Array<CoachWorkout & { targetPaceSecondsPerKm?: number | null }>;
   safety: CoachSafetyDecision;
   interaction: CoachInteractionInput;
   profile?: { sex: string | null; age: number | null };

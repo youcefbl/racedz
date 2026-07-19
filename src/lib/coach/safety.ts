@@ -1,6 +1,14 @@
+import type { PlannedWorkout } from "@/lib/coach/adaptive-planner";
 import type { CoachMetrics } from "@/lib/coach/metrics";
 import type { CoachLocale, CoachResponse, CoachWorkout } from "@/lib/coach/schemas";
 import { localizeWorkout } from "@/lib/coach/workout-i18n";
+
+// The safety-enforced response always carries the deterministic skeleton's workouts, so its sessions
+// keep the planner's numeric pace targets — which the model never sees and cannot invent.
+export type EnforcedCoachResponse = CoachResponse & {
+  upcomingWorkouts: PlannedWorkout[];
+  nextWorkout: PlannedWorkout | null;
+};
 
 export type CoachSafetyDecision = {
   level: "CLEAR" | "CAUTION" | "BLOCKED";
@@ -100,11 +108,14 @@ function localizeReasons(reasons: string[], locale: CoachLocale): string[] {
 export function enforceCoachSafety(
   response: CoachResponse,
   decision: CoachSafetyDecision,
-  skeleton: CoachWorkout[],
+  // Accepts both the adaptive planner's paced sessions and the older flat skeleton, which carries no
+  // pace at all — normalized to an explicit null here rather than making callers fake the field.
+  skeleton: ReadonlyArray<CoachWorkout & Partial<Pick<PlannedWorkout, "targetPaceSecondsPerKm">>>,
   locale: CoachLocale
-): CoachResponse {
-  const upcomingWorkouts = skeleton.map((safeWorkout) => {
-    const workout = decision.level === "CAUTION" ? reduceWorkout(safeWorkout) : safeWorkout;
+): EnforcedCoachResponse {
+  const upcomingWorkouts = skeleton.map((entry) => {
+    const paced: PlannedWorkout = { ...entry, targetPaceSecondsPerKm: entry.targetPaceSecondsPerKm ?? null };
+    const workout = decision.level === "CAUTION" ? reduceWorkout(paced) : paced;
     return localizeWorkout(workout, locale);
   });
 
@@ -141,13 +152,17 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
   };
 }
 
-function reduceWorkout(workout: CoachWorkout): CoachWorkout {
+function reduceWorkout(workout: PlannedWorkout): PlannedWorkout {
   return {
     ...workout,
     workoutType: workout.workoutType === "REST" ? "REST" : "RECOVERY",
     title: workout.workoutType === "REST" ? workout.title : "Recovery session",
     targetDistanceKm: workout.targetDistanceKm === null ? null : Math.round(workout.targetDistanceKm * 5) / 10,
     targetDurationMin: workout.targetDurationMin === null ? null : Math.min(workout.targetDurationMin, 30),
+    // Drop the pace target entirely. A reduced session was a tempo or interval a moment ago, and
+    // spreading its pace through would prescribe fast running to a runner we just told to go very
+    // easy. "Very easy" is the instruction; any number here would only argue with it.
+    targetPaceSecondsPerKm: null,
     intensity: "Very easy",
     instructions: "Keep this session very easy. Stop if pain or concerning symptoms appear."
   };

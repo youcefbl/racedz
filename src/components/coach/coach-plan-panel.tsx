@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck2, CalendarClock, Check, Clock3, PlusCircle, Route, ShieldCheck, Sparkles, X } from "lucide-react";
+import { CalendarCheck2, CalendarClock, Check, Clock3, Gauge, PlusCircle, Route, ShieldCheck, Sparkles, X } from "lucide-react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
-import { formatCoachDate, formatEnum } from "@/components/coach/format";
+import { formatCoachDate, formatEnum, formatPace } from "@/components/coach/format";
 import type { CoachLocale, CoachPlan, CoachWorkout } from "@/components/coach/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -317,6 +317,12 @@ function WorkoutRow({
             <span className="inline-flex items-center gap-1">
               <Clock3 className="size-4 text-brand-orange" aria-hidden="true" />
               {workout.targetDurationMin} min
+            </span>
+          ) : null}
+          {workout.targetPaceSecondsPerKm ? (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
+              <Gauge className="size-4 text-brand-orange" aria-hidden="true" />
+              {formatPace(workout.targetPaceSecondsPerKm)}
             </span>
           ) : null}
         </div>

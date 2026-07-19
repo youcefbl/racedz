@@ -81,6 +81,9 @@ export type CoachWorkout = {
   title: string;
   targetDistanceKm: number | null;
   targetDurationMin: number | null;
+  // Pace target in seconds per km, derived by the adaptive planner. Absent on older workouts and on
+  // sessions where the runner had no reliable recent pace to derive one from.
+  targetPaceSecondsPerKm?: number | null;
   intensity: string;
   instructions: string;
   status?: string;

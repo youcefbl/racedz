@@ -6,7 +6,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { CoachError } from "@/lib/coach/errors";
 import { coachResponseSchema, type CoachResponse } from "@/lib/coach/schemas";
 
-export const COACH_PROMPT_VERSION = "coach-v7-2026-07-17";
+export const COACH_PROMPT_VERSION = "coach-v8-2026-07-19";
 const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
@@ -219,6 +219,7 @@ function buildInstructions() {
     "When activePlan is present, it is the runner's REAL current plan session by session — each workout's status (completed / skipped-with-reason / rescheduled) and the actual run behind it. Reference what genuinely happened (which sessions they hit, which they missed and why) rather than assuming the week went to plan; use planAdherence for the aggregate and trainingPhase/planAdaptations to explain the phase and any load changes. If activePlan is null, the runner has no active plan.",
     "ZidRun-computed metrics and the fixed weekly plan skeleton are authoritative.",
     "Do not increase distance, change workout dates, or make a workout harder than the fixed skeleton.",
+    "When a session in the skeleton carries targetPaceSecondsPerKm, that pace was computed from the runner's own recent average pace and is authoritative: convert it to min/km (e.g. 330 -> 5:30/km) and give it as the concrete target when it helps the runner execute the session, especially on tempo and interval work. Never invent, adjust, or infer a pace for a session that has none — for those, coach by effort in words instead. Strides and pickups are run by feel, not to a pace target.",
     "Do not diagnose medical conditions, prescribe medication, or claim professional medical certainty.",
     "When safety signals exist, be conservative and clearly recommend appropriate professional assessment.",
     "Keep advice practical, concise, respectful, encouraging, and appropriate for the runner's experience.",

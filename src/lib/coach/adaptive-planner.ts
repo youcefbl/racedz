@@ -20,6 +20,11 @@ type Experience = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
 type GoalType = "GENERAL_FITNESS" | "FIVE_K" | "TEN_K" | "HALF_MARATHON" | "MARATHON" | "TRAIL" | "OTHER";
 type QualityBias = "SPEED" | "THRESHOLD" | "MIXED" | "EASY";
 
+// A planned session carries everything the AI schema's workout does, plus a numeric pace target the
+// deterministic engine derives. Pace is deliberately NOT part of `coachWorkoutSchema`: the model does
+// not invent paces, it only explains the ones computed here.
+export type PlannedWorkout = CoachWorkout & { targetPaceSecondsPerKm: number | null };
+
 export type AdaptivePlannerInput = {
   goalType: GoalType;
   experienceLevel: Experience;
@@ -42,8 +47,47 @@ export type AdaptivePlan = {
   qualitySessions: number;
   // Deterministic, human-readable notes on why load was adjusted (fed to the change summary + AI context).
   adaptations: string[];
-  workouts: CoachWorkout[];
+  workouts: PlannedWorkout[];
 };
+
+// Session kinds are richer than the stored workout type: STRIDES is stored as an EASY run (it is an
+// easy run with short pickups) but reads and paces differently, which is what lets a beginner get a
+// gentle first taste of speed instead of structured intervals.
+type SessionKind = "LONG_RUN" | "TEMPO" | "INTERVAL" | "EASY" | "RECOVERY" | "STRIDES";
+
+const KIND_TO_TYPE: Record<SessionKind, CoachWorkout["workoutType"]> = {
+  LONG_RUN: "LONG_RUN",
+  TEMPO: "TEMPO",
+  INTERVAL: "INTERVAL",
+  EASY: "EASY",
+  RECOVERY: "RECOVERY",
+  STRIDES: "EASY"
+};
+
+// Pace targets are derived from the runner's own recent average pace, as a multiplier per session kind
+// (>1 = slower than average, <1 = faster). Anchoring on actual running — rather than on goal race pace —
+// means a runner with no history simply gets no pace target instead of an invented one.
+const PACE_FACTOR: Record<SessionKind, number> = {
+  RECOVERY: 1.18,
+  EASY: 1.1,
+  STRIDES: 1.1, // the easy portion; the pickups themselves are by feel, not by pace
+  LONG_RUN: 1.08,
+  TEMPO: 0.93,
+  INTERVAL: 0.88
+};
+
+// Sanity rails so a corrupt or freak average (a walk, a GPS glitch) can never yield an absurd target.
+const MIN_PACE_SECONDS_PER_KM = 150; // 2:30/km — faster than any recreational target
+const MAX_PACE_SECONDS_PER_KM = 900; // 15:00/km — slower than a walk-run
+
+// Derive a numeric pace target (seconds per km) for a session, or null when there is no trustworthy
+// reference pace to derive it from.
+function derivePace(kind: SessionKind, referencePaceSecondsPerKm: number | null): number | null {
+  if (referencePaceSecondsPerKm === null) return null;
+  if (referencePaceSecondsPerKm < MIN_PACE_SECONDS_PER_KM || referencePaceSecondsPerKm > MAX_PACE_SECONDS_PER_KM) return null;
+  const target = referencePaceSecondsPerKm * PACE_FACTOR[kind];
+  return Math.round(clamp(target, MIN_PACE_SECONDS_PER_KM, MAX_PACE_SECONDS_PER_KM));
+}
 
 // Hard weekly-volume ceilings (km) — the planner never exceeds these regardless of inputs.
 const WEEKLY_CEILING: Record<Experience, number> = { BEGINNER: 45, INTERMEDIATE: 90, ADVANCED: 150 };
@@ -198,7 +242,7 @@ function buildWeek({
   weeklyVolumeKm: number;
   input: AdaptivePlannerInput;
   now: Date;
-}): { workouts: CoachWorkout[]; longRunKm: number; qualityCount: number } {
+}): { workouts: PlannedWorkout[]; longRunKm: number; qualityCount: number } {
   const available = new Set(input.availableTrainingDays);
   const cursor = startOfUtcDay(now);
   // Training dates across the next 7 days, starting today so a same-day session still counts.
@@ -239,12 +283,14 @@ function buildWeek({
   const easyBudget = Math.max(0, weeklyVolumeKm - longRunKm - qualityKm * qualityDates.length);
   const easyEach = easyDates.length > 0 ? round1(Math.max(exp === "BEGINNER" ? 2 : 3, easyBudget / easyDates.length)) : 0;
 
-  const qualityType: "TEMPO" | "INTERVAL" = pickQualityType(params.qualityBias);
+  const qualityKind = pickQualityKind(params.qualityBias, exp);
+  const referencePace = input.metrics.averagePaceLast28DaysSecondsPerKm;
 
-  const workouts: CoachWorkout[] = runDates.map((date) => {
-    if (date === longRunDate) return workout(date, "LONG_RUN", longRunKm, phase, isFitnessGoal);
-    if (qualityDates.includes(date)) return workout(date, qualityType, qualityKm, phase, isFitnessGoal);
-    return workout(date, phase === "RECOVERY" || phase === "BASELINE" ? "RECOVERY" : "EASY", easyEach || round1(weeklyVolumeKm / runDates.length), phase, isFitnessGoal);
+  const workouts: PlannedWorkout[] = runDates.map((date) => {
+    if (date === longRunDate) return workout(date, "LONG_RUN", longRunKm, phase, isFitnessGoal, referencePace);
+    if (qualityDates.includes(date)) return workout(date, qualityKind, qualityKm, phase, isFitnessGoal, referencePace);
+    const easyKind: SessionKind = phase === "RECOVERY" || phase === "BASELINE" ? "RECOVERY" : "EASY";
+    return workout(date, easyKind, easyEach || round1(weeklyVolumeKm / runDates.length), phase, isFitnessGoal, referencePace);
   });
 
   return { workouts, longRunKm, qualityCount: qualityDates.length };
@@ -261,7 +307,11 @@ function qualitySessionsFor(phase: PlanPhase, exp: Experience): number {
   return exp === "ADVANCED" ? 2 : phase === "PEAK" ? 2 : 1;
 }
 
-function pickQualityType(bias: QualityBias): "TEMPO" | "INTERVAL" {
+function pickQualityKind(bias: QualityBias, exp: Experience): SessionKind {
+  // A beginner's first taste of faster running should be strides inside an easy run, not a structured
+  // interval session — at beginner volumes that much intensity is the fastest route to injury.
+  // Progressing beginners on to true intervals once they hold volume is a later refinement.
+  if (exp === "BEGINNER") return "STRIDES";
   if (bias === "SPEED") return "INTERVAL";
   if (bias === "THRESHOLD" || bias === "EASY") return "TEMPO";
   return "TEMPO"; // MIXED defaults to tempo; a second quality slot becomes intervals (handled in pickQualityDates order)
@@ -298,7 +348,7 @@ function pickQualityDates(runDates: Date[], longRunDate: Date, count: number): D
   return chosen;
 }
 
-const PHASE_LABEL: Record<PlanPhase, string> = {
+export const PHASE_LABEL: Record<PlanPhase, string> = {
   BASELINE: "Baseline",
   BASE: "Base",
   BUILD: "Build",
@@ -307,10 +357,17 @@ const PHASE_LABEL: Record<PlanPhase, string> = {
   RECOVERY: "Recovery"
 };
 
-function workout(date: Date, type: CoachWorkout["workoutType"], distanceKm: number, phase: PlanPhase, isFitnessGoal: boolean): CoachWorkout {
+function workout(
+  date: Date,
+  kind: SessionKind,
+  distanceKm: number,
+  phase: PlanPhase,
+  isFitnessGoal: boolean,
+  referencePaceSecondsPerKm: number | null
+): PlannedWorkout {
   const km = round1(distanceKm);
   const phaseTag = isFitnessGoal ? "" : `${PHASE_LABEL[phase]} · `;
-  const spec: Record<string, { title: string; intensity: string; instructions: string }> = {
+  const spec: Record<SessionKind, { title: string; intensity: string; instructions: string }> = {
     LONG_RUN: {
       title: "Long run",
       intensity: "Comfortable, conversational effort",
@@ -335,17 +392,24 @@ function workout(date: Date, type: CoachWorkout["workoutType"], distanceKm: numb
       title: "Recovery jog",
       intensity: "Very easy",
       instructions: "Gentle and short — the point is to move and recover, not to train."
+    },
+    STRIDES: {
+      title: "Easy run + strides",
+      intensity: "Relaxed, with short relaxed pickups",
+      instructions:
+        "Run the whole session easy and conversational. In the last third, add 4–6 strides: about 20 seconds of smooth, relaxed speed — fast but never straining — with a full easy jog or walk until you feel recovered between each. This teaches your legs to turn over quickly without the strain of a hard interval session."
     }
   };
-  const s = spec[type] ?? spec.EASY;
+  const s = spec[kind] ?? spec.EASY;
   return {
     scheduledFor: date.toISOString(),
-    workoutType: type,
+    workoutType: KIND_TO_TYPE[kind],
     title: `${phaseTag}${s.title}`.trim(),
     targetDistanceKm: km,
     targetDurationMin: null,
     intensity: s.intensity,
-    instructions: s.instructions
+    instructions: s.instructions,
+    targetPaceSecondsPerKm: derivePace(kind, referencePaceSecondsPerKm)
   };
 }
 

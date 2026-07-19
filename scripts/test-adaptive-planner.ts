@@ -1,5 +1,6 @@
 import { buildAdaptivePlan } from "@/lib/coach/adaptive-planner";
 import { calculateCoachMetrics, type CoachMetrics } from "@/lib/coach/metrics";
+import { localizeWorkout } from "@/lib/coach/workout-i18n";
 
 // Deterministic checks on the adaptive planner. No network, no DB — the planner is a pure function,
 // so every assertion here is reproducible.
@@ -135,6 +136,105 @@ const HALF_PLAN = {
   check("8 weeks out builds", phaseAt(8).phase === "BUILD", phaseAt(8).phase);
   check("16 weeks out stays in base", phaseAt(16).phase === "BASE", phaseAt(16).phase);
   check("taper shortens the long run", phaseAt(2).longRunKm < phaseAt(8).longRunKm);
+}
+
+// ── Pace targets (#3) ────────────────────────────────────────────────────────
+{
+  // ~5:30/km average across recent runs.
+  const runs = [10, 8, 12, 7, 9].map((distanceKm, i) => ({ daysAgo: i * 3 + 1, distanceKm }));
+  const m = metricsFrom(runs);
+  const plan = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 14, metrics: m }, NOW);
+  const ref = m.averagePaceLast28DaysSecondsPerKm;
+
+  check("a reference pace is available for this fixture", ref !== null);
+  check("every session carries a pace target when a reference pace exists", plan.workouts.every((w) => w.targetPaceSecondsPerKm !== null));
+
+  const easy = plan.workouts.find((w) => w.workoutType === "EASY");
+  const long = plan.workouts.find((w) => w.workoutType === "LONG_RUN");
+  const quality = plan.workouts.find((w) => w.workoutType === "TEMPO" || w.workoutType === "INTERVAL");
+  check("easy pace is slower than recent average", (easy?.targetPaceSecondsPerKm ?? 0) > (ref ?? 0), `easy=${easy?.targetPaceSecondsPerKm} ref=${ref}`);
+  check("long-run pace is slower than recent average", (long?.targetPaceSecondsPerKm ?? 0) > (ref ?? 0));
+  check("quality pace is faster than recent average", (quality?.targetPaceSecondsPerKm ?? Infinity) < (ref ?? 0), `quality=${quality?.targetPaceSecondsPerKm} ref=${ref}`);
+  check("easy is slower than quality", (easy?.targetPaceSecondsPerKm ?? 0) > (quality?.targetPaceSecondsPerKm ?? 0));
+
+  // No history → no reference → no invented pace targets.
+  const noHistory = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 12, metrics: metricsFrom([]) }, NOW);
+  check("no pace targets are invented without a reference pace", noHistory.workouts.every((w) => w.targetPaceSecondsPerKm === null));
+
+  // An absurd reference (GPS glitch / walk) must not produce an absurd prescription.
+  const absurd = buildAdaptivePlan(
+    { ...HALF_PLAN, longestRecentRunKm: 14, metrics: metricsFrom(runs, { averagePaceLast28DaysSecondsPerKm: 4000 }) },
+    NOW
+  );
+  check("an implausible reference pace yields no target rather than a nonsense one", absurd.workouts.every((w) => w.targetPaceSecondsPerKm === null));
+}
+
+// ── Beginner quality is strides, not intervals (#4) ──────────────────────────
+{
+  // A beginner needs to be past BASELINE to get any quality at all, so use a BUILD-phase 5K profile.
+  const runs = [4, 3, 5, 4].map((distanceKm, i) => ({ daysAgo: i * 2 + 1, distanceKm }));
+  const beginner = buildAdaptivePlan(
+    {
+      ...HALF_PLAN,
+      goalType: "FIVE_K",
+      experienceLevel: "BEGINNER",
+      targetDistanceKm: 5,
+      targetDate: new Date(NOW.getTime() + 8 * 7 * 86_400_000),
+      currentWeeklyDistanceKm: 16,
+      peakWeeklyDistanceKm: 20,
+      longestRecentRunKm: 5,
+      metrics: metricsFrom(runs)
+    },
+    NOW
+  );
+  check("beginner is past baseline and gets a quality session", beginner.qualitySessions >= 1, `phase=${beginner.phase} quality=${beginner.qualitySessions}`);
+  check("beginner never gets structured intervals", !beginner.workouts.some((w) => w.workoutType === "INTERVAL"));
+  check("beginner quality is an easy run with strides", beginner.workouts.some((w) => w.title.includes("strides")));
+
+  // The same 5K goal at intermediate level still gets true intervals.
+  const intermediate = buildAdaptivePlan(
+    {
+      ...HALF_PLAN,
+      goalType: "FIVE_K",
+      experienceLevel: "INTERMEDIATE",
+      targetDistanceKm: 5,
+      targetDate: new Date(NOW.getTime() + 8 * 7 * 86_400_000),
+      longestRecentRunKm: 14,
+      metrics: metricsFrom([10, 8, 12, 7, 9].map((distanceKm, i) => ({ daysAgo: i * 3 + 1, distanceKm })))
+    },
+    NOW
+  );
+  check("an intermediate 5K runner still gets real intervals", intermediate.workouts.some((w) => w.workoutType === "INTERVAL"));
+  check("strides are stored as an EASY workout type", beginner.workouts.filter((w) => w.title.includes("strides")).every((w) => w.workoutType === "EASY"));
+}
+
+// ── Localization of planner output ───────────────────────────────────────────
+// The planner emits English strings and composite "Phase · Title" headings. Without translation a
+// French or Arabic runner reads an English plan, so every generated string must localize.
+{
+  const runs = [10, 8, 12, 7, 9].map((distanceKm, i) => ({ daysAgo: i * 3 + 1, distanceKm }));
+  const plan = buildAdaptivePlan({ ...HALF_PLAN, longestRecentRunKm: 14, metrics: metricsFrom(runs) }, NOW);
+
+  for (const locale of ["fr", "ar"] as const) {
+    const localized = plan.workouts.map((w) => localizeWorkout(w, locale));
+    check(
+      `${locale}: no workout title is left in English`,
+      localized.every((w) => !/Long run|Easy run|Tempo run|Intervals|Recovery jog/.test(w.title)),
+      localized.map((w) => w.title).join(" | ")
+    );
+    // The fixture is a BASE-phase plan. Assert the prefix is the expected localized term rather than
+    // "not an English word": "Base" is legitimately spelled the same in French, so a regex over English
+    // vocabulary would fail on correct output.
+    const expectedPrefix = { fr: "Base", ar: "بناء القاعدة" }[locale];
+    check(
+      `${locale}: the training-phase prefix is the expected localized term`,
+      localized.every((w) => w.title.startsWith(`${expectedPrefix} · `)),
+      localized.map((w) => w.title).join(" | ")
+    );
+    check(`${locale}: intensity is translated`, localized.every((w) => !/Comfortable|Relaxed|Hard efforts|Very easy/.test(w.intensity)));
+    check(`${locale}: instructions are translated`, localized.every((w) => !/^Keep it easy|^Fully conversational|^After an easy warm-up|^Warm up well|^Gentle and short/.test(w.instructions)));
+    check(`${locale}: pace targets survive localization`, localized.every((w, i) => w.targetPaceSecondsPerKm === plan.workouts[i].targetPaceSecondsPerKm));
+  }
 }
 
 console.log(`adaptive planner: ${passed}/${passed + failures.length} checks passed`);
