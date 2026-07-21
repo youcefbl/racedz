@@ -45,6 +45,59 @@ export async function deleteUserByEmail(email: string) {
   });
 }
 
+/** Ensure the runner has an active coach subscription so the coach dashboard isn't gated behind the paywall. */
+export async function ensureCoachSubscription(userId: string) {
+  const existing = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "CoachSubscription" WHERE "userId" = ${userId} AND "status" = 'ACTIVE' AND "expiresAt" > NOW() LIMIT 1
+  `;
+  if (existing[0]) return;
+  const expiresAt = new Date(Date.now() + 365 * 86_400_000);
+  await prisma.$executeRaw`
+    INSERT INTO "CoachSubscription" ("id", "userId", "plan", "status", "months", "expiresAt", "updatedAt")
+    VALUES (gen_random_uuid(), ${userId}, 'YEARLY'::"CoachSubscriptionPlan", 'ACTIVE', 12, ${expiresAt}, NOW())
+  `;
+}
+
+/** Ensure the runner has an active coach goal so the coach dashboard (and memory panel) renders. */
+export async function ensureCoachGoal(userId: string) {
+  const existing = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "RunnerGoal" WHERE "userId" = ${userId} AND "status" = 'ACTIVE' LIMIT 1
+  `;
+  if (existing[0]) return existing[0].id;
+  const targetDate = new Date(Date.now() + 70 * 86_400_000);
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO "RunnerGoal" (
+      "id", "userId", "goalType", "targetDate", "targetDistanceKm", "targetTimeSeconds",
+      "experienceLevel", "currentWeeklyDistanceKm", "availableTrainingDays", "preferredLongRunDay",
+      "status", "updatedAt"
+    ) VALUES (
+      gen_random_uuid(), ${userId}, 'HALF_MARATHON'::"CoachGoalType", ${targetDate}, 21.1, 6600,
+      'INTERMEDIATE'::"RunnerExperience", 38, ARRAY[0,1,2,4,6]::int[], 0, 'ACTIVE', NOW()
+    ) RETURNING "id"
+  `;
+  return rows[0].id;
+}
+
+/** Seed coaching-memory rows for the visual/E2E memory-panel check. Clears any prior rows first. */
+export async function seedCoachMemory(
+  userId: string,
+  rows: Array<{ kind: string; key: string; value: string; source: string; confidence?: number | null; ageDays?: number }>
+) {
+  await prisma.$executeRaw`DELETE FROM "CoachMemory" WHERE "userId" = ${userId}`;
+  for (const row of rows) {
+    const createdAt = new Date(Date.now() - (row.ageDays ?? 5) * 86_400_000);
+    await prisma.$executeRaw`
+      INSERT INTO "CoachMemory" ("id", "userId", "kind", "key", "value", "source", "confidence", "status", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), ${userId}, ${row.kind}::"CoachMemoryKind", ${row.key}, ${row.value},
+              ${row.source}::"CoachMemorySource", ${row.confidence ?? null}, 'ACTIVE', ${createdAt}, ${createdAt})
+    `;
+  }
+}
+
+export async function clearCoachMemory(userId: string) {
+  await prisma.$executeRaw`DELETE FROM "CoachMemory" WHERE "userId" = ${userId}`;
+}
+
 export async function closeDb() {
   await prisma.$disconnect();
 }

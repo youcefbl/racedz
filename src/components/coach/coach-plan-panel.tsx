@@ -382,7 +382,7 @@ function WorkoutRow({
                 onClick={() => skip(reason.value)}
                 className="inline-flex min-h-9 items-center rounded-full border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
               >
-                {copy[reason.key]}
+                {copy[reason.key] as string}
               </button>
             ))}
             <button
@@ -437,7 +437,7 @@ function WorkoutRow({
                 disabled={busy}
                 className="inline-flex min-h-9 items-center rounded-full border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-50"
               >
-                {copy[reason.key]}
+                {copy[reason.key] as string}
               </button>
             ))}
           </div>

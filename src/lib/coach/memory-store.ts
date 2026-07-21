@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getPrisma } from "@/lib/db";
 import {
+  MEMORY_STALE_AFTER_DAYS,
   selectMemoryForContext,
   validateMemoryCandidates,
   type MemoryContextItem,
@@ -102,6 +103,44 @@ export async function rememberRejectedSuggestion(
     ],
     now
   );
+}
+
+// ── Runner-facing display ────────────────────────────────────────────────────
+
+// What the runner's memory screen shows. Deliberately excludes the internal key slug and the
+// originating interaction id — the runner sees the fact, where it came from, and how old it is, not
+// the plumbing. `id` is included because dismiss/confirm act on it.
+export type MemoryDisplayItem = {
+  id: string;
+  kind: string;
+  fact: string;
+  source: string;
+  ageDays: number;
+  // True once a fact is old enough that reconfirming it is worthwhile (it drops out of the coach's
+  // context entirely at MEMORY_STALE_AFTER_DAYS). Surfaces a "still true?" affordance in the UI.
+  agingOut: boolean;
+};
+
+// Show a "still true?" prompt on facts in the last third of their usable life.
+const REMEMBER_CONFIRM_AFTER_DAYS = Math.round((MEMORY_STALE_AFTER_DAYS * 2) / 3);
+
+/** Active memories shaped for the runner's memory screen, newest-affirmed first. */
+export async function listMemoryForDisplay(userId: string, now = new Date()): Promise<MemoryDisplayItem[]> {
+  const records = await readMemories(userId);
+  return records
+    .map((record) => {
+      const affirmed = record.confirmedAt ?? record.createdAt;
+      const ageDays = Math.max(0, Math.floor((now.getTime() - affirmed.getTime()) / 86_400_000));
+      return {
+        id: record.id,
+        kind: record.kind,
+        fact: record.value,
+        source: record.source,
+        ageDays,
+        agingOut: ageDays >= REMEMBER_CONFIRM_AFTER_DAYS
+      };
+    })
+    .sort((a, b) => a.ageDays - b.ageDays);
 }
 
 // ── Runner data controls ─────────────────────────────────────────────────────

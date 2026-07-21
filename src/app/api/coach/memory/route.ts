@@ -1,21 +1,33 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
-import { confirmMemory, deleteAllMemory, dismissMemory, exportMemory } from "@/lib/coach/memory-store";
+import { confirmMemory, deleteAllMemory, dismissMemory, exportMemory, listMemoryForDisplay } from "@/lib/coach/memory-store";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 // Runner data controls for long-term coaching memory (Phase 3): inspect and export what the coach
 // remembers, correct it, and delete it. Every operation is scoped to the authenticated user inside
 // the query itself, so a guessed memory id from another account matches nothing.
 
-/** Inspect / export everything remembered about this runner, including superseded and dismissed rows. */
-export async function GET() {
+/**
+ * What the coach remembers.
+ *
+ * Default: the active facts shaped for the runner's memory screen (no internal slugs or interaction
+ * ids). `?scope=export` returns the complete record — every fact including superseded and dismissed
+ * rows — for the runner's right to export their data.
+ */
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
 
+  const scope = new URL(request.url).searchParams.get("scope");
+
   try {
-    const memories = await exportMemory(session.user.id);
-    return NextResponse.json({ data: memories, meta: { count: memories.length } });
+    if (scope === "export") {
+      const memories = await exportMemory(session.user.id);
+      return NextResponse.json({ data: memories, meta: { count: memories.length, scope: "export" } });
+    }
+    const memories = await listMemoryForDisplay(session.user.id);
+    return NextResponse.json({ data: memories, meta: { count: memories.length, scope: "active" } });
   } catch (error) {
     return coachErrorResponse(error);
   }

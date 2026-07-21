@@ -373,7 +373,52 @@ const copy = {
     pushEnable: "Enable reminders",
     pushDenied: "Notifications are blocked. Enable them in your browser settings.",
     pushFailed: "Couldn't enable notifications. Please try again.",
-    dismiss: "Dismiss"
+    dismiss: "Dismiss",
+    memory: {
+      nav: "Memory",
+      title: "What your coach remembers",
+      intro: "Durable facts your coach keeps between conversations, so it doesn't ask twice. You're in control — remove anything wrong or out of date.",
+      healthNote: "Your coach never stores health, injury, or medical details here.",
+      back: "Back to coach",
+      loadFailed: "Couldn't load your coach's memory. Please try again.",
+      actionFailed: "That didn't work. Please try again.",
+      countLabel: "{n} remembered",
+      emptyTitle: "Nothing remembered yet",
+      emptyText: "As you talk with your coach, it remembers lasting things — when you like to run, the terrain you have, a constraint to plan around. They'll appear here for you to review or remove anytime.",
+      ageToday: "Learned today",
+      ageDaysAgo: "Learned {n} days ago",
+      confirm: "Still true",
+      confirming: "Saving…",
+      forget: "Forget",
+      forgetting: "Removing…",
+      export: "Export",
+      exporting: "Preparing…",
+      deleteAll: "Delete all",
+      deleteTitle: "Delete everything your coach remembers?",
+      deleteText: "This clears every remembered fact for good. Your runs, plans and goals aren't affected — only what the coach learned about your preferences.",
+      deleteConfirm: "Delete everything",
+      deleting: "Deleting…",
+      deleted: "Your coach's memory was cleared.",
+      cancel: "Cancel",
+      source: {
+        stated: "You told your coach",
+        inferred: "Your coach noticed",
+        derived: "From your training",
+        humanCoach: "From your coach"
+      },
+      kind: {
+        preference: "Preference",
+        coachingTone: "Coaching style",
+        schedule: "Schedule",
+        terrain: "Terrain",
+        constraint: "Constraint",
+        commitment: "Commitment",
+        strategyWorked: "What works for you",
+        strategyFailed: "What hasn't worked",
+        rejectedSuggestion: "Advice you declined",
+        coachNote: "Coach note"
+      }
+    }
   },
   fr: {
     eyebrow: "Coach ZidRun",
@@ -747,7 +792,52 @@ const copy = {
     pushEnable: "Activer les rappels",
     pushDenied: "Les notifications sont bloquées. Activez-les dans les réglages de votre navigateur.",
     pushFailed: "Impossible d'activer les notifications. Veuillez réessayer.",
-    dismiss: "Ignorer"
+    dismiss: "Ignorer",
+    memory: {
+      nav: "Mémoire",
+      title: "Ce que votre coach retient",
+      intro: "Les faits durables que votre coach garde d'une conversation à l'autre, pour ne pas les redemander. Vous gardez le contrôle : supprimez tout ce qui est faux ou dépassé.",
+      healthNote: "Votre coach ne conserve jamais ici de données de santé, de blessure ou médicales.",
+      back: "Retour au coach",
+      loadFailed: "Impossible de charger la mémoire de votre coach. Veuillez réessayer.",
+      actionFailed: "L'action a échoué. Veuillez réessayer.",
+      countLabel: "{n} en mémoire",
+      emptyTitle: "Rien en mémoire pour l'instant",
+      emptyText: "Au fil de vos échanges avec votre coach, il retient les choses durables : quand vous aimez courir, le terrain dont vous disposez, une contrainte à prévoir. Elles apparaîtront ici, à consulter ou supprimer à tout moment.",
+      ageToday: "Appris aujourd'hui",
+      ageDaysAgo: "Appris il y a {n} jours",
+      confirm: "Toujours vrai",
+      confirming: "Enregistrement…",
+      forget: "Oublier",
+      forgetting: "Suppression…",
+      export: "Exporter",
+      exporting: "Préparation…",
+      deleteAll: "Tout supprimer",
+      deleteTitle: "Supprimer tout ce que votre coach retient ?",
+      deleteText: "Cela efface définitivement chaque fait retenu. Vos courses, plans et objectifs ne sont pas touchés — seulement ce que le coach a appris de vos préférences.",
+      deleteConfirm: "Tout supprimer",
+      deleting: "Suppression…",
+      deleted: "La mémoire de votre coach a été effacée.",
+      cancel: "Annuler",
+      source: {
+        stated: "Vous l'avez dit à votre coach",
+        inferred: "Votre coach l'a remarqué",
+        derived: "D'après votre entraînement",
+        humanCoach: "De la part de votre coach"
+      },
+      kind: {
+        preference: "Préférence",
+        coachingTone: "Style de coaching",
+        schedule: "Horaires",
+        terrain: "Terrain",
+        constraint: "Contrainte",
+        commitment: "Engagement",
+        strategyWorked: "Ce qui marche pour vous",
+        strategyFailed: "Ce qui n'a pas marché",
+        rejectedSuggestion: "Conseil que vous avez refusé",
+        coachNote: "Note du coach"
+      }
+    }
   },
   ar: {
     eyebrow: "مدرب ZidRun",
@@ -1121,7 +1211,52 @@ const copy = {
     pushEnable: "تفعيل التذكيرات",
     pushDenied: "الإشعارات محظورة. فعّلها من إعدادات المتصفح.",
     pushFailed: "تعذّر تفعيل الإشعارات. حاول مرة أخرى.",
-    dismiss: "تجاهل"
+    dismiss: "تجاهل",
+    memory: {
+      nav: "الذاكرة",
+      title: "ما يتذكره مدربك",
+      intro: "حقائق دائمة يحتفظ بها مدربك بين المحادثات حتى لا يسألك مرتين. أنت المتحكم — احذف أي شيء خاطئ أو لم يعد صحيحًا.",
+      healthNote: "لا يحفظ مدربك هنا أبدًا أي بيانات صحية أو إصابات أو معلومات طبية.",
+      back: "العودة إلى المدرب",
+      loadFailed: "تعذّر تحميل ذاكرة مدربك. حاول مرة أخرى.",
+      actionFailed: "لم تنجح العملية. حاول مرة أخرى.",
+      countLabel: "{n} في الذاكرة",
+      emptyTitle: "لا شيء في الذاكرة بعد",
+      emptyText: "مع تحدثك إلى مدربك، سيتذكر الأمور الدائمة: متى تحب الجري، والتضاريس المتاحة لك، وقيدًا يجب مراعاته. ستظهر هنا لمراجعتها أو حذفها في أي وقت.",
+      ageToday: "عُرف اليوم",
+      ageDaysAgo: "عُرف قبل {n} يومًا",
+      confirm: "لا يزال صحيحًا",
+      confirming: "جارٍ الحفظ…",
+      forget: "نسيان",
+      forgetting: "جارٍ الإزالة…",
+      export: "تصدير",
+      exporting: "جارٍ التحضير…",
+      deleteAll: "حذف الكل",
+      deleteTitle: "حذف كل ما يتذكره مدربك؟",
+      deleteText: "سيؤدي ذلك إلى مسح كل حقيقة محفوظة نهائيًا. لن تتأثر جرياتك أو خططك أو أهدافك — فقط ما تعلّمه المدرب عن تفضيلاتك.",
+      deleteConfirm: "حذف كل شيء",
+      deleting: "جارٍ الحذف…",
+      deleted: "تم مسح ذاكرة مدربك.",
+      cancel: "إلغاء",
+      source: {
+        stated: "أخبرت مدربك بذلك",
+        inferred: "لاحظ مدربك ذلك",
+        derived: "من تدريبك",
+        humanCoach: "من مدربك"
+      },
+      kind: {
+        preference: "تفضيل",
+        coachingTone: "أسلوب التدريب",
+        schedule: "المواعيد",
+        terrain: "التضاريس",
+        constraint: "قيد",
+        commitment: "التزام",
+        strategyWorked: "ما ينجح معك",
+        strategyFailed: "ما لم ينجح",
+        rejectedSuggestion: "نصيحة رفضتها",
+        coachNote: "ملاحظة المدرب"
+      }
+    }
   }
 } as const;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
-import { Activity, ArrowRight, BrainCircuit, CalendarRange, Flame, Gauge, Languages, Moon, Pencil, Sparkles, Target } from "lucide-react";
+import { Activity, ArrowRight, BrainCircuit, BrainCog, CalendarRange, Flame, Gauge, Languages, Moon, Pencil, Sparkles, Target } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -11,6 +11,7 @@ import { getCoachCopy } from "@/components/coach/copy";
 import { AdherenceStrip } from "@/components/coach/adherence-strip";
 import { CoachConversation } from "@/components/coach/coach-conversation";
 import { CoachGoalForm } from "@/components/coach/coach-goal-form";
+import { CoachMemoryPanel } from "@/components/coach/coach-memory-panel";
 import { CoachOverview } from "@/components/coach/coach-overview";
 import { CoachPushPrompt } from "@/components/coach/coach-push-prompt";
 import { CoachPlanPanel } from "@/components/coach/coach-plan-panel";
@@ -33,6 +34,9 @@ export function CoachDashboard({
   const [dashboard, setDashboard] = useState(initialData);
   const [view, setView] = useState<CoachView>("overview");
   const [editing, setEditing] = useState(false);
+  // Memory is a data-control / trust surface, not a daily-loop tab, so it takes over the whole
+  // content area from a header control rather than crowding the tab bar (mirrors goal editing).
+  const [viewingMemory, setViewingMemory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [focusInteractionId, setFocusInteractionId] = useState<string | null>(null);
@@ -176,6 +180,18 @@ export function CoachDashboard({
       </div>
     );
   }
+  // Memory takes over the surface like goal editing does — a focused "your data" screen with its own
+  // back affordance, so the primary tab bar stays about the daily loop.
+  if (viewingMemory) {
+    return (
+      <div className="min-h-[70vh] bg-gray-50" dir={locale === "ar" ? "rtl" : "ltr"}>
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <CoachMemoryPanel locale={locale} copy={copy} onBack={() => setViewingMemory(false)} />
+        </div>
+      </div>
+    );
+  }
+
   const metrics = dashboard.snapshot?.metrics ?? emptyMetrics;
   const runTarget = Math.max(2, goal.availableTrainingDays.length);
   const distanceTarget = Math.max(1, Math.round(goal.currentWeeklyDistanceKm));
@@ -213,7 +229,15 @@ export function CoachDashboard({
                 {copy.editGoal}
               </button>
             </span>
-            <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 shadow-sm sm:ms-auto">
+            <button
+              type="button"
+              onClick={() => setViewingMemory(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-sm font-black text-gray-950 shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal sm:ms-auto"
+            >
+              <BrainCog className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+              {copy.memory.nav}
+            </button>
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 shadow-sm">
               <Languages className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
               <span className="sr-only">{copy.responseLanguage}</span>
               <select
