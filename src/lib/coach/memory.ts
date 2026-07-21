@@ -167,6 +167,16 @@ export function selectMemoryForContext(
 
 export const MEMORY_KEY_MAX = 64;
 export const MEMORY_VALUE_MAX = 300;
+// Trusted authors — a human coach, or the app itself deriving a fact deterministically — are not an
+// injection vector, and their content is legitimately longer: a coaching note is a sentence or two,
+// not a compact preference. Untrusted sources (the model's inferences, runner-typed text) stay tightly
+// bounded so an injected payload can't be stored whole and replayed into every future request.
+export const TRUSTED_MEMORY_VALUE_MAX = 1000;
+const TRUSTED_SOURCES = new Set<string>(["HUMAN_COACH", "SYSTEM_DERIVED"]);
+
+function valueMaxForSource(source: string): number {
+  return TRUSTED_SOURCES.has(source) ? TRUSTED_MEMORY_VALUE_MAX : MEMORY_VALUE_MAX;
+}
 
 export type MemoryWriteCandidate = {
   kind: string;
@@ -222,7 +232,7 @@ export function validateMemoryCandidates(
       reject("key is empty or too long");
       continue;
     }
-    if (value.length === 0 || value.length > MEMORY_VALUE_MAX) {
+    if (value.length === 0 || value.length > valueMaxForSource(candidate.source)) {
       reject("value is empty or too long");
       continue;
     }

@@ -37,7 +37,10 @@ export function CoachOverview({
   const nextUpcoming = latestPlan?.workouts.find((workout) => workout.status !== "COMPLETED" && dayOf(workout.scheduledFor) > today) ?? null;
   // A real session to do today (not a rest day, not already done): the one clear action.
   const loggableToday = todayWorkout && todayWorkout.status !== "COMPLETED" && todayWorkout.workoutType !== "REST" ? todayWorkout : null;
-  const latestReview = data.interactions.find((interaction) => interaction.response)?.response ?? null;
+  // The latest AI review to surface here. HUMAN_NOTE interactions also carry a response, but only a
+  // summary — no positiveSignals/warningSignals — so they must be excluded from this AI-review block,
+  // which renders those arrays. (Human notes have their own surface in the conversation.)
+  const latestReview = data.interactions.find((interaction) => interaction.type !== "HUMAN_NOTE" && interaction.response)?.response ?? null;
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -83,12 +86,12 @@ export function CoachOverview({
           <div className="mt-3">
             <p className="text-sm leading-6 text-gray-700">{latestReview.summary}</p>
             <div className="mt-3 space-y-2">
-              {latestReview.positiveSignals.slice(0, 2).map((signal) => (
+              {(latestReview.positiveSignals ?? []).slice(0, 2).map((signal) => (
                 <p key={signal} className="flex gap-2 text-sm text-gray-700">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" aria-hidden="true" /> {signal}
                 </p>
               ))}
-              {latestReview.warningSignals.slice(0, 2).map((signal) => (
+              {(latestReview.warningSignals ?? []).slice(0, 2).map((signal) => (
                 <p key={signal} className="flex gap-2 text-sm text-gray-700">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0 text-brand-orange" aria-hidden="true" /> {signal}
                 </p>

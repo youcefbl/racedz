@@ -1,8 +1,28 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
-import { createCoachInteraction } from "@/lib/coach/service";
+import { createCoachInteraction, getConversationHistory } from "@/lib/coach/service";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+
+// Paginated conversation history (Phase 3): the runner's own coaching transcript, newest first,
+// cursor-paged on createdAt via `before`. Read-only over their own rows.
+export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+
+  const params = new URL(request.url).searchParams;
+  const limit = Number.parseInt(params.get("limit") ?? "", 10);
+
+  try {
+    const page = await getConversationHistory(session.user.id, {
+      before: params.get("before"),
+      limit: Number.isFinite(limit) ? limit : undefined
+    });
+    return NextResponse.json({ data: page.items, meta: { nextCursor: page.nextCursor } });
+  } catch (error) {
+    return coachErrorResponse(error);
+  }
+}
 
 export async function POST(request: Request) {
   const session = await auth();

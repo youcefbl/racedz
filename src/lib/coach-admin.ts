@@ -5,6 +5,7 @@ import { buildPaginationMeta, parsePagination, type PaginatedResult, type Pagina
 import { COACH_TRIAL_DAYS } from "@/lib/coach/entitlement";
 import { getPendingCoachRequestCharge, markCoachRequestReviewed } from "@/lib/coach/subscription";
 import { createNotification } from "@/lib/notifications";
+import { writeMemories } from "@/lib/coach/memory-store";
 
 export type CoachTierLabel = "SUBSCRIBED" | "TRIAL" | "EXPIRED";
 
@@ -314,16 +315,41 @@ export async function postHumanCoachNote(input: { actorId: string; userId: strin
   `;
   if (!user[0]) throw new AdminError("User not found.");
 
+  const interactionId = randomUUID();
   await prisma.$executeRaw`
     INSERT INTO "CoachInteraction" (
       "id", "userId", "type", "status", "response", "safety", "authorId", "promptVersion",
       "createdAt", "completedAt"
     ) VALUES (
-      ${randomUUID()}, ${input.userId}, 'HUMAN_NOTE'::"CoachInteractionType", 'COMPLETED'::"CoachInteractionStatus",
+      ${interactionId}, ${input.userId}, 'HUMAN_NOTE'::"CoachInteractionType", 'COMPLETED'::"CoachInteractionStatus",
       ${JSON.stringify({ summary: message })}::jsonb, '{}'::jsonb, ${input.actorId}, 'human-note',
       NOW(), NOW()
     )
   `;
+
+  // Bring the note into the coach's long-term memory pipeline (Phase 3), so it persists past the
+  // recent-conversation window and is retrieved by relevance — and so the runner sees it on their
+  // memory screen. Non-fatal: a memory write must never fail the note delivery. Scoped to the
+  // runner's active goal so retiring that goal doesn't carry a stale coach note into the next one.
+  try {
+    const activeGoal = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "RunnerGoal" WHERE "userId" = ${input.userId} AND "status" = 'ACTIVE' ORDER BY "updatedAt" DESC LIMIT 1
+    `;
+    await writeMemories(input.userId, [
+      {
+        kind: "COACH_NOTE",
+        // One slot per note (unique key) so successive notes accumulate rather than superseding —
+        // a coach's guidance history is not a single overwritable fact.
+        key: `note_${interactionId.slice(0, 12)}`,
+        value: message,
+        source: "HUMAN_COACH",
+        goalId: activeGoal[0]?.id ?? null,
+        sourceInteractionId: interactionId
+      }
+    ]);
+  } catch (memoryError) {
+    console.error("[coach] failed to store human note in memory", memoryError);
+  }
 
   await createNotification({
     userId: input.userId,

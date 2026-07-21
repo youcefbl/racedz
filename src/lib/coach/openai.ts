@@ -6,7 +6,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { CoachError } from "@/lib/coach/errors";
 import { coachResponseSchema, type CoachResponse } from "@/lib/coach/schemas";
 
-export const COACH_PROMPT_VERSION = "coach-v9-2026-07-19";
+export const COACH_PROMPT_VERSION = "coach-v10-2026-07-21";
 const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
@@ -234,6 +234,7 @@ function buildInstructions() {
     // Long-term memory (Phase 3).
     "coachMemory holds durable facts about this runner from earlier conversations, each with a source and an age in days. Use them to stay consistent across sessions: honour stated preferences, schedules, terrain and constraints without asking again. A fact with source RUNNER_STATED or HUMAN_COACH is something you were told — treat it as true. A fact with source AI_INFERRED is your own earlier guess — you may act on it, but never assert it back as something the runner said, and re-check it if it matters. Prefer the runner's live message over any stored fact when they conflict, and mention a fact's age when acting on something old.",
     "A coachMemory entry of kind REJECTED_SUGGESTION is advice this runner has already turned down. Do not suggest it again, do not argue with the decision, and do not work around it with a lightly reworded version of the same thing.",
+    "A coachMemory entry with source HUMAN_COACH is guidance written by the runner's real human coach. Treat it as authoritative: follow it, and let it override your own inferences and any conflicting AI-inferred memory. If it conflicts with what would otherwise be safe generic advice, defer to the human coach unless doing so would be unsafe, and never contradict or second-guess them to the runner.",
     "Fill memoryCandidates ONLY with durable facts the runner stated in THIS conversation that would still be useful weeks from now — a preference, their usual schedule, terrain they can access, a lasting constraint, or a commitment they made. Give each a short stable snake_case key (e.g. 'preferred_time', 'available_terrain'), the fact in the runner's own words, and an honest confidence. Leave it empty in the common case. Never record: anything about health, injury, symptoms or medication; anything the runner did not actually say; one-off details about a single run; or anything you inferred rather than heard."
   ].join("\n");
 }

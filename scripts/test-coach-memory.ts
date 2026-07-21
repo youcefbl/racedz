@@ -5,6 +5,7 @@ import {
   MEMORY_CONTEXT_LIMIT,
   MEMORY_STALE_AFTER_DAYS,
   MEMORY_VALUE_MAX,
+  TRUSTED_MEMORY_VALUE_MAX,
   type MemoryRecord,
   type MemoryWriteCandidate
 } from "@/lib/coach/memory";
@@ -87,6 +88,41 @@ function record(over: Partial<MemoryRecord> = {}): MemoryRecord {
 
   const noConfidence = validateMemoryCandidates([{ kind: "PREFERENCE", key: "p", value: "likes trails", source: "AI_INFERRED" }], NOW);
   check("an AI inference without a confidence is rejected", noConfidence.accepted.length === 0);
+}
+
+// ── Human-coach notes into the memory pipeline ───────────────────────────────
+// A human coach's note is written as COACH_NOTE / HUMAN_COACH. It must be storable (the model can't
+// propose it, but a trusted author can), allowed to run longer than a compact preference, and ranked
+// above the coach's own inferences when the context is assembled.
+{
+  const note = "x".repeat(MEMORY_VALUE_MAX + 200); // longer than an untrusted value may be
+  const humanNote = validateMemoryCandidates(
+    [{ kind: "COACH_NOTE", key: "note_1", value: note, source: "HUMAN_COACH" }],
+    NOW
+  );
+  check("a human coach can write a COACH_NOTE", humanNote.accepted.length === 1, JSON.stringify(humanNote.rejected));
+  check("a trusted note may exceed the untrusted value cap", humanNote.accepted[0]?.value.length === MEMORY_VALUE_MAX + 200);
+
+  const tooLong = validateMemoryCandidates(
+    [{ kind: "COACH_NOTE", key: "n", value: "y".repeat(TRUSTED_MEMORY_VALUE_MAX + 1), source: "HUMAN_COACH" }],
+    NOW
+  );
+  check("even a trusted note is bounded", tooLong.accepted.length === 0);
+
+  // The same long value from the model (were it able to reach here) stays tightly bounded.
+  const untrustedLong = validateMemoryCandidates(
+    [{ kind: "PREFERENCE", key: "p", value: "z".repeat(MEMORY_VALUE_MAX + 1), source: "AI_INFERRED", confidence: 0.5 }],
+    NOW
+  );
+  check("untrusted sources keep the tight cap", untrustedLong.accepted.length === 0);
+
+  // Retrieval ranks a human-coach note above the coach's own guesses.
+  const records: MemoryRecord[] = [
+    record({ key: "guess", value: "probably likes tempo runs", kind: "PREFERENCE", source: "AI_INFERRED", confidence: 0.5 }),
+    record({ key: "note_1", value: "Coach: hold all long runs under 90 minutes this block", kind: "COACH_NOTE", source: "HUMAN_COACH" })
+  ];
+  const selected = selectMemoryForContext(records, { goalId: GOAL, now: NOW });
+  check("a human-coach note outranks an AI inference in retrieval", selected[0]?.source === "HUMAN_COACH", selected[0]?.source);
 }
 
 // ── Input bounds ─────────────────────────────────────────────────────────────

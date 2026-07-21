@@ -864,6 +864,37 @@ export async function getCoachDashboard(userId: string) {
   return { goal, runs, plans, interactions, snapshot: snapshots[0] ?? null, entitlement, tips, analyzedRuns, sleep, adherence };
 }
 
+// A page of the runner's own coaching history, newest first (Phase 3). Cursor-based on createdAt so
+// the log pages cleanly even as new interactions land at the top — an offset would drift. PENDING and
+// FAILED rows are excluded so the history reads as a clean transcript (AI answers, blocked replies,
+// and human-coach notes). `before` is the createdAt of the last row the client already has.
+const CONVERSATION_PAGE_MAX = 20;
+
+export async function getConversationHistory(
+  userId: string,
+  options: { before?: string | null; limit?: number } = {}
+): Promise<{ items: InteractionRow[]; nextCursor: string | null }> {
+  const limit = Math.min(Math.max(Math.trunc(options.limit ?? CONVERSATION_PAGE_MAX), 1), CONVERSATION_PAGE_MAX);
+  const before = options.before ? new Date(options.before) : null;
+  const beforeValid = before && !Number.isNaN(before.getTime()) ? before : null;
+
+  // Fetch one extra row to know whether another page exists without a second COUNT query.
+  const rows = await getPrisma().$queryRaw<InteractionRow[]>`
+    SELECT "id", "type", "runId", "status", "userMessage", "response", "safety", "model", "errorCode", "createdAt", "completedAt"
+    FROM "CoachInteraction"
+    WHERE "userId" = ${userId}
+      AND "status" IN ('COMPLETED', 'BLOCKED')
+      ${beforeValid ? Prisma.sql`AND "createdAt" < ${beforeValid}` : Prisma.empty}
+    ORDER BY "createdAt" DESC
+    LIMIT ${limit + 1}
+  `;
+
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? items[items.length - 1].createdAt.toISOString() : null;
+  return { items, nextCursor };
+}
+
 // runId → id of its latest non-failed POST_RUN analysis, for the given runs. Shared by the coach
 // dashboard and the standalone Runs screen so both show "Coach analysis" on already-analyzed runs.
 export async function getAnalyzedRunsMap(userId: string, runIds: string[]): Promise<Record<string, string>> {

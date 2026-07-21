@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, BrainCircuit, CheckCircle2, Loader2, MessageSquareText, Mic, Send, ShieldAlert, Sparkles, Square } from "lucide-react";
+import { AlertTriangle, BrainCircuit, CheckCircle2, ChevronUp, Loader2, MessageSquareText, Mic, Send, ShieldAlert, Sparkles, Square, UserCog } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -32,12 +32,43 @@ export function CoachConversation({
   const [localError, setLocalError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  // Older history paged in on demand (Phase 3). The dashboard hands us the most recent window; this
+  // holds anything the runner loads before it. Kept newest-first to match the props' ordering.
+  const [older, setOlder] = useState<CoachInteraction[]>([]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  // The dashboard sends a fixed recent window (10), so if we got a full one there is likely more.
+  const DASHBOARD_WINDOW = 10;
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    interactions.length >= DASHBOARD_WINDOW ? interactions[interactions.length - 1].createdAt : null
+  );
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const thinking = pendingAction === "CHAT" || pendingAction === "POST_RUN";
-  // Failed AI requests are tracked for admins but not surfaced to the runner; the submit flow
-  // already shows a transient error, so a failed card would only add noise here.
-  const visibleInteractions = interactions.filter((interaction) => interaction.status !== "FAILED");
+
+  // Merge the loaded older pages under the live window, de-duped by id (a just-asked interaction can
+  // briefly exist in both). Failed AI requests are tracked for admins but not shown to the runner.
+  const visibleInteractions = (() => {
+    const byId = new Map<string, CoachInteraction>();
+    for (const interaction of [...interactions, ...older]) byId.set(interaction.id, interaction);
+    return [...byId.values()].filter((interaction) => interaction.status !== "FAILED");
+  })();
+
+  async function loadOlder() {
+    if (!nextCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    setLocalError(null);
+    try {
+      const payload = await coachRequest<{ data: CoachInteraction[]; meta: { nextCursor: string | null } }>(
+        `/api/coach/interactions?before=${encodeURIComponent(nextCursor)}`
+      );
+      setOlder((current) => [...current, ...payload.data]);
+      setNextCursor(payload.meta.nextCursor);
+    } catch (caught) {
+      setLocalError(caught instanceof Error ? caught.message : copy.requestFailed);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   // When the user taps "View analysis" on a run, scroll its analysis into view.
   useEffect(() => {
@@ -134,6 +165,22 @@ export function CoachConversation({
             )
           ) : (
             <div className="space-y-4">
+              {/* Oldest sits at the top of the log, so paging into history belongs here. */}
+              {nextCursor ? (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={loadOlder}
+                    disabled={loadingOlder}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 text-xs font-bold text-gray-700 shadow-sm transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-60 [@media(pointer:coarse)]:min-h-11"
+                  >
+                    {loadingOlder ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <ChevronUp className="size-3.5" aria-hidden="true" />}
+                    {loadingOlder ? copy.loadingOlder : copy.loadOlder}
+                  </button>
+                </div>
+              ) : older.length > 0 ? (
+                <p className="text-center text-xs font-semibold text-gray-500">{copy.historyStart}</p>
+              ) : null}
               {[...visibleInteractions].reverse().map((interaction) => (
                 <InteractionMessage
                   key={interaction.id}
@@ -251,7 +298,15 @@ function InteractionMessage({
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={interaction.status === "BLOCKED" || failed ? "red" : "teal"}>{formatEnum(interaction.type)}</Badge>
+        {/* A human-coach note is a real person speaking, not an AI turn — badge it distinctly. */}
+        {interaction.type === "HUMAN_NOTE" ? (
+          <Badge variant="blue" className="inline-flex items-center gap-1">
+            <UserCog className="size-3" aria-hidden="true" />
+            {copy.humanNote}
+          </Badge>
+        ) : (
+          <Badge variant={interaction.status === "BLOCKED" || failed ? "red" : "teal"}>{formatEnum(interaction.type)}</Badge>
+        )}
         <span className="text-xs font-semibold text-gray-500">{formatCoachDateTime(interaction.createdAt, locale)}</span>
       </div>
 
@@ -264,6 +319,9 @@ function InteractionMessage({
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {interaction.errorCode || copy.requestFailed}
         </p>
+      ) : interaction.type === "HUMAN_NOTE" ? (
+        // A human note is a person's message, not an AI structured review — render just its text.
+        response?.summary ? <p className="mt-3 text-sm leading-6 text-gray-800">{response.summary}</p> : null
       ) : response ? (
         <div className="mt-3">
           {response.requiresProfessionalAdvice ? (
@@ -273,10 +331,10 @@ function InteractionMessage({
           ) : null}
           <p className="text-sm leading-6 text-gray-800">{response.summary}</p>
           <p className="mt-2 text-sm leading-6 text-gray-600">{response.progressAssessment}</p>
-          {response.positiveSignals.map((signal) => (
+          {(response.positiveSignals ?? []).map((signal) => (
             <p key={signal} className="mt-3 flex gap-2 text-sm text-gray-700"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" aria-hidden="true" />{signal}</p>
           ))}
-          {response.warningSignals.map((signal) => (
+          {(response.warningSignals ?? []).map((signal) => (
             <p key={signal} className="mt-3 flex gap-2 text-sm text-gray-700"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-brand-orange" aria-hidden="true" />{signal}</p>
           ))}
         </div>
