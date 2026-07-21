@@ -25,14 +25,14 @@
 
 ## 📊 Progress
 
-`███████████████░░░░░░░░░░` **~55% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 ✅ · Phase 3 ◐ ~70%**
+`████████████████░░░░░░░░░` **~60% overall** (phase-weighted) · **Phase 1 ✅ · Phase 2 ✅ · Phase 3 ◐ ~90%**
 
 | Phase | Status | Where it stands |
 |---|---|---|
 | **0 — Stabilize & measure** | ◐ partial | Admin coach-ops report ✅ · key rotation + OpenAI billing ✅ (live evals pass) · **health-data policy blocker** ⬜ |
 | **1 — Real plan adherence** | ✅ **complete** | Backend + full runner UI + free-runner path — the daily loop is live |
 | **2 — Adaptive planner** | ✅ **complete** | Engine + integration + phase/adaptations→AI context + real-longest long-run cap + numeric pace targets + beginner strides + duration-based beginner sessions + phase-aware summary + **live eval harness (11 scenarios)** ✅. All of findings #2–#7 closed; planner tests 59 checks — see [COACH_PHASE2_FINDINGS.md](COACH_PHASE2_FINDINGS.md) |
-| **3 — Long-term memory** | ◐ **~70%** | Sourced memory model + retrieval + extraction + runner data-control API + **memory screen** ✅ (all four exit criteria met; health kinds gated off pending the policy blocker); paginated history + human-coach notes remain |
+| **3 — Long-term memory** | ◐ **~90%** | Sourced memory model + retrieval + extraction + memory screen + **paginated conversation history** + **human-coach notes in the memory pipeline** ✅ (all four exit criteria met; health kinds gated off pending the policy blocker). Only the health kinds remain, blocked on the policy line |
 | **4 — Location personalization** | ⬜ not started | Opt-in timezone / terrain / routes |
 | **5 — Coach as main surface** | ⬜ not started | Today-first home, adaptive check-ins, chat as control surface |
 
@@ -589,9 +589,11 @@ the kinds to that allowlist is the only code change needed.
 | Old goals do not contaminate current-goal adherence | ✅ memory is goal-scoped; retired-goal facts are filtered out |
 | Memory can be deleted and exported | ✅ API + runner-facing memory screen (inspect / correct / export / delete), verified across themes + RTL |
 
-**Remaining:** paginated conversation history, human-coach notes into the same pipeline, and the health
-kinds once the policy exists. The runner-facing memory screen shipped 2026-07-21 — all four Phase 3 exit
-criteria are now met.
+**Remaining:** the health kinds (INJURY_STATUS / RECOVERY_STATUS), blocked on the health-data policy
+line. Everything else in Phase 3 shipped by 2026-07-21: the memory model + retrieval + extraction, the
+runner memory screen, paginated conversation history (`getConversationHistory` + `/api/coach/interactions`
+GET + the "load older" control), and human-coach notes flowing into the memory pipeline as
+HUMAN_COACH / COACH_NOTE. All four exit criteria are met.
 
 ### Original specification
 
