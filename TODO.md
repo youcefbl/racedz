@@ -1,6 +1,10 @@
 # ZidRun TODO
 
-This is the single source of truth for ZidRun product/backend planning. Use `UI_TODO.md` for public website, design, layout, navigation, and UX polish. Older planning notes in `backlog.md` and `requirment.md` are intentionally replaced by pointers to this file.
+This is ZidRun's product-wide backlog and implementation reference. Use `EXECUTION_PLAN.md` for the
+consolidated cross-product execution order and owner blockers, `execution-plan-coach.md` for AI Coach
+phase status and implementation sequence, and `UI_TODO.md` for public website, design, layout,
+navigation, and UX polish. Older planning notes in `backlog.md` and `requirment.md` are intentionally
+replaced by pointers to this file.
 
 ## Product Goal
 

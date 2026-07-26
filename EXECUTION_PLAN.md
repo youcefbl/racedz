@@ -1,25 +1,25 @@
 # ZidRun — Consolidated Execution Plan (verified)
 
 **One source of truth for what's actually left to do.** Every item below was checked against the
-codebase on **2026-07-13**; anything already implemented was removed (see "Verified DONE — removed"
+codebase on **2026-07-13**, with owner/verification updates through **2026-07-26**; anything already implemented was removed (see "Verified DONE — removed"
 at the bottom for what was dropped and why). Only **MISSING** or **PARTIAL** work remains here.
 
-## 📊 Overall progress — 19 / 46 items · **41%** _(checkbox count, 2026-07-14)_
+## 📊 Overall progress — 21 / 46 items · **46%** _(checkbox count, 2026-07-26)_
 
-`██████████░░░░░░░░░░░░░░░░` **41%**
+`████████████░░░░░░░░░░░░░` **46%**
 
 | Tier | Bar | Done | Left | Total | % |
 |---|---|---:|---:|---:|---:|
-| 🔴 **P0** — production hardening | `██████░░░░` | 10 | 6 | 16 | 63% |
+| 🔴 **P0** — production hardening | `███████░░░` | 12 | 4 | 16 | 75% |
 | 🟠 **P1** — launch UX & product | `███████░░░` | 7 | 3 | 10 | 70% |
 | 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 2 | 13 | 15 | 13% |
 | 🟢 **P3** — later | `░░░░░░░░░░` | 0 | 5 | 5 | 0% |
-| **Overall** | `████░░░░░░` | **19** | **27** | **46** | **41%** |
+| **Overall** | `█████░░░░░` | **21** | **25** | **46** | **46%** |
 
-> Of the **27 remaining**, ~5 are **owner/external** ops, not dev work — OpenAI billing, Caddy reload,
-> `google-services.json`, and the two external reviews (security + sports-health). The other ~22 are
-> development items. **Nearest to launch:** P0 (6 left — of which only the **dependency upgrade** is dev
-> work; the rest are owner ops) then P1 (3 left). _Note: the social-post race importer (Phase 1) was a
+> Of the **25 remaining**, P0 has four open items: Android push/Crashlytics runtime verification, Caddy
+> reload verification, external security review, and sports-health review. The public web platform is
+> already live; see `PRODUCTION_READINESS.md` for the next web release and active Google Play closed-test
+> status. After P0, P1 has three product/quality items left. _Note: the social-post race importer was a
 > net-new feature, not a plan item, so it isn't in this count — see the progress log below._
 
 Legend: 🔴 blocker before production · 🟠 launch sprint · 🟡 scale/after-launch · 🟢 later
@@ -27,6 +27,13 @@ Effort: S = <½ day · M = ~1–2 days · L = ~3–5 days · XL = 1–3 weeks
 Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 
 ### Progress log
+- **2026-07-26 — Production/release status reconciliation.** The owner confirms the production web
+  platform, verification email/auth journey, secrets, Sentry/alerts, uptime monitoring, cron jobs, and
+  OpenAI billing/limits are operational. The dependency stabilization pass now reports zero audit
+  vulnerabilities and passes the complete release gate. Android is in Google Play closed testing with
+  12 testers and 2 days left in the 14-day requirement. Local audit confirms release signing and
+  `google-services.json`; App Links still needs the Play App Signing fingerprint and push/Crashlytics
+  need explicit runtime verification. Detailed status: `PRODUCTION_READINESS.md`.
 - **2026-07-14 — Social-post race importer (Phase 1). ✅ 100% of scoped items done.** Shipped on branch
   `feat/social-post-race-import` (typecheck / lint / build all clean; migration applied locally). Admin
   **"Import from post"** flow: a superadmin uploads the Instagram/Facebook poster image(s) and/or pastes
@@ -89,11 +96,10 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
       `server-only` guards to email/firebase providers. **MED (owner/ops):** coach payment-proof files live
       under `public/uploads/coach-payment/*`; confidentiality relies on Caddy 403 + the Next port not being
       directly reachable — keep the app port internal-only.
-- [ ] **Dependency upgrade for high vulns** — `npm audit`: 5 high / 24 moderate. Runtime-relevant highs
-      (`next`, `next-auth`, `@sentry/nextjs`) need **major-version** bumps — do a scoped, tested upgrade,
-      NOT a blind `npm audit fix --force`. Others (`tar`, `rollup`, `@capacitor/cli`, `next-mdx-remote`) are
-      build-time/transitive or author-controlled-content, lower runtime risk. **Node is already v20** (EOL-18
-      concern moot in this env). — M
+- [x] ✅ **Dependency security upgrade** — DONE 2026-07-26. Next.js, Auth.js, Sentry, MDX, PostCSS,
+      Sharp, and vulnerable transitive packages were updated through a scoped release pass. `npm audit`
+      reports 0 vulnerabilities; lint, typecheck, focused domain tests, 40-test Playwright suite,
+      production build/smoke, and Android `bundleRelease` all pass.
 - [ ] **External security review** before public launch. — (external)
 - [x] ✅ *(optional)* Image **re-encode** on upload — DONE 2026-07-14 (`src/lib/storage.ts`). Every accepted
       image is decoded + re-encoded through **sharp** before it's written, which strips all metadata (EXIF GPS,
@@ -116,20 +122,20 @@ Status: ❌ missing · ◐ partial (scope narrowed to the gap)
 
 ### Data integrity / ops
 - [x] ✅ **Mark past races COMPLETED** — DONE: `src/lib/race-lifecycle.ts` `completePastRaces()` + cron route
-      `POST /api/internal/cron/complete-past-races` (CRON_SECRET-guarded, idempotent). **Owner: schedule it
-      daily** alongside the other `internal/cron/*` jobs.
+      `POST /api/internal/cron/complete-past-races` (CRON_SECRET-guarded, idempotent). The owner confirms
+      production cron jobs are scheduled as of 2026-07-26.
 - [x] ✅ **Deploy the 2026-07-14 migrations** *(owner)* — DONE (owner-confirmed 2026-07-14). `add_support_chat`
       and `add_onboarding_and_appearance_prefs` (incl. the onboarding backfill that treats existing users as
       onboarded) are deployed. Local `prisma migrate status`: 42 migrations, schema up to date.
 - [x] ✅ **Commit the perf i18n split** *(dev)* — DONE. `src/lib/i18n-content.ts` + the `terms/privacy/faq`
       pages are committed (`7bdcf99`); nothing left uncommitted.
-- [ ] **Android push + Crashlytics** *(owner)* — ship `android/app/google-services.json`, rebuild APK, get
-      users on it, **then** set `NEXT_PUBLIC_NATIVE_PUSH_ENABLED=true` + server `FIREBASE_*`. Same file lights
-      up the already-wired Crashlytics.
+- [ ] **Android push + Crashlytics** *(owner)* — `android/app/google-services.json` is present and included
+      in release builds, and the app is in closed testing. Still verify runtime token delivery and a
+      Crashlytics test event before setting this complete.
 - [ ] **Caddy reload after deploy** *(owner)* — bind-mounted `Caddyfile` (403s `/uploads/coach-payment/*`)
       isn't auto-reloaded by `up -d`; run `caddy reload` after `./deploy.sh`.
-- [ ] **OpenAI billing** *(owner)* — key returns `insufficient_quota`; enable billing + spend cap + budget
-      alert, rerun live provider test.
+- [x] ✅ **OpenAI billing and limits** *(owner)* — DONE. Billing/quota, spend controls, and live model access
+      are operational in production; the live coach evaluation harness has passed.
 - [ ] **Sports-health professional review** of coach safety rules. — (external)
 
 ---
@@ -255,7 +261,7 @@ Target ~€40/mo on Hetzner (CPX41 + object storage), no AWS needed at this size
 | Sprint | Focus | Items |
 |---|---|---|
 | **1** | 🔴 Security | Google-link fix, invite-accept rate limit + coach-BLOCKED counting, admin MFA, IDOR sweep, secrets audit, npm audit/Node upgrade |
-| **2** | 🔴 Ops + integrity | Owner: google-services.json + Caddy + OpenAI billing; mark-past-COMPLETED job; upload re-encode (optional) |
+| **2** | 🔴 Ops + integrity | Remaining: verify Android push/Crashlytics at runtime, verify Caddy reload, and complete external security/sports-health reviews. OpenAI billing, cron scheduling, dependency security, and upload re-encoding are done. |
 | **3** | 🟠 Product gaps | Private profile toggle, notification i18n (`User.locale` wiring), shirt config + 3XL, races-sort decision |
 | **4** | 🟠 Quality + UI | i18n parity check, CI pipeline, organizer/admin Playwright, notif mark-read decision, UI cross-cutting sweeps |
 | **5** | 🟡 Growth | Follow/kudos/result notifications, share card, reverse trial, lifecycle nudge, GDPR self-delete |

@@ -6,7 +6,14 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 
 ## Source Of Truth
 
-- Planning and implementation roadmap: `TODO.md`
+- Consolidated cross-product execution order, remaining P0–P3 work, owner operations, and open
+  decisions: `EXECUTION_PLAN.md`.
+- Product-wide backlog and implementation reference: `TODO.md`.
+- AI Coach execution status and next-step priority: `execution-plan-coach.md`. For Coach work, read its
+  top progress table, latest dated updates, current blockers, and active phase before selecting a task.
+  It controls Coach-specific sequencing, while cross-cutting P0/owner blockers still come from
+  `EXECUTION_PLAN.md`.
+- Web/mobile release status and deployment gates: `PRODUCTION_READINESS.md`.
 - Historical full brief: `algeria-races-codex-brief.md`
 - Brand assets: `public/brand/` for logo and mark exports; root-level `public/icon-*` files are generated PWA/app icons.
 - AWS deployment plan and cost estimate: `docs/AWS_DEPLOYMENT_PLAN.md`
@@ -50,9 +57,22 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 - `RaceEditHistory` stores organizer race/category changes. History writes use raw SQL in `src/lib/organizer.ts`, and superadmin reads use raw SQL in `src/lib/admin.ts`.
 - AI coach server configuration uses `OPENAI_API_KEY`, optional `OPENAI_COACH_MODEL`, `COACH_DAILY_AI_LIMIT`, and `COACH_MONTHLY_AI_LIMIT`. Never expose the OpenAI key through a `NEXT_PUBLIC_` variable.
 
-## MVP Priorities
+## Priority Resolution
 
-Read `TODO.md` first. Current priorities are organizer onboarding, organizer race management, and admin/superadmin dashboard work.
+- Read `EXECUTION_PLAN.md` first for the consolidated cross-product priority tier, launch blockers,
+  owner operations, and open decisions; use `TODO.md` for broader product detail.
+- For any AI Coach task, also read `execution-plan-coach.md` before proposing or implementing the next
+  step. Apply cross-cutting P0/owner constraints from `EXECUTION_PLAN.md`, then use
+  `execution-plan-coach.md` for the detailed Coach implementation sequence. Do not redo anything marked
+  shipped or complete.
+- These plans contain dated historical sections. If status conflicts, verify the code and use the newest
+  dated completion evidence, progress table, and checked marker. Update every affected tracker in the
+  same task so they converge again.
+- Current Coach position as of 2026-07-26: Phase 1 (adherence) and Phase 2 (adaptive planner) are
+  complete; Phase 3 (long-term memory) is about 90% complete. Its remaining health-memory kinds are
+  blocked on the Phase 0 health-data privacy/consent/retention policy. Resolve that policy/owner blocker
+  before enabling health-memory persistence; otherwise choose the next unblocked item identified by the
+  plan.
 
 ## Brand
 

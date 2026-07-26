@@ -1,6 +1,10 @@
 # Agent Notes For ZidRun
 
-These notes are for AI coding agents working on ZidRun. Read this file alongside `TODO.md` (the single source of truth for planning) and `CODEX_CONTEXT.md` (architecture notes and current raw-SQL context) before making changes.
+These notes are for AI coding agents working on ZidRun. Read this file alongside `EXECUTION_PLAN.md`
+(consolidated cross-product priorities), `TODO.md` (the product-wide backlog), and `CODEX_CONTEXT.md`
+(architecture and priority-routing notes) before making changes. For any AI Coach work, also read
+`execution-plan-coach.md`; it is the source of truth for Coach phase status and implementation sequence,
+subject to cross-cutting P0 and owner blockers in `EXECUTION_PLAN.md`.
 
 - `backlog.md` and `requirment.md` are intentionally only pointers to `TODO.md`; do not add planning content there.
 - Do not commit `.env` files or uploaded user files.
@@ -590,22 +594,28 @@ Auth.js v5 uses `AUTH_SECRET` and `AUTH_URL`. Legacy `NEXTAUTH_SECRET` and `NEXT
 
 ## Quick Reference: Files to Read Before Changes
 
-1. `TODO.md` – source of truth for priorities.
-2. `CODEX_CONTEXT.md` – architecture notes and raw-SQL context.
-3. `prisma/schema.prisma` – data model.
-4. `src/auth.ts`, `middleware.ts`, `src/lib/permissions.ts` – auth/authz.
-5. `src/lib/validations.ts` – all input schemas.
-6. `src/lib/organizer.ts`, `src/lib/admin.ts`, `src/lib/registrations.ts` – domain logic.
-7. `src/lib/race-repository.ts`, `src/lib/races.ts` – public race reads.
-8. `src/lib/storage.ts` – upload boundary.
-9. `src/components/layout/dashboard-shell.tsx` – dashboard navigation.
-10. `src/app/globals.css`, `tailwind.config.ts` – theming.
+1. `EXECUTION_PLAN.md` – consolidated P0–P3 execution order, owner blockers, and open decisions.
+2. `TODO.md` – product-wide backlog and implementation detail.
+3. `execution-plan-coach.md` – Coach-specific progress and implementation sequence; required for Coach work.
+4. `CODEX_CONTEXT.md` – architecture notes, priority routing, and raw-SQL context.
+5. `prisma/schema.prisma` – data model.
+6. `src/auth.ts`, `middleware.ts`, `src/lib/permissions.ts` – auth/authz.
+7. `src/lib/validations.ts` – all input schemas.
+8. `src/lib/organizer.ts`, `src/lib/admin.ts`, `src/lib/registrations.ts` – domain logic.
+9. `src/lib/race-repository.ts`, `src/lib/races.ts` – public race reads.
+10. `src/lib/storage.ts` – upload boundary.
+11. `src/components/layout/dashboard-shell.tsx` – dashboard navigation.
+12. `src/app/globals.css`, `tailwind.config.ts` – theming.
 
 ---
 
 ## Agent Working Rules
 
-- Read `TODO.md` and `CODEX_CONTEXT.md` first, then use targeted reads for the specific feature instead of loading broad unrelated files.
+- Read `EXECUTION_PLAN.md`, `TODO.md`, and `CODEX_CONTEXT.md` first. For Coach work, also read
+  `execution-plan-coach.md`: apply cross-cutting P0/owner blockers from the consolidated plan, then use
+  the Coach plan's newest dated status, progress table, open blockers, and completion markers to choose
+  the implementation priority. Do not repeat work marked shipped. If plans conflict, verify code, follow
+  the newest evidence, and update every affected tracker. Then use targeted reads for the feature.
 - For any production, deployment, release, infrastructure, or mobile-store work, update `PRODUCTION_READINESS.md` in the same task: progress bar, last-updated date, gate status, evidence, blockers, and release log.
 - Do not repeatedly reread large files unless they changed or the task depends on exact text.
 - Keep progress updates concise and only include what affects the current implementation.

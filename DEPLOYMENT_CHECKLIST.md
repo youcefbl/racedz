@@ -1,6 +1,12 @@
 # ZidRun — Deployment Checklist (Staging → Production on Hetzner)
 
-Goal: stand up **staging** first, validate the critical path, then promote the same build to **production**.
+> **Current owner decision (2026-07-26):** ZidRun is already live in production and a separate staging
+> environment is not required for the next release. The staging sections below remain an optional
+> reference for a future isolated environment. For the current release, use the controlled acceptance
+> gates in `PRODUCTION_READINESS.md`, then promote the exact verified commit through the existing
+> production deployment process.
+
+Original/reference goal: stand up **staging** first, validate the critical path, then promote the same build to **production**.
 Stack: Next.js (standalone) + Prisma/PostgreSQL + Coolify on a Hetzner VPS, Cloudflare in front.
 
 Legend: `[ ]` = do it · 🔴 = hard blocker (launch fails without it) · 🟡 = important · ⚪ = can wait.
