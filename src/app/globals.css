@@ -4,6 +4,7 @@
 
 :root {
   color-scheme: light;
+  --font-sans: "Manrope Variable";
   --background: #f9fafb;
   --foreground: #111827;
   --surface: #ffffff;

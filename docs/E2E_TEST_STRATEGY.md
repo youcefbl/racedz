@@ -1,6 +1,22 @@
 # ZidRun E2E Test Strategy
 
-Use Playwright for browser-level tests once the signup, organizer, race creation, approval, and registration flows are stable enough to automate.
+ZidRun uses Playwright for browser journeys, responsive checks, and visual regression coverage.
+
+## Running the suite
+
+```bash
+npm run test:e2e
+npm run test:e2e:ui
+npm run test:e2e:visual
+```
+
+The runner derives a dedicated `<development-database>_e2e` database by default, resets it,
+applies every migration, and seeds deterministic fixtures before Playwright starts. Set
+`RACEDZ_E2E_DATABASE_URL` to use another database. As a destructive-operation safeguard, the
+runner refuses to reset databases whose names do not end in `_e2e` or `_ci`.
+
+Bulk load-test fixtures are disabled in E2E runs. To refresh reviewed visual baselines, run
+`npm run test:e2e:visual -- --update-snapshots` and inspect the changed PNG files before committing.
 
 ## Recommended Strategy
 
@@ -63,21 +79,10 @@ Use Playwright for browser-level tests once the signup, organizer, race creation
 - Use deterministic dates far enough in the future that registration stays open.
 - Avoid testing deployment infrastructure in browser e2e; keep that for deployment smoke checks later.
 
-## Future Package Changes
-
-Add when ready:
+## Browser installation
 
 ```bash
 npm install -D @playwright/test
 npx playwright install chromium
-```
-
-Recommended scripts:
-
-```json
-{
-  "test:e2e": "playwright test",
-  "test:e2e:ui": "playwright test --ui"
-}
 ```
 

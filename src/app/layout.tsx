@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
 import { Suspense } from "react";
+import "@fontsource-variable/manrope/wght.css";
 
 // One type family across the whole site: Manrope — modern, geometric, subtly
 // rounded but crisp. Headings and body share it; hierarchy comes from size/
 // spacing/color, not extra fonts or heavy weights. (Logo wordmark is vector art.)
-// To try another face, swap `Manrope` for `Plus_Jakarta_Sans` or `DM_Sans` here.
-const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+// It is packaged locally so production and CI builds never depend on Google Fonts.
 import { AnalyticsTracker } from "@/components/analytics/analytics-tracker";
 import { AppearanceSync } from "@/components/layout/appearance-sync";
 import { CookieConsent } from "@/components/layout/cookie-consent";
@@ -67,7 +66,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={sans.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
         <script
           dangerouslySetInnerHTML={{

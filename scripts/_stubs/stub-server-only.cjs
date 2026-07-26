@@ -1,6 +1,7 @@
 // Preload (NODE_OPTIONS=--require) that lets tsx test scripts import server modules
 // which pull in `server-only`/`client-only` — packages the Next bundler provides but
 // that aren't installed in node_modules. Maps those specifiers to an empty stub.
+/* eslint-disable @typescript-eslint/no-require-imports -- preload hooks must use CommonJS */
 const Module = require("module");
 const path = require("path");
 

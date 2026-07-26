@@ -166,6 +166,7 @@ export function getRelatedPosts(slug: string, locale: Locale, limit = 3): BlogPo
 }
 
 function stripBody(post: BlogPost): BlogPostMeta {
-  const { body: _body, ...meta } = post;
+  const { body, ...meta } = post;
+  void body;
   return meta;
 }

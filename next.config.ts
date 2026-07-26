@@ -63,7 +63,7 @@ export default withSentryConfig(nextConfig, {
   silent: true,
   // Proxy events through the app's own origin → avoids ad-blockers and keeps CSP at 'self'.
   tunnelRoute: "/monitoring",
-  disableLogger: true,
+  webpack: { treeshake: { removeDebugLogging: true } },
   widenClientFileUpload: true,
   // Don't serve source maps to users; they're uploaded to Sentry (when a token is set) then removed.
   sourcemaps: { deleteSourcemapsAfterUpload: true }

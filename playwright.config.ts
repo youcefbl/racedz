@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 const baseURL = process.env.RACEDZ_BASE_URL ?? "http://127.0.0.1:3003";
 const useExternalServer = process.env.RACEDZ_EXTERNAL_SERVER === "1";
+const reuseExistingServer = process.env.RACEDZ_REUSE_SERVER === "1";
 
 export default defineConfig({
   testDir: "./tests",
@@ -18,14 +19,15 @@ export default defineConfig({
       : undefined
   },
   // Browser tests boot the canonical local app automatically. Set
-  // RACEDZ_EXTERNAL_SERVER=1 when RACEDZ_BASE_URL points at a deployed server.
+  // RACEDZ_EXTERNAL_SERVER=1 when RACEDZ_BASE_URL points at a deployed server,
+  // or explicitly opt into a local running server with RACEDZ_REUSE_SERVER=1.
   webServer: useExternalServer
     ? undefined
     : {
         command: "npm run dev",
         url: baseURL,
         timeout: 120_000,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer,
         stdout: "ignore",
         stderr: "pipe"
       }

@@ -138,8 +138,11 @@ The first useful version must let:
   - Organizer panel has persistent mobile top tabs and desktop left navigation.
 - Quality and dev experience:
   - Manual QA checklist exists in `docs/QA_CHECKLIST.md`.
-  - `npm run smoke` checks core public routes, protected redirects, public API JSON, upload auth rejection, Firebase service worker, and versioned CSS asset serving against the local dev server.
-  - Browser e2e test strategy exists in `docs/E2E_TEST_STRATEGY.md`.
+  - Production release progress is tracked in `PRODUCTION_READINESS.md`; every completed release gate updates its progress bar and evidence log.
+  - `npm run smoke` checks core public routes, protected redirects, disabled placeholder mutations, public API JSON, upload auth rejection, Firebase service worker, and versioned CSS assets against a running release build.
+  - Browser e2e commands reset a guarded `_e2e`/`_ci` database and use deterministic lean seed data before each run.
+  - CI runs lint, type checks, focused domain tests, a production build, the complete Playwright suite, and standalone-server smoke checks.
+  - Browser e2e test strategy and safe snapshot-update workflow exist in `docs/E2E_TEST_STRATEGY.md`.
   - AWS deployment planning exists in `docs/AWS_DEPLOYMENT_PLAN.md`.
 - Notifications:
   - Shared branded ZidRun email template is used by notification emails and account activation.

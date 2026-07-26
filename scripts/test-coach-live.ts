@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { buildAdaptivePlan } from "@/lib/coach/adaptive-planner";
 import { assembleCoachContext } from "@/lib/coach/context";
-import { calculateCoachMetrics, assessConsistency, assessIntensityDistribution, type CoachMetrics } from "@/lib/coach/metrics";
+import { calculateCoachMetrics, assessConsistency, assessIntensityDistribution } from "@/lib/coach/metrics";
 import { enforceCoachSafety, evaluateCoachSafety } from "@/lib/coach/safety";
 import { generateCoachResponse } from "@/lib/coach/openai";
 import type { CoachResponse } from "@/lib/coach/schemas";

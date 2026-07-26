@@ -76,5 +76,5 @@ export function useAudioCoaching(options: {
       paceTone(event.direction);
     }
     speakCue(audioCueText(event, profileId, locale), locale, "full");
-  }, [enabled, profileId, locale, metrics, guidance, recentPaceSecondsPerKm]);
+  }, [enabled, profileId, locale, metrics, guidance, recentPaceSecondsPerKm, stateRef]);
 }

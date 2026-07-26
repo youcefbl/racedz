@@ -606,6 +606,7 @@ Auth.js v5 uses `AUTH_SECRET` and `AUTH_URL`. Legacy `NEXTAUTH_SECRET` and `NEXT
 ## Agent Working Rules
 
 - Read `TODO.md` and `CODEX_CONTEXT.md` first, then use targeted reads for the specific feature instead of loading broad unrelated files.
+- For any production, deployment, release, infrastructure, or mobile-store work, update `PRODUCTION_READINESS.md` in the same task: progress bar, last-updated date, gate status, evidence, blockers, and release log.
 - Do not repeatedly reread large files unless they changed or the task depends on exact text.
 - Keep progress updates concise and only include what affects the current implementation.
 - Prefer implementing the next concrete task over restating long plans.

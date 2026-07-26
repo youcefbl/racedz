@@ -48,6 +48,30 @@ function detectAcceptLanguage(header: string | null): Locale {
   return "en";
 }
 
+function publicOriginRedirect(request: NextRequest, url: URL): NextResponse {
+  // Next's standalone server can expose its internal `localhost` origin through
+  // request.nextUrl. Build redirects from the browser-facing proxy headers while
+  // keeping an absolute URL, which Auth.js requires during credential sign-in.
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  // Next standalone synthesizes x-forwarded-host as `localhost`; Caddy preserves
+  // the incoming Host header, so prefer Host and retain x-forwarded-host as fallback.
+  const host = request.headers.get("host") || forwardedHost;
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol =
+    forwardedProtocol === "http" || forwardedProtocol === "https"
+      ? forwardedProtocol
+      : request.nextUrl.protocol.replace(":", "");
+  const configuredUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL;
+  const publicOrigin = configuredUrl
+    ? new URL(configuredUrl).origin
+    : host
+      ? `${protocol}://${host}`
+      : request.nextUrl.origin;
+  const redirectUrl = new URL(`${url.pathname}${url.search}${url.hash}`, publicOrigin);
+
+  return NextResponse.redirect(redirectUrl);
+}
+
 function applyLocale(request: NextRequest): NextResponse {
   // Only act on top-level page GET navigations.
   if (request.method !== "GET") return NextResponse.next();
@@ -91,11 +115,11 @@ export default auth((request) => {
     if (!request.auth?.user) {
       const loginUrl = new URL("/login", nextUrl);
       loginUrl.searchParams.set("callbackUrl", path);
-      return NextResponse.redirect(loginUrl);
+      return publicOriginRedirect(request, loginUrl);
     }
 
     if (path.startsWith("/admin") && (!role || !adminRoles.includes(role))) {
-      return NextResponse.redirect(new URL("/account", nextUrl));
+      return publicOriginRedirect(request, new URL("/account", nextUrl));
     }
 
     // /organizer/request is the "apply to become an organizer" page — reachable by any
@@ -105,7 +129,7 @@ export default auth((request) => {
       path.startsWith("/organizer") &&
       (!role || !organizerRoles.includes(role))
     ) {
-      return NextResponse.redirect(new URL("/organizer/request", nextUrl));
+      return publicOriginRedirect(request, new URL("/organizer/request", nextUrl));
     }
   }
 

@@ -53,13 +53,6 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
 async function main() {
   const passwordHash = await bcrypt.hash("racedz-demo-password", 10);
 
@@ -190,7 +183,7 @@ async function main() {
       city: "Alger Centre",
       commune: "Alger Centre",
       address: "Place des Martyrs, Alger",
-      mainImageUrl: "/brand/zidrun-logo.png",
+      mainImageUrl: "/brand/zidrun-mark.svg",
       organizerName: "Alger Running Club",
       organizerUrl: "https://zidrun.com/organizations/alger-running-club",
       maxParticipants: 1500,
@@ -223,7 +216,7 @@ async function main() {
       city: "Oran",
       commune: "Oran",
       address: "Front de mer, Oran",
-      mainImageUrl: "/brand/zidrun-logo.png",
+      mainImageUrl: "/brand/zidrun-mark.svg",
       organizerName: "Oran Trail Team",
       organizerUrl: "https://zidrun.com/organizations/oran-trail-team",
       maxParticipants: 2200,
@@ -256,7 +249,7 @@ async function main() {
       city: "Tizi Ouzou",
       commune: "Tizi Ouzou",
       address: "Maison de la culture Mouloud Mammeri",
-      mainImageUrl: "/brand/zidrun-logo.png",
+      mainImageUrl: "/brand/zidrun-mark.svg",
       organizerName: "Kabylie Mountain Runners",
       organizerUrl: "https://zidrun.com/organizations/kabylie-mountain-runners",
       maxParticipants: 700,
@@ -288,7 +281,7 @@ async function main() {
       city: "Constantine",
       commune: "Constantine",
       address: "Centre-ville, Constantine",
-      mainImageUrl: "/brand/zidrun-logo.png",
+      mainImageUrl: "/brand/zidrun-mark.svg",
       organizerName: "ZidRun Community Desk",
       organizerUrl: "https://zidrun.com",
       contactEmail: "events@zidrun.com",
@@ -331,8 +324,15 @@ async function main() {
     }
   });
 
-  await seedBulkUsers(passwordHash);
-  await seedBulkRaces(organizations);
+  // CI and browser tests need a small, deterministic fixture set. The bulk dataset is
+  // useful for local pagination/load testing, but its random values make screenshots
+  // drift and add thousands of unnecessary rows to every release-gate run.
+  if (process.env.RACEDZ_SEED_BULK !== "0") {
+    await seedBulkUsers(passwordHash);
+    await seedBulkRaces(organizations);
+  } else {
+    console.info("Skipping bulk seed data (RACEDZ_SEED_BULK=0).");
+  }
   await seedCoachTips();
 
   console.info(`Seeded ZidRun with admin ${admin.email}`);
@@ -485,7 +485,7 @@ async function seedBulkRaces(organizations: Array<{ id: string }>) {
         city: wilaya,
         commune: wilaya,
         address: `${wilaya} city center`,
-        mainImageUrl: "/brand/zidrun-logo.png",
+        mainImageUrl: "/brand/zidrun-mark.svg",
         organizerName: organization ? "Seeded Organizer" : "ZidRun Community Desk",
         maxParticipants: randomInt(200, 3000),
         availablePlaces: randomInt(50, 3000)

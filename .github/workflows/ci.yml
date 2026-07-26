@@ -28,8 +28,11 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/racedz_ci
       # Non-secret placeholders so the app can boot in CI. Real values live in deploy env.
       AUTH_SECRET: ci-not-a-real-secret-ci-not-a-real-secret
+      AUTH_URL: http://127.0.0.1:3003
+      NEXTAUTH_URL: http://127.0.0.1:3003
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3003
       RACEDZ_BASE_URL: http://127.0.0.1:3003
+      RACEDZ_SEED_BULK: "0"
 
     steps:
       - uses: actions/checkout@v4

@@ -81,6 +81,22 @@ const checks: SmokeCheck[] = [
     }
   },
   {
+    name: "placeholder race mutation APIs are disabled",
+    run: async () => {
+      const mutations = [
+        ["/api/races", "POST"],
+        ["/api/races/not-a-race", "PATCH"],
+        ["/api/races/not-a-race", "DELETE"],
+        ["/api/races/not-a-race/categories", "POST"]
+      ] as const;
+
+      for (const [path, method] of mutations) {
+        const response = await fetchUrl(path, { method });
+        assertStatus(response, 405);
+      }
+    }
+  },
+  {
     name: "unauthenticated upload API is rejected",
     run: async () => {
       const response = await fetchUrl("/api/uploads", {
@@ -157,9 +173,33 @@ function assertRedirect(response: Response, expectedLocation: string) {
 
   const location = response.headers.get("location");
 
-  if (location !== expectedLocation) {
+  const redirectUrl = location ? new URL(location, baseUrl) : null;
+
+  const expectedUrl = new URL(expectedLocation, baseUrl);
+  const matchesLocation =
+    redirectUrl?.pathname === expectedUrl.pathname &&
+    redirectUrl.searchParams.toString() === expectedUrl.searchParams.toString();
+
+  if (!matchesLocation) {
     throw new Error(`expected redirect to ${expectedLocation}, got ${location ?? "no location"}`);
   }
+
+  const expectedOrigin = new URL(baseUrl);
+  if (!isEquivalentOrigin(redirectUrl, expectedOrigin)) {
+    throw new Error(`expected redirect origin ${expectedOrigin.origin}, got ${redirectUrl.origin}`);
+  }
+}
+
+function isEquivalentOrigin(actual: URL, expected: URL) {
+  if (actual.origin === expected.origin) return true;
+
+  const loopbackHosts = new Set(["127.0.0.1", "localhost"]);
+  return (
+    loopbackHosts.has(actual.hostname) &&
+    loopbackHosts.has(expected.hostname) &&
+    actual.protocol === expected.protocol &&
+    actual.port === expected.port
+  );
 }
 
 function assertIncludes(value: string, expected: string, message: string) {
