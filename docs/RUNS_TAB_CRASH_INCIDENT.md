@@ -11,11 +11,12 @@ recording running)
 A runner reported: while doing a guided interval run, they used the "skip step" button a few
 times, then later opened the app and got a generic error screen —
 **"We couldn't load your account" / Something went wrong loading this page"** — specifically on
-the **Runs** tab. Races, Coach, and Account tabs all loaded fine. Logging out and back in did not
-fix it. "Try again" on the error screen did nothing.
+the **Runs** tab. Races, Coach, and Account tabs all loaded fine, and "Try again" on the error
+screen did nothing.
 
-The runner also reported (after further digging) that the app was **still recording a run 3 hours
-later, showing ~60 km covered** — after they had put the phone down and driven somewhere by car.
+Logging out and back in *did* get them past the crash — and that's when they discovered why: the
+app was **still recording a run 3 hours later, showing ~60 km covered**, after they'd put the
+phone down and driven somewhere by car.
 
 ## Investigation
 
@@ -36,15 +37,22 @@ Two lines of investigation ran in parallel before the real cause was found:
 alive independent of navigation, by design — leaving the Runs tab must not stop an in-progress
 recording. It persists a snapshot to `Capacitor Preferences` every 4s
 (`src/lib/native/run-store.ts`, key `zidrun:active-run`) so a crash/kill doesn't lose the run.
-That storage is **device-local and independent of the auth session** — which is why logging out
-and back in had no effect.
 
 The guided run was left in `"tracking"` status (never explicitly finished), so the GPS watcher
 kept accepting fixes for 3 hours, including ordinary car-driving speed (any two fixes 1–60 m apart
-are accepted as "moving"). On the next Runs-tab mount, `RunRecorder` called `runEngine.init()`,
-which loaded that 3‑hour/60 km snapshot and tried to resume it — and something in that resume path
-threw. Since the bad snapshot was still sitting in `Preferences`, every retry (and every future
-visit to Runs) hit the same throw — explaining why "Try again" never helped.
+are accepted as "moving"). On a Runs-tab mount, `RunRecorder` calls `runEngine.init()`, which loads
+that 3‑hour/60 km snapshot and tries to resume it — and something in that resume path threw.
+
+That `Preferences` storage is **device-local and independent of the auth session**, so a
+logout/login does nothing to the stuck recording itself — the 3h/60km snapshot was still sitting
+there afterward, which is exactly what the runner then saw once they were back in. It *did* clear
+the crash, though: logout/login is a full page reload, which resets the in-memory `runEngine`
+singleton and re-runs its resume logic from scratch, whereas "Try again" (the error boundary's
+`reset()`) only re-renders the React tree without reloading the page — so it kept hitting whatever
+in-memory state had already broken. That's consistent with a hard reload getting past the crash
+where "Try again" didn't, though the exact throw inside the old resume path wasn't captured (no
+stack trace was available at the time) — precisely the gap the client-error reporting below
+closes going forward.
 
 This also explained why **Coach** loaded fine: `RunRecorder` only mounts there when the user
 switches to the Coach dashboard's "runs" sub-view (not the default view), so the crashing resume
