@@ -2,8 +2,10 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { reportClientError } from "@/lib/client-error-report";
 
 /**
  * Shared body for route-level `error.tsx` boundaries.
@@ -29,8 +31,13 @@ export function RouteError({
   description?: string;
   homeHref?: string;
 }) {
+  const pathname = usePathname();
+
   useEffect(() => {
     Sentry.captureException(error);
+    reportClientError({ error, route: pathname ?? "" });
+    // Only the error identity should re-trigger this — pathname is read, not depended on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
   return (

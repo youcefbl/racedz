@@ -309,6 +309,26 @@ model PageView {
   @@index([userId, createdAt])
 }
 
+// Client-side crash reports (React error boundaries), captured so they can be queried
+// straight from the DB in addition to Sentry — useful when triaging over a live psql
+// session. No retention/prune job yet; prune manually if this grows large.
+model ClientErrorLog {
+  id        String   @id @default(cuid())
+  userId    String? // best-effort from the auth session; null for anonymous/logged-out
+  message   String
+  stack     String? @db.Text
+  digest    String? // Next.js error.digest, when the throw happened in a server component
+  route     String // path the error boundary was mounted on, e.g. "/account/runs"
+  boundary  String? // which boundary caught it, e.g. "RunRecorder" — null for the route-level one
+  platform  String? // web | android (Capacitor native app)
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([route, createdAt])
+  @@index([userId, createdAt])
+}
+
 model RaceRegistration {
   id                    String             @id @default(cuid())
   userId                String

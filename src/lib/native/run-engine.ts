@@ -20,6 +20,21 @@ const SNAPSHOT_INTERVAL_MS = 4000;
 // Ignore the gap between two fixes when summing moving time if it's this long —
 // it usually means GPS was lost, not that the runner was moving the whole time.
 const MAX_MOVING_GAP_S = 15;
+// A snapshot older than this was abandoned (app backgrounded/killed mid-run and never
+// finished) rather than a real single session — resuming it is more confusing than useful.
+const MAX_RESUMABLE_SESSION_MS = 6 * 60 * 60 * 1000;
+// Sustained average speed above this (well past any real running pace) means the GPS kept
+// tracking through something other than a foot run — e.g. driving — while the app sat open
+// in the background. Resuming that snapshot is what previously crashed the Runs tab.
+const MAX_PLAUSIBLE_AVG_SPEED_MPS = 7;
+
+// Whether a persisted snapshot is safe to offer back to the user as "resume this run".
+function isResumableSnapshot(snapshot: ActiveRunSnapshot): boolean {
+  if (Date.now() - snapshot.startTs > MAX_RESUMABLE_SESSION_MS) return false;
+  const avgSpeedMps = snapshot.movingSec > 0 ? snapshot.distanceM / snapshot.movingSec : 0;
+  if (avgSpeedMps > MAX_PLAUSIBLE_AVG_SPEED_MPS) return false;
+  return true;
+}
 
 export type RunEngineState = {
   status: RunStatus;
@@ -36,6 +51,9 @@ export type RunEngineState = {
   description: string;
   avgCadence: number | null;
   errorCode: RunErrorCode;
+  // Set for one emit when init() discarded a stale/implausible snapshot instead of
+  // resuming it, so the recorder can tell the runner why there's nothing to resume.
+  discardedStaleRun: boolean;
 };
 
 export type RunSavePayload = {
@@ -75,6 +93,7 @@ class RunEngine {
   private avgCadence: number | null = null;
   private cadenceTracking = false;
   private errorCode: RunErrorCode = null;
+  private discardedStaleRun = false;
 
   private watcherId: string | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -118,8 +137,15 @@ class RunEngine {
       title: this.title,
       description: this.description,
       avgCadence: this.avgCadence,
-      errorCode: this.errorCode
+      errorCode: this.errorCode,
+      discardedStaleRun: this.discardedStaleRun
     };
+  }
+
+  // Call once the recorder has shown the "discarded a stale run" notice, so it doesn't
+  // reappear on the next unrelated state change.
+  ackDiscardedStaleRun() {
+    this.discardedStaleRun = false;
   }
 
   // Same array reference across calls; slice it in the component keyed on pointCount.
@@ -140,7 +166,19 @@ class RunEngine {
     try {
       const snapshot = await loadActiveRun();
       if (snapshot && snapshot.route.length > 1 && snapshot.distanceM > 50) {
-        this.restoreFrom(snapshot);
+        if (!isResumableSnapshot(snapshot)) {
+          await clearActiveRun();
+          this.discardedStaleRun = true;
+        } else {
+          try {
+            this.restoreFrom(snapshot);
+          } catch {
+            // A malformed snapshot must never crash the Runs tab — drop it and start clean.
+            await clearActiveRun();
+            this.reset();
+            this.discardedStaleRun = true;
+          }
+        }
       } else if (snapshot) {
         await clearActiveRun();
       }

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   BarChart3,
   Bot,
+  Bug,
   Building2,
   Flag,
   Settings,
@@ -44,6 +45,7 @@ const adminNavItems: DashboardNavItem[] = [
   { href: "/admin/announcements", label: "Announcements", description: "Broadcast to users", icon: Megaphone },
   { href: "/admin/coach", label: "AI Coach", description: "Usage and subscriptions", icon: Bot },
   { href: "/admin/tips", label: "Coach tips", description: "Review and publish tips", icon: Lightbulb },
+  { href: "/admin/errors", label: "Client errors", description: "App crash reports", icon: Bug },
   { href: "/admin/audit", label: "Audit", description: "Admin action log", icon: History }
 ];
 

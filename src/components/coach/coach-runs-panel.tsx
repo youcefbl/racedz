@@ -14,8 +14,32 @@ import { RunMap } from "@/components/coach/run-map";
 import { RunSummary } from "@/components/coach/run-summary";
 import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
+import { clearActiveRun } from "@/lib/native/run-store";
 import { cn } from "@/lib/utils";
+
+// Fallback for the recorder's error boundary. A stuck/corrupt in-progress-run snapshot is the
+// known way this can crash (see run-engine.ts's own resume guard) — offer the same remedy
+// directly instead of leaving the runner stuck on a broken card with no way out.
+function RecorderCrashFallback({ copy }: { copy: CoachCopy }) {
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-center">
+      <p className="text-sm font-black text-red-900">{copy.recorderCrashTitle}</p>
+      <p className="mx-auto mt-1.5 max-w-sm text-xs font-semibold text-red-800">{copy.recorderCrashText}</p>
+      <Button
+        type="button"
+        size="sm"
+        className="mt-3"
+        onClick={() => {
+          void clearActiveRun().finally(() => window.location.reload());
+        }}
+      >
+        {copy.recorderCrashReset}
+      </Button>
+    </div>
+  );
+}
 
 export function CoachRunsPanel({
   runs,
@@ -283,8 +307,12 @@ export function CoachRunsPanel({
         <MatchConfirmBanner prompt={matchPrompt} saving={saving} copy={copy} onConfirm={confirmMatch} onFreeRun={freeRunMatch} />
       ) : null}
 
-      {/* GPS run recorder — the record hero; renders only inside the phone app */}
-      <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} />
+      {/* GPS run recorder — the record hero; renders only inside the phone app.
+          Scoped error boundary: a bad locally-persisted in-progress-run snapshot must
+          only break this card, not the whole Runs/Coach page. */}
+      <ErrorBoundary boundary="RunRecorder" fallback={<RecorderCrashFallback copy={copy} />}>
+        <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} />
+      </ErrorBoundary>
       {afterRecorder}
 
       <section>
