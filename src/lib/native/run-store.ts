@@ -1,56 +1,55 @@
 import { Preferences } from "@capacitor/preferences";
-import type { RunRoutePoint } from "@/components/coach/types";
+import { parseActiveRunSnapshot, type ActiveRunSnapshot } from "@/lib/native/run-snapshot";
 
 // Durable snapshot of an in-progress run so a crash / OS-kill / accidental app
 // close doesn't lose the recording. Written periodically while tracking and on
 // every pause/resume; cleared when the run is saved or discarded.
-const KEY = "zidrun:active-run";
+const LEGACY_KEY = "zidrun:active-run";
+const keyForUser = (userId: string) => `${LEGACY_KEY}:${encodeURIComponent(userId)}`;
 
-export type ActiveRunSnapshot = {
-  v: 1;
-  // Owning account, so a different user logging in on the same device is never offered
-  // (or able to silently inherit) someone else's in-progress recording.
-  userId: string;
-  status: "tracking" | "paused";
-  startTs: number;
-  pausedAccum: number;
-  distanceM: number;
-  elevationM: number;
-  movingSec: number;
-  lastPointTs: number;
-  effort: number;
-  share: boolean;
-  title?: string;
-  description?: string;
-  route: RunRoutePoint[];
-  updatedAt: number;
-};
+export type { ActiveRunSnapshot } from "@/lib/native/run-snapshot";
 
-export async function saveActiveRun(snapshot: ActiveRunSnapshot): Promise<void> {
+export async function saveActiveRun(snapshot: ActiveRunSnapshot): Promise<boolean> {
   try {
-    await Preferences.set({ key: KEY, value: JSON.stringify(snapshot) });
+    await Preferences.set({ key: keyForUser(snapshot.userId), value: JSON.stringify(snapshot) });
+    return true;
   } catch {
-    /* storage full / unavailable — recording continues from in-memory state */
+    return false;
   }
 }
 
-export async function loadActiveRun(): Promise<ActiveRunSnapshot | null> {
+export async function loadActiveRun(userId: string): Promise<ActiveRunSnapshot | null> {
   try {
-    const { value } = await Preferences.get({ key: KEY });
-    if (!value) return null;
-    const parsed = JSON.parse(value) as ActiveRunSnapshot;
-    if (parsed?.v !== 1 || !Array.isArray(parsed.route) || typeof parsed.startTs !== "number") {
+    const userKey = keyForUser(userId);
+    const { value } = await Preferences.get({ key: userKey });
+    if (value) {
+      const snapshot = parseActiveRunSnapshot(value, userId);
+      if (snapshot) return snapshot;
+      // Only malformed data already isolated under this user's key is unrecoverable.
+      await Preferences.remove({ key: userKey });
       return null;
     }
-    return parsed;
+
+    // Migrate snapshots written by the previous single-key implementation only when they
+    // explicitly name this account. Older unowned v1 data is deliberately left quarantined:
+    // assigning it to the next account would leak a private route, while deleting it could lose
+    // a legitimate run.
+    const legacy = await Preferences.get({ key: LEGACY_KEY });
+    if (!legacy.value) return null;
+    const snapshot = parseActiveRunSnapshot(legacy.value, userId);
+    if (!snapshot) return null;
+    const migrated = await saveActiveRun(snapshot);
+    if (!migrated) return null;
+    await Preferences.remove({ key: LEGACY_KEY });
+    return snapshot;
   } catch {
     return null;
   }
 }
 
-export async function clearActiveRun(): Promise<void> {
+export async function clearActiveRun(userId: string): Promise<void> {
   try {
-    await Preferences.remove({ key: KEY });
+    await Preferences.remove({ key: keyForUser(userId) });
   } catch {
     /* best effort */
   }

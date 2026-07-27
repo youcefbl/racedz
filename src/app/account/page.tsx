@@ -39,6 +39,7 @@ export default async function AccountPage() {
   return (
     <AccountHub
       user={{
+        id: session.user.id,
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         avatarUrl: user.avatarUrl,

@@ -33,6 +33,8 @@ import { ZidRunLogo } from "@/components/layout/racedz-logo";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { ButtonLink } from "@/components/ui/button";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
+import { isNativeRuntime } from "@/lib/native/geo";
+import { runEngine } from "@/lib/native/run-engine";
 import { cn } from "@/lib/utils";
 
 export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
@@ -42,6 +44,12 @@ export function SiteHeaderClient({ user }: { user?: HeaderUser }) {
   const dictionary = getDictionary(locale);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  // Initialize recovery globally, not only when Runs mounts. This lets a fresh WebView remove a
+  // persisted orphan watcher and makes logout aware of a paused recording from any account tab.
+  useEffect(() => {
+    if (user?.id && isNativeRuntime()) void runEngine.init(user.id);
+  }, [user?.id]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);

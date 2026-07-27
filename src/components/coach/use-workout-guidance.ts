@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExecStep } from "@/lib/coach/workout-structure";
+import { clampedStepAt, optionalStepAt } from "@/lib/coach/guidance-step";
 
 // Drives a structured workout during recording. Given the flattened steps and the live run metrics
 // (elapsed seconds + distance in metres), it tracks which step the runner is on, how far through it
@@ -51,16 +52,8 @@ function freshProgress(sessionKey: string): Progress {
   return { sessionKey, started: false, completed: false, stepIndex: 0, anchorElapsed: 0, anchorDistance: 0, lastCountdown: 0 };
 }
 
-// Bounds-safe step lookup. A production crash traced back to `steps[stepIndex]!` being read
-// after `steps` had changed shape under an unchanged progress object — the non-null assertion
-// told TypeScript to trust an index that could be, and was, out of range at runtime. This never
-// trusts stepIndex blindly, regardless of how it got out of sync.
-function stepAt(steps: ExecStep[], index: number): ExecStep | null {
-  if (steps.length === 0) return null;
-  const clamped = Math.min(Math.max(index, 0), steps.length - 1);
-  return steps[clamped] ?? null;
-}
-
+// Current-step reads are clamped defensively below; optional next-step reads remain exact so the
+// final step does not incorrectly advertise itself as the next step too.
 // Progress lives at module scope, not in a ref: the run engine is a singleton that keeps
 // recording across screen changes, and this hook's host component remounts on every tab switch —
 // a mid-run remount must resume the workout exactly where it was, not restart (or kill) it.
@@ -118,7 +111,7 @@ export function useWorkoutGuidance(
       st.anchorElapsed = elapsedSec;
       st.anchorDistance = distanceM;
       st.lastCountdown = 0;
-      const first = stepAt(steps, 0);
+      const first = clampedStepAt(steps, 0);
       if (first) onAdvance?.(first);
       forceRender();
       return;
@@ -129,7 +122,7 @@ export function useWorkoutGuidance(
     // clear within one tick). OPEN steps never auto-complete — they wait for a manual skip.
     let changed = false;
     while (st.stepIndex < steps.length) {
-      const step = stepAt(steps, st.stepIndex);
+      const step = clampedStepAt(steps, st.stepIndex);
       if (!step) break;
       const { unit, value } = targetOf(step);
       if (value === null) break; // OPEN
@@ -145,14 +138,14 @@ export function useWorkoutGuidance(
       st.anchorElapsed = elapsedSec;
       st.anchorDistance = distanceM;
       st.lastCountdown = 0;
-      const next = stepAt(steps, st.stepIndex);
+      const next = clampedStepAt(steps, st.stepIndex);
       if (next) onAdvance?.(next);
       changed = true;
     }
 
     // 3-2-1 countdown on the current timed step.
     if (!st.completed) {
-      const step = stepAt(steps, st.stepIndex);
+      const step = clampedStepAt(steps, st.stepIndex);
       if (step) {
         const { unit, value } = targetOf(step);
         if (unit === "TIME" && value !== null) {
@@ -184,7 +177,7 @@ export function useWorkoutGuidance(
       st.anchorElapsed = live.elapsedSec;
       st.anchorDistance = live.distanceM;
       st.lastCountdown = 0;
-      const next = stepAt(steps, st.stepIndex);
+      const next = clampedStepAt(steps, st.stepIndex);
       if (next) onAdvance?.(next);
     }
     forceRender();
@@ -197,7 +190,7 @@ export function useWorkoutGuidance(
   const total = steps.length;
 
   if (!renderProgress.started) {
-    const first = stepAt(steps, 0);
+    const first = clampedStepAt(steps, 0);
     const { unit, value } = first ? targetOf(first) : ({ unit: "OPEN", value: null } as const);
     return {
       active: true,
@@ -206,7 +199,7 @@ export function useWorkoutGuidance(
       stepIndex: 0,
       total,
       current: first,
-      next: stepAt(steps, 1),
+      next: optionalStepAt(steps, 1),
       unit,
       doneValue: 0,
       targetValue: value,
@@ -234,7 +227,7 @@ export function useWorkoutGuidance(
     };
   }
 
-  const current = stepAt(steps, renderProgress.stepIndex);
+  const current = clampedStepAt(steps, renderProgress.stepIndex);
   const { unit, value } = current ? targetOf(current) : ({ unit: "OPEN", value: null } as const);
   const done = !current
     ? 0
@@ -253,7 +246,7 @@ export function useWorkoutGuidance(
     stepIndex: renderProgress.stepIndex,
     total,
     current,
-    next: stepAt(steps, renderProgress.stepIndex + 1),
+    next: optionalStepAt(steps, renderProgress.stepIndex + 1),
     unit,
     doneValue: done,
     targetValue: value,

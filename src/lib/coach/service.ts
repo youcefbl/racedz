@@ -499,7 +499,7 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
-      ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
+      ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${validity === "VALID" ? input.isPublic : false}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
       ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource",
       ${validity}::"RunValidity", ${validityReason}, NOW()
@@ -604,9 +604,17 @@ export async function updateRun(
   runId: string,
   fields: { isPublic?: boolean; photos?: string[] }
 ) {
+  const prisma = getPrisma();
+  if (fields.isPublic === true) {
+    const run = await prisma.runnerRun.findFirst({ where: { id: runId, userId }, select: { validity: true } });
+    if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+    if (run.validity !== "VALID") {
+      throw new CoachError("This activity must be reviewed before it can be public.", 409, "RUN_NOT_VALID");
+    }
+  }
   const setPhotos = fields.photos !== undefined;
   const photosJson = setPhotos ? JSON.stringify(fields.photos) : null;
-  const rows = await getPrisma().$queryRaw<RunRow[]>`
+  const rows = await prisma.$queryRaw<RunRow[]>`
     UPDATE "RunnerRun" SET
       "isPublic" = COALESCE(${fields.isPublic ?? null}, "isPublic"),
       "photos" = CASE WHEN ${setPhotos} THEN CAST(${photosJson} AS JSONB) ELSE "photos" END,
@@ -665,12 +673,18 @@ type OwnedWorkoutRow = {
 // day of it — so a client can't bind a run to an unrelated or far-off workout.
 export async function confirmWorkoutMatch(userId: string, runId: string, workoutId: string) {
   const prisma = getPrisma();
-  const runRows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null; startedAt: Date; distanceKm: number }>>`
-    SELECT "id", "workoutId", "startedAt", "distanceKm" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+  const runRows = await prisma.$queryRaw<
+    Array<{ id: string; workoutId: string | null; startedAt: Date; distanceKm: number; validity: "VALID" | "SUSPECT" | "EXCLUDED" }>
+  >`
+    SELECT "id", "workoutId", "startedAt", "distanceKm", "validity" FROM "RunnerRun"
+    WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
   `;
   const run = runRows[0];
   if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   if (run.workoutId) throw new CoachError("This run is already linked to a workout.", 409, "RUN_ALREADY_LINKED");
+  if (run.validity !== "VALID") {
+    throw new CoachError("This activity is excluded from workout completion.", 409, "RUN_NOT_VALID");
+  }
 
   const workoutRows = await prisma.$queryRaw<OwnedWorkoutRow[]>`
     SELECT w."id", w."status"::text AS "status", w."targetDistanceKm", completed."id" AS "completedRunId",

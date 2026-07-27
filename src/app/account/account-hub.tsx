@@ -26,6 +26,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useEffect, useState, useTransition } from "react";
 import { LogIn, UserPlus } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 import { LOCALE_LABELS, LOCALE_NAMES, LOCALES, getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { saveAppearanceAction } from "@/app/account/appearance-actions";
 import { tapHaptic } from "@/lib/native/haptics";
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
 
 type HubUser = {
+  id: string;
   name: string;
   email: string;
   avatarUrl?: string | null;
@@ -159,9 +161,13 @@ export function AccountHub({ user }: { user: HubUser | null }) {
               startSignOut(() => {
                 // Full navigation so the server-rendered header (root layout) resets to
                 // the logged-out state — client navigation alone keeps the cached header.
-                void signOut({ redirect: false }).then(() => {
-                  window.location.assign(withLocale("/login", locale));
-                });
+                void runEngine
+                  .pauseAndStopForSignOut(user.id)
+                  .then(() => signOut({ redirect: false }))
+                  .then(() => {
+                    window.location.assign(withLocale("/login", locale));
+                  })
+                  .catch(() => toast(t.signOutError, "error"));
               });
             }}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm font-black text-red-600 shadow-sm transition active:scale-[0.99] disabled:opacity-60"

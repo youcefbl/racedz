@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
 
 export type HeaderUser = {
+  id: string;
   name: string;
   email: string;
   avatarUrl?: string | null;
@@ -56,16 +57,16 @@ export function AccountMenu({ user, locale = "en" }: { user: HeaderUser; locale?
       setConfirmingSignOut(true);
       return;
     }
-    // A live/paused GPS recording is device-local storage independent of the session — it
-    // survives logout untouched, but the runner should get the chance to finish or discard it
-    // first rather than be surprised it's still going when they sign back in.
+    // Confirm before preserving the recording as paused and tearing down every native resource.
     const recordingStatus = runEngine.getState().status;
     if ((recordingStatus === "tracking" || recordingStatus === "paused") && !window.confirm(t.signOutActiveRecordingConfirm)) {
       setConfirmingSignOut(false);
       return;
     }
     startSignOut(() => {
-      void signOut({ redirect: false })
+      void runEngine
+        .pauseAndStopForSignOut(user.id)
+        .then(() => signOut({ redirect: false }))
         .then(() => {
           // Full navigation so the server-rendered header (in the root layout, which
           // client navigation doesn't re-render) resets to the logged-out state.

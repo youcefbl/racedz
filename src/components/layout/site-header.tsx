@@ -12,6 +12,7 @@ export async function SiteHeader() {
             id: session.user.id
           },
           select: {
+            id: true,
             email: true,
             firstName: true,
             lastName: true,
@@ -29,6 +30,7 @@ export async function SiteHeader() {
       user={
         user
           ? {
+              id: user.id,
               name: `${user.firstName} ${user.lastName}`,
               email: user.email,
               avatarUrl: user.avatarUrl,

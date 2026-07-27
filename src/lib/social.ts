@@ -114,8 +114,11 @@ export async function getSocialProfile(viewerId: string | null, userId: string):
 // state and the fresh count so the UI can render optimistically then reconcile.
 export async function toggleKudos(userId: string, runId: string): Promise<{ kudoed: boolean; count: number }> {
   const prisma = getPrisma();
-  const run = await prisma.runnerRun.findUnique({ where: { id: runId }, select: { id: true, userId: true, isPublic: true } });
-  if (!run || (!run.isPublic && run.userId !== userId)) {
+  const run = await prisma.runnerRun.findUnique({
+    where: { id: runId },
+    select: { id: true, userId: true, isPublic: true, validity: true }
+  });
+  if (!run || run.validity !== "VALID" || (!run.isPublic && run.userId !== userId)) {
     throw new Error("RUN_NOT_FOUND");
   }
   const existing = await prisma.runKudos.findUnique({ where: { runId_userId: { runId, userId } }, select: { id: true } });
@@ -159,6 +162,7 @@ export async function getFeed(
   const rows = await prisma.runnerRun.findMany({
     where: {
       userId: { in: authorIds },
+      validity: "VALID",
       // Own runs always show; others' runs only when public AND the author's profile isn't private.
       OR: [{ userId }, { AND: [{ isPublic: true }, { user: { profilePrivate: false } }] }]
     },

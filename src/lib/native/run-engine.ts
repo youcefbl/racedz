@@ -1,6 +1,7 @@
 import type { RunRoutePoint } from "@/components/coach/types";
 import { haversineMeters, startRunWatch, stopRunWatch, type LivePoint } from "@/lib/native/geo";
 import { clearActiveRun, loadActiveRun, saveActiveRun, type ActiveRunSnapshot } from "@/lib/native/run-store";
+import { advanceHighSpeedWindow, NON_FOOT_AUTO_PAUSE_SECONDS, restoreAsPausedTiming } from "@/lib/native/run-lifecycle";
 import { startStepCounter, stopStepCounter } from "@/lib/native/step-counter";
 
 // Module-level run-recording engine. The GPS watcher, ticker, step counter and all
@@ -20,18 +21,6 @@ const SNAPSHOT_INTERVAL_MS = 4000;
 // Ignore the gap between two fixes when summing moving time if it's this long —
 // it usually means GPS was lost, not that the runner was moving the whole time.
 const MAX_MOVING_GAP_S = 15;
-// Sustained average speed above this (well past any real running pace, ~25 km/h) means the
-// fixes weren't footsteps — e.g. driving while the recorder was left running. Checked
-// continuously while tracking (not just on cold resume): once the cumulative average crosses
-// this, the run auto-pauses instead of silently accumulating implausible distance for hours.
-// It is NEVER used to auto-discard a snapshot — a long but structurally valid ultra (this app
-// has an ULTRA_TRAIL race category) must stay recoverable, and the runner always gets to see
-// and decide via the existing "this doesn't look like it was on foot" warning + pause/finish/
-// discard controls, never a silent deletion.
-const MAX_PLAUSIBLE_AVG_SPEED_MPS = 7;
-// Only evaluate the speed check once there's enough moving time that a couple of noisy GPS
-// fixes near the start can't dominate the average (avoids false-triggering on a fast start).
-const MIN_MOVING_SEC_FOR_SPEED_CHECK = 120;
 
 export type RunEngineState = {
   status: RunStatus;
@@ -89,6 +78,8 @@ class RunEngine {
   private gpsAccuracy: number | null = null;
   private avgCadence: number | null = null;
   private cadenceTracking = false;
+  private cadenceSteps = 0;
+  private highSpeedSeconds = 0;
   private errorCode: RunErrorCode = null;
   // Set once init() knows who's logged in; stamped onto every persisted snapshot so a
   // different account on the same device is never offered someone else's recording.
@@ -97,6 +88,8 @@ class RunEngine {
   private watcherId: string | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private restoring = false;
+  private initPromise: Promise<void> | null = null;
+  private nativeStopPromise: Promise<void> | null = null;
   private readonly listeners = new Set<() => void>();
 
   subscribe(listener: () => void): () => void {
@@ -154,40 +147,48 @@ class RunEngine {
   // deleted: it's restored like any other, and the existing "doesn't look like it was on
   // foot" warning + pause/finish/discard controls let the runner decide.
   async init(userId: string) {
+    if (this.initPromise) await this.initPromise;
+    if (this.userId && this.userId !== userId && this.status !== "idle") {
+      // Defensive warm account switch: preserve the original owner's run before changing the
+      // engine owner, then reset so the next account can only load its own per-user key.
+      if (this.status === "tracking") this.pause();
+      await this.stopNativeResources();
+      await this.saveSnapshot("paused");
+      this.reset();
+    }
     this.userId = userId;
-    if (this.status !== "idle" || this.restoring) {
+    if (this.status !== "idle") {
       this.emit();
       return;
     }
     this.restoring = true;
-    try {
-      const snapshot = await loadActiveRun();
-      if (!snapshot) return;
-      // Belongs to a different account that was last signed in on this device — leave the
-      // snapshot untouched (don't offer it, and don't delete someone else's in-progress run).
-      if (snapshot.userId && snapshot.userId !== userId) return;
-      if (snapshot.route.length > 1 && snapshot.distanceM > 50) {
+    this.initPromise = (async () => {
+      try {
+        const snapshot = await loadActiveRun(userId);
+        if (!snapshot) return;
         try {
+          // A native background watcher can outlive a WebView crash/reload. Its persisted id lets
+          // the new runtime explicitly remove that orphan before presenting a safely paused run.
+          if (snapshot.watcherId) await stopRunWatch(snapshot.watcherId);
           this.restoreFrom(snapshot);
         } catch {
-          // A malformed snapshot must never crash the Runs tab — drop it and start clean.
-          // This is the one case that's genuinely unrecoverable, unlike "implausible but
-          // structurally valid", so it's the only path that clears storage automatically.
-          await clearActiveRun();
+          await clearActiveRun(userId);
           this.reset();
         }
-      } else {
-        await clearActiveRun();
+      } finally {
+        this.restoring = false;
+        this.emit();
       }
-    } finally {
-      this.restoring = false;
-      this.emit();
-    }
+    })();
+    await this.initPromise.finally(() => {
+      this.initPromise = null;
+    });
   }
 
   private restoreFrom(snapshot: ActiveRunSnapshot) {
+    const timing = restoreAsPausedTiming(snapshot, Date.now());
     this.startTs = snapshot.startTs;
-    this.pausedAccum = snapshot.pausedAccum;
+    this.pausedAccum = timing.pausedAccum;
     this.distance = snapshot.distanceM;
     this.elevation = snapshot.elevationM;
     this.moving = snapshot.movingSec;
@@ -197,21 +198,25 @@ class RunEngine {
     this.share = snapshot.share;
     this.title = snapshot.title ?? "";
     this.description = snapshot.description ?? "";
+    this.cadenceSteps = snapshot.cadenceSteps ?? 0;
+    this.highSpeedSeconds = 0;
     const last = snapshot.route[snapshot.route.length - 1];
     this.lastPoint = last
       ? { lat: last.lat, lng: last.lng, ele: last.ele ?? null, t: last.t ?? snapshot.lastPointTs, speed: null, accuracy: null }
       : null;
-    this.elapsedSec = Math.floor((Date.now() - snapshot.startTs - snapshot.pausedAccum) / 1000);
+    this.elapsedSec = timing.elapsedSec;
     this.currentPace = null;
     // The original GPS watcher is gone; enter paused so resuming restarts it and the
     // time the app was dead is treated as paused, not counted toward elapsed.
-    this.pauseStart = Date.now();
+    this.pauseStart = timing.pauseStart;
     this.status = "paused";
   }
 
   async start() {
+    if (this.initPromise) await this.initPromise;
+    if (this.status !== "idle" || !this.userId) return;
     this.errorCode = null;
-    await clearActiveRun();
+    await clearActiveRun(this.userId);
     this.route = [];
     this.lastPoint = null;
     this.distance = 0;
@@ -225,13 +230,18 @@ class RunEngine {
     this.currentPace = null;
     this.gpsAccuracy = null;
     this.avgCadence = null;
+    this.cadenceSteps = 0;
+    this.highSpeedSeconds = 0;
     this.title = "";
     this.description = "";
     try {
       await this.beginWatch();
+      this.status = "tracking";
+      // Persist the watcher id immediately. If the WebView dies before the first GPS fix, the
+      // next runtime can still remove the native foreground watcher instead of orphaning it.
+      await this.saveSnapshot("tracking");
       // Best-effort: start counting steps for cadence. Never blocks the run.
       this.cadenceTracking = await startStepCounter();
-      this.status = "tracking";
     } catch {
       this.errorCode = "GPS";
     }
@@ -239,6 +249,7 @@ class RunEngine {
   }
 
   pause() {
+    if (this.status !== "tracking") return;
     this.pauseStart = Date.now();
     this.status = "paused";
     this.persist("paused");
@@ -246,6 +257,8 @@ class RunEngine {
   }
 
   async resume() {
+    if (this.status !== "paused") return;
+    if (this.nativeStopPromise) await this.nativeStopPromise;
     // The watcher may have been torn down (cold-start recovery); restart it if needed.
     if (!this.watcherId) {
       try {
@@ -256,6 +269,7 @@ class RunEngine {
         return;
       }
     }
+    if (!this.cadenceTracking) this.cadenceTracking = await startStepCounter();
     this.pausedAccum += Date.now() - this.pauseStart;
     this.status = "tracking";
     this.persist("tracking");
@@ -267,16 +281,12 @@ class RunEngine {
       this.pausedAccum += Date.now() - this.pauseStart;
     }
     this.elapsedSec = this.computeElapsedSec();
-    await this.stopWatch();
+    await this.stopNativeResources();
     // Average cadence = total steps / moving minutes (spm). Best-effort; null if the
     // step sensor wasn't available or captured nothing.
-    if (this.cadenceTracking) {
-      const steps = await stopStepCounter();
-      this.cadenceTracking = false;
-      const movingMin = this.moving / 60;
-      const cadence = steps > 0 && movingMin > 0.5 ? Math.round(steps / movingMin) : null;
-      this.avgCadence = cadence && cadence > 0 && cadence <= 300 ? cadence : null;
-    }
+    const movingMin = this.moving / 60;
+    const cadence = this.cadenceSteps > 0 && movingMin > 0.5 ? Math.round(this.cadenceSteps / movingMin) : null;
+    this.avgCadence = cadence && cadence > 0 && cadence <= 300 ? cadence : null;
     this.status = "finished";
     this.persist("paused"); // keep recoverable if the app dies on the summary screen
     this.emit();
@@ -292,14 +302,21 @@ class RunEngine {
   // enough, because the GPS watcher is a native plugin (a real Android foreground service)
   // that outlives a WebView JS reload — only an explicit removeWatcher() call stops it.
   async abortAndClear(): Promise<void> {
-    await this.stopWatch();
-    if (this.cadenceTracking) {
-      await stopStepCounter().catch(() => {});
-      this.cadenceTracking = false;
-    }
-    await clearActiveRun();
+    await this.stopNativeResources();
+    if (this.userId) await clearActiveRun(this.userId);
     this.reset();
     this.emit();
+  }
+
+  // Logout must stop every native resource without deleting the runner's recoverable snapshot.
+  // The next login restores it paused, with logged-out time excluded from elapsed duration.
+  async pauseAndStopForSignOut(userId?: string): Promise<void> {
+    if (userId) await this.init(userId);
+    if (this.status === "tracking") this.pause();
+    if (this.status !== "paused") return;
+    await this.stopNativeResources();
+    const preserved = await this.saveSnapshot("paused");
+    if (!preserved) throw new Error("ACTIVE_RUN_SNAPSHOT_WRITE_FAILED");
   }
 
   setEffort(value: number) {
@@ -345,7 +362,7 @@ class RunEngine {
 
   // Clear the run after it has been saved (or queued offline) and return to idle.
   async markSaved() {
-    await clearActiveRun();
+    if (this.userId) await clearActiveRun(this.userId);
     this.reset();
     this.emit();
   }
@@ -369,6 +386,8 @@ class RunEngine {
     this.currentPace = null;
     this.gpsAccuracy = null;
     this.avgCadence = null;
+    this.cadenceSteps = 0;
+    this.highSpeedSeconds = 0;
     this.title = "";
     this.description = "";
     this.errorCode = null;
@@ -385,10 +404,12 @@ class RunEngine {
     const prev = this.lastPoint;
     if (prev) {
       const d = haversineMeters(prev, point);
+      const dt = (point.t - prev.t) / 1000;
+      const speedDistance = point.speed != null && point.speed >= 0 && dt > 0 ? point.speed * dt : d;
+      this.highSpeedSeconds = advanceHighSpeedWindow(this.highSpeedSeconds, speedDistance, dt);
       if (d >= 1 && d <= 60) {
         this.distance += d;
         // Moving time summed from GPS timestamps — survives screen-off throttling.
-        const dt = (point.t - prev.t) / 1000;
         if (dt > 0 && dt < MAX_MOVING_GAP_S) this.moving += dt;
         if (prev.ele != null && point.ele != null) {
           const delta = point.ele - prev.ele;
@@ -405,12 +426,12 @@ class RunEngine {
 
     this.currentPace = point.speed != null && point.speed > 0.4 ? Math.round(1000 / point.speed) : null;
 
-    // Sustained non-foot speed (e.g. the recorder was left running while driving) auto-pauses
-    // instead of tracking for hours unnoticed. This never deletes anything — pausing surfaces
-    // the existing "doesn't look like it was on foot" warning and the pause/finish/discard
-    // controls immediately, whenever the runner next looks at the phone.
-    if (this.moving >= MIN_MOVING_SEC_FOR_SPEED_CHECK && this.distance / this.moving > MAX_PLAUSIBLE_AVG_SPEED_MPS) {
+    // Two consecutive minutes above plausible foot speed auto-pauses and tears down native
+    // tracking. This is a rolling segment window, not the lifetime average, so a drive after a
+    // legitimate long run is caught promptly without deleting the activity.
+    if (this.highSpeedSeconds >= NON_FOOT_AUTO_PAUSE_SECONDS) {
       this.pause();
+      void this.stopNativeResources().then(() => this.saveSnapshot("paused"));
       return;
     }
 
@@ -464,14 +485,40 @@ class RunEngine {
     }
   }
 
+  private async stopNativeResources() {
+    if (this.nativeStopPromise) return this.nativeStopPromise;
+    this.nativeStopPromise = (async () => {
+      await this.stopWatch();
+      if (this.cadenceTracking) {
+        this.cadenceSteps += await stopStepCounter();
+        this.cadenceTracking = false;
+      }
+    })();
+    try {
+      await this.nativeStopPromise;
+    } finally {
+      this.nativeStopPromise = null;
+    }
+  }
+
   private persist(statusOverride?: "tracking" | "paused") {
-    if (this.startTs === 0 || !this.userId) return;
+    void this.saveSnapshot(statusOverride);
+  }
+
+  private async saveSnapshot(statusOverride?: "tracking" | "paused") {
+    if (this.startTs === 0 || !this.userId) return false;
+    const updatedAt = Date.now();
+    const persistedStatus = statusOverride ?? (this.status === "paused" ? "paused" : "tracking");
+    const pausedAccum =
+      persistedStatus === "paused" && this.status === "paused"
+        ? this.pausedAccum + Math.max(0, updatedAt - this.pauseStart)
+        : this.pausedAccum;
     const snapshot: ActiveRunSnapshot = {
-      v: 1,
+      v: 2,
       userId: this.userId,
-      status: statusOverride ?? (this.status === "paused" ? "paused" : "tracking"),
+      status: persistedStatus,
       startTs: this.startTs,
-      pausedAccum: this.pausedAccum,
+      pausedAccum,
       distanceM: this.distance,
       elevationM: this.elevation,
       movingSec: this.moving,
@@ -480,10 +527,12 @@ class RunEngine {
       share: this.share,
       title: this.title,
       description: this.description,
+      cadenceSteps: this.cadenceSteps,
+      watcherId: this.watcherId ?? undefined,
       route: this.route,
-      updatedAt: Date.now()
+      updatedAt
     };
-    void saveActiveRun(snapshot);
+    return saveActiveRun(snapshot);
   }
 }
 

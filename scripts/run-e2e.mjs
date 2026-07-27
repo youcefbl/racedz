@@ -27,7 +27,10 @@ if (!databaseName.endsWith("_ci") && !databaseName.endsWith("_e2e")) {
 const childEnv = {
   ...process.env,
   DATABASE_URL: databaseUrl.toString(),
-  RACEDZ_SEED_BULK: "0"
+  RACEDZ_SEED_BULK: "0",
+  // Some E2E specs exercise server domain functions directly. Next aliases these marker modules
+  // during bundling; the Node/Playwright process needs the same empty-module behavior.
+  NODE_OPTIONS: [process.env.NODE_OPTIONS, "--require ./scripts/_stubs/stub-server-only.cjs"].filter(Boolean).join(" ")
 };
 
 console.info(`Resetting isolated E2E database "${databaseName}"...`);

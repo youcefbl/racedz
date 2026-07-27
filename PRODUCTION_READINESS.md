@@ -6,9 +6,10 @@
 >
 > **Release status:** 🟡 Web platform is live in production; the next web release needs controlled acceptance plus storage/backup work. A fresh signed Android 2.0 test APK is ready while Google Play closed testing has 2 days remaining in the 12-tester/14-day requirement.
 
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27
 
-**Current release candidate:** local `main` stabilization commit; push and remote CI are still pending
+**Current release candidate:** local `main` with Runs-incident lifecycle hardening; exact commit push,
+remote CI, and signed-device validation are still pending
 
 **Owners:** Product/engineering until deployment and store owners are assigned
 
@@ -32,6 +33,9 @@ The web platform is already live in production with HTTPS, its production databa
 2. Complete controlled web acceptance testing for the exact next release commit before promoting it to production.
 3. Finish the Google Play closed-testing requirement (owner reports 12 testers, day 12/14, 2 days remaining), review feedback, and decide rollout readiness.
 4. Verify the Play App Signing certificate in hosted App Links and explicitly confirm native push, Crashlytics, deep links, and critical physical-device journeys before mobile production rollout.
+5. Run the deterministic Runs incident matrix on an emulator and signed physical-device build,
+   including rapid guidance skipping, crash/cold restore, logout teardown, account switching, and
+   sustained-speed auto-pause.
 
 ### Confirmed live production capabilities
 
@@ -103,7 +107,7 @@ The web platform is already live in production with HTTPS, its production databa
 - [x] **PR-047** Clean production `npm run cap:sync` completes with no development override; generated and packaged config uses `https://zidrun.com` with cleartext disabled.
 - [ ] **PR-048** Play App Signing SHA-256 fingerprint added to `assetlinks.json` and verified from the hosted domain. **Open:** the current hosted fingerprint differs from the local release upload-key fingerprint; use the Play App Signing certificate from Play Console.
 - [ ] **PR-049** Production `google-services.json` is installed and included by the release build; native push and Crashlytics still need explicit runtime verification.
-- [ ] **PR-050** Signed release build passes documented physical-device QA: auth, deep links, coach, GPS/background tracking, voice, notifications, safe areas, and back navigation. **In progress:** closed testers are exercising the app, but this acceptance list is not yet recorded.
+- [ ] **PR-050** Signed release build passes documented physical-device QA: auth, deep links, coach, GPS/background tracking, voice, notifications, safe areas, and back navigation. **In progress:** Runs-incident code now has focused pure regression coverage, but rapid Skip, orphan-watcher recovery, logout/account switching, cold restore, and rolling auto-pause still require a signed device run; the wider acceptance list is not yet recorded.
 - [ ] **PR-051** Play Console listing, screenshots, privacy policy, Data Safety, content rating, support details, and account-deletion URL audited as complete before rollout.
 - [ ] **PR-052** Google Play closed test completes and tester feedback is reviewed. **In progress:** owner reports 12 testers, day 12/14, with 2 days remaining.
 - [ ] **PR-053** Final version code/name confirmed, release notes approved, and production rollout plan/percentage selected.
@@ -112,7 +116,7 @@ The web platform is already live in production with HTTPS, its production databa
 
 - [x] **PR-054** Detailed deployment checklist exists; its staging path is explicitly optional under the current owner-approved release process.
 - [x] **PR-055** Production readiness dashboard and update rules established in this file.
-- [ ] **PR-056** Stabilization changes reviewed, committed, pushed, and protected by a green remote CI run.
+- [ ] **PR-056** Stabilization changes reviewed, committed, pushed, and protected by a green remote CI run. **In progress:** Runs-incident review fixes and local checks are captured in a dedicated local commit; push and remote CI remain open.
 - [ ] **PR-057** Release candidate tagged with an immutable version and changelog.
 - [ ] **PR-058** Rollback procedure rehearsed for application, database migration, and Android staged rollout.
 - [ ] **PR-059** Incident owner, escalation contacts, service dashboards, and first-response runbook assigned.
@@ -122,6 +126,8 @@ The web platform is already live in production with HTTPS, its production databa
 
 | Gate | Result | Verified |
 |---|---:|---:|
+| Runs incident pure regression suite | Snapshot ownership/migration, cold timing, rolling speed, guidance bounds passed | 2026-07-27 |
+| Full local quality/E2E/build after Runs hardening | `test:all`: 41 passed, 1 intentional live-provider skip; production build passed | 2026-07-27 |
 | `npm audit --audit-level=low` | 0 vulnerabilities | 2026-07-26 |
 | `npm run lint` | Passed; 559 UI + 400 coach keys across EN/FR/AR | 2026-07-26 |
 | `npm run typecheck` | Passed | 2026-07-26 |
@@ -148,6 +154,7 @@ The web platform is already live in production with HTTPS, its production databa
 
 | Date | Progress | Change | Evidence |
 |---|---:|---|---|
+| 2026-07-27 | 52% (31/60) | Hardened the Runs incident fix after review: per-user v2 snapshots, orphan-watcher cleanup, awaited logout teardown, cold-time correction, rolling speed auto-pause, full validity enforcement, and focused regression coverage. PR-050/PR-056 remain open for signed-device QA, push, and remote CI. | Local lint/type/build/domain checks plus `test:run-incident`; incident report |
 | 2026-07-26 | 52% (31/60) | Repaired Capacitor 6 sync compatibility with the security-patched `tar` dependency, completed a clean production sync, and produced a fresh signed Android 2.0 APK for physical-device testing. PR-050 remains open until device journeys are recorded. | Clean Capacitor sync, embedded production config inspection, Gradle release build, APK signature/version/checksum verification |
 | 2026-07-26 | 50% (30/60) | Corrected the tracker for the already-live production platform, removed staging as a release requirement, recorded operational email/monitoring/cron/AI services, and captured Android closed-test status plus remaining App Links/runtime verification. | Owner confirmation + local Android signing/config audit |
 | 2026-07-26 | 32% (19/60) | Created the local stabilization commit. PR-056 remains open until the commit is pushed and remote CI passes. | Local Git history |
