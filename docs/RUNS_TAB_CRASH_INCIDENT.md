@@ -1,131 +1,309 @@
-# Incident — Runs tab crash from a stuck GPS recording
+# Incident — Runs tab crash and runaway GPS recording
 
-**Reported:** 2026-07-26 · **Fixed:** 2026-07-27 · **Severity:** high (one runner fully locked out
-of `/account/runs` in the native app; same class of bug could hit any runner who leaves a
-recording running)
+**Reported:** 2026-07-26 · **Status:** mitigated; root UI crash still under investigation
+
+**Severity:** P1/high — one runner was locked out of `/account/runs`, the native GPS watcher
+continued after the UI failed, and the resulting activity could corrupt training statistics and
+plan adherence.
 
 ---
 
-## Symptom
+## Summary
 
-A runner reported: while doing a guided interval run, they used the "skip step" button a few
-times, then later opened the app and got a generic error screen —
-**"We couldn't load your account" / Something went wrong loading this page"** — specifically on
-the **Runs** tab. Races, Coach, and Account tabs all loaded fine, and "Try again" on the error
-screen did nothing.
+During a guided interval run, the runner pressed **Skip step** several times and the native Android
+Runs tab fell into the account-level error boundary:
 
-Logging out and back in *did* get them past the crash — and that's when they discovered why: the
-app was **still recording a run 3 hours later, showing ~60 km covered**, after they'd put the
-phone down and driven somewhere by car.
+> We couldn't load your account. Something went wrong loading this page. Please try again.
 
-## Investigation
+The other bottom tabs continued to work, but **Try again** did not recover Runs. The GPS engine is a
+module-level singleton, so it continued recording after the React UI crashed. A logout/login later
+reset the JavaScript runtime, made the recording accessible again, and allowed the runner to save
+it. By then it contained car travel and reported approximately 60 km.
 
-Two lines of investigation ran in parallel before the real cause was found:
+Commit `78ce19940d2c6a9b0efd2ff3eadad6228ae172e5` added useful containment, persisted-snapshot guards,
+and client-error reporting. It is a **partial mitigation**, not proof that the original crash is
+fixed. The original exception was not captured, and screenshot timing shows that the first crash
+happened before the recording became stale or implausibly long.
 
-1. **DB-side check** — queried the runner's `RunnerRun` history in prod for anomalous rows
-   (impossible pace, `movingTimeSeconds > durationSeconds`, malformed `route`/`photos` JSON). One
-   genuinely bad historical row turned up, but nothing in the server-side data path
-   (`getRunsScreenData` → `computePersonalRecords` / `computeBadges`) actually throws on that kind
-   of bad data — so this was a red herring, not the cause.
-2. **Client-side (native) check** — the fact that the identical account loaded fine in a mobile
-   *browser* but crashed only inside the **native Android app** ruled out anything server-rendered
-   (an SSR crash would fail identically in both). That pointed at native-only client state.
+## Evidence-backed timeline
 
-### Root cause
+The two supplied Android screenshots include EXIF timestamps:
 
-`runEngine` (`src/lib/native/run-engine.ts`) is a module-level singleton that keeps the GPS watcher
-alive independent of navigation, by design — leaving the Runs tab must not stop an in-progress
-recording. It persists a snapshot to `Capacitor Preferences` every 4s
-(`src/lib/native/run-store.ts`, key `zidrun:active-run`) so a crash/kill doesn't lose the run.
+| Evidence | Timestamp | What it establishes |
+|---|---:|---|
+| Runs account-error screenshot | 2026-07-26 20:56:47 | The Runs tab had already crashed during the starting minute of the activity. |
+| Saved activity start | 2026-07-26 20:56 | The recording began in the same minute as the crash. |
+| Saved activity | 60.619 km; 3:17:58 elapsed; 1:46:28 moving | GPS continued after the UI failed and later captured motorized movement. |
+| Saved-run screenshot | 2026-07-27 01:02:37 | After a logout/login and full runtime reload, the runner could open and save the ongoing recording. |
 
-The guided run was left in `"tracking"` status (never explicitly finished), so the GPS watcher
-kept accepting fixes for 3 hours, including ordinary car-driving speed (any two fixes 1–60 m apart
-are accepted as "moving"). On a Runs-tab mount, `RunRecorder` calls `runEngine.init()`, which loads
-that 3‑hour/60 km snapshot and tries to resume it — and something in that resume path threw.
+The saved activity's moving speed is approximately **9.49 m/s (34.2 km/h)**. Therefore the new
+`> 7 m/s` cold-restore predicate would reject this exact final snapshot if evaluated. It could not
+have prevented the initial 20:56 crash, because that crash occurred as the run started.
 
-That `Preferences` storage is **device-local and independent of the auth session**, so a
-logout/login does nothing to the stuck recording itself — the 3h/60km snapshot was still sitting
-there afterward, which is exactly what the runner then saw once they were back in. It *did* clear
-the crash, though: logout/login is a full page reload, which resets the in-memory `runEngine`
-singleton and re-runs its resume logic from scratch, whereas "Try again" (the error boundary's
-`reset()`) only re-renders the React tree without reloading the page — so it kept hitting whatever
-in-memory state had already broken. That's consistent with a hard reload getting past the crash
-where "Try again" didn't, though the exact throw inside the old resume path wasn't captured (no
-stack trace was available at the time) — precisely the gap the client-error reporting below
-closes going forward.
+## Two coupled failures
 
-This also explained why **Coach** loaded fine: `RunRecorder` only mounts there when the user
-switches to the Coach dashboard's "runs" sub-view (not the default view), so the crashing resume
-path was never triggered on that page.
+### A. The guided-run UI crashed
 
-## Fix
+The exact exception is unknown. The strongest current hypothesis is invalid module-scoped guided
+workout state after repeated step skipping or a component remount:
 
-**1. Guard against resuming an implausible/stale recording** — `src/lib/native/run-engine.ts`
-   - A persisted snapshot is now rejected (cleared instead of resumed) if it's **older than 6
-     hours** (abandoned session) or implies a sustained average moving speed **> 7 m/s (~25 km/h)**
-     — well past any real running pace, which catches exactly this car-while-recording case.
-   - `restoreFrom()` is wrapped in try/catch so any *other* malformed snapshot also clears instead
-     of propagating a throw.
-   - The recorder shows a one-time "we discarded an abandoned recording" notice
-     (`discardedStaleRun` state, new copy in all 3 locales) instead of silently vanishing.
+- `useWorkoutGuidance` stores progress in module-level `sharedProgress`, independent of a specific
+  run session, workout ID, or workout-structure version.
+- It assumes `sharedProgress.current.stepIndex` is valid for the current `steps` array and later
+  reads `steps[stepIndex]!` without a runtime guard.
+- A full page reload resets this module state, matching the observed logout/login recovery.
+- Repeated **Skip step** was the action immediately associated with the report.
 
-**2. Scope the blast radius of any future crash** — `src/components/ui/error-boundary.tsx`
-   - New reusable `ErrorBoundary` class component wraps `<RunRecorder>` in
-     `src/components/coach/coach-runs-panel.tsx`. If the recorder throws for any other reason, only
-     that card shows a fallback (with a "Clear and reload" button that wipes the stuck snapshot),
-     instead of the whole Runs/Coach page dying via the route-level `error.tsx`.
+This is a hypothesis, not a confirmed root cause. Other candidates that must be tested are live
+route/map rendering, per-fix main-thread work, audio/guidance effects, and malformed state emitted
+during navigation.
 
-**3. Client crash reporting to the DB** — so this class of bug is diagnosable without SSH + psql:
-   - New `ClientErrorLog` Prisma model + migration
-     (`prisma/migrations/20260727002829_add_client_error_log`).
-   - `POST /api/client-errors` (`src/app/api/client-errors/route.ts`) — public, rate-limited,
-     fail-soft 204, mirrors the existing `/api/track` analytics-beacon pattern.
-   - `src/lib/client-error-report.ts` — `sendBeacon`-with-`fetch`-fallback reporter, wired into
-     both the route-level `RouteError` boundary and the new `RunRecorder` `ErrorBoundary`, so every
-     crash (page-level or scoped) lands in the table alongside Sentry.
+### B. Recording continued after the UI failed
 
-**4. Admin visibility** — `/admin/errors` (nav: "Client errors")
-   - `src/lib/client-errors.ts` — paginated reader with filters (message/route search, boundary,
-     platform) and stats (total, last 24h, distinct routes).
-   - `src/app/admin/errors/page.tsx` — stat cards, filter bar, per-row stack trace (collapsible),
-     reporter attribution, "Dismiss" (per-row) and confirm-guarded "Clear all", both audit-logged.
+`runEngine` (`src/lib/native/run-engine.ts`) deliberately owns the GPS watcher outside React so a
+run survives ordinary navigation away from Runs. That also means a React crash does not pause or
+stop recording. The engine continued to accept GPS fixes after the page failed, persisted the
+growing snapshot to Capacitor Preferences under `zidrun:active-run`, and eventually recorded the
+runner's car journey.
 
-## Files changed
+The snapshot is device-local and independent of authentication. Logout/login reset the in-memory
+engine and guided state but did not clear the persisted recording. That explains why the runner
+could see the ongoing run after signing back in.
 
+## Assessment of commit `78ce199`
+
+### Improvements worth keeping
+
+- A recorder-scoped React error boundary prevents a synchronous recorder render/lifecycle failure
+  from replacing the whole Runs or Coach page.
+- Implausible cold snapshots such as the final 60.619 km incident snapshot are rejected.
+- `restoreFrom()` has a malformed-snapshot backstop.
+- Client boundary failures are sent to Sentry and the new `ClientErrorLog` endpoint.
+- `/admin/errors` gives administrators a searchable view of captured client failures.
+
+### Gaps that keep the incident open
+
+1. **The guard only runs during cold `init()`.** If the singleton is already in `tracking`, `init()`
+   returns without evaluating staleness or movement plausibility. A warm remount can therefore hit
+   the same broken in-memory state.
+2. **The initial crash is not fixed or reproduced.** It happened in the activity's starting minute,
+   before the three-hour snapshot existed.
+3. **The six-hour rule can delete legitimate ultra recordings.** It compares `Date.now()` with
+   `startTs`, not inactivity, and clears the snapshot without review. ZidRun supports races lasting
+   longer than six hours.
+4. **Recovery does not explicitly stop the native watcher.** The fallback clears Preferences and
+   reloads, but does not await watcher, timer, and step-counter shutdown.
+5. **Snapshots are not scoped to a user.** A second account on the same device can inherit the
+   previous account's unfinished route.
+6. **The discard notice is not immediately dismissible.** `ackDiscardedStaleRun()` mutates engine
+   state without emitting a new state to React.
+7. **A suspect saved activity still counts.** The UI warns that it may not count as a run, but the
+   server stores it normally and includes it in personal records, badges, coach metrics, workout
+   matching/completion, and potentially rankings/social surfaces.
+8. **React error boundaries are not universal.** They do not catch event-handler errors, rejected
+   promises, every asynchronous effect, native crashes, or Android ANRs. Global and native
+   diagnostics remain necessary.
+
+## Immediate remediation
+
+For the affected runner:
+
+1. Export the saved bad activity as GPX and retain a sanitized copy of its DB metadata/route as a
+   regression fixture. Do not commit the runner's real coordinates or identity.
+2. Delete the 60.619 km activity through the existing Runs UI after preserving the fixture. The
+   delete flow also reopens a linked planned workout and clears its completion metadata.
+3. Recompute or refresh any persisted coach snapshot derived after this activity was saved.
+4. Until a hardened build is released, Android Settings → Apps → ZidRun → Storage & cache →
+   **Clear storage** remains the last-resort recovery for an inaccessible local recording. This
+   also removes other device-local app state and must not be presented as the normal remedy.
+
+## Implementation plan
+
+### P0 — Make guided progress session-safe
+
+- Give every recording a unique `runSessionId`.
+- Associate guided state with `runSessionId`, `workoutId`, and a deterministic workout-structure
+  fingerprint.
+- Persist guided progress with the active-run snapshot rather than relying only on anonymous
+  module-level state.
+- Implement step progress as a pure validated transition/reducer.
+- Validate or reset an out-of-range `stepIndex` before every render/effect; remove non-null
+  assertions around the current step.
+- Make rapid repeated Skip actions idempotent and safe when GPS-driven auto-advance occurs in the
+  same render cycle.
+- Reset guidance and audio state on save, discard, crash recovery, logout, workout change, and new
+  session start.
+
+### P0 — Make the run lifecycle fail safe
+
+- Add one awaited `abortAndClear()` operation that stops the GPS watcher, interval timer, step
+  counter, and audio/guidance state before clearing Preferences.
+- Use that operation from recorder crash recovery and confirmed discard.
+- On logout with an active recording, require the runner to choose **Finish**, **Discard**, or
+  **Keep safely paused** before the auth session changes.
+- Store the owning `userId` in the snapshot and refuse to restore it for a different account.
+- Check run safety while live and when the app returns to the foreground, not only on cold restore.
+- For sustained impossible movement, auto-pause and ask the runner what happened. Never silently
+  delete the recording.
+- Remove total elapsed age as an automatic deletion criterion. A long but structurally valid ultra
+  must remain recoverable.
+
+### P1 — Quarantine suspect activities server-side
+
+- Add a persisted activity-validity state such as `VALID`, `SUSPECT`, and `EXCLUDED`, with a
+  machine-readable reason.
+- Classify GPS activities before workout matching and derived-stat updates.
+- Exclude `SUSPECT`/`EXCLUDED` activities from personal records, badges, rankings, social feeds,
+  coach metrics/context, adherence, and automatic workout completion.
+- Let the runner keep the route for review, reclassify it as a non-running activity where
+  supported, or discard it.
+- Align the warning copy with actual behavior; "may not count" must not mean "currently counts
+  everywhere."
+
+### P1 — Improve diagnostics without storing sensitive route data
+
+- Record safe breadcrumbs with a crash: run status, run-session ID, route point count, elapsed and
+  moving seconds, guided step index/count, workout fingerprint, last recorder action, and whether
+  the runtime is native.
+- Never send GPS coordinates, health notes, auth tokens, or the full snapshot to error logs.
+- Add `window.onerror` and `unhandledrejection` reporting in addition to React boundaries.
+- Verify Firebase Crashlytics captures native crashes/ANRs in the signed Android build.
+- Add bounded retention/pruning for `ClientErrorLog` before production approval.
+
+### P2 — Reduce long-run WebView pressure
+
+- Stop copying and fully recomputing the route/splits on every accepted GPS fix.
+- Throttle or incrementally update live splits and map polylines.
+- Avoid animated map recentering on every fix.
+- Avoid serializing the full growing route to Preferences every four seconds; use chunking,
+  incremental persistence, or a native/local database suitable for larger tracks.
+- Measure memory, CPU, battery, and frame responsiveness with 1,500-, 3,000-, and 20,000-point
+  fixtures.
+
+## Reproduction and test plan
+
+Do not reproduce this by driving with a physical phone recording. Use deterministic fixtures and
+Android emulator route playback.
+
+### Automated unit/domain tests
+
+Extract snapshot classification, run-engine transitions, and guidance transitions into pure,
+dependency-injected functions. Cover:
+
+1. Skip once, ten times, and 100 times rapidly.
+2. Skip while a GPS tick satisfies and auto-advances the same step.
+3. Remount during a guided run with the same workout.
+4. Remount with a shorter/different workout or no workout.
+5. Complete, save, discard, crash-recover, and logout after skipped steps.
+6. Restore a sanitized incident fixture: 60.619 km, 3:17:58 elapsed, 1:46:28 moving, with bounded
+   route points.
+7. Restore a valid 8–15 hour ultra; it must not be automatically deleted.
+8. Restore truncated, malformed, future-dated, wrong-user, and unsupported-version snapshots.
+9. Process routes with zero, one, 1,500, 3,000, and 20,000 points.
+10. Fuzz duplicate/reversed timestamps, long GPS gaps, inaccurate fixes, teleport jumps, missing
+    elevation, and extreme but valid coordinates.
+11. Prove a suspect server-side activity cannot update records, badges, coach metrics, workout
+    completion, leaderboards, or the public feed.
+12. Prove `abortAndClear()` stops every native/resource handle before storage is removed.
+
+Add focused tests to the normal CI command. Passing lint, typecheck, build, and unrelated coach
+domain tests is not sufficient evidence for this incident.
+
+### Debug-only deterministic harness
+
+Provide development-only presets that can seed persisted state or an already-live engine:
+
+- normal 5K;
+- the sanitized 60 km incident shape;
+- valid eight-hour ultra;
+- malformed route/snapshot;
+- 3,000-point active route;
+- guided progress with an out-of-range step index;
+- snapshot owned by a different runner.
+
+The harness must be unavailable in production builds and must never include real runner
+coordinates.
+
+### Android emulator/native integration
+
+Use the existing setup in `docs/MOBILE_ANDROID.md` and `docs/EMULATOR_E2E_TEST_PLAN.md`:
+
+```bash
+docker compose up -d postgres
+npm run dev:lan
+CAP_SERVER_URL=http://10.0.2.2:3003 npx cap sync android
+cd android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
-prisma/schema.prisma                                          (+ClientErrorLog model)
+
+Capture WebView/native errors while reproducing:
+
+```bash
+adb logcat -c
+adb logcat | rg -i "chromium|capacitor|AndroidRuntime|error|fatal|exception"
+```
+
+Replay a timestamped walking/running or fast vehicle GPX through Android Emulator → Extended
+Controls → Location → Routes. Exercise this lifecycle matrix:
+
+1. Start a guided workout and rapidly press Skip.
+2. Switch Runs → Coach → Races → Runs repeatedly while tracking.
+3. Background the app, turn the screen off, and return while GPS advances.
+4. Revoke and restore location permission mid-run.
+5. Pause/resume repeatedly and introduce GPS gaps or inaccurate fixes.
+6. Force-stop and relaunch to exercise cold snapshot restoration.
+7. Trigger recorder recovery and verify the foreground GPS notification disappears.
+8. Logout/login as the same runner, then as a different runner.
+9. Save offline, reconnect, and confirm only one activity is created.
+10. Repeat with a long/high-point fixture while monitoring memory:
+
+```bash
+adb shell dumpsys meminfo dz.racedz.app
+```
+
+Run the final matrix on at least one physical Android device because emulator testing does not
+cover OEM background-service limits, real GPS drift, battery optimization, native TTS interaction,
+or WebView/driver-specific failures.
+
+## Release acceptance criteria
+
+This incident can be marked resolved only when all of the following are recorded against the exact
+release commit:
+
+- Rapid Skip and every guided remount scenario complete without a route-level error.
+- A recorder failure leaves Runs usable and offers a recovery action that stops all native work.
+- No GPS watcher survives confirmed discard or logout.
+- A different account cannot inspect or save the previous account's snapshot.
+- Impossible sustained movement pauses safely and cannot contaminate running statistics.
+- A legitimate eight-hour-plus activity remains recoverable.
+- Force-kill, cold restore, navigation, screen-off, background, offline, permission-revocation, and
+  account-switch tests pass.
+- Client errors contain actionable safe state metadata and no precise route/health data.
+- Lint, typecheck, production build, focused run/guidance tests, Playwright coverage, emulator QA,
+  and physical-device QA pass.
+- `PRODUCTION_READINESS.md` gates PR-050 and PR-056 are updated with evidence before rollout.
+
+## Existing mitigation files
+
+Commit `78ce199` changed the following areas. These remain useful, but do not close the plan above:
+
+```text
+prisma/schema.prisma
 prisma/migrations/20260727002829_add_client_error_log/
-src/lib/native/run-engine.ts                                  (resume sanity guard)
-src/components/coach/run-recorder.tsx                         (discardedStaleRun banner)
-src/components/coach/copy.ts                                  (+3 locale keys × 2 usages)
-src/components/coach/coach-runs-panel.tsx                     (ErrorBoundary wrap + fallback)
-src/components/ui/error-boundary.tsx                          (new)
-src/components/ui/route-error.tsx                             (reports to /api/client-errors too)
-src/lib/client-error-report.ts                                (new)
-src/app/api/client-errors/route.ts                             (new)
-src/lib/client-errors.ts                                      (new, admin reader)
-src/app/admin/errors/{page,actions,clear-all-button}.tsx       (new)
-src/components/layout/dashboard-shell.tsx                      (+nav item)
+src/lib/native/run-engine.ts
+src/components/coach/run-recorder.tsx
+src/components/coach/copy.ts
+src/components/coach/coach-runs-panel.tsx
+src/components/ui/error-boundary.tsx
+src/components/ui/route-error.tsx
+src/lib/client-error-report.ts
+src/app/api/client-errors/route.ts
+src/lib/client-errors.ts
+src/app/admin/errors/
+src/components/layout/dashboard-shell.tsx
 ```
 
-## Immediate remedy for the affected user
-
-Android Settings → Apps → ZidRun → Storage & cache → **Clear storage** (not just cache) — wipes
-the stuck `zidrun:active-run` snapshot. No server-side data is affected; the app fix above prevents
-recurrence going forward without needing this manual step.
-
-## Verification
-
-- `npm run typecheck`, `npm run lint` (incl. i18n parity check), `npm run build` all pass.
-- Migration applied cleanly to a local dev DB; `getAdminClientErrors` / stats / boundary-filter
-  queries verified directly.
-- `/admin/errors` driven end-to-end in a real headless-browser session (login → list → expand
-  stack trace → filter by boundary → dismiss a row) — confirmed visually and against the DB.
-
-## Follow-ups (not done, not blocking)
-
-- No retention/prune job for `ClientErrorLog` yet (see comment on the model) — prune manually if it
-  grows large, or add a cron mirroring `scripts/prune-pageviews.ts` later.
-- The dead `recoverTitle`/`recoverText`/`recoverResume`/`recoverDiscard` copy keys in `copy.ts`
-  (unused, likely leftover from an earlier resume-confirmation design) were left untouched — out of
-  scope for this fix.
+At the time of review, `npm run lint`, `npm run typecheck`, `npm run build`, and
+`npm run test:coach` passed. Those checks confirm compilation and unrelated coach behavior; they do
+not reproduce the native incident.
