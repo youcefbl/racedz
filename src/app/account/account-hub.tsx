@@ -29,6 +29,7 @@ import { LogIn, UserPlus } from "lucide-react";
 import { LOCALE_LABELS, LOCALE_NAMES, LOCALES, getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { saveAppearanceAction } from "@/app/account/appearance-actions";
 import { tapHaptic } from "@/lib/native/haptics";
+import { runEngine } from "@/lib/native/run-engine";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
 
@@ -150,6 +151,10 @@ export function AccountHub({ user }: { user: HubUser | null }) {
             type="button"
             disabled={signingOut}
             onClick={() => {
+              const recordingStatus = runEngine.getState().status;
+              if ((recordingStatus === "tracking" || recordingStatus === "paused") && !window.confirm(t.signOutActiveRecordingConfirm)) {
+                return;
+              }
               tapHaptic("medium");
               startSignOut(() => {
                 // Full navigation so the server-rendered header (root layout) resets to

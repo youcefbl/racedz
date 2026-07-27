@@ -51,6 +51,11 @@ export type CoachRun = {
   symptoms: string | null;
   notes: string | null;
   photos: string[] | null;
+  // Server-side classification (see RunValidity in the Prisma schema): VALID is the default;
+  // SUSPECT/EXCLUDED activities were saved but never fed personal records, badges, coach
+  // metrics/context, or workout completion.
+  validity?: "VALID" | "SUSPECT" | "EXCLUDED";
+  validityReason?: string | null;
 };
 
 export type RunRoutePoint = {

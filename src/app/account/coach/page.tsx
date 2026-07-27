@@ -29,6 +29,6 @@ export default async function CoachPage({ searchParams }: { searchParams?: Promi
   ]);
   const initialData = JSON.parse(JSON.stringify(dashboard)) as CoachDashboardData;
 
-  return <CoachDashboard initialData={initialData} locale={locale} profileGaps={profileGaps} />;
+  return <CoachDashboard initialData={initialData} locale={locale} profileGaps={profileGaps} userId={session.user.id} />;
 }
 

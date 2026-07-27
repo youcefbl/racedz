@@ -322,6 +322,9 @@ model ClientErrorLog {
   boundary  String? // which boundary caught it, e.g. "RunRecorder" — null for the route-level one
   platform  String? // web | android (Capacitor native app)
   userAgent String?
+  // Safe, non-PII breadcrumbs at crash time (e.g. run status, point count, elapsed/moving
+  // seconds, guided step index/total) — never GPS coordinates, health notes, or tokens.
+  context   Json?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
@@ -591,6 +594,10 @@ model RunnerRun {
   notes                   String?
   photos                  Json?
   source                  RunnerRunSource @default(MANUAL)
+  // Set once at save time for GPS runs (see RunValidity); MANUAL/IMPORTED entries are never
+  // auto-classified, so a data-entry typo doesn't get flagged the way a real car drive would.
+  validity                RunValidity     @default(VALID)
+  validityReason          String?
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
@@ -990,6 +997,18 @@ enum WorkoutMatchSource {
   EXPLICIT
   AUTO
   RUNNER_CONFIRMED
+}
+
+// Server-side classification of a GPS-recorded activity, checked once at save time
+// (createRunnerRun) from distance/moving-time/cadence — the same signal the client already
+// warns with (detectNonFootActivity), now enforced rather than advisory. VALID activities are
+// the default and the only ones that feed personal records, badges, coach metrics/context, and
+// automatic workout completion. SUSPECT/EXCLUDED runs remain visible to their owner (with a
+// reason) and stay deletable, but never silently count toward stats or plan adherence.
+enum RunValidity {
+  VALID
+  SUSPECT // moving fast with an implausibly low step cadence — less certain than pure speed
+  EXCLUDED // pace alone is faster than any human can run on foot — unambiguous
 }
 
 enum CoachInteractionType {

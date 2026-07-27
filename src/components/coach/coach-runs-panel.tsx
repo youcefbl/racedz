@@ -16,12 +16,16 @@ import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch, RunRoutePoi
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
-import { clearActiveRun } from "@/lib/native/run-store";
+import { getRunBreadcrumb } from "@/lib/native/crash-breadcrumb";
+import { runEngine } from "@/lib/native/run-engine";
 import { cn } from "@/lib/utils";
 
 // Fallback for the recorder's error boundary. A stuck/corrupt in-progress-run snapshot is the
 // known way this can crash (see run-engine.ts's own resume guard) — offer the same remedy
-// directly instead of leaving the runner stuck on a broken card with no way out.
+// directly instead of leaving the runner stuck on a broken card with no way out. Uses
+// abortAndClear() rather than just wiping storage: the GPS watcher is a native plugin (a real
+// Android foreground service) that outlives a WebView reload, so it must be explicitly stopped
+// first or it keeps running orphaned after "recovery".
 function RecorderCrashFallback({ copy }: { copy: CoachCopy }) {
   return (
     <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-center">
@@ -32,7 +36,7 @@ function RecorderCrashFallback({ copy }: { copy: CoachCopy }) {
         size="sm"
         className="mt-3"
         onClick={() => {
-          void clearActiveRun().finally(() => window.location.reload());
+          void runEngine.abortAndClear().finally(() => window.location.reload());
         }}
       >
         {copy.recorderCrashReset}
@@ -56,7 +60,8 @@ export function CoachRunsPanel({
   recentPaceSecondsPerKm,
   initialWorkoutId,
   onInitialWorkoutConsumed,
-  afterRecorder
+  afterRecorder,
+  userId
 }: {
   runs: CoachRun[];
   plan: CoachPlan | null;
@@ -68,6 +73,7 @@ export function CoachRunsPanel({
   /** runId → id of the existing POST_RUN analysis, when the run has already been analyzed. */
   analyzedRuns?: Record<string, string>;
   onViewAnalysis?: (interactionId: string) => void;
+  userId: string;
   /** Runner's weight, forwarded to the recorder for a live calorie estimate. */
   weightKg?: number | null;
   /** Next planned workout, offered as a guided (structured) session in the recorder. */
@@ -310,8 +316,22 @@ export function CoachRunsPanel({
       {/* GPS run recorder — the record hero; renders only inside the phone app.
           Scoped error boundary: a bad locally-persisted in-progress-run snapshot must
           only break this card, not the whole Runs/Coach page. */}
-      <ErrorBoundary boundary="RunRecorder" fallback={<RecorderCrashFallback copy={copy} />}>
-        <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} />
+      <ErrorBoundary
+        boundary="RunRecorder"
+        fallback={<RecorderCrashFallback copy={copy} />}
+        getBreadcrumb={() => {
+          const state = runEngine.getState();
+          return {
+            ...getRunBreadcrumb(),
+            runStatus: state.status,
+            pointCount: state.pointCount,
+            elapsedSec: state.elapsedSec,
+            movingSec: state.movingSec,
+            errorCode: state.errorCode
+          };
+        }}
+      >
+        <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} userId={userId} />
       </ErrorBoundary>
       {afterRecorder}
 
@@ -513,12 +533,16 @@ const RunRow = memo(function RunRow({
   // Prefer the full route once it arrives; the preview keeps the map drawn in the meantime.
   const detailRoute = fullRoute ?? run.route;
   const photos = photoOverride ?? run.photos ?? [];
-  // Runs that look recorded on wheels/a motor rather than on foot (see motion-check).
+  // Runs that look recorded on wheels/a motor rather than on foot (see motion-check). The server
+  // classifies GPS runs at save time (run.validity) and that's authoritative — it's what's
+  // actually excluded from stats/coach — but older rows predate that migration, so the same
+  // client-side heuristic is kept as a fallback signal for those.
   const nonFoot = detectNonFootActivity({
     distanceKm: run.distanceKm,
     movingSeconds: run.movingTimeSeconds ?? run.durationSeconds,
     avgCadence: run.avgCadence
   });
+  const excludedFromStats = run.validity === "SUSPECT" || run.validity === "EXCLUDED";
   return (
     <article className={cn("overflow-hidden rounded-xl border bg-white shadow-sm transition-colors", isOpen ? "border-brand-teal" : "border-gray-200")}>
       <div className="p-4">
@@ -560,10 +584,13 @@ const RunRow = memo(function RunRow({
           <RunChip icon={Activity} label={`${copy.effort} ${run.perceivedEffort}/10`} />
         </div>
 
-        {nonFoot ? (
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800" title={nonFoot === "speed" ? copy.nonFootWarnSpeed : copy.nonFootWarnCadence}>
+        {excludedFromStats || nonFoot ? (
+          <p
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800"
+            title={nonFoot === "speed" ? copy.nonFootWarnSpeed : nonFoot === "cadence" ? copy.nonFootWarnCadence : copy.excludedFromStatsHint}
+          >
             <AlertTriangle className="size-3.5 shrink-0 text-amber-600" aria-hidden="true" />
-            {copy.nonFootBadge}
+            {excludedFromStats ? copy.excludedFromStatsBadge : copy.nonFootBadge}
           </p>
         ) : null}
 

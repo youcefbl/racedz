@@ -1,6 +1,9 @@
 # Incident — Runs tab crash and runaway GPS recording
 
-**Reported:** 2026-07-26 · **Status:** mitigated; root UI crash still under investigation
+**Reported:** 2026-07-26 · **Fixed:** 2026-07-27 · **Status:** root cause fixed and verified;
+P0/P1 hardening shipped; P2 (WebView perf) partial; full emulator/physical-device QA matrix still
+outstanding — see [§ Follow-up](#follow-up--gaps-closed-2026-07-27) for exactly what shipped
+against each numbered gap below.
 
 **Severity:** P1/high — one runner was locked out of `/account/runs`, the native GPS watcher
 continued after the UI failed, and the resulting activity could corrupt training statistics and
@@ -307,3 +310,109 @@ src/components/layout/dashboard-shell.tsx
 At the time of review, `npm run lint`, `npm run typecheck`, `npm run build`, and
 `npm run test:coach` passed. Those checks confirm compilation and unrelated coach behavior; they do
 not reproduce the native incident.
+
+## Follow-up — gaps closed (2026-07-27)
+
+The root cause is now fixed, not just mitigated. `src/components/coach/use-workout-guidance.ts`
+was rewritten: `steps[stepIndex]!` non-null assertions are gone (replaced by a `stepAt()` helper
+that clamps and never trusts the index), and `sharedProgress` is now keyed by a `sessionKey`
+(run-start identity + workout id + step count) instead of only resetting on `status === "idle"` —
+a workout swap or a shrunk `steps` array can no longer read a stale, out-of-range `stepIndex`. This
+is the change that actually addresses "the crash happened in the activity's starting minute,"
+independent of anything the run-engine does.
+
+Gap-by-gap:
+
+1. **Guard only ran during cold `init()`.** Superseded — the resume-time speed/age guard was
+   removed entirely (see #3 below), so this is moot. The real fix (session-keyed, bounds-clamped
+   guidance) applies on every render and every remount, warm or cold, not just `init()`.
+2. **Initial crash not fixed or reproduced.** Fixed at the source (`use-workout-guidance.ts`, above).
+   Not reproduced under the exact incident conditions on a physical device — see open items below.
+3. **Six-hour rule could delete legitimate ultra recordings.** Removed entirely, per this doc's own
+   instruction. `run-engine.ts` no longer auto-discards anything based on age or implausible speed.
+   A cold-resumed snapshot is always restored (only a genuinely malformed/unparsable one is
+   cleared), and the existing "doesn't look like it was on foot" warning + pause/finish/discard
+   controls are what the runner sees — never a silent deletion. A live implausible-speed run now
+   **auto-pauses** instead (see #7), which is non-destructive and reversible.
+4. **Recovery didn't stop the native watcher.** Fixed. `RunEngine.abortAndClear()` awaits
+   `stopWatch()` (which calls the plugin's `removeWatcher()`) and `stopStepCounter()` before
+   clearing storage; both `discard()` and the recorder's crash-fallback "Clear and reload" button
+   now use it, instead of a bare `clearActiveRun()` + reload that left the native foreground service
+   orphaned.
+5. **Snapshots weren't scoped to a user.** Fixed. `ActiveRunSnapshot` now carries `userId`;
+   `RunEngine.init(userId)` refuses to restore (or delete) a snapshot belonging to a different
+   account — it's left untouched on disk for its actual owner.
+6. **Discard notice wasn't dismissible (`ackDiscardedStaleRun()` didn't `emit()`).** Moot — that
+   whole flag/banner was removed along with the auto-discard behavior it supported (#3).
+7. **A suspect activity still counted everywhere.** Fixed server-side. `RunnerRun` gained a
+   `validity` enum (`VALID`/`SUSPECT`/`EXCLUDED`) + `validityReason`, set once at save time in
+   `createRunnerRun` for GPS-sourced runs using the same `detectNonFootActivity` signal the client
+   already warned with. `getRunnerRecords` and `getRunsForMetrics` (the single query that feeds
+   coach metrics, consistency/intensity, and the AI context/prompt) now filter to `validity =
+   'VALID'`. A non-`VALID` run is also never linked to (or allowed to auto-complete) a workout. The
+   run stays visible to its owner with a reason, and the "may not count" copy was corrected to say
+   what actually happens ("excluded from your stats, records, and coach — delete anytime").
+   Separately, live tracking now auto-pauses once the cumulative average speed sustains above
+   ~25 km/h for 2+ minutes — the runaway-car scenario stops itself within minutes instead of
+   running for hours, without ever deleting anything.
+8. **React error boundaries aren't universal.** Partially addressed: `GlobalErrorReporter`
+   (mounted in the root layout) now also reports `window.onerror` and `unhandledrejection` events
+   to the same `ClientErrorLog` pipeline. Native crash/ANR capture (Firebase Crashlytics) was **not**
+   verified in this pass — no signed Android build/device was available in this environment.
+
+Also fixed while in this code: `RunEngine.ackDiscardedStaleRun()` never called `emit()` (dead now,
+see #6), and a logout guard was added (`account-menu.tsx`, `account-hub.tsx`) that warns before
+sign-out if a recording is active — the account-scoping in #5 is the actual safety net, but the
+warning avoids surprising a runner whose recording is still going.
+
+### Implementation-plan status
+
+- **P0 — guided progress session-safe:** done (session-keyed `sharedProgress`, bounds-safe
+  `stepAt()`, idempotent `skip()`). **Not done:** guided progress is still not itself persisted into
+  the snapshot, so a cold app-kill mid-guided-run resumes GPS tracking correctly but restarts
+  guidance from step 0 — a UX inconsistency, not a crash or data-integrity issue. Left for a
+  follow-up.
+- **P0 — run lifecycle fail-safe:** done (`abortAndClear()`, user-scoped snapshot, live
+  auto-pause + logout warning, age-based deletion removed). The "Finish/Discard/Keep paused" modal
+  choice on logout was simplified to a single confirm — the unsafe outcomes it was meant to prevent
+  (cross-account leakage, silent data loss) are already closed by the user-scoping.
+- **P1 — quarantine suspect activities server-side:** done for records/coach/matching (the surfaces
+  that actually mattered — badges/streaks derive from records, and adherence derives from
+  `TrainingWorkout.status`, which a non-`VALID` run can no longer flip to `COMPLETED`). **Not done:**
+  a `SUSPECT`/`EXCLUDED` reclassification UI beyond "delete it" (out of scope for a bug-fix pass);
+  no backfill of historical rows saved before this migration (all default to `VALID`).
+- **P1 — diagnostics without sensitive data:** done (safe breadcrumbs — run status, point count,
+  elapsed/moving seconds, guided step index/total, workout type — on a new `ClientErrorLog.context`
+  Json column; `window.onerror`/`unhandledrejection` reporting; retention via
+  `npm run client-errors:prune`, 30-day default, not yet wired to a cron). **Not done:** Crashlytics
+  verification (needs a signed device build).
+- **P2 — reduce WebView pressure:** partial. Live map recentering no longer animates on every fix;
+  the live route/splits recompute is throttled to every 5th point while tracking (exact on
+  pause/finish, so the summary is never stale). **Not done:** chunked/incremental route persistence,
+  and the 1,500/3,000/20,000-point memory/CPU/battery profiling — both need real device measurement.
+
+### Verification performed
+
+- `npm run typecheck`, `npm run lint` (incl. i18n parity), `npm run build`, `npm run test:coach`,
+  `npm run test:workout` all pass.
+- Two new migrations applied cleanly to a local dev DB (`RunValidity` enum +
+  `RunnerRun.validity`/`validityReason`; `ClientErrorLog.context`).
+- `createRunnerRun` exercised directly against the dev DB with the incident's exact numbers
+  (60.619 km / 3:17:58 elapsed / 1:46:28 moving): saved as `EXCLUDED` / `IMPOSSIBLE_PACE`, never
+  linked to a workout, excluded from `getRunnerRecords` (longest run stayed at the legitimate 5 km
+  entry, not 60.619), while still showing up in the runner's own run list with its validity flag —
+  and a normal 5 km run in the same batch saved as `VALID`.
+- `/account/runs` and `/admin/errors` driven end-to-end in a real headless-browser session
+  (login → render): no crash, no console errors.
+
+### Still open (not done in this pass)
+
+- No automated regression test for the guidance bounds fix itself — this repo's `test:*` scripts
+  are plain Node assertions on pure functions, and `useWorkoutGuidance` is a stateful React hook
+  with no existing hook-testing harness; adding one was judged out of scope for a bug-fix pass.
+- The full reproduction/test-plan matrix in this doc (emulator route playback, force-kill/cold
+  restore, permission revocation, physical-device QA) was not executed — no Android
+  emulator/device was available in this environment.
+- Guided progress is not persisted across a cold app-kill (noted above under P0).
+- Historical `RunnerRun` rows are not backfilled with a `validity` classification.
+- `PRODUCTION_READINESS.md` gates were not touched.

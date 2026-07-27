@@ -22,6 +22,7 @@ import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } fro
 import { announceComplete, announceStep, countdownTick, primeCues } from "@/lib/native/cues";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
 import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
+import { setRunBreadcrumb } from "@/lib/native/crash-breadcrumb";
 import { runEngine, type RunEngineState } from "@/lib/native/run-engine";
 import type { CoachLocale, CoachRun } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,8 @@ export function RunRecorder({
   onSaved,
   weightKg,
   guidedWorkout,
-  recentPaceSecondsPerKm
+  recentPaceSecondsPerKm,
+  userId
 }: {
   locale: CoachLocale;
   copy: CoachCopy;
@@ -67,6 +69,10 @@ export function RunRecorder({
   // Runner's 28-day average pace, used by the audio coach's pace-guidance bands. Optional —
   // without it, pace cues simply stay silent (effort-language cues still fire).
   recentPaceSecondsPerKm?: number | null;
+  // Current signed-in account. Stamped onto the persisted in-progress-run snapshot so a
+  // different account signing in on the same device never inherits (or silently clears)
+  // someone else's recording.
+  userId: string;
 }) {
   const [native, setNative] = useState(false);
   const [state, setState] = useState<RunEngineState>(() => runEngine.getState());
@@ -98,16 +104,33 @@ export function RunRecorder({
   const activeStructure = librarySession?.structure ?? structure;
   const guidedSteps = useMemo(() => (activeStructure ? flattenStructure(activeStructure) : []), [activeStructure]);
 
+  // Identifies "this run + this workout" so guidance progress resets cleanly on a new run or a
+  // swapped workout instead of reusing a stale stepIndex from a previous session (run-start
+  // identity via the engine's startTs, since a fresh run always gets a new one).
+  const guidanceSessionKey = `${state.startTs}:${librarySession?.workoutType ?? guidedWorkout?.id ?? "none"}:${guidedSteps.length}`;
+
   const guidance = useWorkoutGuidance(
     guidedSteps,
     { status: state.status, elapsedSec: state.elapsedSec, distanceM: state.distanceM },
     {
       enabled: guidedActive && guidedSteps.length > 0,
+      sessionKey: guidanceSessionKey,
       onAdvance: (step) => announceStep(step, locale),
       onComplete: () => announceComplete(locale),
       onCountdown: (secondsLeft) => countdownTick(secondsLeft)
     }
   );
+
+  // Keep a safe, non-PII snapshot available for the recorder's error boundary — never GPS
+  // coordinates, just enough to tell what was happening if a crash is reported.
+  useEffect(() => {
+    setRunBreadcrumb({
+      guidedActive,
+      guidedStepIndex: guidance.stepIndex,
+      guidedStepTotal: guidance.total,
+      guidedWorkoutType: librarySession?.workoutType ?? guidedWorkout?.workoutType ?? null
+    });
+  }, [guidedActive, guidance.stepIndex, guidance.total, librarySession, guidedWorkout]);
 
   // Profile commentary on top of the step announcements: splits, pace guidance, check-ins, and
   // milestones, chosen by the workout's type (a recovery jog is coached differently from intervals).
@@ -130,11 +153,12 @@ export function RunRecorder({
   useEffect(() => {
     if (!isNativeRuntime()) return;
     const unsubscribe = runEngine.subscribe(() => setState(runEngine.getState()));
-    void runEngine.init();
+    void runEngine.init(userId);
     // Apply the stored voice-guidance preferences even when remounting into a live run
     // (the settings block that also loads them only renders while idle).
     void loadAudioPrefs();
     return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const status = state.status;
@@ -312,13 +336,19 @@ export function RunRecorder({
     }
   }
 
-  // New array identity whenever a GPS point is added, so the live map redraws.
+  // New array identity whenever a GPS point is added, so the live map/splits redraw. While
+  // actively tracking, this is throttled to every 5th point (~25m at the 5m distance filter) —
+  // copying and recomputing the whole route on literally every fix was real, measured WebView
+  // pressure on a long run (a several-hour recording redoing this work every few seconds for its
+  // entire duration). The moment tracking stops (paused/finished), the exact point count is used
+  // so the summary/paused view is never stale.
+  const pointDep = status === "tracking" ? Math.floor(state.pointCount / 5) : state.pointCount;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const trackPoints = useMemo(() => runEngine.getRoute().slice(), [state.pointCount, state.status]);
+  const trackPoints = useMemo(() => runEngine.getRoute().slice(), [pointDep, state.status]);
 
-  // Live per-km splits, recomputed only when a new GPS point lands (not on every tick).
+  // Live per-km splits, recomputed on the same cadence as trackPoints (not on every tick).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const liveSplits = useMemo(() => computeSplits(trackPoints), [state.pointCount, state.status]);
+  const liveSplits = useMemo(() => computeSplits(trackPoints), [pointDep, state.status]);
 
   // GPS run recording is phone-only.
   if (!native) return null;
@@ -377,14 +407,6 @@ export function RunRecorder({
         {savedOffline ? (
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
             {copy.savedOffline}
-          </div>
-        ) : null}
-        {state.discardedStaleRun ? (
-          <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-            <span>{copy.discardedStaleRun}</span>
-            <button type="button" onClick={() => runEngine.ackDiscardedStaleRun()} aria-label={copy.dismiss} className="shrink-0 font-black">
-              ×
-            </button>
           </div>
         ) : null}
         {saved ? (

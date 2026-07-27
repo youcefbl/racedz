@@ -123,6 +123,14 @@ function ClientErrorCard({ row }: { row: AdminClientErrorRow }) {
               <pre className="mt-1.5 max-h-64 overflow-auto rounded-md bg-gray-50 p-2 text-[11px] leading-5 text-gray-700">{row.stack}</pre>
             </details>
           ) : null}
+          {row.context && Object.keys(row.context).length > 0 ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-bold text-brand-teal">Breadcrumb context</summary>
+              <pre className="mt-1.5 max-h-64 overflow-auto rounded-md bg-gray-50 p-2 text-[11px] leading-5 text-gray-700">
+                {JSON.stringify(row.context, null, 2)}
+              </pre>
+            </details>
+          ) : null}
           {row.userAgent ? <p className="mt-1.5 truncate text-[11px] text-gray-400">{row.userAgent}</p> : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">

@@ -32,6 +32,7 @@ export default async function RunsPage({ searchParams }: { searchParams?: Promis
       guidedWorkout={todayWorkout}
       recentPaceSecondsPerKm={recentPaceSecondsPerKm}
       locale={locale}
+      userId={session.user.id}
     />
   );
 }

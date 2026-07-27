@@ -8,6 +8,9 @@ const KEY = "zidrun:active-run";
 
 export type ActiveRunSnapshot = {
   v: 1;
+  // Owning account, so a different user logging in on the same device is never offered
+  // (or able to silently inherit) someone else's in-progress recording.
+  userId: string;
   status: "tracking" | "paused";
   startTs: number;
   pausedAccum: number;

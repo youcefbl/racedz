@@ -25,11 +25,13 @@ type CoachView = "overview" | "plan" | "runs" | "sleep" | "coach";
 export function CoachDashboard({
   initialData,
   locale,
-  profileGaps
+  profileGaps,
+  userId
 }: {
   initialData: CoachDashboardData;
   locale: CoachLocale;
   profileGaps?: { sex: boolean; birthDate: boolean };
+  userId: string;
 }) {
   const [dashboard, setDashboard] = useState(initialData);
   const [view, setView] = useState<CoachView>("overview");
@@ -365,6 +367,7 @@ export function CoachDashboard({
             locale={locale}
             copy={copy}
             pendingAction={pendingAction}
+            userId={userId}
             onSaved={async (runId, analyze) => {
               await refresh();
               if (analyze) await runInteraction("POST_RUN", { runId });

@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { useMenuKeyboard } from "@/components/layout/use-menu-keyboard";
 import { toast } from "@/components/ui/toast";
 import { getDictionary, withLocale, type Locale } from "@/lib/i18n";
+import { runEngine } from "@/lib/native/run-engine";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/race";
 
@@ -53,6 +54,14 @@ export function AccountMenu({ user, locale = "en" }: { user: HeaderUser; locale?
   function handleSignOut() {
     if (!confirmingSignOut) {
       setConfirmingSignOut(true);
+      return;
+    }
+    // A live/paused GPS recording is device-local storage independent of the session — it
+    // survives logout untouched, but the runner should get the chance to finish or discard it
+    // first rather than be surprised it's still going when they sign back in.
+    const recordingStatus = runEngine.getState().status;
+    if ((recordingStatus === "tracking" || recordingStatus === "paused") && !window.confirm(t.signOutActiveRecordingConfirm)) {
+      setConfirmingSignOut(false);
       return;
     }
     startSignOut(() => {

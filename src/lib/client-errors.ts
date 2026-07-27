@@ -18,6 +18,7 @@ export type AdminClientErrorRow = {
   userAgent: string | null;
   userName: string | null;
   userEmail: string | null;
+  context: Record<string, unknown> | null;
 };
 
 export async function getAdminClientErrors(
@@ -65,7 +66,8 @@ export async function getAdminClientErrors(
       platform: row.platform,
       userAgent: row.userAgent,
       userName: user ? `${user.firstName} ${user.lastName}` : null,
-      userEmail: user?.email ?? null
+      userEmail: user?.email ?? null,
+      context: (row.context as Record<string, unknown> | null) ?? null
     };
   });
 
@@ -101,4 +103,13 @@ export async function deleteClientError(id: string): Promise<void> {
 
 export async function clearAllClientErrors(): Promise<void> {
   await getPrisma().clientErrorLog.deleteMany({});
+}
+
+export const CLIENT_ERROR_RETENTION_DAYS = 30;
+
+/** Delete crash reports older than the retention window. Used by scripts/prune-client-errors.ts. */
+export async function pruneClientErrors(retentionDays: number = CLIENT_ERROR_RETENTION_DAYS) {
+  const cutoff = new Date(Date.now() - retentionDays * 86_400_000);
+  const result = await getPrisma().clientErrorLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+  return { deleted: result.count, cutoff, retentionDays };
 }

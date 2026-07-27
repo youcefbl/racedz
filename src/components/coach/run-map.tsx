@@ -48,7 +48,10 @@ export function RunMap({
     else endRef.current = L.circleMarker(last, { radius: 6, color: "#fff", weight: 2, fillColor: "#F47A20", fillOpacity: 1 }).addTo(map);
 
     if (liveRef.current) {
-      map.setView(last, Math.max(map.getZoom() ?? 0, 16), { animate: true });
+      // No animation: this redraws on every accepted GPS fix for the whole run duration, and
+      // tweening the recenter that often was measurable WebView/CPU pressure on a long run for
+      // no visible benefit (the map still follows the runner — it just snaps instead of easing).
+      map.setView(last, Math.max(map.getZoom() ?? 0, 16), { animate: false });
     } else if (latlngs.length > 1) {
       map.fitBounds(lineRef.current.getBounds(), { padding: [24, 24] });
     } else {

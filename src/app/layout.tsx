@@ -7,6 +7,7 @@ import "@fontsource-variable/manrope/wght.css";
 // spacing/color, not extra fonts or heavy weights. (Logo wordmark is vector art.)
 // It is packaged locally so production and CI builds never depend on Google Fonts.
 import { AnalyticsTracker } from "@/components/analytics/analytics-tracker";
+import { GlobalErrorReporter } from "@/components/global-error-reporter";
 import { AppearanceSync } from "@/components/layout/appearance-sync";
 import { CookieConsent } from "@/components/layout/cookie-consent";
 import { GpsScrollTrailGate } from "@/components/layout/gps-scroll-trail-gate";
@@ -82,6 +83,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <AnalyticsTracker />
         </Suspense>
+        <GlobalErrorReporter />
         <Suspense fallback={null}>
           <SiteHeader />
         </Suspense>

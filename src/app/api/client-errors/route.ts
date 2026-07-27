@@ -15,7 +15,10 @@ const bodySchema = z.object({
   digest: z.string().max(200).optional(),
   route: z.string().min(1).max(2048),
   boundary: z.string().max(200).optional(),
-  platform: z.enum(["web", "android"]).optional()
+  platform: z.enum(["web", "android"]).optional(),
+  // Safe, non-PII breadcrumbs (run status, point count, step index, ...) — primitives only, so
+  // there's no way to smuggle nested route/coordinate data through this field.
+  context: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional()
 });
 
 const noContent = () => new NextResponse(null, { status: 204 });
@@ -52,7 +55,10 @@ export async function POST(request: NextRequest) {
         route: parsed.route,
         boundary: parsed.boundary,
         platform: parsed.platform,
-        userAgent: request.headers.get("user-agent")
+        userAgent: request.headers.get("user-agent"),
+        // Cap the serialized size defensively — this is typed to primitives only, but a caller
+        // could still stuff in enough keys/strings to bloat a row.
+        context: parsed.context && JSON.stringify(parsed.context).length <= 4000 ? parsed.context : undefined
       }
     });
   } catch (error) {

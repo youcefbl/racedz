@@ -5,7 +5,14 @@ import { Capacitor } from "@capacitor/core";
 // Best-effort crash beacon: mirrors the analytics tracker's sendBeacon-with-fetch-fallback
 // pattern, since this fires from error boundaries — the page may already be in a broken
 // state, so this must never throw and never depend on anything that could itself fail.
-export function reportClientError(input: { error: Error & { digest?: string }; route: string; boundary?: string }) {
+export function reportClientError(input: {
+  error: Error & { digest?: string };
+  route: string;
+  boundary?: string;
+  // Safe, non-PII breadcrumbs (run status, point count, step index, ...) — callers must never
+  // pass GPS coordinates, notes, or anything else that could identify where the runner was.
+  context?: Record<string, unknown>;
+}) {
   try {
     const payload = JSON.stringify({
       message: input.error.message?.slice(0, 2000) || "Unknown error",
@@ -13,6 +20,7 @@ export function reportClientError(input: { error: Error & { digest?: string }; r
       digest: input.error.digest,
       route: input.route,
       boundary: input.boundary,
+      context: input.context,
       platform: Capacitor.isNativePlatform() ? "android" : "web"
     });
 

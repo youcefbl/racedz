@@ -25,7 +25,8 @@ export function RunsView({
   badges = [],
   guidedWorkout = null,
   recentPaceSecondsPerKm = null,
-  locale
+  locale,
+  userId
 }: {
   initialRuns: CoachRun[];
   analyzedRuns?: Record<string, string>;
@@ -35,6 +36,7 @@ export function RunsView({
   guidedWorkout?: GuidedWorkout | null;
   recentPaceSecondsPerKm?: number | null;
   locale: CoachLocale;
+  userId: string;
 }) {
   const router = useRouter();
   const copy = getCoachCopy(locale);
@@ -100,6 +102,7 @@ export function RunsView({
         locale={locale}
         copy={copy}
         pendingAction={pendingAction}
+        userId={userId}
         weightKg={weightKg}
         guidedWorkout={guidedWorkout}
         recentPaceSecondsPerKm={recentPaceSecondsPerKm}

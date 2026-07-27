@@ -20,24 +20,24 @@ const SNAPSHOT_INTERVAL_MS = 4000;
 // Ignore the gap between two fixes when summing moving time if it's this long —
 // it usually means GPS was lost, not that the runner was moving the whole time.
 const MAX_MOVING_GAP_S = 15;
-// A snapshot older than this was abandoned (app backgrounded/killed mid-run and never
-// finished) rather than a real single session — resuming it is more confusing than useful.
-const MAX_RESUMABLE_SESSION_MS = 6 * 60 * 60 * 1000;
-// Sustained average speed above this (well past any real running pace) means the GPS kept
-// tracking through something other than a foot run — e.g. driving — while the app sat open
-// in the background. Resuming that snapshot is what previously crashed the Runs tab.
+// Sustained average speed above this (well past any real running pace, ~25 km/h) means the
+// fixes weren't footsteps — e.g. driving while the recorder was left running. Checked
+// continuously while tracking (not just on cold resume): once the cumulative average crosses
+// this, the run auto-pauses instead of silently accumulating implausible distance for hours.
+// It is NEVER used to auto-discard a snapshot — a long but structurally valid ultra (this app
+// has an ULTRA_TRAIL race category) must stay recoverable, and the runner always gets to see
+// and decide via the existing "this doesn't look like it was on foot" warning + pause/finish/
+// discard controls, never a silent deletion.
 const MAX_PLAUSIBLE_AVG_SPEED_MPS = 7;
-
-// Whether a persisted snapshot is safe to offer back to the user as "resume this run".
-function isResumableSnapshot(snapshot: ActiveRunSnapshot): boolean {
-  if (Date.now() - snapshot.startTs > MAX_RESUMABLE_SESSION_MS) return false;
-  const avgSpeedMps = snapshot.movingSec > 0 ? snapshot.distanceM / snapshot.movingSec : 0;
-  if (avgSpeedMps > MAX_PLAUSIBLE_AVG_SPEED_MPS) return false;
-  return true;
-}
+// Only evaluate the speed check once there's enough moving time that a couple of noisy GPS
+// fixes near the start can't dominate the average (avoids false-triggering on a fast start).
+const MIN_MOVING_SEC_FOR_SPEED_CHECK = 120;
 
 export type RunEngineState = {
   status: RunStatus;
+  // 0 when idle. Doubles as a stable identity for the current run session (e.g. so guided-
+  // workout progress can tell "a new run started" apart from "the same run resumed").
+  startTs: number;
   distanceM: number;
   elapsedSec: number;
   movingSec: number;
@@ -51,9 +51,6 @@ export type RunEngineState = {
   description: string;
   avgCadence: number | null;
   errorCode: RunErrorCode;
-  // Set for one emit when init() discarded a stale/implausible snapshot instead of
-  // resuming it, so the recorder can tell the runner why there's nothing to resume.
-  discardedStaleRun: boolean;
 };
 
 export type RunSavePayload = {
@@ -93,7 +90,9 @@ class RunEngine {
   private avgCadence: number | null = null;
   private cadenceTracking = false;
   private errorCode: RunErrorCode = null;
-  private discardedStaleRun = false;
+  // Set once init() knows who's logged in; stamped onto every persisted snapshot so a
+  // different account on the same device is never offered someone else's recording.
+  private userId: string | null = null;
 
   private watcherId: string | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -125,6 +124,7 @@ class RunEngine {
   getState(): RunEngineState {
     return {
       status: this.status,
+      startTs: this.startTs,
       distanceM: this.distance,
       elapsedSec: this.elapsedSec,
       movingSec: Math.round(this.moving),
@@ -137,15 +137,8 @@ class RunEngine {
       title: this.title,
       description: this.description,
       avgCadence: this.avgCadence,
-      errorCode: this.errorCode,
-      discardedStaleRun: this.discardedStaleRun
+      errorCode: this.errorCode
     };
-  }
-
-  // Call once the recorder has shown the "discarded a stale run" notice, so it doesn't
-  // reappear on the next unrelated state change.
-  ackDiscardedStaleRun() {
-    this.discardedStaleRun = false;
   }
 
   // Same array reference across calls; slice it in the component keyed on pointCount.
@@ -153,11 +146,15 @@ class RunEngine {
     return this.route;
   }
 
-  // Called when the recorder mounts. If a run is already live in memory (e.g. the user
-  // navigated away and back) this is a no-op beyond re-notifying. On a cold start it
-  // restores a persisted run as *paused* so the user can resume or save it — recording
-  // never silently restarts without the GPS watcher the user can see.
-  async init() {
+  // Called when the recorder mounts, with the currently-authenticated user. If a run is
+  // already live in memory (e.g. the user navigated away and back) this is a no-op beyond
+  // re-notifying. On a cold start it restores a persisted run as *paused* so the user can
+  // resume, finish, or discard it — recording never silently restarts without the GPS
+  // watcher the user can see, and an implausible-looking snapshot is never silently
+  // deleted: it's restored like any other, and the existing "doesn't look like it was on
+  // foot" warning + pause/finish/discard controls let the runner decide.
+  async init(userId: string) {
+    this.userId = userId;
     if (this.status !== "idle" || this.restoring) {
       this.emit();
       return;
@@ -165,21 +162,21 @@ class RunEngine {
     this.restoring = true;
     try {
       const snapshot = await loadActiveRun();
-      if (snapshot && snapshot.route.length > 1 && snapshot.distanceM > 50) {
-        if (!isResumableSnapshot(snapshot)) {
+      if (!snapshot) return;
+      // Belongs to a different account that was last signed in on this device — leave the
+      // snapshot untouched (don't offer it, and don't delete someone else's in-progress run).
+      if (snapshot.userId && snapshot.userId !== userId) return;
+      if (snapshot.route.length > 1 && snapshot.distanceM > 50) {
+        try {
+          this.restoreFrom(snapshot);
+        } catch {
+          // A malformed snapshot must never crash the Runs tab — drop it and start clean.
+          // This is the one case that's genuinely unrecoverable, unlike "implausible but
+          // structurally valid", so it's the only path that clears storage automatically.
           await clearActiveRun();
-          this.discardedStaleRun = true;
-        } else {
-          try {
-            this.restoreFrom(snapshot);
-          } catch {
-            // A malformed snapshot must never crash the Runs tab — drop it and start clean.
-            await clearActiveRun();
-            this.reset();
-            this.discardedStaleRun = true;
-          }
+          this.reset();
         }
-      } else if (snapshot) {
+      } else {
         await clearActiveRun();
       }
     } finally {
@@ -286,12 +283,21 @@ class RunEngine {
   }
 
   discard() {
-    void this.stopWatch();
+    void this.abortAndClear();
+  }
+
+  // Fully tears down every native/resource handle — GPS watcher, ticker, step counter —
+  // and clears the persisted snapshot, awaited in that order, before resetting to idle.
+  // Used by confirmed discard and by crash recovery: a bare storage-clear-and-reload is not
+  // enough, because the GPS watcher is a native plugin (a real Android foreground service)
+  // that outlives a WebView JS reload — only an explicit removeWatcher() call stops it.
+  async abortAndClear(): Promise<void> {
+    await this.stopWatch();
     if (this.cadenceTracking) {
-      void stopStepCounter();
+      await stopStepCounter().catch(() => {});
       this.cadenceTracking = false;
     }
-    void clearActiveRun();
+    await clearActiveRun();
     this.reset();
     this.emit();
   }
@@ -399,6 +405,15 @@ class RunEngine {
 
     this.currentPace = point.speed != null && point.speed > 0.4 ? Math.round(1000 / point.speed) : null;
 
+    // Sustained non-foot speed (e.g. the recorder was left running while driving) auto-pauses
+    // instead of tracking for hours unnoticed. This never deletes anything — pausing surfaces
+    // the existing "doesn't look like it was on foot" warning and the pause/finish/discard
+    // controls immediately, whenever the runner next looks at the phone.
+    if (this.moving >= MIN_MOVING_SEC_FOR_SPEED_CHECK && this.distance / this.moving > MAX_PLAUSIBLE_AVG_SPEED_MPS) {
+      this.pause();
+      return;
+    }
+
     const now = Date.now();
     if (now - this.lastSnapshotTs > SNAPSHOT_INTERVAL_MS) {
       this.lastSnapshotTs = now;
@@ -450,9 +465,10 @@ class RunEngine {
   }
 
   private persist(statusOverride?: "tracking" | "paused") {
-    if (this.startTs === 0) return;
+    if (this.startTs === 0 || !this.userId) return;
     const snapshot: ActiveRunSnapshot = {
       v: 1,
+      userId: this.userId,
       status: statusOverride ?? (this.status === "paused" ? "paused" : "tracking"),
       startTs: this.startTs,
       pausedAccum: this.pausedAccum,

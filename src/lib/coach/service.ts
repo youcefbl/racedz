@@ -15,6 +15,7 @@ import {
 } from "@/lib/coach/adherence";
 import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { resolveRunElevation } from "@/lib/coach/elevation";
+import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics, type ConsistencyAssessment } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildAdaptivePlan, type PlanPhase } from "@/lib/coach/adaptive-planner";
@@ -100,6 +101,8 @@ type RunRow = {
   notes: string | null;
   photos: unknown;
   source: "MANUAL" | "IMPORTED" | "GPS";
+  validity: "VALID" | "SUSPECT" | "EXCLUDED";
+  validityReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -425,6 +428,36 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   const paceSeconds = input.movingTimeSeconds && input.movingTimeSeconds > 0 ? input.movingTimeSeconds : input.durationSeconds;
   const pace = calculateAveragePaceSecondsPerKm(input.distanceKm, paceSeconds);
 
+  // Server-side enforcement of the same "doesn't look like it was recorded on foot" signal the
+  // client already warns with — GPS-only, since a manual entry's numbers are a typo risk (fat-
+  // fingered distance/duration), not evidence of a car. VALID is the default; SUSPECT/EXCLUDED
+  // never feed personal records, badges, coach metrics/context, or plan adherence (enforced in
+  // getRunnerRecords/getRunsForMetrics), but the run stays visible to its owner with a reason.
+  let validity: "VALID" | "SUSPECT" | "EXCLUDED" = "VALID";
+  let validityReason: string | null = null;
+  if (input.source === "GPS") {
+    const nonFoot = detectNonFootActivity({
+      distanceKm: input.distanceKm,
+      movingSeconds: paceSeconds,
+      avgCadence: input.avgCadence ?? null
+    });
+    if (nonFoot === "speed") {
+      validity = "EXCLUDED";
+      validityReason = "IMPOSSIBLE_PACE";
+    } else if (nonFoot === "cadence") {
+      validity = "SUSPECT";
+      validityReason = "LOW_CADENCE_AT_SPEED";
+    }
+  }
+  if (validity !== "VALID") {
+    // Never let a clearly-non-foot activity claim (and, via the 1:1 workoutId slot,
+    // permanently occupy) a planned workout, or feed the "was this your run?" suggestion.
+    linkedWorkoutId = null;
+    matchSource = null;
+    matchConfidence = null;
+    suggestedMatch = null;
+  }
+
   // Snapshot the weather at the time and place of the run, so post-run feedback can explain pace
   // and effort in context (heat, humidity, wind) instead of reading a slow day as lost fitness.
   // Kicked off here against the raw track (weather only needs the start coordinates, which the
@@ -462,13 +495,14 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       "id", "userId", "goalId", "workoutId", "workoutMatchSource", "workoutMatchConfidence", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "weather", "isPublic", "perceivedEffort",
-      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "updatedAt"
+      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "validity", "validityReason", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal.id}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.isPublic}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
-      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource", NOW()
+      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource",
+      ${validity}::"RunValidity", ${validityReason}, NOW()
     )
     RETURNING *
   `;
@@ -918,7 +952,8 @@ export async function getAnalyzedRunsMap(userId: string, runIds: string[]): Prom
 // recent page shown on the Runs screen), so the "best ever" claims stay true as the list scrolls.
 export async function getRunnerRecords(userId: string): Promise<PersonalRecords> {
   const runs = await getPrisma().runnerRun.findMany({
-    where: { userId },
+    // SUSPECT/EXCLUDED (non-foot) activities never count toward personal bests or streaks.
+    where: { userId, validity: "VALID" },
     select: { id: true, startedAt: true, distanceKm: true, durationSeconds: true, averagePaceSecondsPerKm: true },
     orderBy: { startedAt: "desc" }
   });
@@ -1708,10 +1743,13 @@ async function resolveForecast(
   }
 }
 
+// Feeds coach metrics, consistency/intensity assessment, and the AI context/prompt (see callers
+// below) — SUSPECT/EXCLUDED (non-foot) activities are filtered out so a car drive can't inflate
+// training load, skew adherence, or get coached on as if it were a run.
 async function getRunsForMetrics(userId: string) {
   return getPrisma().$queryRaw<RunRow[]>`
     SELECT * FROM "RunnerRun"
-    WHERE "userId" = ${userId} AND "startedAt" >= NOW() - INTERVAL '56 days'
+    WHERE "userId" = ${userId} AND "startedAt" >= NOW() - INTERVAL '56 days' AND "validity" = 'VALID'
     ORDER BY "startedAt" DESC
     LIMIT 120
   `;

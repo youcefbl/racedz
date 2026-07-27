@@ -392,7 +392,8 @@ export const dictionaries = {
       welcomeCoachCta: "Start the coach",
       welcomeSkip: "Skip for now",
       confirmSignOut: "Confirm sign out?",
-      signOutError: "Couldn't sign you out. Please try again."
+      signOutError: "Couldn't sign you out. Please try again.",
+      signOutActiveRecordingConfirm: "You have a run recording in progress. Sign out anyway? It will be waiting, paused, when you sign back in."
     },
     profile: {
       eyebrow: "Account",
@@ -1028,7 +1029,8 @@ export const dictionaries = {
       welcomeCoachCta: "Démarrer le coach",
       welcomeSkip: "Plus tard",
       confirmSignOut: "Confirmer la déconnexion ?",
-      signOutError: "Impossible de vous déconnecter. Réessayez."
+      signOutError: "Impossible de vous déconnecter. Réessayez.",
+      signOutActiveRecordingConfirm: "Un enregistrement de course est en cours. Se déconnecter quand même ? Il vous attendra, en pause, à votre retour."
     },
     profile: {
       eyebrow: "Compte",
@@ -1663,7 +1665,8 @@ export const dictionaries = {
       welcomeCoachCta: "ابدأ المدرب",
       welcomeSkip: "لاحقًا",
       confirmSignOut: "تأكيد تسجيل الخروج؟",
-      signOutError: "تعذّر تسجيل خروجك. حاول مرة أخرى."
+      signOutError: "تعذّر تسجيل خروجك. حاول مرة أخرى.",
+      signOutActiveRecordingConfirm: "لديك تسجيل جري قيد التقدّم. هل تريد تسجيل الخروج على أي حال؟ سينتظرك متوقفًا مؤقتًا عند عودتك."
     },
     profile: {
       eyebrow: "الحساب",
