@@ -63,7 +63,13 @@ export function GpxImport({ locale, onImported }: { locale: CoachLocale; onImpor
       <input
         ref={inputRef}
         type="file"
-        accept=".gpx,application/gpx+xml,application/xml,text/xml"
+        // Cloud providers (Google Drive, etc.) often report an unusual/generic MIME type for
+        // files with a non-standard extension like .gpx (e.g. application/octet-stream), which
+        // fails to match a strict MIME allowlist and makes the file appear greyed-out or missing
+        // in the Android document picker — a local file with the same extension isn't affected.
+        // "*/*" keeps every provider's files selectable; server-side content parsing (parseGpx)
+        // is what actually validates the file, so nothing is lost by not filtering client-side.
+        accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*"
         onChange={(e) => {
           setFile(e.target.files?.[0] ?? null);
           setError(null);

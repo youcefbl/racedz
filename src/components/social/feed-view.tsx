@@ -3,6 +3,7 @@
 import { Heart, Users } from "lucide-react";
 import { memo, useCallback, useState, useTransition } from "react";
 import { FollowButton } from "@/components/social/follow-button";
+import { PeopleSearch } from "@/components/social/people-search";
 import type { CoachLocale } from "@/components/coach/types";
 import type { FeedRun } from "@/lib/social";
 import { cn } from "@/lib/utils";
@@ -181,6 +182,8 @@ export function FeedView({
         <h1 className="text-2xl font-black text-gray-950">{t.title}</h1>
         <p className="text-sm font-semibold text-gray-500">{t.intro}</p>
       </div>
+
+      <PeopleSearch locale={locale} />
 
       {runs.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">

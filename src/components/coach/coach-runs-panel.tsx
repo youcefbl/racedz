@@ -694,8 +694,13 @@ function GpxExportButton({ runId, copy }: { runId: string; copy: CoachCopy }) {
       });
       if (delivery === "download") toast(copy.gpxDownloadStarted, "success");
     } catch (caught) {
-      const reason = caught instanceof Error && caught.message.trim() ? caught.message : copy.gpxUnknownError;
-      toast(copy.gpxExportFailed.replace("{reason}", reason), "error");
+      const code = caught instanceof Error ? (caught as Error & { code?: string }).code : undefined;
+      if (code === "NATIVE_UNSUPPORTED") {
+        toast(copy.gpxNativeUnsupported, "error");
+      } else {
+        const reason = caught instanceof Error && caught.message.trim() ? caught.message : copy.gpxUnknownError;
+        toast(copy.gpxExportFailed.replace("{reason}", reason), "error");
+      }
     } finally {
       setExporting(false);
     }

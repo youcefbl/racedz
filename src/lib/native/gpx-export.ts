@@ -42,24 +42,38 @@ export async function exportGpx(
   const filename = safeFilename(response);
 
   if (Capacitor.isNativePlatform()) {
-    const [{ Filesystem, Directory, Encoding }, { Share }] = await Promise.all([
-      import("@capacitor/filesystem"),
-      import("@capacitor/share")
-    ]);
-    const saved = await Filesystem.writeFile({
-      path: `exports/${filename}`,
-      data: gpx,
-      directory: Directory.Cache,
-      encoding: Encoding.UTF8,
-      recursive: true
-    });
-    options?.onNativeReady?.();
-    await Share.share({
-      title: filename,
-      files: [saved.uri],
-      dialogTitle: options?.nativeDialogTitle
-    });
-    return "native-share";
+    try {
+      const [{ Filesystem, Directory, Encoding }, { Share }] = await Promise.all([
+        import("@capacitor/filesystem"),
+        import("@capacitor/share")
+      ]);
+      const saved = await Filesystem.writeFile({
+        path: `exports/${filename}`,
+        data: gpx,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+        recursive: true
+      });
+      options?.onNativeReady?.();
+      await Share.share({
+        title: filename,
+        files: [saved.uri],
+        dialogTitle: options?.nativeDialogTitle
+      });
+      return "native-share";
+    } catch (caught) {
+      // The web app is server-hosted and updates instantly; the native shell's plugin set is
+      // fixed at APK-build time. A device running an APK built before Filesystem/Share were
+      // added gets this exact Capacitor error — surface it as "update the app" rather than the
+      // raw plugin string, which means nothing to a runner.
+      const message = caught instanceof Error ? caught.message : "";
+      if (/not implemented/i.test(message)) {
+        const error = new Error(message) as Error & { code?: string };
+        error.code = "NATIVE_UNSUPPORTED";
+        throw error;
+      }
+      throw caught;
+    }
   }
 
   const blobUrl = URL.createObjectURL(new Blob([gpx], { type: "application/gpx+xml;charset=utf-8" }));

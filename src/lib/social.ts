@@ -110,6 +110,50 @@ export async function getSocialProfile(viewerId: string | null, userId: string):
   };
 }
 
+export type RunnerSearchResult = {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  wilaya: string | null;
+  isFollowing: boolean;
+};
+
+// Find runners by name to follow. Excludes the viewer themselves and anyone with a private
+// profile (same "opt-in visibility" rule the leaderboards and feed already apply) — a private
+// profile must not be discoverable via search any more than it's rankable or feed-able.
+export async function searchRunners(viewerId: string, query: string, limit = 20): Promise<RunnerSearchResult[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const prisma = getPrisma();
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+
+  const users = await prisma.user.findMany({
+    where: {
+      id: { not: viewerId },
+      profilePrivate: false,
+      OR: [{ firstName: { contains: q, mode: "insensitive" } }, { lastName: { contains: q, mode: "insensitive" } }]
+    },
+    select: { id: true, firstName: true, lastName: true, avatarUrl: true, wilaya: true },
+    take: safeLimit,
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }]
+  });
+  if (users.length === 0) return [];
+
+  const followingRows = await prisma.follow.findMany({
+    where: { followerId: viewerId, followingId: { in: users.map((user) => user.id) } },
+    select: { followingId: true }
+  });
+  const followingIds = new Set(followingRows.map((row) => row.followingId));
+
+  return users.map((user) => ({
+    userId: user.id,
+    name: `${user.firstName} ${user.lastName}`.trim() || "Runner",
+    avatarUrl: user.avatarUrl,
+    wilaya: user.wilaya,
+    isFollowing: followingIds.has(user.id)
+  }));
+}
+
 // Toggle kudos on a run. Only public runs (or the caller's own) can be kudos'd. Returns the new
 // state and the fresh count so the UI can render optimistically then reconcile.
 export async function toggleKudos(userId: string, runId: string): Promise<{ kudoed: boolean; count: number }> {
