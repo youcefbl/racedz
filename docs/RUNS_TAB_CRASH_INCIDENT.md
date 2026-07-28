@@ -1,8 +1,13 @@
 # Incident — Runs tab crash and runaway GPS recording
 
-**Reported:** 2026-07-26 · **Hardened:** 2026-07-27 · **Status:** likely guided-state crash
-path fixed in code; P0/P1 containment implemented and covered by focused pure tests; exact Android
-reproduction, Crashlytics confirmation, and emulator/physical-device QA remain release blockers.
+**Reported:** 2026-07-26 · **Hardened:** 2026-07-27 · **Emulator-verified:** 2026-07-28 ·
+**Status:** likely guided-state crash path fixed in code; P0/P1 containment implemented, covered by
+focused pure tests, and now exercised live on a Pixel 8 emulator (rapid guided-skip, cold-kill/
+force-stop restore, and cross-account switching all passed — see
+`docs/EMULATOR_E2E_TEST_PLAN.md` §4.18-4.20). Sustained non-foot-speed auto-pause could not be
+reliably reproduced on the emulator (Android's own location-throttling rejected rapid mock-location
+updates — see the 2026-07-28 evidence note there) despite the underlying logic passing its unit
+test; Crashlytics confirmation and physical-device QA remain release blockers.
 
 **Severity:** P1/high — one runner was locked out of `/account/runs`, the native GPS watcher
 continued after the UI failed, and the resulting activity could corrupt training statistics and
@@ -408,11 +413,37 @@ only then change the auth session.
   proves the activity is forced private, absent from records/feed/leaderboards, rejects kudos and
   manual workout matching, and leaves the planned workout `PLANNED`.
 
+### Emulator verification (2026-07-28)
+
+Built the debug APK against a local `dev:lan` server, ran it on a Pixel 8 emulator, and drove the
+four highest-value scenarios end-to-end as `runner@example.com` (details/evidence in
+`docs/EMULATOR_E2E_TEST_PLAN.md` §4.18-4.20):
+
+- **Rapid guided-skip (the original crash trigger):** 20 rapid "Skip step" taps through a 14-step
+  Intervals workout → clean completion, no crash, no logcat exceptions. Passed.
+- **Force-kill mid-run + cold restore:** `am force-stop` while tracking (confirmed the foreground
+  notification was gone), relaunched → session persisted, `/account/runs` rendered with no crash,
+  route/stats restored intact as paused. Passed.
+- **Cross-account switch with an active recording:** signed out of `runner@example.com` mid-paused
+  (got the confirm dialog; the delay before redirect confirmed the native teardown is genuinely
+  awaited), logged in as `admin@zidrun.com` (no crash, no trace of the other account's run), logged
+  back in as `runner@example.com` (the paused run was still there, untouched). Passed.
+- **Sustained non-foot-speed auto-pause:** fed ~140s of simulated ~10 m/s movement two different
+  ways; the live "doesn't look like it was on foot" warning correctly appeared both times, but the
+  rolling 120-consecutive-second auto-pause itself never visibly triggered. `adb logcat` showed
+  Android's own `PersonalSafety` service rejecting rapid mock-location updates as "too frequent...
+  insignificant accuracy improvement," which plausibly breaks the consecutive-segment assumption.
+  The underlying `advanceHighSpeedWindow` function is deterministically unit-tested and passes in
+  isolation. Recorded as an emulator/mock-location fidelity limitation, not a confirmed app bug —
+  genuinely inconclusive without a real device generating a real moving GPS track.
+
 ### Still open (not done in this pass)
 
-- The full reproduction/test-plan matrix in this doc (emulator route playback, force-kill/cold
-  restore, permission revocation, physical-device QA) was not executed — no Android
-  emulator/device was available in this environment.
+- Sustained non-foot-speed auto-pause is unit-tested but not live-confirmed (see above) — needs a
+  real device with an actual moving GPS track (e.g. a bike/car ride with the app open) to close out.
+- Crashlytics verification and the rest of the physical-device QA matrix (permission revocation,
+  screen-off/background battery and memory profiling, offline-save race) — no signed device build
+  or physical hardware was available in this environment.
 - Guided progress is not persisted across a cold app-kill (noted above under P0).
 - Historical `RunnerRun` rows are not backfilled with a `validity` classification.
 - Chunked route persistence and the long-route device profiling matrix remain P2.
