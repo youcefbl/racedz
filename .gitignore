@@ -16,6 +16,7 @@ prisma/dev.db
 /uploads
 public/uploads/*
 !public/uploads/.gitkeep
+/docs/*.gpx
 
 # Capacitor / Android (generated build artifacts)
 /android/.gradle
