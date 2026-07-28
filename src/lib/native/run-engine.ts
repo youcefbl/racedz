@@ -2,6 +2,7 @@ import type { RunRoutePoint } from "@/components/coach/types";
 import { haversineMeters, startRunWatch, stopRunWatch, type LivePoint } from "@/lib/native/geo";
 import { clearActiveRun, loadActiveRun, saveActiveRun, type ActiveRunSnapshot } from "@/lib/native/run-store";
 import { advanceHighSpeedWindow, NON_FOOT_AUTO_PAUSE_SECONDS, restoreAsPausedTiming } from "@/lib/native/run-lifecycle";
+import { isUsableGpsFix, shouldCountGpsSegment } from "@/lib/native/gps-quality";
 import { startStepCounter, stopStepCounter } from "@/lib/native/step-counter";
 
 // Module-level run-recording engine. The GPS watcher, ticker, step counter and all
@@ -396,7 +397,7 @@ class RunEngine {
   private onPoint = (point: LivePoint) => {
     if (this.status !== "tracking") return;
     this.gpsAccuracy = point.accuracy ?? null;
-    if (point.accuracy != null && point.accuracy > 40) {
+    if (!isUsableGpsFix(point.accuracy)) {
       this.emit();
       return; // too noisy
     }
@@ -407,7 +408,13 @@ class RunEngine {
       const dt = (point.t - prev.t) / 1000;
       const speedDistance = point.speed != null && point.speed >= 0 && dt > 0 ? point.speed * dt : d;
       this.highSpeedSeconds = advanceHighSpeedWindow(this.highSpeedSeconds, speedDistance, dt);
-      if (d >= 1 && d <= 60) {
+      const countSegment = shouldCountGpsSegment({
+        distanceM: d,
+        elapsedSeconds: dt,
+        reportedSpeedMps: point.speed,
+        recordingAgeSeconds: Math.max(0, (point.t - this.startTs) / 1000)
+      });
+      if (countSegment) {
         this.distance += d;
         // Moving time summed from GPS timestamps — survives screen-off throttling.
         if (dt > 0 && dt < MAX_MOVING_GAP_S) this.moving += dt;
@@ -416,6 +423,12 @@ class RunEngine {
           if (delta > 1) this.elevation += delta;
         }
         this.appendRoutePoint({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
+        this.lastPointTs = point.t;
+      } else if (this.distance === 0 && this.route.length === 1) {
+        // While the runner is still stationary, keep replacing the acquisition fix instead
+        // of saving its drift as the beginning of the route. The first real movement is then
+        // measured from the latest settled position.
+        this.route[0] = { lat: point.lat, lng: point.lng, ele: point.ele, t: point.t };
         this.lastPointTs = point.t;
       }
     } else {

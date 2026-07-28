@@ -1,6 +1,7 @@
 # Incident — Runs tab crash and runaway GPS recording
 
 **Reported:** 2026-07-26 · **Hardened:** 2026-07-27 · **Emulator-verified:** 2026-07-28 ·
+**GPX-reviewed:** 2026-07-29 ·
 **Status:** likely guided-state crash path fixed in code; P0/P1 containment implemented, covered by
 focused pure tests, and now exercised live on a Pixel 8 emulator (rapid guided-skip, cold-kill/
 force-stop restore, and cross-account switching all passed — see
@@ -46,6 +47,41 @@ The two supplied Android screenshots include EXIF timestamps:
 The saved activity's moving speed is approximately **9.49 m/s (34.2 km/h)**. Therefore the new
 `> 7 m/s` cold-restore predicate would reject this exact final snapshot if evaluated. It could not
 have prevented the initial 20:56 crash, because that crash occurred as the run started.
+
+### GPX evidence review (2026-07-29)
+
+The exported incident track (`zidrun-2026-07-26-c8694f.gpx`) is useful as a regression and
+performance fixture, but it does **not** identify a different opening crash cause. Derived locally:
+
+- 1,141 exported points, 60.66 km, and 3:17:20 between the first and last timestamp;
+- monotonically increasing timestamps and no malformed opening segment;
+- ordinary walking at the beginning, followed later by 685 exported segments above 8 m/s and gaps
+  as long as 696 seconds, consistent with the saved activity capturing vehicle travel.
+
+The exported GPX is downsampled and does not contain the original Android `accuracy` or `speed`
+fields, so it cannot reconstruct every live fix or prove the native accuracy at the crash. It
+supports the existing validity exclusion and long-route tests; it does not contradict the
+session-keyed, bounds-safe guidance fix. The raw route remains untracked because it contains precise
+location history; only these derived measurements belong in the repository.
+
+A second supplied track (`zidrun-2026-07-28-736998.gpx`) confirms a separate GPS-distance defect.
+While the runner was stationary, its first three exported displacements were approximately 20.34 m,
+7.47 m, and 6.57 m in 12.24 seconds — 34.38 m of GPS acquisition wander. Every hop passed the old
+`accuracy <= 40 m` and `distance <= 60 m` rules, which summed coordinate drift without consulting
+the Android fused provider's reported speed.
+
+The recorder now:
+
+- accepts only fixes with reported accuracy up to 25 m (when accuracy is provided);
+- rejects a segment when the native provider reports speed below 0.4 m/s;
+- gives providers that omit speed a 15-second startup-settle window before trusting displacement;
+- replaces the unsaved starting fix while stationary, so acquisition drift is not retained in the
+  route; and
+- keeps the existing post-settle displacement fallback for devices that never report speed.
+
+Focused regression coverage uses only the derived segment measurements, not private coordinates.
+Signed physical-device testing remains required because an exported GPX omits the raw speed and
+accuracy signals used by the new filter.
 
 ## Two coupled failures
 
@@ -394,12 +430,17 @@ only then change the auth session.
 
 ### Verification performed
 
+- The 2026-07-29 follow-up passes `npm run test:run-incident`, `npm run test:run-stats`, lint,
+  typecheck, the focused `tests/gpx-export.e2e.spec.ts` browser test, and the production build. The
+  browser check proves the picker emits no restrictive `accept` attribute and an invalid selection
+  receives a visible reason.
 - `npm run test:all` passes: lint/i18n, typecheck, coach/workout/audio/MFA, the focused Runs
   incident suite, and 41 Playwright tests passed; the paid live-provider check was intentionally
   skipped. `npm run build` also passes.
 - `npm run test:run-incident` covers owned/wrong-user/unowned snapshot parsing, v1→v2 migration,
   cold-restore timing, consecutive high-speed reset/threshold behavior, bounds-safe current-step
-  lookup, and correct final-step `next = null` behavior.
+  lookup, correct final-step `next = null` behavior, accuracy limits, stationary reported-speed
+  rejection, and the speedless-provider startup fallback.
 - Two new migrations applied cleanly to a local dev DB (`RunValidity` enum +
   `RunnerRun.validity`/`validityReason`; `ClientErrorLog.context`).
 - `createRunnerRun` exercised directly against the dev DB with the incident's exact numbers
@@ -439,6 +480,11 @@ four highest-value scenarios end-to-end as `runner@example.com` (details/evidenc
 
 ### Still open (not done in this pass)
 
+- Verify on a signed physical Android device that Google Drive and local storage both allow GPX
+  selection, and that unsupported/oversize files show the localized reason instead of failing
+  silently.
+- Record a real stationary-start test on a physical device, including the raw accuracy/speed values,
+  then begin walking/running and confirm drift stays at 0 m without clipping legitimate movement.
 - Sustained non-foot-speed auto-pause is unit-tested but not live-confirmed (see above) — needs a
   real device with an actual moving GPS track (e.g. a bike/car ride with the app open) to close out.
 - Crashlytics verification and the rest of the physical-device QA matrix (permission revocation,

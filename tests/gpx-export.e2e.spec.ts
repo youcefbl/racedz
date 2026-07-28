@@ -67,6 +67,11 @@ test("a GPS run downloads GPX and explains export failures", async ({ page }) =>
     const runId = created.data.run.id;
 
     await page.goto("/account/runs");
+    const importInput = page.getByLabel("Choose GPX file");
+    await expect(importInput).not.toHaveAttribute("accept", /.+/);
+    await importInput.setInputFiles({ name: "not-a-track.txt", mimeType: "text/plain", buffer: Buffer.from("not GPX") });
+    await expect(page.getByText("Choose a file whose name ends in .gpx.", { exact: true })).toBeVisible();
+
     const card = page.getByRole("article").filter({ hasText: "GPX export E2E" });
     await expect(card).toBeVisible();
     const details = card.getByRole("button", { name: "Details" });

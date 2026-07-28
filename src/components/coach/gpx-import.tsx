@@ -6,10 +6,48 @@ import type { CoachLocale } from "@/components/coach/types";
 import { cn } from "@/lib/utils";
 
 const copy = {
-  en: { title: "Import a run", hint: "Add a run recorded on a watch or another app (.gpx).", choose: "Choose GPX file", effort: "Perceived effort (1–10)", makePublic: "Share publicly", importBtn: "Import run", importing: "Importing…", cancel: "Cancel", success: "Run imported." },
-  fr: { title: "Importer une sortie", hint: "Ajoutez une sortie enregistrée sur une montre ou une autre application (.gpx).", choose: "Choisir un fichier GPX", effort: "Effort perçu (1–10)", makePublic: "Partager publiquement", importBtn: "Importer", importing: "Importation…", cancel: "Annuler", success: "Sortie importée." },
-  ar: { title: "استيراد جري", hint: "أضف جريًا مسجَّلًا على ساعة أو تطبيق آخر (.gpx).", choose: "اختر ملف GPX", effort: "الجهد المُدرَك (1–10)", makePublic: "مشاركة علنية", importBtn: "استيراد", importing: "جارٍ الاستيراد…", cancel: "إلغاء", success: "تم استيراد الجري." }
+  en: {
+    title: "Import a run",
+    hint: "Add a run recorded on a watch or another app (.gpx).",
+    choose: "Choose GPX file",
+    effort: "Perceived effort (1–10)",
+    makePublic: "Share publicly",
+    importBtn: "Import run",
+    importing: "Importing…",
+    cancel: "Cancel",
+    invalidFile: "Choose a file whose name ends in .gpx.",
+    fileTooLarge: "This GPX file is larger than 5 MB.",
+    importFailed: "Import failed. Check your connection and try again."
+  },
+  fr: {
+    title: "Importer une sortie",
+    hint: "Ajoutez une sortie enregistrée sur une montre ou une autre application (.gpx).",
+    choose: "Choisir un fichier GPX",
+    effort: "Effort perçu (1–10)",
+    makePublic: "Partager publiquement",
+    importBtn: "Importer",
+    importing: "Importation…",
+    cancel: "Annuler",
+    invalidFile: "Choisissez un fichier dont le nom se termine par .gpx.",
+    fileTooLarge: "Ce fichier GPX dépasse 5 Mo.",
+    importFailed: "L'importation a échoué. Vérifiez votre connexion et réessayez."
+  },
+  ar: {
+    title: "استيراد جري",
+    hint: "أضف جريًا مسجَّلًا على ساعة أو تطبيق آخر (.gpx).",
+    choose: "اختر ملف GPX",
+    effort: "الجهد المُدرَك (1–10)",
+    makePublic: "مشاركة علنية",
+    importBtn: "استيراد",
+    importing: "جارٍ الاستيراد…",
+    cancel: "إلغاء",
+    invalidFile: "اختر ملفًا ينتهي اسمه بـ .gpx.",
+    fileTooLarge: "حجم ملف GPX هذا أكبر من 5 ميغابايت.",
+    importFailed: "فشل الاستيراد. تحقق من الاتصال وحاول مرة أخرى."
+  }
 } as const;
+
+const MAX_GPX_FILE_BYTES = 5 * 1024 * 1024;
 
 export function GpxImport({ locale, onImported }: { locale: CoachLocale; onImported: () => void }) {
   const t = copy[locale];
@@ -40,13 +78,13 @@ export function GpxImport({ locale, onImported }: { locale: CoachLocale; onImpor
       const res = await fetch("/api/coach/runs/import", { method: "POST", body });
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        setError(json?.error ?? "Import failed.");
+        setError(json?.error ?? t.importFailed);
         return;
       }
       reset();
       onImported();
     } catch {
-      setError("Import failed.");
+      setError(t.importFailed);
     } finally {
       setBusy(false);
     }
@@ -58,24 +96,51 @@ export function GpxImport({ locale, onImported }: { locale: CoachLocale; onImpor
         <Upload className="size-5 text-brand-teal" aria-hidden="true" />
         <h2 className="text-base font-black text-gray-950">{t.title}</h2>
       </div>
-      <p className="mb-3 text-xs font-semibold text-gray-500">{t.hint}</p>
+      <p id="gpx-import-hint" className="mb-3 text-xs font-semibold text-gray-500">
+        {t.hint}
+      </p>
 
+      <label className="sr-only" htmlFor="gpx-import-file">
+        {t.choose}
+      </label>
       <input
+        id="gpx-import-file"
         ref={inputRef}
         type="file"
-        // Cloud providers (Google Drive, etc.) often report an unusual/generic MIME type for
-        // files with a non-standard extension like .gpx (e.g. application/octet-stream), which
-        // fails to match a strict MIME allowlist and makes the file appear greyed-out or missing
-        // in the Android document picker — a local file with the same extension isn't affected.
-        // "*/*" keeps every provider's files selectable; server-side content parsing (parseGpx)
-        // is what actually validates the file, so nothing is lost by not filtering client-side.
-        accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*"
+        // Deliberately omit `accept`. Android combines the listed MIME types into a restrictive
+        // document-provider filter, and Drive commonly labels GPX files as octet-stream. Omitting
+        // it keeps local and cloud files selectable; the extension check below gives immediate
+        // feedback and the server still validates the actual XML/GPX content.
+        aria-describedby="gpx-import-hint"
         onChange={(e) => {
-          setFile(e.target.files?.[0] ?? null);
+          const selected = e.target.files?.[0] ?? null;
           setError(null);
+          if (!selected) {
+            setFile(null);
+            return;
+          }
+          if (!selected.name.toLowerCase().endsWith(".gpx")) {
+            setFile(null);
+            setError(t.invalidFile);
+            e.currentTarget.value = "";
+            return;
+          }
+          if (selected.size > MAX_GPX_FILE_BYTES) {
+            setFile(null);
+            setError(t.fileTooLarge);
+            e.currentTarget.value = "";
+            return;
+          }
+          setFile(selected);
         }}
         className="block w-full text-sm text-gray-600 file:me-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-teal-50 file:px-4 file:py-2 file:text-sm file:font-black file:text-brand-teal hover:file:bg-teal-100"
       />
+
+      {error ? (
+        <p className="mt-3 text-sm font-semibold text-red-700" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       {file ? (
         <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
@@ -97,7 +162,6 @@ export function GpxImport({ locale, onImported }: { locale: CoachLocale; onImpor
             <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="size-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal" />
             {t.makePublic}
           </label>
-          {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
           <div className="flex gap-2">
             <button
               type="button"

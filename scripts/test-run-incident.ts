@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { clampedStepAt, optionalStepAt } from "../src/lib/coach/guidance-step";
 import { advanceHighSpeedWindow, NON_FOOT_AUTO_PAUSE_SECONDS, restoreAsPausedTiming } from "../src/lib/native/run-lifecycle";
+import {
+  isUsableGpsFix,
+  MAX_RECORDING_ACCURACY_M,
+  shouldCountGpsSegment,
+  SPEEDLESS_STARTUP_SETTLE_SECONDS
+} from "../src/lib/native/gps-quality";
 import { parseActiveRunSnapshot } from "../src/lib/native/run-snapshot";
 
 const steps = ["warmup", "work", "cooldown"];
@@ -24,6 +30,48 @@ assert.equal(highSpeedSeconds, NON_FOOT_AUTO_PAUSE_SECONDS - 1);
 highSpeedSeconds = advanceHighSpeedWindow(highSpeedSeconds, 8, 1);
 assert.equal(highSpeedSeconds, NON_FOOT_AUTO_PAUSE_SECONDS);
 assert.equal(advanceHighSpeedWindow(highSpeedSeconds, 3, 1), 0, "a foot-speed segment resets the sustained window");
+
+// Derived from the stationary opening of the supplied 2026-07-28 GPX. Do not keep
+// the runner's exact coordinates in source control: only the segment measurements
+// needed to prove that GPS acquisition drift is rejected.
+const stationaryOpening = [
+  { distanceM: 20.34, elapsedSeconds: 4.001 },
+  { distanceM: 7.47, elapsedSeconds: 7.238 },
+  { distanceM: 6.57, elapsedSeconds: 1.003 }
+];
+assert.equal(
+  stationaryOpening.reduce(
+    (distance, segment) =>
+      distance +
+      (shouldCountGpsSegment({ ...segment, reportedSpeedMps: 0, recordingAgeSeconds: 12.242 }) ? segment.distanceM : 0),
+    0
+  ),
+  0,
+  "stationary acquisition wander must not become run distance"
+);
+assert.equal(
+  shouldCountGpsSegment({ distanceM: 5, elapsedSeconds: 2, reportedSpeedMps: 2.5, recordingAgeSeconds: 3 }),
+  true,
+  "reported running motion can start immediately"
+);
+assert.equal(
+  shouldCountGpsSegment({ distanceM: 5, elapsedSeconds: 2, reportedSpeedMps: null, recordingAgeSeconds: 5 }),
+  false,
+  "speedless startup fixes settle before displacement is trusted"
+);
+assert.equal(
+  shouldCountGpsSegment({
+    distanceM: 5,
+    elapsedSeconds: 2,
+    reportedSpeedMps: null,
+    recordingAgeSeconds: SPEEDLESS_STARTUP_SETTLE_SECONDS
+  }),
+  true,
+  "speedless devices retain a post-settle displacement fallback"
+);
+assert.equal(shouldCountGpsSegment({ distanceM: 61, elapsedSeconds: 2, reportedSpeedMps: 3, recordingAgeSeconds: 20 }), false);
+assert.equal(isUsableGpsFix(MAX_RECORDING_ACCURACY_M), true);
+assert.equal(isUsableGpsFix(MAX_RECORDING_ACCURACY_M + 0.1), false);
 
 const ownedV1 = JSON.stringify({
   v: 1,
