@@ -35,8 +35,13 @@ export function RunSummary({
   const splits = computeSplits(points);
   const elevation = elevationSeries(points);
   const pace = paceSeries(points);
-  // Prefer the smoothed gain from the route; fall back to the stored value.
-  const elevGain = points.length > 1 ? smoothedElevationGainM(points) : Math.round(elevationGainM ?? 0);
+  // Saved runs use the server's DEM-corrected gain; the live finish screen falls
+  // back to a smoothed estimate from its unsaved phone route.
+  const elevGain = elevationGainM != null
+    ? Math.round(elevationGainM)
+    : points.length > 1
+      ? smoothedElevationGainM(points)
+      : 0;
   // Use the stored calories for saved runs; estimate for the live finish screen.
   const calories = caloriesProp ?? estimateCalories(distanceKm, movingSeconds || durationSeconds, weightKg);
   // Flag runs that look recorded on wheels/a motor rather than on foot (see motion-check).
@@ -73,7 +78,15 @@ export function RunSummary({
       ) : null}
 
       {elevation.length > 1 ? (
-        <Profile title={copy.profileElevation} series={elevation} mode="area" color="#15803D" unit="m" caption={`↑ ${elevGain} m`} />
+        <Profile
+          title={copy.profileElevation}
+          series={elevation}
+          mode="area"
+          color="#15803D"
+          unit="m"
+          caption={`↑ ${elevGain} m`}
+          minVisualSpan={20}
+        />
       ) : null}
 
       {pace.length > 1 ? (
@@ -139,7 +152,8 @@ function Profile({
   unit,
   invert = false,
   format,
-  caption
+  caption,
+  minVisualSpan = 0
 }: {
   title: string;
   series: SeriesPoint[];
@@ -151,6 +165,9 @@ function Profile({
   // Overrides the default "max · min" readout. Used for elevation, where absolute GPS altitude
   // is unreliable, so we show the (corrected) climb instead of a misleading min/max range.
   caption?: string;
+  // Prevent tiny sensor/DEM rounding changes (for example 0–1 m on a flat coast
+  // route) from being magnified into a full-height mountain profile.
+  minVisualSpan?: number;
 }) {
   const W = 300;
   const H = 64;
@@ -159,20 +176,25 @@ function Profile({
   const ys = series.map((p) => p.value);
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  const rawMinY = Math.min(...ys);
+  const rawMaxY = Math.max(...ys);
+  const visualPadding = Math.max(0, minVisualSpan - (rawMaxY - rawMinY)) / 2;
+  const minY = rawMinY - visualPadding;
+  const maxY = rawMaxY + visualPadding;
   const spanX = Math.max(1e-6, maxX - minX);
   const spanY = Math.max(1e-6, maxY - minY);
   const px = (x: number) => pad + ((x - minX) / spanX) * (W - 2 * pad);
-  const py = (y: number) => pad + (1 - (y - minY) / spanY) * (H - 2 * pad);
+  // Elevation rises upward. Pace is inverted: fewer seconds/km is faster and
+  // must also rise upward, instead of making the running section look like a dip.
+  const py = (y: number) => pad + (invert ? (y - minY) / spanY : 1 - (y - minY) / spanY) * (H - 2 * pad);
 
   const line = series.map((p, i) => `${i === 0 ? "M" : "L"}${px(p.distanceKm).toFixed(1)} ${py(p.value).toFixed(1)}`).join(" ");
   const area = `${line} L${px(maxX).toFixed(1)} ${H - pad} L${px(minX).toFixed(1)} ${H - pad} Z`;
 
   const fmt = format ?? ((v: number) => `${Math.round(v)}${unit ? ` ${unit}` : ""}`);
   // For pace, lower is "better" — show fastest (min) and slowest (max).
-  const hi = invert ? minY : maxY;
-  const lo = invert ? maxY : minY;
+  const hi = invert ? rawMinY : rawMaxY;
+  const lo = invert ? rawMaxY : rawMinY;
 
   return (
     <div>

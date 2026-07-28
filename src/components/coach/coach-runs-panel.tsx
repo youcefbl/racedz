@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, LoaderCircle, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -15,8 +15,10 @@ import { RunSummary } from "@/components/coach/run-summary";
 import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { toast } from "@/components/ui/toast";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { getRunBreadcrumb } from "@/lib/native/crash-breadcrumb";
+import { exportGpx } from "@/lib/native/gpx-export";
 import { runEngine } from "@/lib/native/run-engine";
 import { cn } from "@/lib/utils";
 
@@ -661,15 +663,7 @@ const RunRow = memo(function RunRow({
               {run.isPublic ? <Globe className="size-3.5" aria-hidden="true" /> : <Lock className="size-3.5" aria-hidden="true" />}
               {run.isPublic ? copy.publicLabel : copy.privateLabel}
             </button>
-            {run.route && run.route.length > 1 ? (
-              <a
-                href={`/api/coach/runs/${run.id}/gpx`}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
-              >
-                <Download className="size-3.5" aria-hidden="true" />
-                GPX
-              </a>
-            ) : null}
+            {run.route && run.route.length > 1 ? <GpxExportButton runId={run.id} copy={copy} /> : null}
             <button
               type="button"
               onClick={() => onRequestDelete(run.id)}
@@ -685,6 +679,41 @@ const RunRow = memo(function RunRow({
     </article>
   );
 });
+
+function GpxExportButton({ runId, copy }: { runId: string; copy: CoachCopy }) {
+  const [exporting, setExporting] = useState(false);
+
+  async function download() {
+    if (exporting) return;
+    setExporting(true);
+    toast(copy.gpxPreparing, "info");
+    try {
+      const delivery = await exportGpx(`/api/coach/runs/${runId}/gpx`, {
+        nativeDialogTitle: copy.gpxSaveDialog,
+        onNativeReady: () => toast(copy.gpxChooseDestination, "info")
+      });
+      if (delivery === "download") toast(copy.gpxDownloadStarted, "success");
+    } catch (caught) {
+      const reason = caught instanceof Error && caught.message.trim() ? caught.message : copy.gpxUnknownError;
+      toast(copy.gpxExportFailed.replace("{reason}", reason), "error");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void download()}
+      disabled={exporting}
+      aria-label={exporting ? copy.gpxPreparing : copy.gpxExport}
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:cursor-wait disabled:opacity-60"
+    >
+      {exporting ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Download className="size-3.5" aria-hidden="true" />}
+      <span aria-live="polite">{exporting ? copy.gpxPreparing : copy.gpxExport}</span>
+    </button>
+  );
+}
 
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return <label className={`grid min-w-0 gap-2 text-sm font-bold text-gray-800 ${className}`}><span>{label}</span>{children}</label>;

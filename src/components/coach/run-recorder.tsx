@@ -11,7 +11,7 @@ import { useAudioCoaching } from "@/components/coach/use-audio-coaching";
 import { useWorkoutGuidance } from "@/components/coach/use-workout-guidance";
 import { WorkoutGuidancePanel } from "@/components/coach/workout-guidance-panel";
 import { profileForWorkoutType } from "@/lib/coach/audio-coaching";
-import { GuidedSessionPicker } from "@/components/coach/guided-session-picker";
+import { GuidedSessionPicker, type GuidedSessionSelection } from "@/components/coach/guided-session-picker";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { computeSplits, estimateCalories } from "@/lib/coach/run-stats";
 import { getQueuedRuns, queueRun, queuedRunCount, removeQueuedRun } from "@/lib/coach/run-queue";
@@ -43,10 +43,10 @@ export type GuidedWorkout = {
 let persistedGuidedActive = false;
 let persistedLibrarySession: { workoutType: string; structure: WorkoutStructure } | null = null;
 
-const GUIDED_COPY: Record<CoachLocale, { todaySession: string; startGuided: string; freeRun: string; moreOptions: string }> = {
-  en: { todaySession: "Today's session", startGuided: "Start guided workout", freeRun: "Just free run instead", moreOptions: "More ways to run" },
-  fr: { todaySession: "Séance du jour", startGuided: "Démarrer la séance guidée", freeRun: "Faire une course libre", moreOptions: "Plus de façons de courir" },
-  ar: { todaySession: "حصة اليوم", startGuided: "ابدأ الحصة الموجَّهة", freeRun: "الجري الحر بدلاً من ذلك", moreOptions: "خيارات جري إضافية" }
+const GUIDED_COPY: Record<CoachLocale, { chooseTitle: string; chooseHint: string; todaySession: string; startGuided: string; freeRun: string; freeHint: string }> = {
+  en: { chooseTitle: "Choose your run", chooseHint: "Pick voice guidance or start a simple GPS run.", todaySession: "Today's plan", startGuided: "Start guided workout", freeRun: "Free run", freeHint: "GPS tracking without workout steps" },
+  fr: { chooseTitle: "Choisissez votre course", chooseHint: "Choisissez le guidage vocal ou démarrez une course GPS simple.", todaySession: "Programme du jour", startGuided: "Démarrer la séance guidée", freeRun: "Course libre", freeHint: "Suivi GPS sans étapes d'entraînement" },
+  ar: { chooseTitle: "اختر نوع الجري", chooseHint: "اختر التوجيه الصوتي أو ابدأ جريًا حرًا عبر GPS.", todaySession: "خطة اليوم", startGuided: "ابدأ الحصة الموجَّهة", freeRun: "جري حر", freeHint: "تتبّع GPS من دون خطوات تدريبية" }
 };
 
 export function RunRecorder({
@@ -89,6 +89,10 @@ export function RunRecorder({
   // drives the guidance and its workoutType selects the audio profile; the saved run stays free
   // (no workoutId) — the server-side matcher decides later whether it counts toward the plan.
   const [librarySession, setLibrarySessionState] = useState(persistedLibrarySession);
+  // Pre-run choice. This is separate from librarySession, which represents the
+  // session already attached to a live/persisted recording.
+  const [startMode, setStartMode] = useState<"free" | "planned" | "library">(guidedWorkout ? "planned" : "free");
+  const [draftLibrarySession, setDraftLibrarySession] = useState<GuidedSessionSelection | null>(null);
   const setGuidedActive = (value: boolean) => {
     persistedGuidedActive = value;
     setGuidedActiveState(value);
@@ -103,6 +107,10 @@ export function RunRecorder({
   const structure = useMemo(() => (guidedWorkout ? buildWorkoutStructure(guidedWorkout) : null), [guidedWorkout]);
   const activeStructure = librarySession?.structure ?? structure;
   const guidedSteps = useMemo(() => (activeStructure ? flattenStructure(activeStructure) : []), [activeStructure]);
+
+  useEffect(() => {
+    if (!guidedWorkout && startMode === "planned") setStartMode("free");
+  }, [guidedWorkout, startMode]);
 
   // Identifies "this run + this workout" so guidance progress resets cleanly on a new run or a
   // swapped workout instead of reusing a stale stepIndex from a previous session (run-start
@@ -258,6 +266,18 @@ export function RunRecorder({
     } else {
       tapHaptic("medium");
     }
+  }
+
+  async function startSelectedRun() {
+    if (startMode === "planned" && guidedWorkout && structure) {
+      await startGuided();
+      return;
+    }
+    if (startMode === "library" && draftLibrarySession) {
+      await startLibrarySession(draftLibrarySession);
+      return;
+    }
+    await start();
   }
 
   function pause() {
@@ -444,46 +464,70 @@ export function RunRecorder({
         ) : null}
 
         {status === "idle" ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-base font-black text-gray-950">{guidedCopy.chooseTitle}</h3>
+              <p className="mt-0.5 text-sm font-semibold text-gray-600">{guidedCopy.chooseHint}</p>
+            </div>
+
+            {/* Keep the primary action in the first phone viewport. Its label
+                updates as soon as the runner chooses a plan or guided session. */}
+            <Button type="button" size="lg" className="w-full" onClick={() => void startSelectedRun()}>
+              <Play className="size-5" aria-hidden="true" />
+              {startMode === "planned"
+                ? guidedCopy.startGuided
+                : startMode === "library" && draftLibrarySession
+                  ? `${copy.startRun}: ${draftLibrarySession.label}`
+                  : copy.startRun}
+            </Button>
+
             {guidedWorkout && structure ? (
-              <>
-                <div className="rounded-xl border border-brand-teal/30 bg-teal-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-brand-teal">{guidedCopy.todaySession}</p>
-                  <p className="mt-1 text-lg font-black text-gray-950">{guidedWorkout.title}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-gray-600">
-                    <RouteIcon className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
-                    {summarizeStructure(structure, locale)}
-                  </p>
-                  <p className="mt-0.5 text-xs font-semibold text-gray-500">≈ {estimateStructureDistanceKm(structure)} km</p>
-                </div>
-                <Button type="button" size="lg" className="w-full" onClick={() => void startGuided()}>
-                  <Play className="size-5" aria-hidden="true" /> {guidedCopy.startGuided}
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => void start()}
-                  className="w-full text-center text-sm font-bold text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline"
-                >
-                  {guidedCopy.freeRun}
-                </button>
-              </>
-            ) : (
-              <Button type="button" size="lg" className="w-full" onClick={() => void start()}>
-                <Play className="size-5" aria-hidden="true" /> {copy.startRun}
-              </Button>
-            )}
-            <details className="rounded-xl border border-gray-200 bg-white">
-              <summary className="flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-bold text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
-                {guidedCopy.moreOptions}
-                <span className="text-xs font-semibold text-gray-500">{guidedCopy.freeRun}</span>
-              </summary>
-              <div className="space-y-3 border-t border-gray-200 p-3">
-                {/* Pick-your-own guided session (strides, Norwegian threshold, recovery, ...). Works
-                    with or without a plan; the run saves unlinked and the matcher sorts it out. */}
-                <GuidedSessionPicker locale={locale} onStart={(session) => void startLibrarySession(session)} />
-                <AudioSettings locale={locale} />
-              </div>
-            </details>
+              <button
+                type="button"
+                aria-pressed={startMode === "planned"}
+                onClick={() => {
+                  setStartMode("planned");
+                  setDraftLibrarySession(null);
+                }}
+                className={`w-full rounded-xl border p-4 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal ${startMode === "planned" ? "border-brand-teal bg-teal-50" : "border-gray-200 bg-white hover:border-brand-teal"}`}
+              >
+                <span className="text-xs font-black text-brand-teal">{guidedCopy.todaySession}</span>
+                <span className="mt-1 block text-lg font-black text-gray-950">{guidedWorkout.title}</span>
+                <span className="mt-1 flex items-center gap-1.5 text-sm font-bold text-gray-600">
+                  <RouteIcon className="size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+                  {summarizeStructure(structure, locale)} · ≈ {estimateStructureDistanceKm(structure)} km
+                </span>
+              </button>
+            ) : null}
+
+            {/* The guided library is intentionally always visible. Guidance is a
+                primary start mode, not a secondary option hidden behind disclosure. */}
+            <GuidedSessionPicker
+              locale={locale}
+              selectedId={startMode === "library" ? draftLibrarySession?.templateId ?? null : null}
+              onSelectionChange={(session) => {
+                setDraftLibrarySession(session);
+                setStartMode(session ? "library" : "free");
+              }}
+            />
+
+            <button
+              type="button"
+              aria-pressed={startMode === "free"}
+              onClick={() => {
+                setStartMode("free");
+                setDraftLibrarySession(null);
+              }}
+              className={`flex min-h-14 w-full items-center gap-3 rounded-lg border px-3 py-2 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal ${startMode === "free" ? "border-brand-teal bg-teal-50" : "border-gray-200 bg-white hover:border-brand-teal"}`}
+            >
+              <RouteIcon className={`size-5 shrink-0 ${startMode === "free" ? "text-brand-teal" : "text-gray-500"}`} aria-hidden="true" />
+              <span>
+                <span className="block text-sm font-black text-gray-950">{guidedCopy.freeRun}</span>
+                <span className="block text-xs font-semibold text-gray-600">{guidedCopy.freeHint}</span>
+              </span>
+            </button>
+
+            <AudioSettings locale={locale} embedded />
           </div>
         ) : null}
 

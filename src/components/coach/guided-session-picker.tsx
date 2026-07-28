@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Play, Plus, Route as RouteIcon } from "lucide-react";
+import { Headphones, Minus, Plus, Route as RouteIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CoachLocale } from "@/components/coach/types";
 import {
@@ -12,7 +12,6 @@ import {
   type GuidedSessionTemplate,
   type WorkoutStructure
 } from "@/lib/coach/workout-structure";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Guided session library (audio plan, Phase C): the runner picks a session type directly — no
@@ -23,7 +22,6 @@ import { cn } from "@/lib/utils";
 type PickerCopy = {
   title: string;
   subtitle: string;
-  start: string;
   estimate: string;
   names: Record<GuidedSessionTemplate["id"], string>;
   taglines: Record<GuidedSessionTemplate["id"], string>;
@@ -34,7 +32,6 @@ const COPY: Record<CoachLocale, PickerCopy> = {
   en: {
     title: "Guided sessions",
     subtitle: "Pick a session — your coach guides you by voice while you run.",
-    start: "Start session",
     estimate: "approx.",
     names: {
       intervals: "Intervals",
@@ -62,7 +59,6 @@ const COPY: Record<CoachLocale, PickerCopy> = {
   fr: {
     title: "Séances guidées",
     subtitle: "Choisissez une séance — votre coach vous guide à la voix pendant la course.",
-    start: "Démarrer la séance",
     estimate: "environ",
     names: {
       intervals: "Fractionné",
@@ -90,7 +86,6 @@ const COPY: Record<CoachLocale, PickerCopy> = {
   ar: {
     title: "حصص موجَّهة",
     subtitle: "اختر حصة — يرشدك المدرب صوتيًا أثناء الجري.",
-    start: "ابدأ الحصة",
     estimate: "تقريبًا",
     names: {
       intervals: "تكرارات سرعة",
@@ -123,13 +118,14 @@ function defaultsFor(template: GuidedSessionTemplate): Record<string, number> {
 
 export function GuidedSessionPicker({
   locale,
-  onStart
+  selectedId,
+  onSelectionChange
 }: {
   locale: CoachLocale;
-  onStart: (session: { workoutType: string; structure: WorkoutStructure; templateId: string }) => void;
+  selectedId: GuidedSessionTemplate["id"] | null;
+  onSelectionChange: (session: GuidedSessionSelection | null) => void;
 }) {
   const copy = COPY[locale];
-  const [selectedId, setSelectedId] = useState<GuidedSessionTemplate["id"] | null>(null);
   const [params, setParams] = useState<Record<string, number>>({});
 
   const selected = GUIDED_SESSION_TEMPLATES.find((template) => template.id === selectedId) ?? null;
@@ -137,40 +133,55 @@ export function GuidedSessionPicker({
 
   const select = (template: GuidedSessionTemplate) => {
     if (selectedId === template.id) {
-      setSelectedId(null);
+      onSelectionChange(null);
       return;
     }
-    setSelectedId(template.id);
-    setParams(defaultsFor(template));
+    const nextParams = defaultsFor(template);
+    setParams(nextParams);
+    onSelectionChange({
+      workoutType: template.workoutType,
+      structure: buildGuidedSession(template, nextParams),
+      templateId: template.id,
+      label: copy.names[template.id]
+    });
   };
 
   const adjust = (key: string, delta: number) => {
     if (!selected) return;
     const spec = selected.params.find((param) => param.key === key);
     if (!spec) return;
-    setParams((current) => {
-      const next = (current[key] ?? spec.default) + delta * spec.step;
-      return { ...current, [key]: clamp(next, spec.min, spec.max) };
+    const next = (params[key] ?? spec.default) + delta * spec.step;
+    const nextParams = { ...params, [key]: clamp(next, spec.min, spec.max) };
+    setParams(nextParams);
+    onSelectionChange({
+      workoutType: selected.workoutType,
+      structure: buildGuidedSession(selected, nextParams),
+      templateId: selected.id,
+      label: copy.names[selected.id]
     });
   };
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4">
-      <h3 className="text-xs font-black uppercase tracking-wide text-gray-500">{copy.title}</h3>
-      <p className="mt-1 text-xs font-semibold text-gray-500">{copy.subtitle}</p>
+    <section>
+      <h3 className="flex items-center gap-2 text-sm font-black text-gray-900">
+        <Headphones className="size-4 text-brand-teal" aria-hidden="true" />
+        {copy.title}
+      </h3>
+      <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{copy.subtitle}</p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div role="radiogroup" aria-label={copy.title} className="mt-3 grid grid-cols-2 gap-2">
         {GUIDED_SESSION_TEMPLATES.map((template) => (
           <button
             key={template.id}
             type="button"
             onClick={() => select(template)}
-            aria-pressed={selectedId === template.id}
+            role="radio"
+            aria-checked={selectedId === template.id}
             className={cn(
-              "inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
+              "min-h-12 rounded-lg border px-3 py-2 text-start text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
               selectedId === template.id
                 ? "border-brand-teal bg-teal-50 text-brand-teal"
-                : "border-gray-300 bg-white text-gray-700 hover:border-brand-teal hover:text-brand-teal"
+                : "border-gray-200 bg-white text-gray-700 hover:border-brand-teal hover:text-brand-teal"
             )}
           >
             {copy.names[template.id]}
@@ -179,7 +190,7 @@ export function GuidedSessionPicker({
       </div>
 
       {selected && structure ? (
-        <div className="mt-4 rounded-lg bg-gray-50 p-3">
+        <div className="mt-3 rounded-lg bg-gray-50 p-3">
           <p className="text-sm font-black text-gray-950">{copy.names[selected.id]}</p>
           <p className="mt-0.5 text-xs leading-5 text-gray-600">{copy.taglines[selected.id]}</p>
 
@@ -193,7 +204,7 @@ export function GuidedSessionPicker({
                     onClick={() => adjust(param.key, -1)}
                     disabled={(params[param.key] ?? param.default) <= param.min}
                     aria-label={`${copy.params[param.key] ?? param.key} −`}
-                    className="flex size-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-40"
+                    className="flex size-11 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-40"
                   >
                     <Minus className="size-4" aria-hidden="true" />
                   </button>
@@ -205,7 +216,7 @@ export function GuidedSessionPicker({
                     onClick={() => adjust(param.key, 1)}
                     disabled={(params[param.key] ?? param.default) >= param.max}
                     aria-label={`${copy.params[param.key] ?? param.key} +`}
-                    className="flex size-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-40"
+                    className="flex size-11 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:opacity-40"
                   >
                     <Plus className="size-4" aria-hidden="true" />
                   </button>
@@ -222,16 +233,15 @@ export function GuidedSessionPicker({
             </span>
           </p>
 
-          <Button
-            type="button"
-            size="lg"
-            className="mt-3 w-full"
-            onClick={() => onStart({ workoutType: selected.workoutType, structure, templateId: selected.id })}
-          >
-            <Play className="size-5" aria-hidden="true" /> {copy.start}
-          </Button>
         </div>
       ) : null}
     </section>
   );
 }
+
+export type GuidedSessionSelection = {
+  workoutType: string;
+  structure: WorkoutStructure;
+  templateId: GuidedSessionTemplate["id"];
+  label: string;
+};

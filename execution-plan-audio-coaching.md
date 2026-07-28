@@ -13,15 +13,21 @@
 > session library (strides, Norwegian 4×4, recovery run, long run, splits/intervals) — no active
 > plan required, which also serves the free-runner track (plan §1.6).
 
-> **Branch update (2026-07-16 — `feat/audio-coaching`).** Phases A–D are implemented: native TTS
-> speech with Arabic-availability fallback and the cue-density gate (A); the deterministic profile
-> engine, pace bands from the runner's 28-day average, anti-nag scheduler, and en/fr/ar spoken copy
-> (B); the guided session library — intervals, Norwegian threshold, strides, recovery, long run —
-> with parameter pickers wired into the recorder (C); and the persisted voice-guidance setting with
-> test-voice button and missing-voice hint (D). Deterministic checks: `npm run test:audio` plus new
-> template cases in `test:workout`. **Phase E is what remains:** `npx cap sync`, an APK build, the
-> on-device matrix (three languages, screen locked, Bluetooth), the Arabic/French copy review, and
-> the release. Nothing here has run on a real device yet.
+> **Emulator QA update (2026-07-28).** The recorder now treats guided training as a primary start
+> mode: all five sessions and the selection-aware Start action are in the first phone viewport; the
+> old “More ways to run” disclosure is gone. Test voice now waits for Android playback and shows
+> success or an actionable failure with a voice-data installer. An app-owned Android TTS boundary
+> re-creates an engine that failed to initialize instead of leaving voice dead until app restart.
+> On a Pixel 8 / Android 37 emulator, the debug APK synthesized the sample and every transition in a
+> 14-step interval session. A moving `adb emu geo fix` route updated the live recording to 0.07 km;
+> the warm-up step + delayed warm-up tip and cool-down step + delayed cool-down tip all reached
+> Google TTS; Discard stopped the native GPS watcher. Fault injection also passed: disabling Google
+> TTS produced the visible failure + installer action, and re-enabling it restored playback on the
+> next tap without restarting ZidRun. Deterministic scheduler checks remain in
+> `npm run test:audio`; the phone start flow was asserted through Chrome DevTools connected to the
+> emulator WebView (the recorder intentionally does not render in ordinary web Playwright runs).
+> **Still open in Phase E:** a real-device audible check,
+> screen locked/background timing, FR/AR voices and copy, Bluetooth, DND/battery saver, and release.
 
 ## Where we actually are (audited 2026-07-16)
 

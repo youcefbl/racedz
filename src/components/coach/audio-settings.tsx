@@ -1,10 +1,10 @@
 "use client";
 
-import { Volume2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, LoaderCircle, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CoachLocale } from "@/components/coach/types";
 import { loadAudioPrefs, saveCueDensity, saveWarmupGuidance } from "@/lib/native/audio-prefs";
-import { isVoiceAvailable, primeCues, speakCue, type CueDensity } from "@/lib/native/cues";
+import { isVoiceAvailable, openVoiceInstall, playVoiceSample, primeCues, type CueDensity } from "@/lib/native/cues";
 import { cn } from "@/lib/utils";
 
 // Audio-coaching settings (audio plan, Phase D): one three-level choice over how chatty the
@@ -18,6 +18,10 @@ type SettingsCopy = {
   essential: string;
   tones: string;
   test: string;
+  testing: string;
+  testPassed: string;
+  testFailed: string;
+  installVoice: string;
   sample: string;
   voiceMissing: string;
   warmupToggle: string;
@@ -31,6 +35,10 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     essential: "Essential",
     tones: "Tones only",
     test: "Test voice",
+    testing: "Playing…",
+    testPassed: "Voice played successfully.",
+    testFailed: "Voice could not play. Check media volume or install the device voice.",
+    installVoice: "Install voice data",
     sample: "Hello! This is your running coach. Have a great session.",
     voiceMissing: "No voice found for this language on your device. Install Google Text-to-Speech language data to enable spoken cues — tones and vibrations still work.",
     warmupToggle: "Warm-up & cool-down tips",
@@ -42,6 +50,10 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     essential: "Essentiel",
     tones: "Sons seulement",
     test: "Tester la voix",
+    testing: "Lecture…",
+    testPassed: "La voix a été lue correctement.",
+    testFailed: "Impossible de lire la voix. Vérifiez le volume multimédia ou installez la voix de l'appareil.",
+    installVoice: "Installer les données vocales",
     sample: "Bonjour ! Je suis votre coach de course. Bonne séance.",
     voiceMissing: "Aucune voix trouvée pour cette langue sur votre appareil. Installez les données vocales Google Text-to-Speech pour activer les annonces — les sons et vibrations fonctionnent quand même.",
     warmupToggle: "Conseils échauffement & retour au calme",
@@ -53,6 +65,10 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     essential: "أساسي",
     tones: "نغمات فقط",
     test: "جرّب الصوت",
+    testing: "جارٍ التشغيل…",
+    testPassed: "تم تشغيل الصوت بنجاح.",
+    testFailed: "تعذّر تشغيل الصوت. تحقّق من مستوى صوت الوسائط أو ثبّت صوت الجهاز.",
+    installVoice: "تثبيت بيانات الصوت",
     sample: "مرحبًا! أنا مدرب الجري الخاص بك. حصة موفقة.",
     voiceMissing: "لا يوجد صوت لهذه اللغة على جهازك. ثبّت بيانات اللغة في Google Text-to-Speech لتفعيل الإرشادات الصوتية — تبقى النغمات والاهتزازات تعمل.",
     warmupToggle: "نصائح الإحماء والتهدئة",
@@ -66,11 +82,12 @@ const OPTIONS: Array<{ value: CueDensity; key: "full" | "essential" | "tones" }>
   { value: "tones", key: "tones" }
 ];
 
-export function AudioSettings({ locale }: { locale: CoachLocale }) {
+export function AudioSettings({ locale, embedded = false }: { locale: CoachLocale; embedded?: boolean }) {
   const copy = COPY[locale];
   const [density, setDensity] = useState<CueDensity | null>(null); // null while loading
   const [warmup, setWarmup] = useState(true);
   const [voiceOk, setVoiceOk] = useState(true);
+  const [testState, setTestState] = useState<"idle" | "playing" | "success" | "error">("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -97,13 +114,17 @@ export function AudioSettings({ locale }: { locale: CoachLocale }) {
     void saveWarmupGuidance(enabled);
   };
 
-  const testVoice = () => {
+  const testVoice = async () => {
+    if (testState === "playing") return;
     primeCues();
-    speakCue(copy.sample, locale, "essential");
+    setTestState("playing");
+    const result = await playVoiceSample(copy.sample, locale);
+    setVoiceOk(result.code !== "unavailable");
+    setTestState(result.ok ? "success" : "error");
   };
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4">
+    <section className={cn(embedded ? "border-t border-gray-200 pt-4" : "rounded-xl border border-gray-200 bg-white p-4")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-500">
           <Volume2 className="size-4 text-brand-teal" aria-hidden="true" />
@@ -112,11 +133,26 @@ export function AudioSettings({ locale }: { locale: CoachLocale }) {
         {density !== "tones" ? (
           <button
             type="button"
-            onClick={testVoice}
-            className="inline-flex min-h-8 items-center rounded-md px-1.5 text-xs font-black text-brand-teal transition hover:text-brand-tealDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+            onClick={() => void testVoice()}
+            disabled={testState === "playing"}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-black text-brand-teal transition hover:bg-teal-50 hover:text-brand-tealDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal disabled:cursor-wait disabled:opacity-60"
           >
-            {copy.test}
+            {testState === "playing" ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+            {testState === "playing" ? copy.testing : copy.test}
           </button>
+        ) : null}
+      </div>
+
+      <div aria-live="polite">
+        {testState === "success" ? (
+          <p className="mt-3 flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-xs font-bold text-green-800">
+            <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /> {copy.testPassed}
+          </p>
+        ) : null}
+        {testState === "error" ? (
+          <p role="alert" className="mt-3 flex items-start gap-2 rounded-md bg-red-50 px-3 py-2 text-xs font-bold leading-5 text-red-800">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> {copy.testFailed}
+          </p>
         ) : null}
       </div>
 
@@ -130,7 +166,7 @@ export function AudioSettings({ locale }: { locale: CoachLocale }) {
             onClick={() => choose(option.value)}
             disabled={density === null}
             className={cn(
-              "min-h-9 rounded-md px-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
+              "min-h-11 rounded-md px-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal",
               density === option.value ? "bg-white text-gray-950 shadow-sm" : "text-gray-600 hover:text-gray-950"
             )}
           >
@@ -156,7 +192,12 @@ export function AudioSettings({ locale }: { locale: CoachLocale }) {
       ) : null}
 
       {!voiceOk && density !== "tones" ? (
-        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">{copy.voiceMissing}</p>
+        <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">
+          <p>{copy.voiceMissing}</p>
+          <button type="button" onClick={() => void openVoiceInstall()} className="mt-1.5 min-h-11 font-black underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700">
+            {copy.installVoice}
+          </button>
+        </div>
       ) : null}
     </section>
   );

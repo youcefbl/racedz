@@ -167,12 +167,25 @@ that claim hard.
 
 | # | Test | Expected | Watch for |
 |---|---|---|---|
-| 5.1 | Enable audio cues, start a run | Spoken cues at intervals | |
-| 5.2 | Cues in FR and AR | Correct language + pronunciation | Arabic TTS voice may be missing on the emulator — record as env limitation |
-| 5.3 | Cues with screen off | Still speak | |
-| 5.4 | Cues over music | Ducks, doesn't stop playback | |
-| 5.5 | Headphones connect/disconnect mid-run | Routes correctly | |
-| 5.6 | Mute mid-run | Stops immediately | |
+| 5.1 | Tap **Test voice** with a configured device voice | Button shows Playing, then a visible success; native TTS logs a completed utterance | A silent button or optimistic success before native completion |
+| 5.2 | Remove/disable the default TTS engine, then test voice | Initialization is retried; a visible failure and **Install voice data** action appear | Silent fallback or an infinite spinner |
+| 5.3 | Open the run recorder | All five guided sessions and the Start action are immediately reachable; no “More ways to run” disclosure | Start action pushed below the first phone viewport |
+| 5.4 | Select Intervals and start | Warm-up is step 1; its transition and delayed coaching tip are spoken | Duplicate/overlapping cues |
+| 5.5 | Advance every step to Cool-down | All transitions stay in bounds; cool-down transition and delayed ease-off tip are spoken | Crash at the last step or stale progress from a previous run |
+| 5.6 | Replay a moving GPS route during the guided run | Distance, moving time and guidance stay live together | Voice stalls location callbacks or vice versa |
+| 5.7 | Cues in FR and AR | Correct language + pronunciation | Arabic TTS voice may be missing on the emulator — verify the installer/fallback path |
+| 5.8 | Cues with screen off | Still speak | WebView timer throttling |
+| 5.9 | Play music in another app | ZidRun cues follow normal Android audio routing; music is not controlled by ZidRun | Music ducking/mixing is explicitly out of scope |
+| 5.10 | Headphones connect/disconnect mid-run | Android routes cues to the active output | |
+| 5.11 | Switch to Tones only mid-run | Later speech is suppressed; tones/haptics remain | An already-playing utterance may finish |
+
+**2026-07-28 evidence (Pixel 8 / Android 37 emulator):** 5.1–5.6 passed with the local
+debug APK. Google TTS logged synthesis for the sample, warm-up, all 12 work/recovery transitions,
+cool-down, and both delayed warm-up/cool-down tips. The GPS route reached 0.07 km and Discard removed
+the native watcher. Disabling Google TTS produced the visible failure and **Install voice data**
+action; re-enabling it restored a completed utterance on the next tap without restarting ZidRun.
+The emulator was headless with host audio disabled, so the native completion callback—not a human
+audible check—is the evidence. Items 5.7–5.11 still require focused emulator or real-device passes.
 
 ---
 

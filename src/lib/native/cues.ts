@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
 import type { CoachLocale } from "@/components/coach/types";
 import { describeTarget, roleLabel, type ExecStep } from "@/lib/coach/workout-structure";
@@ -105,6 +105,15 @@ const SPEECH_LANG: Record<CoachLocale, string> = { en: "en-US", fr: "fr-FR", ar:
 
 type TtsModule = typeof import("@capacitor-community/text-to-speech");
 
+type ZidRunSpeechPlugin = {
+  speak(options: { text: string; lang: string; rate: number; pitch: number; volume: number }): Promise<void>;
+};
+
+// New Android shells use the app-owned restartable engine. If the hosted web app
+// is opened by an older APK where this plugin does not exist, playback falls back
+// to the community plugin so server deploys remain backward-compatible.
+const ZidRunSpeech = registerPlugin<ZidRunSpeechPlugin>("ZidRunSpeech");
+
 let ttsModPromise: Promise<TtsModule> | null = null;
 
 function loadTts(): Promise<TtsModule> | null {
@@ -118,7 +127,7 @@ function loadTts(): Promise<TtsModule> | null {
 let nativeLanguages: string[] | null = null;
 
 async function loadNativeLanguages(): Promise<string[]> {
-  if (nativeLanguages) return nativeLanguages;
+  if (nativeLanguages !== null) return nativeLanguages;
   const mod = loadTts();
   if (!mod) {
     nativeLanguages = [];
@@ -129,7 +138,10 @@ async function loadNativeLanguages(): Promise<string[]> {
     const result = await TextToSpeech.getSupportedLanguages();
     nativeLanguages = (result.languages ?? []).map((lang) => lang.toLowerCase().replace("_", "-"));
   } catch {
-    nativeLanguages = [];
+    // Android creates its TTS engine asynchronously. Do not cache an early
+    // "not initialized" failure as an empty language list for the whole app
+    // session; a later retry should be allowed to discover the installed voices.
+    return [];
   }
   return nativeLanguages;
 }
@@ -174,22 +186,99 @@ function speakWeb(text: string, locale: CoachLocale): void {
   }
 }
 
-function speakNative(text: string, locale: CoachLocale): void {
+export type VoicePlaybackResult =
+  | { ok: true; code: "played" }
+  | { ok: false; code: "unavailable" | "failed"; reason?: string };
+
+const TTS_INIT_RETRY_MS = [0, 250, 600, 1200] as const;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : typeof error === "string" ? error : "";
+}
+
+function isInitializationError(error: unknown): boolean {
+  return /not (?:yet )?initialized|not available|initialization timed out|failed to initialize/i.test(errorText(error));
+}
+
+async function speakNative(text: string, locale: CoachLocale): Promise<VoicePlaybackResult> {
   const mod = loadTts();
-  if (!mod) return;
-  void (async () => {
+  if (!mod) return { ok: false, code: "unavailable" };
+
+  for (let attempt = 0; attempt < TTS_INIT_RETRY_MS.length; attempt += 1) {
+    if (TTS_INIT_RETRY_MS[attempt] > 0) await delay(TTS_INIT_RETRY_MS[attempt]);
     try {
       const { TextToSpeech } = await mod;
       const supported = await loadNativeLanguages();
       const lang = resolveNativeLang(locale, supported);
-      if (!lang) return; // no voice for this language — tones + haptics carry the cue
+      if (!lang) return { ok: false, code: "unavailable" };
       // Newest cue wins: the plugin's default queue strategy is FLUSH, which stops any in-flight
       // utterance when a new one arrives — no separate stop() round-trip needed.
-      await TextToSpeech.speak({ text, lang, rate: 1.0, pitch: 1.0, volume: 1.0 });
-    } catch {
-      /* engine hiccup — stay silent, never throw into the recorder */
+      try {
+        await ZidRunSpeech.speak({ text, lang, rate: 1.0, pitch: 1.0, volume: 1.0 });
+      } catch (error) {
+        if (!/not implemented|does not have an implementation/i.test(errorText(error))) throw error;
+        await TextToSpeech.speak({ text, lang, rate: 1.0, pitch: 1.0, volume: 1.0 });
+      }
+      return { ok: true, code: "played" };
+    } catch (error) {
+      // A tap can arrive before Android's TTS OnInit callback. Retry only that
+      // transient case; unsupported languages and genuine playback failures are
+      // returned immediately so the settings UI can explain what happened.
+      const reason = errorText(error);
+      if (isInitializationError(error)) {
+        if (attempt < TTS_INIT_RETRY_MS.length - 1) continue;
+        return { ok: false, code: "unavailable", reason };
+      }
+      if (/language is not supported|unsupported language/i.test(reason)) {
+        return { ok: false, code: "unavailable", reason };
+      }
+      return { ok: false, code: "failed", reason };
     }
-  })();
+  }
+  return { ok: false, code: "failed" };
+}
+
+function logNativePlayback(text: string, locale: CoachLocale, result: VoicePlaybackResult): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[ZidRun TTS]", { locale, text, result });
+  }
+}
+
+/** Plays the pre-run voice sample and reports a result for visible UI feedback. */
+export async function playVoiceSample(text: string, locale: CoachLocale): Promise<VoicePlaybackResult> {
+  if (!text) return { ok: false, code: "failed" };
+  if (Capacitor.isNativePlatform()) {
+    const result = await speakNative(text, locale);
+    logNativePlayback(text, locale, result);
+    return result;
+  }
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return { ok: false, code: "unavailable" };
+  }
+  try {
+    speakWeb(text, locale);
+    return { ok: true, code: "played" };
+  } catch (error) {
+    return { ok: false, code: "failed", reason: errorText(error) };
+  }
+}
+
+/** Opens Android's TTS data/voice installer when the selected language is missing. */
+export async function openVoiceInstall(): Promise<boolean> {
+  const mod = loadTts();
+  if (!mod) return false;
+  try {
+    const { TextToSpeech } = await mod;
+    await TextToSpeech.openInstall();
+    nativeLanguages = null;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -199,7 +288,9 @@ function speakNative(text: string, locale: CoachLocale): void {
  */
 export function speakCue(text: string, locale: CoachLocale, level: SpeechLevel = "full"): void {
   if (!text || !speechAllowed(level)) return;
-  if (Capacitor.isNativePlatform()) speakNative(text, locale);
+  if (Capacitor.isNativePlatform()) {
+    void speakNative(text, locale).then((result) => logNativePlayback(text, locale, result));
+  }
   else speakWeb(text, locale);
 }
 

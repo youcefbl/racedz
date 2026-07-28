@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BatteryOptimizationPlugin.class);
         registerPlugin(BackgroundLocationPlugin.class);
         registerPlugin(StepCounterPlugin.class);
+        registerPlugin(ZidRunSpeechPlugin.class);
         super.onCreate(savedInstanceState);
         // Recover gracefully (silently reload) if the WebView renderer is killed,
         // instead of letting Android terminate the whole app.

@@ -5,6 +5,9 @@ import type { RunRoutePoint } from "@/components/coach/types";
 // Used by the run summary UI; safe to import on client or server.
 
 const EARTH_RADIUS_M = 6371000;
+// Keep this aligned with the recorder. Longer gaps are GPS loss, a manual pause,
+// or a suspended WebView — none of that time belongs in moving pace/splits.
+const MAX_MOVING_GAP_S = 15;
 
 function metersBetween(a: RunRoutePoint, b: RunRoutePoint): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -28,8 +31,31 @@ export type Split = {
 
 export type SeriesPoint = { distanceKm: number; value: number };
 
+type MovingSegment = {
+  meters: number;
+  seconds: number;
+  elevationGainM: number;
+};
+
 function hasTimes(points: RunRoutePoint[]): boolean {
   return points.length > 1 && typeof points[0]?.t === "number" && typeof points[points.length - 1]?.t === "number";
+}
+
+function movingSegments(points: RunRoutePoint[]): MovingSegment[] {
+  const segments: MovingSegment[] = [];
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    if (typeof prev.t !== "number" || typeof cur.t !== "number") continue;
+    const meters = metersBetween(prev, cur);
+    const seconds = (cur.t - prev.t) / 1000;
+    if (!Number.isFinite(meters) || meters <= 0 || !Number.isFinite(seconds) || seconds <= 0 || seconds >= MAX_MOVING_GAP_S) {
+      continue;
+    }
+    const elevationGainM = prev.ele != null && cur.ele != null ? Math.max(0, cur.ele - prev.ele) : 0;
+    segments.push({ meters, seconds, elevationGainM });
+  }
+  return segments;
 }
 
 /** Per-`splitMeters` (default 1 km) splits with pace + elevation gain. */
@@ -38,41 +64,38 @@ export function computeSplits(points: RunRoutePoint[] | null | undefined, splitM
 
   const splits: Split[] = [];
   let segMeters = 0;
-  let segStartT = points[0].t as number;
+  let segSeconds = 0;
   let segGain = 0;
 
-  for (let i = 1; i < points.length; i += 1) {
-    const prev = points[i - 1];
-    const cur = points[i];
-    const d = metersBetween(prev, cur);
-    if (!Number.isFinite(d) || d <= 0) continue;
+  for (const segment of movingSegments(points)) {
+    let remainingMeters = segment.meters;
+    while (remainingMeters > 0) {
+      const takeMeters = Math.min(remainingMeters, splitMeters - segMeters);
+      const fraction = takeMeters / segment.meters;
+      segMeters += takeMeters;
+      segSeconds += segment.seconds * fraction;
+      segGain += segment.elevationGainM * fraction;
+      remainingMeters -= takeMeters;
 
-    if (prev.ele != null && cur.ele != null) {
-      const dz = cur.ele - prev.ele;
-      if (dz > 0) segGain += dz;
-    }
-
-    segMeters += d;
-
-    if (segMeters >= splitMeters) {
-      const seconds = Math.max(1, ((cur.t as number) - segStartT) / 1000);
-      splits.push({
-        index: splits.length + 1,
-        meters: Math.round(segMeters),
-        seconds: Math.round(seconds),
-        paceSecondsPerKm: Math.round((seconds / segMeters) * 1000),
-        elevationGainM: Math.round(segGain)
-      });
-      segMeters = 0;
-      segGain = 0;
-      segStartT = cur.t as number;
+      if (segMeters >= splitMeters - 1e-6) {
+        const seconds = Math.max(1, segSeconds);
+        splits.push({
+          index: splits.length + 1,
+          meters: Math.round(segMeters),
+          seconds: Math.round(seconds),
+          paceSecondsPerKm: Math.round((seconds / segMeters) * 1000),
+          elevationGainM: Math.round(segGain)
+        });
+        segMeters = 0;
+        segSeconds = 0;
+        segGain = 0;
+      }
     }
   }
 
   // Trailing partial split (only if it's a meaningful remainder).
   if (segMeters >= splitMeters * 0.15) {
-    const last = points[points.length - 1];
-    const seconds = Math.max(1, ((last.t as number) - segStartT) / 1000);
+    const seconds = Math.max(1, segSeconds);
     splits.push({
       index: splits.length + 1,
       meters: Math.round(segMeters),
@@ -155,7 +178,19 @@ export function elevationSeries(points: RunRoutePoint[] | null | undefined, maxP
     const ele = points[i].ele;
     if (ele != null) out.push({ distanceKm: dist / 1000, value: ele });
   }
-  return downsampleSeries(out, maxPoints);
+  // A short median filter removes isolated phone/DEM quantisation spikes without
+  // flattening a sustained climb. Tiny remaining changes are handled by the chart's
+  // minimum visual range instead of being exaggerated to its full height.
+  const smoothed = out.map((point, index) => {
+    const values = out
+      .slice(Math.max(0, index - 2), Math.min(out.length, index + 3))
+      .map((candidate) => candidate.value)
+      .sort((a, b) => a - b);
+    const middle = Math.floor(values.length / 2);
+    const median = values.length % 2 === 1 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+    return { ...point, value: median };
+  });
+  return downsampleSeries(smoothed, maxPoints);
 }
 
 /** Pace profile (sec/km) vs cumulative distance, smoothed over `windowMeters`. */
@@ -164,21 +199,19 @@ export function paceSeries(points: RunRoutePoint[] | null | undefined, windowMet
   const out: SeriesPoint[] = [];
   let cumDist = 0;
   let winMeters = 0;
-  let winStartT = points[0].t as number;
-  for (let i = 1; i < points.length; i += 1) {
-    const d = metersBetween(points[i - 1], points[i]);
-    if (!Number.isFinite(d) || d <= 0) continue;
-    cumDist += d;
-    winMeters += d;
+  let winSeconds = 0;
+  for (const segment of movingSegments(points)) {
+    cumDist += segment.meters;
+    winMeters += segment.meters;
+    winSeconds += segment.seconds;
     if (winMeters >= windowMeters) {
-      const seconds = ((points[i].t as number) - winStartT) / 1000;
-      if (seconds > 0) {
-        const pace = (seconds / winMeters) * 1000;
+      if (winSeconds > 0) {
+        const pace = (winSeconds / winMeters) * 1000;
         // Clamp absurd values (GPS stalls) to keep the chart readable.
         if (pace > 0 && pace < 1800) out.push({ distanceKm: cumDist / 1000, value: pace });
       }
       winMeters = 0;
-      winStartT = points[i].t as number;
+      winSeconds = 0;
     }
   }
   return downsampleSeries(out, maxPoints);
