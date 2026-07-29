@@ -200,6 +200,7 @@ model RaceEvent {
   importSourceUrl            String? // original post permalink, for reference + dedupe
   importRawText              String? // pasted caption, kept for audit / re-extract
   importExtractionJson       Json? // raw LLM extraction incl. confidence, for debugging
+  importReviewedAt           DateTime? // explicit human verification before an AI-imported draft may publish
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
 

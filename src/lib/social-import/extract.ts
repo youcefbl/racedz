@@ -27,39 +27,41 @@ const raceTypeEnum = z.enum([
 ]);
 
 // One distance offered by the race (a "category" in the schema). Prices live here, not on the event.
+const nullableText = (max: number) => z.string().trim().max(max).nullable();
+
 const extractedCategorySchema = z.object({
-  name: z.string(),
-  distanceKm: z.number(),
-  priceDzd: z.number().nullable(),
-  startTime: z.string().nullable() // HH:MM (24h) if the post states a per-distance start time
+  name: z.string().trim().max(120),
+  distanceKm: z.number().positive().max(500),
+  priceDzd: z.number().int().nonnegative().max(1_000_000).nullable(),
+  startTime: nullableText(5) // HH:MM (24h) if the post states a per-distance start time
 });
 
 // Everything the model should try to pull out of the post. Every field is nullable: posts omit
 // plenty, and the admin fills gaps in the review step. Dates are normalised downstream, not here.
 export const extractedRaceSchema = z.object({
   isRace: z.boolean(), // false when the post isn't actually a running-race announcement
-  title: z.string().nullable(),
-  description: z.string().nullable(), // 1–3 sentence summary, in the post's own language
+  title: nullableText(200),
+  description: nullableText(2000), // 1–3 sentence summary, in the post's own language
   raceType: raceTypeEnum.nullable(),
-  startDate: z.string().nullable(), // ISO calendar date YYYY-MM-DD
-  startTime: z.string().nullable(), // overall start time HH:MM (24h)
-  registrationCloseAt: z.string().nullable(), // ISO date YYYY-MM-DD
-  wilaya: z.string().nullable(), // one of the official 58 wilayas, Latin spelling
-  city: z.string().nullable(),
-  commune: z.string().nullable(),
-  address: z.string().nullable(),
-  organizerName: z.string().nullable(),
-  organizerUrl: z.string().nullable(), // social handle URL or website
-  contactPhone: z.string().nullable(),
-  contactEmail: z.string().nullable(),
-  baridiMobNumber: z.string().nullable(),
-  ccpAccount: z.string().nullable(),
-  ccpKey: z.string().nullable(),
-  maxParticipants: z.number().nullable(),
-  elevationGainText: z.string().nullable(),
-  categories: z.array(extractedCategorySchema),
+  startDate: nullableText(10), // ISO calendar date YYYY-MM-DD
+  startTime: nullableText(5), // overall start time HH:MM (24h)
+  registrationCloseAt: nullableText(10), // ISO date YYYY-MM-DD
+  wilaya: nullableText(100), // one of the official 58 wilayas, Latin spelling
+  city: nullableText(120),
+  commune: nullableText(120),
+  address: nullableText(300),
+  organizerName: nullableText(200),
+  organizerUrl: nullableText(500), // social handle URL or website
+  contactPhone: nullableText(50),
+  contactEmail: nullableText(254),
+  baridiMobNumber: nullableText(50),
+  ccpAccount: nullableText(50),
+  ccpKey: nullableText(20),
+  maxParticipants: z.number().int().positive().max(1_000_000).nullable(),
+  elevationGainText: nullableText(100),
+  categories: z.array(extractedCategorySchema).max(12),
   confidence: z.enum(["high", "medium", "low"]).nullable(),
-  notes: z.string().nullable() // what was ambiguous, missing, or assumed — shown to the reviewer
+  notes: nullableText(1000) // what was ambiguous, missing, or assumed — shown to the reviewer
 });
 
 export type ExtractedRace = z.infer<typeof extractedRaceSchema>;

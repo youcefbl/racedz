@@ -28,6 +28,7 @@ export type NormalizedDraft = {
   raceType: RaceType;
   startDate: Date;
   startDateWasMissing: boolean;
+  reviewWarnings: string[];
   registrationCloseAt?: Date;
   wilaya: string;
   city: string;
@@ -86,8 +87,10 @@ export function inferRaceType(distanceKm: number | null | undefined, hint: strin
  * a real start date (placeholder + flag if the post omitted one), a canonical wilaya, and at least
  * one category. Anything genuinely unknown is left for the admin to fill in the review step.
  */
-export function normalizeExtractedRace(race: ExtractedRace, fallbackCaption: string): NormalizedDraft {
+export function normalizeExtractedRace(race: ExtractedRace, fallbackCaption: string, now = new Date()): NormalizedDraft {
+  const reviewWarnings: string[] = [];
   const title = firstNonEmpty(race.title) ?? "Imported race (draft)";
+  if (!firstNonEmpty(race.title)) reviewWarnings.push("Race name was missing; replace the placeholder title.");
 
   const description =
     firstNonEmpty(race.description) ??
@@ -96,16 +99,24 @@ export function normalizeExtractedRace(race: ExtractedRace, fallbackCaption: str
 
   const parsedStart = parseDate(race.startDate);
   const startDateWasMissing = !parsedStart;
+  if (startDateWasMissing) reviewWarnings.push("Race date was missing or invalid; verify the provisional date.");
   // No usable date in the post → a clearly-provisional placeholder 30 days out. It's a DRAFT and the
   // admin must confirm the date before publishing; the banner flags that this was assumed.
-  const startDate = applyClockTime(parsedStart ?? new Date(Date.now() + 30 * DAY_MS), race.startTime);
+  const startDate = applyClockTime(parsedStart ?? new Date(now.getTime() + 30 * DAY_MS), race.startTime);
 
-  const categories = normalizeCategories(race, startDate);
+  const categories = normalizeCategories(race, startDate, reviewWarnings);
   const raceType = race.raceType ?? categories[0]?.raceType ?? "OTHER";
 
-  const wilaya =
-    normalizeWilaya(race.wilaya) ?? normalizeWilaya(race.city) ?? firstNonEmpty(race.wilaya) ?? firstNonEmpty(race.city) ?? "Alger";
+  const canonicalWilaya = normalizeWilaya(race.wilaya) ?? normalizeWilaya(race.city);
+  if (!canonicalWilaya) reviewWarnings.push("Wilaya could not be verified; replace the provisional location.");
+  const wilaya = canonicalWilaya ?? "Alger";
   const city = firstNonEmpty(race.city) ?? wilaya;
+  const registrationCloseAt = parseDate(race.registrationCloseAt);
+  if (race.registrationCloseAt && !registrationCloseAt) {
+    reviewWarnings.push("Registration deadline was invalid and was not imported.");
+  } else if (registrationCloseAt && registrationCloseAt >= startDate) {
+    reviewWarnings.push("Registration deadline is on or after race start; correct it before publishing.");
+  }
 
   return {
     title,
@@ -113,7 +124,8 @@ export function normalizeExtractedRace(race: ExtractedRace, fallbackCaption: str
     raceType,
     startDate,
     startDateWasMissing,
-    registrationCloseAt: parseDate(race.registrationCloseAt) ?? undefined,
+    reviewWarnings,
+    registrationCloseAt,
     wilaya,
     city,
     commune: firstNonEmpty(race.commune),
@@ -131,17 +143,21 @@ export function normalizeExtractedRace(race: ExtractedRace, fallbackCaption: str
   };
 }
 
-function normalizeCategories(race: ExtractedRace, startDate: Date): NormalizedCategory[] {
+function normalizeCategories(race: ExtractedRace, startDate: Date, reviewWarnings: string[]): NormalizedCategory[] {
+  const seenDistances = new Set<string>();
   const mapped = race.categories
     .map((category): NormalizedCategory | null => {
       const distanceKm = typeof category.distanceKm === "number" && category.distanceKm > 0 ? category.distanceKm : null;
       if (!distanceKm) return null;
       const name = firstNonEmpty(category.name) ?? `${trimNumber(distanceKm)} km`;
+      const distanceKey = distanceKm.toFixed(3);
+      if (seenDistances.has(distanceKey)) return null;
+      seenDistances.add(distanceKey);
       return {
         name: name.length >= 2 ? name : `${trimNumber(distanceKm)} km`,
         raceType: inferRaceType(distanceKm, race.raceType),
         distanceKm,
-        priceDzd: positiveInt(category.priceDzd),
+        priceDzd: nonNegativeInt(category.priceDzd),
         startTime: category.startTime ? applyClockTime(new Date(startDate), category.startTime) : undefined
       };
     })
@@ -150,6 +166,7 @@ function normalizeCategories(race: ExtractedRace, startDate: Date): NormalizedCa
   if (mapped.length > 0) return mapped.slice(0, 12);
 
   // Nothing extractable → a single placeholder distance so the draft is valid; admin edits it.
+  reviewWarnings.push("No valid race distance was found; replace the provisional 10 km category.");
   return [{ name: "Course", raceType: inferRaceType(null, race.raceType), distanceKm: 10 }];
 }
 
@@ -176,12 +193,14 @@ function normalizeUrl(value: string | null | undefined): string | undefined {
 
 function parseDate(value: string | null | undefined): Date | undefined {
   const trimmed = value?.trim();
-  if (!trimmed) return undefined;
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  // Guard against absurd years from a misread; keep only plausible race dates.
-  const year = parsed.getFullYear();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed ?? "");
+  if (!match) return undefined;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
   if (year < 2000 || year > 2100) return undefined;
+  const parsed = new Date(year, month - 1, day);
+  if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return undefined;
   return parsed;
 }
 
@@ -201,6 +220,12 @@ function positiveInt(value: number | null | undefined): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   const rounded = Math.round(value);
   return rounded > 0 ? rounded : undefined;
+}
+
+function nonNegativeInt(value: number | null | undefined): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  const rounded = Math.round(value);
+  return rounded >= 0 ? rounded : undefined;
 }
 
 function trimNumber(value: number): string {

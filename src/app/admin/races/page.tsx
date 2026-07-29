@@ -165,7 +165,17 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4">
-                  {race.status === "PENDING_REVIEW" ? (
+                  {race.status === "PENDING_REVIEW" && race.importSource && !race.importReviewedAt ? (
+                    <>
+                      <ButtonLink href={`/admin/races/${race.id}/edit?imported=1`} variant="secondary" size="sm" className="min-h-11 sm:min-h-9">
+                        Review AI import
+                      </ButtonLink>
+                      <form action={rejectRaceAction}>
+                        <input type="hidden" name="id" value={race.id} />
+                        <Button type="submit" variant="ghost" size="sm" className="min-h-11 text-red-700 hover:bg-red-50 sm:min-h-9">Reject</Button>
+                      </form>
+                    </>
+                  ) : race.status === "PENDING_REVIEW" ? (
                     <>
                       <form action={approveRaceAction}>
                         <input type="hidden" name="id" value={race.id} />
@@ -181,12 +191,18 @@ export default async function AdminRacesPage({ searchParams }: AdminRacesPagePro
                       </form>
                     </>
                   ) : race.status === "DRAFT" ? (
-                    <form action={publishRaceAction}>
-                      <input type="hidden" name="id" value={race.id} />
-                      <Button type="submit" variant="secondary" size="sm" className="min-h-11 sm:min-h-9">
-                        Publish
-                      </Button>
-                    </form>
+                    race.importSource && !race.importReviewedAt ? (
+                      <ButtonLink href={`/admin/races/${race.id}/edit?imported=1`} variant="secondary" size="sm" className="min-h-11 sm:min-h-9">
+                        Review AI import
+                      </ButtonLink>
+                    ) : (
+                      <form action={publishRaceAction}>
+                        <input type="hidden" name="id" value={race.id} />
+                        <Button type="submit" variant="secondary" size="sm" className="min-h-11 sm:min-h-9">
+                          Publish
+                        </Button>
+                      </form>
+                    )
                   ) : race.status === "PUBLISHED" ? (
                     <form action={unpublishRaceAction}>
                       <input type="hidden" name="id" value={race.id} />

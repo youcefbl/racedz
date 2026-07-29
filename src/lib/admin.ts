@@ -12,7 +12,7 @@ import {
   getRaceAutoCancelUnpaidAfterHours,
   setRaceAutoCancelUnpaidAfterHours
 } from "@/lib/registration-auto-cancel";
-import { adminRaceUpdateSchema, platformRaceSchema } from "@/lib/validations";
+import { adminRaceUpdateSchema, organizerCategorySchema, platformRaceSchema } from "@/lib/validations";
 
 export const ADMIN_AUDIT_RETENTION_DAYS = 31;
 
@@ -293,11 +293,28 @@ export type AdminRaceForEdit = {
   organizerUrl: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  baridiMobNumber: string | null;
+  ccpAccount: string | null;
+  ccpKey: string | null;
+  paymentNote: string | null;
   maxParticipants: number | null;
   autoCancelUnpaidAfterHours: number | null;
   mainImageUrl: string | null;
   shirtEnabled: boolean;
   slug: string;
+  importSource: string | null;
+  importSourceUrl: string | null;
+  importExtractionJson: Prisma.JsonValue | null;
+  importReviewedAt: Date | null;
+  categories: Array<{
+    id: string;
+    name: string;
+    raceType: string | null;
+    distanceKm: number;
+    priceDzd: number | null;
+    maxParticipants: number | null;
+    startTime: Date | null;
+  }>;
 };
 
 export async function getAdminRaceForEdit(raceEventId: string) {
@@ -322,10 +339,30 @@ export async function getAdminRaceForEdit(raceEventId: string) {
       organizerUrl: true,
       contactEmail: true,
       contactPhone: true,
+      baridiMobNumber: true,
+      ccpAccount: true,
+      ccpKey: true,
+      paymentNote: true,
       maxParticipants: true,
       mainImageUrl: true,
       shirtEnabled: true,
-      slug: true
+      slug: true,
+      importSource: true,
+      importSourceUrl: true,
+      importExtractionJson: true,
+      importReviewedAt: true,
+      categories: {
+        select: {
+          id: true,
+          name: true,
+          raceType: true,
+          distanceKm: true,
+          priceDzd: true,
+          maxParticipants: true,
+          startTime: true
+        },
+        orderBy: { distanceKm: "asc" }
+      }
     }
   });
 
@@ -343,11 +380,13 @@ export async function getAdminRaceForEdit(raceEventId: string) {
 export async function updateAdminRace({
   actorId,
   raceEventId,
-  input
+  input,
+  importReviewConfirmed = false
 }: {
   actorId: string;
   raceEventId: string;
   input: unknown;
+  importReviewConfirmed?: boolean;
 }) {
   const parsed = adminRaceUpdateSchema.safeParse(input);
 
@@ -359,6 +398,11 @@ export async function updateAdminRace({
 
   if (!current) {
     throw new AdminError("Race not found.");
+  }
+
+  const needsImportReview = Boolean(current.importSource && !current.importReviewedAt);
+  if (needsImportReview && parsed.data.status === "PUBLISHED" && !importReviewConfirmed) {
+    throw new AdminError("Confirm that you reviewed the AI-imported details before publishing this race.");
   }
 
   const updates = {
@@ -377,6 +421,10 @@ export async function updateAdminRace({
     organizerUrl: parsed.data.organizerUrl ?? null,
     contactEmail: parsed.data.contactEmail ?? null,
     contactPhone: parsed.data.contactPhone ?? null,
+    baridiMobNumber: parsed.data.baridiMobNumber ?? null,
+    ccpAccount: parsed.data.ccpAccount ?? null,
+    ccpKey: parsed.data.ccpKey ?? null,
+    paymentNote: parsed.data.paymentNote ?? null,
     shirtEnabled: parsed.data.shirtEnabled ?? false,
     maxParticipants: parsed.data.maxParticipants ?? null,
     mainImageUrl: parsed.data.mainImageUrl ?? null
@@ -397,9 +445,23 @@ export async function updateAdminRace({
       },
       data: {
         ...updates,
-        availablePlaces: parsed.data.maxParticipants ?? null
+        availablePlaces: parsed.data.maxParticipants ?? null,
+        importReviewedAt: needsImportReview && importReviewConfirmed ? new Date() : undefined
       }
     });
+
+    if (needsImportReview && importReviewConfirmed) {
+      await tx.adminAuditLog.create({
+        data: {
+          actorId,
+          action: "race.import_reviewed",
+          targetType: "RaceEvent",
+          targetId: raceEventId,
+          summary: `Verified AI import for ${race.title}`,
+          metadata: { importSource: current.importSource }
+        }
+      });
+    }
 
     await setRaceAutoCancelUnpaidAfterHours(tx, raceEventId, autoCancelUnpaidAfterHours);
     await setRaceOptionalDetails(tx, raceEventId, {
@@ -432,6 +494,101 @@ export async function updateAdminRace({
   }
 
   return updated;
+}
+
+export async function requireImportedRaceReview(raceEventId: string) {
+  const race = await getPrisma().raceEvent.findUnique({
+    where: { id: raceEventId },
+    select: { importSource: true, importReviewedAt: true }
+  });
+
+  if (!race) throw new AdminError("Race not found.");
+  if (race.importSource && !race.importReviewedAt) {
+    throw new AdminError("Review this AI-imported race in the edit page before publishing it.");
+  }
+}
+
+export async function upsertAdminRaceCategory({
+  actorId,
+  raceEventId,
+  input
+}: {
+  actorId: string;
+  raceEventId: string;
+  input: unknown;
+}) {
+  const parsed = organizerCategorySchema.safeParse(input);
+  if (!parsed.success) throw new AdminError("Check the category fields and try again.");
+
+  const race = await getPrisma().raceEvent.findUnique({ where: { id: raceEventId }, select: { id: true, title: true } });
+  if (!race) throw new AdminError("Race not found.");
+
+  const startTime = parsed.data.startTime ? new Date(parsed.data.startTime) : null;
+  if (startTime && Number.isNaN(startTime.getTime())) throw new AdminError("Use a valid category start time.");
+
+  return getPrisma().$transaction(async (tx) => {
+    const values = {
+      name: parsed.data.name,
+      distanceKm: parsed.data.distanceKm,
+      priceDzd: parsed.data.priceDzd ?? null,
+      maxParticipants: parsed.data.maxParticipants ?? null,
+      startTime
+    };
+    let categoryId = parsed.data.categoryId;
+    let action = "category.created";
+
+    if (categoryId) {
+      const existing = await tx.raceCategory.findFirst({ where: { id: categoryId, raceEventId }, select: { id: true } });
+      if (!existing) throw new AdminError("Category not found for this race.");
+      await tx.raceCategory.update({ where: { id: categoryId }, data: values });
+      action = "category.updated";
+    } else {
+      const created = await tx.raceCategory.create({ data: { raceEventId, ...values } });
+      categoryId = created.id;
+    }
+
+    await tx.$executeRaw`
+      UPDATE "RaceCategory"
+      SET "raceType" = ${parsed.data.raceType}::"RaceType"
+      WHERE "id" = ${categoryId}
+    `;
+    await tx.adminAuditLog.create({
+      data: {
+        actorId,
+        action,
+        targetType: "RaceCategory",
+        targetId: categoryId,
+        summary: `${action === "category.created" ? "Created" : "Updated"} category for ${race.title}`,
+        metadata: { raceEventId, ...values, startTime: startTime?.toISOString(), raceType: parsed.data.raceType }
+      }
+    });
+
+    return { id: categoryId };
+  });
+}
+
+export async function deleteAdminRaceCategory({ actorId, raceEventId, categoryId }: { actorId: string; raceEventId: string; categoryId: string }) {
+  const category = await getPrisma().raceCategory.findFirst({
+    where: { id: categoryId, raceEventId },
+    select: { id: true, name: true, raceEvent: { select: { title: true, _count: { select: { categories: true } } } }, _count: { select: { registrations: true } } }
+  });
+  if (!category) throw new AdminError("Category not found for this race.");
+  if (category.raceEvent._count.categories <= 1) throw new AdminError("A race must keep at least one category.");
+  if (category._count.registrations > 0) throw new AdminError("A category with registrations cannot be deleted.");
+
+  await getPrisma().$transaction(async (tx) => {
+    await tx.raceCategory.delete({ where: { id: categoryId } });
+    await tx.adminAuditLog.create({
+      data: {
+        actorId,
+        action: "category.deleted",
+        targetType: "RaceCategory",
+        targetId: categoryId,
+        summary: `Deleted category ${category.name} from ${category.raceEvent.title}`,
+        metadata: { raceEventId }
+      }
+    });
+  });
 }
 
 export type AdminAuditLogRow = {

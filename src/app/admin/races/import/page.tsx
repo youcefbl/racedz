@@ -15,7 +15,7 @@ export default async function ImportRacePage() {
   return (
     <AdminShell
       title="Import race from a post"
-      description="Share an Instagram or Facebook race post — the AI extracts the details into a draft you review and publish."
+      description="Upload screenshots and paste the caption. AI prepares a private draft; you verify every key detail before it can be published."
     >
       <div className="max-w-3xl">
         <ImportRaceForm />

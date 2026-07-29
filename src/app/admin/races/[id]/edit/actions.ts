@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { AnnouncementError, createAdminRaceAnnouncement } from "@/lib/announcements";
 import { revalidateRacesCache } from "@/lib/race-repository";
-import { AdminError, requireAdmin, updateAdminRace } from "@/lib/admin";
+import { AdminError, deleteAdminRaceCategory, requireAdmin, updateAdminRace, upsertAdminRaceCategory } from "@/lib/admin";
 
 export type AdminRaceEditActionState = {
   error?: string;
@@ -21,6 +21,7 @@ export async function updateAdminRaceAction(
     await updateAdminRace({
       actorId: session.user.id,
       raceEventId: raceId,
+      importReviewConfirmed: formData.get("confirmImportReview") === "on",
       input: {
         title: getString(formData, "title"),
         description: getString(formData, "description"),
@@ -40,6 +41,10 @@ export async function updateAdminRaceAction(
         organizerUrl: getOptionalString(formData, "organizerUrl"),
         contactEmail: getOptionalString(formData, "contactEmail"),
         contactPhone: getOptionalString(formData, "contactPhone"),
+        baridiMobNumber: getOptionalString(formData, "baridiMobNumber"),
+        ccpAccount: getOptionalString(formData, "ccpAccount"),
+        ccpKey: getOptionalString(formData, "ccpKey"),
+        paymentNote: getOptionalString(formData, "paymentNote"),
         maxParticipants: getOptionalString(formData, "maxParticipants"),
         autoCancelUnpaidAfterHours: getAutoCancelUnpaidAfterHours(formData),
         mainImageUrl: getOptionalString(formData, "mainImageUrl")
@@ -87,6 +92,47 @@ export async function createAdminAnnouncementAction(formData: FormData) {
   revalidatePath(`/admin/races/${raceId}/edit`);
   revalidatePath("/races");
   revalidateRacesCache();
+}
+
+export async function upsertAdminCategoryAction(
+  _previousState: AdminRaceEditActionState,
+  formData: FormData
+): Promise<AdminRaceEditActionState> {
+  const session = await requireAdmin();
+  const raceId = getString(formData, "raceId");
+
+  try {
+    if (formData.get("intent") === "delete") {
+      await deleteAdminRaceCategory({
+        actorId: session.user.id,
+        raceEventId: raceId,
+        categoryId: getString(formData, "categoryId")
+      });
+      revalidatePath(`/admin/races/${raceId}/edit`);
+      revalidatePath("/admin/races");
+      return { success: "Category deleted." };
+    }
+    await upsertAdminRaceCategory({
+      actorId: session.user.id,
+      raceEventId: raceId,
+      input: {
+        categoryId: getOptionalString(formData, "categoryId"),
+        name: getString(formData, "name"),
+        raceType: getString(formData, "raceType"),
+        distanceKm: getString(formData, "distanceKm"),
+        priceDzd: getOptionalString(formData, "priceDzd"),
+        maxParticipants: getOptionalString(formData, "maxParticipants"),
+        startTime: getOptionalString(formData, "startTime")
+      }
+    });
+  } catch (error) {
+    if (error instanceof AdminError) return { error: error.message };
+    throw error;
+  }
+
+  revalidatePath(`/admin/races/${raceId}/edit`);
+  revalidatePath("/admin/races");
+  return { success: "Category saved." };
 }
 
 function getString(formData: FormData, key: string) {

@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { readFile } from "fs/promises";
 import path from "path";
 import { redirect } from "next/navigation";
@@ -10,9 +11,11 @@ import { checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { extractRaceFromPost, ImportExtractionError, type ImportImage } from "@/lib/social-import/extract";
 import { normalizeExtractedRace } from "@/lib/social-import/normalize";
 import { createRaceDraftFromImport } from "@/lib/social-import/create";
+import { getPrisma } from "@/lib/db";
 
 export type ImportRaceActionState = {
   error?: string;
+  existingRaceId?: string;
 };
 
 const IMPORT_SOURCES = new Set(["INSTAGRAM", "FACEBOOK", "MANUAL"]);
@@ -20,6 +23,7 @@ const IMPORT_SOURCES = new Set(["INSTAGRAM", "FACEBOOK", "MANUAL"]);
 // before it's turned into a filesystem path — this is the guard against path traversal.
 const RACE_UPLOAD_URL = /^\/uploads\/race\/\d{4}-\d{2}\/[a-f0-9-]+\.(jpg|png|webp|gif)$/;
 const MIME_BY_EXT: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
+const MAX_CAPTION_LENGTH = 12_000;
 
 export async function importRaceFromPostAction(
   _previousState: ImportRaceActionState,
@@ -41,7 +45,29 @@ export async function importRaceFromPostAction(
   const importSource = IMPORT_SOURCES.has(platform) ? platform : "MANUAL";
   const caption = String(formData.get("caption") ?? "").trim();
   const sourceUrlRaw = String(formData.get("sourceUrl") ?? "").trim();
-  const sourceUrl = /^https?:\/\//i.test(sourceUrlRaw) ? sourceUrlRaw : undefined;
+  const sourceUrl = normalizeSourceUrl(sourceUrlRaw);
+
+  if (caption.length > MAX_CAPTION_LENGTH) {
+    return { error: `Caption is too long. Keep it under ${MAX_CAPTION_LENGTH.toLocaleString()} characters.` };
+  }
+  if (sourceUrlRaw && !sourceUrl) {
+    return { error: "Enter a valid public http(s) post link, or leave the link empty." };
+  }
+
+  if (sourceUrl) {
+    try {
+      const existing = await getPrisma().raceEvent.findFirst({
+        where: { importSourceUrl: sourceUrl },
+        select: { id: true, title: true }
+      });
+      if (existing) {
+        return { error: `This post was already imported as “${existing.title}”.`, existingRaceId: existing.id };
+      }
+    } catch (error) {
+      Sentry.captureException(error, { tags: { feature: "race_social_import", stage: "dedupe" } });
+      return { error: "Could not check the post right now. No draft was created; try again." };
+    }
+  }
 
   const imageUrls = formData
     .getAll("imageUrls")
@@ -78,7 +104,9 @@ export async function importRaceFromPostAction(
         race: extraction.race,
         model: extraction.model,
         usage: extraction.usage,
-        startDateWasMissing: draft.startDateWasMissing
+        imageUrls,
+        startDateWasMissing: draft.startDateWasMissing,
+        reviewWarnings: draft.reviewWarnings
       },
       mainImageUrl: imageUrls[0]
     });
@@ -87,12 +115,28 @@ export async function importRaceFromPostAction(
     if (error instanceof ImportExtractionError) {
       return { error: importErrorMessage(error) };
     }
-    throw error;
+    Sentry.captureException(error, { tags: { feature: "race_social_import", stage: "create_draft" } });
+    return { error: "The post was read, but the draft could not be created. Nothing was published; try again." };
   }
 
   revalidatePath("/admin/races");
   revalidateRacesCache();
   redirect(`/admin/races/${raceId}/edit?imported=1`);
+}
+
+function normalizeSourceUrl(value: string): string | undefined {
+  if (!value || value.length > 2048) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith("utm_") || key === "fbclid") url.searchParams.delete(key);
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 async function readUploadAsDataUrl(url: string): Promise<ImportImage> {

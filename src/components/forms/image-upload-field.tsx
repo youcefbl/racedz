@@ -13,9 +13,10 @@ type ImageUploadFieldProps = {
   scope: UploadScope;
   defaultValue?: string | null;
   helpText?: string;
+  onUploadingChange?: (uploading: boolean) => void;
 };
 
-export function ImageUploadField({ label, name, scope, defaultValue, helpText }: ImageUploadFieldProps) {
+export function ImageUploadField({ label, name, scope, defaultValue, helpText, onUploadingChange }: ImageUploadFieldProps) {
   const inputId = useId();
   const [value, setValue] = useState(defaultValue ?? "");
   const [previewUrl, setPreviewUrl] = useState(defaultValue ?? "");
@@ -31,6 +32,7 @@ export function ImageUploadField({ label, name, scope, defaultValue, helpText }:
 
     setError("");
     setUploading(true);
+    onUploadingChange?.(true);
 
     // Shrink large phone photos so they fit the limit before we check/upload.
     const file = await compressImage(picked);
@@ -39,6 +41,7 @@ export function ImageUploadField({ label, name, scope, defaultValue, helpText }:
       setError("Image must be 5 MB or smaller.");
       event.target.value = "";
       setUploading(false);
+      onUploadingChange?.(false);
       return;
     }
 
@@ -68,6 +71,7 @@ export function ImageUploadField({ label, name, scope, defaultValue, helpText }:
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
       URL.revokeObjectURL(optimisticPreview);
       event.target.value = "";
     }
@@ -108,7 +112,7 @@ export function ImageUploadField({ label, name, scope, defaultValue, helpText }:
           <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={uploadImage} />
           <p className="text-xs font-medium leading-5 text-gray-500">{helpText ?? "JPG, PNG, WebP, or GIF. Max 5 MB."}</p>
           {value ? <p className="break-all text-xs font-medium text-gray-500">{value}</p> : null}
-          {error ? <p className="text-xs font-bold text-red-700">{error}</p> : null}
+          {error ? <p role="alert" className="text-xs font-bold text-red-700">{error}</p> : null}
         </div>
       </div>
     </div>

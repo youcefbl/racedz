@@ -18,10 +18,10 @@ Work from top to bottom. Do not start P1/P2 product work while an unblocked P0 i
 
 | Order | Priority | Action | Owner | Done when |
 |---:|---|---|---|---|
-| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) | Engineering | Decide whether Groups commit `4f0453a` ships in this release; if included, finish its release acceptance, otherwise remove it from the candidate. Push every intended commit, remote CI passes, and tag the exact candidate. |
-| 2 | P0 | **Close Google Play testing** (`PR-052`) | Owner | Play Console confirms the required closed-test period is complete; feedback and crash/ANR reports are reviewed. The previous “2 days remaining” status is stale and requires owner confirmation. |
-| 3 | P0 | **Run signed physical-device acceptance** (`PR-050`) | Engineering + owner | The exact signed candidate passes auth, deep links/back navigation, safe areas, voice test, guided warm-up/work/cool-down, background GPS, pause/resume, force-kill restore, logout/account switching, sustained non-foot auto-pause, stationary-start drift, and Google Drive/local GPX import. Record device/OS/build and results in this file. |
-| 4 | P0 | **Verify native production integrations** (`PR-048`, `PR-049`) | Owner + engineering | Hosted `assetlinks.json` contains the Play App Signing SHA-256; production push reaches the signed app; notification taps route correctly; a Crashlytics test event appears. |
+| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) | Engineering | Groups commit `4f0453a` is included by owner decision. Finish public/private group, join-link, invitation, authorization, privacy, moderation, and mobile acceptance; push every intended commit; pass remote CI; tag the exact candidate. |
+| 2 | P0 | **Confirm ZidRun production access in Play Console** (`PR-052`) | Owner | After Elmohassib's production-access decision, create/open ZidRun and inspect its Dashboard/Production page. If Production is unlocked, upload ZidRun without repeating the 12-tester cycle; if ZidRun shows its own production-access gate, start its closed track and follow the exact tester requirement shown by Play Console. In either case, review ZidRun's pre-launch, crash/ANR, and policy reports. |
+| 3 | P0 | **Run signed physical-device acceptance on 2026-07-30** (`PR-050`) | Engineering + owner | The exact signed candidate passes auth, deep links/back navigation, safe areas, Groups, voice test, guided warm-up/work/cool-down, background GPS, pause/resume, force-kill restore, logout/account switching, sustained non-foot auto-pause, stationary-start drift, and Google Drive/local GPX import. Record device/OS/build and results in this file. |
+| 4 | P0 | **Verify native production integrations after device acceptance** (`PR-048`, `PR-049`) | Owner + engineering | With Codex assistance: hosted `assetlinks.json` contains the Play App Signing SHA-256; production push reaches the signed app; notification taps route correctly; a Crashlytics test event appears. |
 | 5 | P0 | **Prove data recovery and private storage** (`PR-020`–`PR-025`) | Operations | Rehearse `prisma migrate deploy`; verify automated database backup and restore; make uploads durable; protect payment/private media; document retention, export, deletion, and production access; remove temporary bootstrap credentials. |
 | 6 | P0 | **Complete security and health review** (`PR-031`, `PR-041`) | Engineering + external reviewers | Constrain deployment to one instance or add shared rate limiting; validate headers/TLS/cookies/authz/upload abuse; enforce admin MFA or record an explicit owner risk decision; verify Caddy payment-proof rules; complete external security and sports-health reviews. |
 | 7 | P0 | **Run controlled web acceptance** (`PR-034`, `PR-036`–`PR-043`) | Product + engineering | On the exact candidate, pass runner registration, capacity/payment/cancellation, organizer lifecycle, admin moderation, Coach/voice/safety, EN/FR/AR/RTL/themes/accessibility, deployment, production smoke, monitoring, backup, and rollback checks. |
@@ -85,6 +85,8 @@ gate, and a debug APK does not close a signed-release gate.
 - Coach health-memory writes remain disabled until explicit consent, retention, export/deletion, and
   sports-health review are complete.
 - Raw GPX routes and other precise location evidence must not be committed.
+- Groups commit `4f0453a` is in the Android release scope and must pass the same signed-candidate
+  authorization, privacy, moderation, and mobile acceptance as the existing release features.
 
 ### Parallel launch preparation (owner/marketing)
 
@@ -110,8 +112,8 @@ Do these only after P0 is closed or when a P0 item is externally blocked.
    profile prompts, opt-in coarse location/timezone, and qualified safety review.
 4. **Notifications:** payment-proof review notices, race reminders, delivery/idempotency hardening,
    and final signed-device push routing.
-5. **Resolve Groups scope:** if Groups is excluded from the release candidate, finish/review its authz,
-   privacy, moderation, notifications, migrations, browser tests, and mobile UX before shipping later.
+5. **Groups after launch:** add richer discovery and engagement only after the release-scope private/public,
+   invitation, authorization, privacy, moderation, notifications, migrations, browser tests, and mobile UX are accepted.
 6. **Growth:** shareable run/plan cards, post-trial free allowance, and trial-ending lifecycle nudges.
 
 ## P2 — later roadmap
@@ -131,7 +133,8 @@ Do these only after P0 is closed or when a P0 item is externally blocked.
 
 | Date | Evidence | Result |
 |---|---|---|
-| 2026-07-29 | Groups implementation, commit `4f0453a` | Private/public groups, join links, email invites, schema, and UI are committed. Release inclusion and exact-candidate acceptance are not yet decided, so no release gate moves. |
+| 2026-07-29 | Owner release decisions and Groups commit `4f0453a` | Groups is included; signed physical-device acceptance is scheduled for 2026-07-30; native app-link/push/Crashlytics verification remains open with engineering assistance. `PR-052` remains open until Elmohassib's production-access decision and ZidRun's resulting Production-page state are verified; Google documentation does not clearly resolve second-app behavior. |
+| 2026-07-29 | AI race-post import release hardening | Import stays draft-only, exposes confidence/warnings/all source images, supports category correction, deduplicates source links, and requires an audited human confirmation across every publish path. Migration reset, focused normalization test, publish-guard browser test, lint, typecheck, and production build pass; remote candidate CI remains open. |
 | 2026-07-29 | GPX picker/startup-drift hardening, commit `a83e159` | Incident/run-stat tests, lint, typecheck, focused GPX browser test, and production build passed. Raw routes stayed untracked. Push/remote CI and signed-device validation remain open. |
 | 2026-07-28 | Pixel 8 debug-emulator incident matrix | Rapid guided skip, force-kill restore, and account switching passed. Sustained-speed auto-pause was inconclusive because Android throttled mock locations. |
 | 2026-07-27 | Runs lifecycle/validity hardening | Full local test suite and build passed; suspect activities are excluded; snapshot ownership and guided bounds are covered. |

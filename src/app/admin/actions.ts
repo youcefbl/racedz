@@ -10,6 +10,7 @@ import {
   cancelAdminRaceRegistration,
   confirmAdminRegistrationPayment,
   recordAdminAuditLog,
+  requireImportedRaceReview,
   requireAdmin
 } from "@/lib/admin";
 
@@ -98,6 +99,7 @@ export async function rejectOrganizationAction(formData: FormData) {
 export async function approveRaceAction(formData: FormData) {
   const session = await requireAdmin();
   const raceId = getFormId(formData);
+  await requireImportedRaceReview(raceId);
 
   const race = await getPrisma().raceEvent.update({
     where: {
@@ -134,6 +136,7 @@ export async function approveRaceAction(formData: FormData) {
 export async function publishRaceAction(formData: FormData) {
   const session = await requireAdmin();
   const raceId = getFormId(formData);
+  await requireImportedRaceReview(raceId);
 
   const race = await getPrisma().raceEvent.update({
     where: {
