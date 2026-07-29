@@ -20,6 +20,7 @@ import {
   Trophy,
   UserRound,
   Users,
+  UsersRound,
   UtensilsCrossed
 } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -88,6 +89,7 @@ export function AccountHub({ user }: { user: HubUser | null }) {
             <SectionLabel>{t.account}</SectionLabel>
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <Row href="/account/feed" icon={Users} label={t.feed} />
+              <Row href="/account/groups" icon={UsersRound} label={t.groups} />
               <Row href="/rankings" icon={Trophy} label={t.leaderboards} />
               <Row href="/account/registrations" icon={ClipboardList} label={t.myRegistrations} />
               <Row href="/account/profile" icon={UserRound} label={t.profileSettings} />

@@ -66,6 +66,8 @@ model User {
   runKudos                    RunKudos[]
   raceResults                 RaceResult[]
   nutritionEntries            NutritionEntry[]
+  createdGroups               Group[]                    @relation("GroupCreator")
+  groupMemberships            GroupMember[]
 }
 
 enum UserRole {
@@ -669,7 +671,7 @@ model TrainingWorkout {
 ///
 /// Health-related kinds (INJURY_STATUS, RECOVERY_STATUS) are defined here but MUST NOT be written until
 /// the health-data privacy/consent/retention policy exists — see the Phase 0 blocker in
-/// execution-plan-coach.md. `WRITABLE_MEMORY_KINDS` in src/lib/coach/memory.ts is the enforcement point.
+/// EXECUTION_PLAN.md. `WRITABLE_MEMORY_KINDS` in src/lib/coach/memory.ts is the enforcement point.
 model CoachMemory {
   id     String @id @default(cuid())
   userId String
@@ -1241,6 +1243,46 @@ model RunKudos {
   user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([runId, userId])
+  @@index([userId])
+}
+
+// A private or public run-club. Visibility is closed by default: only members ever see each
+// other's runs through a group (unlike the public Follow-based feed). Public groups are the same
+// in every respect except they're listed for anyone to discover and join — joining itself always
+// goes through the same joinToken link either way, whether copied/shared manually or emailed by
+// an admin via inviteGroupMemberByEmail.
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  pictureUrl  String?
+  isPrivate   Boolean  @default(true)
+  joinToken   String   @unique @default(cuid())
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User          @relation("GroupCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members   GroupMember[]
+
+  @@index([createdById])
+}
+
+enum GroupRole {
+  ADMIN
+  MEMBER
+}
+
+model GroupMember {
+  id       String    @id @default(cuid())
+  groupId  String
+  userId   String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
   @@index([userId])
 }
 

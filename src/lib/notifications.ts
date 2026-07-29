@@ -5,8 +5,11 @@ import { sendNotificationEmail } from "@/lib/notifications/email-provider";
 import { renderRaceDzEmailHtml, renderRaceDzEmailText } from "@/lib/notifications/email-template";
 import { sendFirebasePush } from "@/lib/notifications/firebase-provider";
 import {
+  addedToGroupMessage,
   coachSubscriptionRequestMessage,
   emailLabels,
+  groupMemberRemovedMessage,
+  groupRoleChangedMessage,
   newFollowerMessage,
   organizerRaceStatusMessage,
   racePendingReviewMessage,
@@ -168,6 +171,16 @@ export const notificationPreferenceOptions = [
     type: "RACE_RESULT_PUBLISHED",
     title: "Race results",
     description: "We let you know when an organizer publishes your finish time or race status."
+  },
+  {
+    type: "GROUP_MEMBER_ADDED",
+    title: "Group activity",
+    description: "We let you know when you're added to a group, or someone joins one you're in."
+  },
+  {
+    type: "GROUP_ROLE_CHANGED",
+    title: "Group role changes",
+    description: "We let you know when your role in a group changes, or you're removed."
   }
 ] as const;
 
@@ -548,6 +561,123 @@ export async function notifyRunKudos({
     channels: ["IN_APP", "PUSH"],
     locale
   });
+}
+
+// An admin added/invited an existing user straight into a group (as opposed to them joining via
+// the share link, which is silent — no notification spam every time someone uses a public link).
+export async function notifyAddedToGroup({
+  userId,
+  groupId,
+  groupName,
+  inviterName
+}: {
+  userId: string;
+  groupId: string;
+  groupName: string;
+  inviterName: string;
+}) {
+  const locale = await getUserLocale(userId);
+  const { title, body } = addedToGroupMessage(locale, { groupName, inviterName });
+  await createNotification({
+    userId,
+    type: "GROUP_MEMBER_ADDED",
+    title,
+    body,
+    href: `/account/groups/${groupId}`,
+    metadata: { groupId },
+    channels: ["IN_APP", "PUSH"],
+    locale
+  });
+}
+
+export async function notifyGroupRoleChanged({
+  userId,
+  groupId,
+  groupName,
+  role
+}: {
+  userId: string;
+  groupId: string;
+  groupName: string;
+  role: "ADMIN" | "MEMBER";
+}) {
+  const locale = await getUserLocale(userId);
+  const { title, body } = groupRoleChangedMessage(locale, { groupName, role });
+  await createNotification({
+    userId,
+    type: "GROUP_ROLE_CHANGED",
+    title,
+    body,
+    href: `/account/groups/${groupId}`,
+    metadata: { groupId, role },
+    channels: ["IN_APP", "PUSH"],
+    locale
+  });
+}
+
+export async function notifyGroupMemberRemoved({ userId, groupName }: { userId: string; groupName: string }) {
+  const locale = await getUserLocale(userId);
+  const { title, body } = groupMemberRemovedMessage(locale, { groupName });
+  await createNotification({
+    userId,
+    type: "GROUP_ROLE_CHANGED",
+    title,
+    body,
+    channels: ["IN_APP", "PUSH"],
+    locale
+  });
+}
+
+// Invite someone who doesn't have a ZidRun account yet to join a group. Bypasses the
+// Notification model entirely (there's no userId to attach one to) — a plain transactional
+// email with the join link, which requires signing up (or logging in) before it can be used.
+export async function sendGroupInviteEmailToNonUser({
+  email,
+  groupName,
+  inviterName,
+  joinUrl,
+  locale
+}: {
+  email: string;
+  groupName: string;
+  inviterName: string;
+  joinUrl: string;
+  locale: Locale;
+}) {
+  const copy = {
+    en: {
+      subject: `You're invited to join "${groupName}" on ZidRun`,
+      title: "You've been invited",
+      body: `${inviterName} invited you to join the group "${groupName}" on ZidRun, where members see each other's runs.`,
+      action: "Join group"
+    },
+    fr: {
+      subject: `Vous êtes invité à rejoindre « ${groupName} » sur ZidRun`,
+      title: "Vous avez été invité",
+      body: `${inviterName} vous invite à rejoindre le groupe « ${groupName} » sur ZidRun, où les membres voient les courses de chacun.`,
+      action: "Rejoindre le groupe"
+    },
+    ar: {
+      subject: `أنت مدعو للانضمام إلى "${groupName}" على ZidRun`,
+      title: "لقد تمت دعوتك",
+      body: `دعاك ${inviterName} للانضمام إلى مجموعة "${groupName}" على ZidRun، حيث يرى الأعضاء جريات بعضهم البعض.`,
+      action: "الانضمام إلى المجموعة"
+    }
+  }[locale];
+
+  const result = await sendNotificationEmail({
+    to: email,
+    subject: copy.subject,
+    html: renderRaceDzEmailHtml({ title: copy.title, body: copy.body, action: { label: copy.action, href: joinUrl }, locale }),
+    text: renderRaceDzEmailText({ title: copy.title, body: copy.body, action: { label: copy.action, href: joinUrl }, locale })
+  });
+  // sendNotificationEmail never throws — it returns { ok: false, error } on failure (missing
+  // config, provider rejection, ...). This is the only delivery attempt for a non-user invite
+  // (no Notification/NotificationDelivery row to fall back on), so a silent failure here would
+  // tell the inviting admin "sent" when nothing went out. Surface it.
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function notifyRaceResultPublished({

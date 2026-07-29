@@ -202,6 +202,46 @@ export function runKudosMessage(locale: Locale, { actorName }: { actorName: stri
   });
 }
 
+export function groupMemberJoinedMessage(locale: Locale, { groupName, memberName }: { groupName: string; memberName: string }) {
+  const name = memberName || aRunner[locale];
+  return t(locale, {
+    en: { title: "New group member", body: `${name} joined "${groupName}".` },
+    fr: { title: "Nouveau membre", body: `${name} a rejoint « ${groupName} ».` },
+    ar: { title: "عضو جديد في المجموعة", body: `انضمّ ${name} إلى "${groupName}".` }
+  });
+}
+
+export function addedToGroupMessage(locale: Locale, { groupName, inviterName }: { groupName: string; inviterName: string }) {
+  const name = inviterName || aRunner[locale];
+  return t(locale, {
+    en: { title: "Added to a group", body: `${name} added you to "${groupName}".` },
+    fr: { title: "Ajouté à un groupe", body: `${name} vous a ajouté à « ${groupName} ».` },
+    ar: { title: "تمت إضافتك إلى مجموعة", body: `أضافك ${name} إلى "${groupName}".` }
+  });
+}
+
+export function groupRoleChangedMessage(locale: Locale, { groupName, role }: { groupName: string; role: "ADMIN" | "MEMBER" }) {
+  const roleLabels: Localized<{ ADMIN: string; MEMBER: string }> = {
+    en: { ADMIN: "an admin", MEMBER: "a member" },
+    fr: { ADMIN: "administrateur", MEMBER: "membre" },
+    ar: { ADMIN: "مشرفًا", MEMBER: "عضوًا" }
+  };
+  const roleLabel = roleLabels[locale][role];
+  return t(locale, {
+    en: { title: "Group role updated", body: `You're now ${roleLabel} of "${groupName}".` },
+    fr: { title: "Rôle mis à jour", body: `Vous êtes maintenant ${roleLabel} de « ${groupName} ».` },
+    ar: { title: "تحديث الدور في المجموعة", body: `أصبحت الآن ${roleLabel} في "${groupName}".` }
+  });
+}
+
+export function groupMemberRemovedMessage(locale: Locale, { groupName }: { groupName: string }) {
+  return t(locale, {
+    en: { title: "Removed from group", body: `You were removed from "${groupName}".` },
+    fr: { title: "Retiré du groupe", body: `Vous avez été retiré de « ${groupName} ».` },
+    ar: { title: "تمت إزالتك من المجموعة", body: `تمت إزالتك من "${groupName}".` }
+  });
+}
+
 // A saved race result. FINISHED carries the finish time; the other statuses are reported with a
 // localized label instead (the time is always null for them).
 export function raceResultMessage(

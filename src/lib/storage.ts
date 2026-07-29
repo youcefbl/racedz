@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 
-export const uploadScopes = ["avatar", "race", "organization", "payment", "run", "coach-payment"] as const;
+export const uploadScopes = ["avatar", "race", "organization", "payment", "run", "coach-payment", "group"] as const;
 
 export type UploadScope = (typeof uploadScopes)[number];
 
