@@ -19,7 +19,7 @@ import { buildWorkoutStructure, estimateStructureDistanceKm, flattenStructure, s
 import { AudioSettings } from "@/components/coach/audio-settings";
 import { loadAudioPrefs } from "@/lib/native/audio-prefs";
 import { isIgnoringBatteryOptimizations, requestIgnoreBatteryOptimizations } from "@/lib/native/battery";
-import { announceComplete, announceStep, countdownTick, primeCues } from "@/lib/native/cues";
+import { announceComplete, announceStep, countdownTick, prefetchGuidedWorkoutAudio, primeCues } from "@/lib/native/cues";
 import { checkBackgroundLocation, openLocationPermissionSettings, type LocationPermissionState } from "@/lib/native/location-permission";
 import { notifyHaptic, tapHaptic } from "@/lib/native/haptics";
 import { setRunBreadcrumb } from "@/lib/native/crash-breadcrumb";
@@ -239,11 +239,14 @@ export function RunRecorder({
   }
 
   // Start recording AND drive the structured workout. Priming cues here (inside the tap gesture)
-  // lets audio + speech fire later, mid-run, without a fresh user interaction.
+  // lets audio + speech fire later, mid-run, without a fresh user interaction. Prefetching the
+  // cloud-voice fallback here too means it's already cached if native/Web Speech turns out to
+  // have no voice installed for this language.
   async function startGuided() {
     setSaveError(null);
     setSaved(false);
     primeCues();
+    prefetchGuidedWorkoutAudio(guidedSteps, locale);
     setLibrarySession(null);
     setGuidedActive(true);
     await runEngine.start();
@@ -257,6 +260,7 @@ export function RunRecorder({
     setSaveError(null);
     setSaved(false);
     primeCues();
+    prefetchGuidedWorkoutAudio(flattenStructure(session.structure), locale);
     setLibrarySession(session);
     setGuidedActive(true);
     await runEngine.start();

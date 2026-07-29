@@ -5,10 +5,13 @@ import { describeTarget, roleLabel, type ExecStep } from "@/lib/coach/workout-st
 
 // Multi-sensory cues for guided workouts: a short tone (Web Audio), a spoken announcement, and a
 // haptic buzz. Speech goes through native TTS on the APK (the Android WebView has no
-// window.speechSynthesis) and falls back to Web Speech in a browser/PWA. Every layer is
-// best-effort and degrades silently — on a device with no audio/speech the haptic still fires,
-// and none of it ever throws into the recorder. Audio must be unlocked by a user gesture first
-// (call `primeCues()` from the Start button).
+// window.speechSynthesis) and falls back to Web Speech in a browser/PWA. When neither has a
+// usable voice for the runner's language installed — a common case on Android when the TTS
+// language pack is missing — speech falls back again to server-generated cloud audio (see
+// speakWithCloudFallback below), so cues still speak without asking the runner to install
+// anything. Every layer is best-effort and degrades silently — on a device with no audio/speech
+// at all the haptic still fires, and none of it ever throws into the recorder. Audio must be
+// unlocked by a user gesture first (call `primeCues()` from the Start button).
 //
 // There is deliberately NO music integration here: no playback, no ducking, no player control.
 // The voice + tones + haptics are the audio experience; music playback is intentionally out of scope.
@@ -171,18 +174,101 @@ export async function isVoiceAvailable(locale: CoachLocale): Promise<boolean> {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-function speakWeb(text: string, locale: CoachLocale): void {
+function speakWeb(text: string, locale: CoachLocale, onFail?: () => void): void {
   try {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      onFail?.();
+      return;
+    }
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = SPEECH_LANG[locale] === "ar" ? "ar-SA" : SPEECH_LANG[locale];
     utter.rate = 1;
     utter.volume = 1;
+    if (onFail) utter.onerror = () => onFail();
     // Cancel anything queued so a fast transition doesn't stack announcements.
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   } catch {
+    onFail?.();
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cloud voice fallback: server-generated speech for when neither native TTS nor Web Speech has a
+// usable voice for the runner's language (or fails outright). Buffers are decoded through the
+// same AudioContext the tones use — reusing it (rather than an <audio> element) means playback
+// rides on the gesture-unlock `primeCues()` already did, with no separate autoplay policy to
+// fight mid-run. Fetched/decoded buffers are cached in memory per (locale, text) for the life of
+// the page; the server disk-caches the generated MP3 too, so repeat phrases across runs/runners
+// don't re-hit OpenAI.
+// ---------------------------------------------------------------------------------------------
+
+const ttsBufferCache = new Map<string, Promise<AudioBuffer | null>>();
+
+function ttsCacheKey(locale: CoachLocale, text: string): string {
+  return `${locale}::${text}`;
+}
+
+function fetchTtsBuffer(text: string, locale: CoachLocale): Promise<AudioBuffer | null> {
+  const ctx = getAudioContext();
+  if (!ctx) return Promise.resolve(null);
+
+  const key = ttsCacheKey(locale, text);
+  const cached = ttsBufferCache.get(key);
+  if (cached) return cached;
+
+  const pending = (async () => {
+    try {
+      const res = await fetch(`/api/coach/tts?locale=${locale}&text=${encodeURIComponent(text)}`);
+      if (!res.ok) return null;
+      const arrayBuffer = await res.arrayBuffer();
+      return await ctx.decodeAudioData(arrayBuffer);
+    } catch {
+      return null;
+    }
+  })().then((buffer) => {
+    if (!buffer) ttsBufferCache.delete(key); // let a later retry succeed once network/API recovers
+    return buffer;
+  });
+
+  ttsBufferCache.set(key, pending);
+  return pending;
+}
+
+function playBuffer(buffer: AudioBuffer): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start();
+  } catch {
     /* ignore */
+  }
+}
+
+async function speakWithCloudFallback(text: string, locale: CoachLocale): Promise<VoicePlaybackResult> {
+  const buffer = await fetchTtsBuffer(text, locale);
+  if (!buffer) return { ok: false, code: "unavailable" };
+  playBuffer(buffer);
+  return { ok: true, code: "played" };
+}
+
+/**
+ * Warms the cloud-voice cache for a set of cue phrases before a guided run starts (call
+ * alongside `primeCues()` from the Start button, once the workout's steps are known). Native TTS
+ * is tried first and is usually free/instant, so this is a pure safety net: if it turns out to be
+ * unavailable mid-run, the cloud audio is already fetched and decoded, not a fresh network
+ * round-trip. Best-effort and silent — a prefetch failure just means that fallback path will
+ * retry live later.
+ */
+export function prefetchCloudSpeech(texts: readonly string[], locale: CoachLocale): void {
+  if (typeof window === "undefined") return;
+  const unique = new Set(texts.map((text) => text.trim()).filter(Boolean));
+  for (const text of unique) {
+    void fetchTtsBuffer(text, locale);
   }
 }
 
@@ -248,23 +334,46 @@ function logNativePlayback(text: string, locale: CoachLocale, result: VoicePlayb
   }
 }
 
-/** Plays the pre-run voice sample and reports a result for visible UI feedback. */
+function speakWebAwaitable(text: string, locale: CoachLocale): Promise<VoicePlaybackResult> {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        resolve({ ok: false, code: "unavailable" });
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = SPEECH_LANG[locale] === "ar" ? "ar-SA" : SPEECH_LANG[locale];
+      utter.rate = 1;
+      utter.volume = 1;
+      utter.onend = () => resolve({ ok: true, code: "played" });
+      utter.onerror = (event) => resolve({ ok: false, code: "failed", reason: event.error });
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    } catch (error) {
+      resolve({ ok: false, code: "failed", reason: errorText(error) });
+    }
+  });
+}
+
+/**
+ * Plays the pre-run voice sample and reports a result for visible UI feedback. Tries the
+ * device's own voice first (native TTS / Web Speech); if that's unavailable or fails — the
+ * "no voice installed for this language" case — falls back to cloud-generated audio so the test
+ * (and real cues) still play without asking the runner to install anything.
+ */
 export async function playVoiceSample(text: string, locale: CoachLocale): Promise<VoicePlaybackResult> {
   if (!text) return { ok: false, code: "failed" };
   if (Capacitor.isNativePlatform()) {
     const result = await speakNative(text, locale);
     logNativePlayback(text, locale, result);
-    return result;
+    if (result.ok) return result;
+    const cloud = await speakWithCloudFallback(text, locale);
+    return cloud.ok ? cloud : result;
   }
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    return { ok: false, code: "unavailable" };
-  }
-  try {
-    speakWeb(text, locale);
-    return { ok: true, code: "played" };
-  } catch (error) {
-    return { ok: false, code: "failed", reason: errorText(error) };
-  }
+  const result = await speakWebAwaitable(text, locale);
+  if (result.ok) return result;
+  const cloud = await speakWithCloudFallback(text, locale);
+  return cloud.ok ? cloud : result;
 }
 
 /** Opens Android's TTS data/voice installer when the selected language is missing. */
@@ -289,9 +398,13 @@ export async function openVoiceInstall(): Promise<boolean> {
 export function speakCue(text: string, locale: CoachLocale, level: SpeechLevel = "full"): void {
   if (!text || !speechAllowed(level)) return;
   if (Capacitor.isNativePlatform()) {
-    void speakNative(text, locale).then((result) => logNativePlayback(text, locale, result));
+    void speakNative(text, locale).then((result) => {
+      logNativePlayback(text, locale, result);
+      if (!result.ok) void speakWithCloudFallback(text, locale);
+    });
+  } else {
+    speakWeb(text, locale, () => void speakWithCloudFallback(text, locale));
   }
-  else speakWeb(text, locale);
 }
 
 // Localized "now do X" phrase for a step announcement.
@@ -314,11 +427,27 @@ export function announceStep(step: ExecStep, locale: CoachLocale): void {
   speakCue(stepPhrase(step, locale), locale, "essential");
 }
 
+function completePhrase(locale: CoachLocale): string {
+  return locale === "fr" ? "Séance terminée" : locale === "ar" ? "انتهت الحصة" : "Workout complete";
+}
+
 // The final "you're done" flourish when the last structured step completes.
 export function announceComplete(locale: CoachLocale): void {
   beep(720, 180, 3);
   notifyHaptic("success");
-  speakCue(locale === "fr" ? "Séance terminée" : locale === "ar" ? "انتهت الحصة" : "Workout complete", locale, "essential");
+  speakCue(completePhrase(locale), locale, "essential");
+}
+
+/**
+ * Warms the cloud-voice cache for an entire guided workout's cues in one go — call once the
+ * steps are known, alongside `primeCues()` from the Start button (see run-recorder.tsx). Covers
+ * every step announcement plus the finish phrase, so if native/Web Speech turns out to have no
+ * voice for this language, the fallback audio is already fetched before it's needed mid-run.
+ */
+export function prefetchGuidedWorkoutAudio(steps: readonly ExecStep[], locale: CoachLocale): void {
+  const texts = steps.map((step) => stepPhrase(step, locale));
+  texts.push(completePhrase(locale));
+  prefetchCloudSpeech(texts, locale);
 }
 
 // A tick for the last few seconds of a timed step (3, 2, 1). Quiet and quick — no speech.

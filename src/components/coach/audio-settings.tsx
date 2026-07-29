@@ -37,10 +37,10 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     test: "Test voice",
     testing: "Playing…",
     testPassed: "Voice played successfully.",
-    testFailed: "Voice could not play. Check media volume or install the device voice.",
+    testFailed: "Voice couldn't play. Check your connection and media volume.",
     installVoice: "Install voice data",
     sample: "Hello! This is your running coach. Have a great session.",
-    voiceMissing: "No voice found for this language on your device. Install Google Text-to-Speech language data to enable spoken cues — tones and vibrations still work.",
+    voiceMissing: "Your device doesn't have voice data installed for this language, so cues stream online instead (uses a small amount of data). Install the on-device voice to keep it fully offline.",
     warmupToggle: "Warm-up & cool-down tips",
     warmupHint: "Spoken reminders to start gently and to ease off at the end."
   },
@@ -52,10 +52,10 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     test: "Tester la voix",
     testing: "Lecture…",
     testPassed: "La voix a été lue correctement.",
-    testFailed: "Impossible de lire la voix. Vérifiez le volume multimédia ou installez la voix de l'appareil.",
+    testFailed: "Impossible de lire la voix. Vérifiez votre connexion et le volume multimédia.",
     installVoice: "Installer les données vocales",
     sample: "Bonjour ! Je suis votre coach de course. Bonne séance.",
-    voiceMissing: "Aucune voix trouvée pour cette langue sur votre appareil. Installez les données vocales Google Text-to-Speech pour activer les annonces — les sons et vibrations fonctionnent quand même.",
+    voiceMissing: "Votre appareil n'a pas de données vocales installées pour cette langue, les annonces sont donc diffusées en ligne (utilise un peu de données). Installez la voix locale pour rester hors ligne.",
     warmupToggle: "Conseils échauffement & retour au calme",
     warmupHint: "Rappels vocaux pour démarrer en douceur et relâcher en fin de séance."
   },
@@ -67,10 +67,10 @@ const COPY: Record<CoachLocale, SettingsCopy> = {
     test: "جرّب الصوت",
     testing: "جارٍ التشغيل…",
     testPassed: "تم تشغيل الصوت بنجاح.",
-    testFailed: "تعذّر تشغيل الصوت. تحقّق من مستوى صوت الوسائط أو ثبّت صوت الجهاز.",
+    testFailed: "تعذّر تشغيل الصوت. تحقّق من اتصالك بالإنترنت ومستوى صوت الوسائط.",
     installVoice: "تثبيت بيانات الصوت",
     sample: "مرحبًا! أنا مدرب الجري الخاص بك. حصة موفقة.",
-    voiceMissing: "لا يوجد صوت لهذه اللغة على جهازك. ثبّت بيانات اللغة في Google Text-to-Speech لتفعيل الإرشادات الصوتية — تبقى النغمات والاهتزازات تعمل.",
+    voiceMissing: "جهازك لا يحتوي على بيانات صوتية لهذه اللغة، لذا يتم بث الإرشادات الصوتية عبر الإنترنت (يستهلك قدرًا صغيرًا من البيانات). ثبّت الصوت المحلي للبقاء بدون اتصال بالكامل.",
     warmupToggle: "نصائح الإحماء والتهدئة",
     warmupHint: "تذكيرات صوتية للبدء بهدوء والتخفيف في نهاية الحصة."
   }
