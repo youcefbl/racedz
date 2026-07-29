@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Clock } from "lucide-react";
 import type { BlogPostMeta } from "@/lib/blog";
@@ -15,6 +16,14 @@ export function formatBlogDate(iso: string, locale: Locale): string {
   return new Intl.DateTimeFormat(DATE_LOCALES[locale], { dateStyle: "long" }).format(new Date(iso));
 }
 
+export function formatBlogReadingTime(minutes: number, locale: Locale, template: string): string {
+  if (locale !== "ar") return template.replace("{n}", String(minutes));
+  if (minutes === 1) return "دقيقة قراءة";
+  if (minutes === 2) return "دقيقتان للقراءة";
+  if (minutes >= 3 && minutes <= 10) return `${minutes} دقائق قراءة`;
+  return `${minutes} دقيقة قراءة`;
+}
+
 export function PostCard({
   post,
   locale,
@@ -27,7 +36,7 @@ export function PostCard({
   featured?: boolean;
 }) {
   const href = withLocale(`/blog/${post.slug}`, locale);
-  const minRead = labels.minRead.replace("{n}", String(post.readingMinutes));
+  const minRead = formatBlogReadingTime(post.readingMinutes, locale, labels.minRead);
 
   return (
     <Link
@@ -37,11 +46,13 @@ export function PostCard({
       }`}
     >
       <div className={`relative overflow-hidden bg-[var(--surface-soft)] ${featured ? "md:w-1/2" : ""}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={post.cover}
           alt={post.coverAlt}
-          loading="lazy"
+          width={1200}
+          height={675}
+          priority={featured}
+          sizes={featured ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
           className={`aspect-[16/9] w-full object-cover transition duration-500 group-hover:scale-[1.03] ${
             featured ? "md:h-full" : ""
           }`}

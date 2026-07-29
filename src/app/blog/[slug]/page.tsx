@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { compileMDX } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { ArrowLeft, CalendarDays, Clock } from "lucide-react";
-import { formatBlogDate, PostCard } from "@/components/blog/post-card";
-import { mdxComponents } from "@/components/blog/mdx-components";
+import { formatBlogDate, formatBlogReadingTime, PostCard } from "@/components/blog/post-card";
+import { createMdxComponents } from "@/components/blog/mdx-components";
 import { getPost, getPostSlugs, getRelatedPosts } from "@/lib/blog";
 import { getDictionary, getLocale, withLocale, LOCALES, type Locale } from "@/lib/i18n";
 
@@ -68,12 +69,13 @@ export default async function BlogArticlePage({ params, searchParams }: ArticleP
 
   const { content } = await compileMDX({
     source: post.body,
-    components: mdxComponents,
+    components: createMdxComponents(locale),
     options: { mdxOptions: { remarkPlugins: [remarkGfm] } }
   });
 
   const related = getRelatedPosts(slug, locale);
-  const minRead = t.minRead.replace("{n}", String(post.readingMinutes));
+  const minRead = formatBlogReadingTime(post.readingMinutes, locale, t.minRead);
+  const canonicalUrl = locale === "en" ? `${SITE_URL}/blog/${slug}` : `${SITE_URL}/blog/${slug}?lang=${locale}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -90,7 +92,7 @@ export default async function BlogArticlePage({ params, searchParams }: ArticleP
       name: "ZidRun",
       logo: { "@type": "ImageObject", url: `${SITE_URL}/icon-512.png` }
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}/blog/${slug}` }
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonicalUrl }
   };
 
   return (
@@ -130,15 +132,20 @@ export default async function BlogArticlePage({ params, searchParams }: ArticleP
               <CalendarDays className="size-4" aria-hidden="true" />
               {formatBlogDate(post.publishedAt, locale)}
             </span>
+            {post.updatedAt ? <span>{t.updatedOn} {formatBlogDate(post.updatedAt, locale)}</span> : null}
           </div>
         </header>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={post.cover}
           alt={post.coverAlt}
+          width={1600}
+          height={900}
+          priority
+          sizes="(max-width: 768px) 100vw, 768px"
           className="mt-8 aspect-[16/9] w-full rounded-2xl border border-[var(--border)] object-cover"
         />
+        {post.imageKind === "ai-illustration" ? <p className="mt-2 text-center text-xs text-[var(--text-muted)]">{t.imageDisclosure}</p> : null}
 
         <div className="mt-2">{content}</div>
       </article>

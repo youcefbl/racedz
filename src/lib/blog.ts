@@ -30,6 +30,7 @@ export type BlogFrontmatter = {
   author: string;
   publishedAt: string; // ISO date, e.g. "2026-07-05"
   updatedAt?: string;
+  imageKind?: "ai-illustration";
   featured?: boolean;
   tags?: string[];
   draft?: boolean;
@@ -54,10 +55,16 @@ function filePath(slug: string, locale: Locale): string {
   return path.join(BLOG_DIR, slug, `${locale}.mdx`);
 }
 
-function estimateReadingMinutes(body: string): number {
-  // ~200 wpm; Arabic/French word counts are close enough for a "min read" badge.
-  const words = body.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
+function estimateReadingMinutes(body: string, locale: Locale): number {
+  const readableText = body
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_#|>-]/g, " ");
+  const words = readableText.trim().split(/\s+/).filter(Boolean).length;
+  const wordsPerMinute: Record<Locale, number> = { en: 200, fr: 180, ar: 160 };
+  return Math.max(1, Math.ceil(words / wordsPerMinute[locale]));
 }
 
 function readLocaleFile(slug: string, locale: Locale): BlogPost | null {
@@ -65,12 +72,15 @@ function readLocaleFile(slug: string, locale: Locale): BlogPost | null {
   if (!fs.existsSync(file)) return null;
 
   const raw = fs.readFileSync(file, "utf8");
+  if (/\bTODO:/i.test(raw)) {
+    throw new Error(`Blog publication blocked: unresolved TODO in ${file}`);
+  }
   const { data, content } = matter(raw);
   const fm = data as Partial<BlogFrontmatter>;
 
   // A file missing required SEO fields is treated as absent so the whole post is
   // withheld rather than rendering a broken page.
-  if (!fm.title || !fm.description || !fm.category || !fm.publishedAt) return null;
+  if (!fm.title || !fm.description || !fm.category || !fm.publishedAt || !fm.updatedAt) return null;
 
   return {
     slug,
@@ -83,10 +93,11 @@ function readLocaleFile(slug: string, locale: Locale): BlogPost | null {
     author: fm.author ?? "ZidRun",
     publishedAt: fm.publishedAt,
     updatedAt: fm.updatedAt,
+    imageKind: fm.imageKind,
     featured: fm.featured ?? false,
     tags: fm.tags ?? [],
     draft: fm.draft ?? false,
-    readingMinutes: estimateReadingMinutes(content),
+    readingMinutes: estimateReadingMinutes(content, locale),
     body: content
   };
 }
