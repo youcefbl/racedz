@@ -11,7 +11,7 @@ import { describeTarget, roleLabel, type ExecStep } from "@/lib/coach/workout-st
 // (call `primeCues()` from the Start button).
 //
 // There is deliberately NO music integration here: no playback, no ducking, no player control.
-// The voice + tones + haptics ARE the audio experience (see execution-plan-audio-coaching.md).
+// The voice + tones + haptics are the audio experience; music playback is intentionally out of scope.
 
 let audioCtx: AudioContext | null = null;
 

@@ -188,7 +188,7 @@ Notes:
 Start a new Codex session with:
 
 ```text
-Read TODO.md, CODEX_CONTEXT.md, and AGENTS.md, then continue from the current priority.
+Read EXECUTION_PLAN.md, CODEX_CONTEXT.md, and AGENTS.md, then continue from the current priority.
 ```
 
 There is no reliable way to keep the exact same live Codex chat session across two PCs. The reliable workflow is Git plus the repo context files.

@@ -1,305 +1,150 @@
-# ZidRun — Consolidated Execution Plan (verified)
+# ZidRun Release Plan
 
-**One source of truth for what's actually left to do.** Every item below was checked against the
-codebase on **2026-07-13**, with owner/verification updates through **2026-07-26**; anything already implemented was removed (see "Verified DONE — removed"
-at the bottom for what was dropped and why). Only **MISSING** or **PARTIAL** work remains here.
+> **The only source of truth for progress, priorities, release gates, and future TODOs.**
+> Do not create another backlog, phase plan, audit TODO, or progress file. Supporting documents may
+> explain how to test or operate the product, but every open action belongs here.
 
-## 📊 Overall progress — 21 / 46 items · **46%** _(checkbox count, 2026-07-26)_
+**Last updated:** 2026-07-29
 
-`████████████░░░░░░░░░░░░░` **46%**
+**Release readiness:** `█████████████░░░░░░░░░░░░` **52% — 31 of 60 gates complete**
 
-| Tier | Bar | Done | Left | Total | % |
-|---|---|---:|---:|---:|---:|
-| 🔴 **P0** — production hardening | `███████░░░` | 12 | 4 | 16 | 75% |
-| 🟠 **P1** — launch UX & product | `███████░░░` | 7 | 3 | 10 | 70% |
-| 🟡 **P2** — growth & depth (incl. scale/infra) | `█░░░░░░░░░` | 2 | 13 | 15 | 13% |
-| 🟢 **P3** — later | `░░░░░░░░░░` | 0 | 5 | 5 | 0% |
-| **Overall** | `█████░░░░░` | **21** | **25** | **46** | **46%** |
+**Status:** **HOLD** until the P0 release gates below are complete and recorded against one immutable
+commit. The web platform is live; this plan governs the next web deployment and Android production
+rollout.
 
-> Of the **25 remaining**, P0 has four open items: Android push/Crashlytics runtime verification, Caddy
-> reload verification, external security review, and sports-health review. The public web platform is
-> already live; see `PRODUCTION_READINESS.md` for the next web release and active Google Play closed-test
-> status. After P0, P1 has three product/quality items left. _Note: the social-post race importer was a
-> net-new feature, not a plan item, so it isn't in this count — see the progress log below._
+## What to do next
 
-Legend: 🔴 blocker before production · 🟠 launch sprint · 🟡 scale/after-launch · 🟢 later
-Effort: S = <½ day · M = ~1–2 days · L = ~3–5 days · XL = 1–3 weeks
-Status: ❌ missing · ◐ partial (scope narrowed to the gap)
+Work from top to bottom. Do not start P1/P2 product work while an unblocked P0 item can be closed.
 
-### Progress log
-- **2026-07-26 — Production/release status reconciliation.** The owner confirms the production web
-  platform, verification email/auth journey, secrets, Sentry/alerts, uptime monitoring, cron jobs, and
-  OpenAI billing/limits are operational. The dependency stabilization pass now reports zero audit
-  vulnerabilities and passes the complete release gate. Android is in Google Play closed testing with
-  12 testers and 2 days left in the 14-day requirement. Local audit confirms release signing and
-  `google-services.json`; App Links still needs the Play App Signing fingerprint and push/Crashlytics
-  need explicit runtime verification. Detailed status: `PRODUCTION_READINESS.md`.
-- **2026-07-14 — Social-post race importer (Phase 1). ✅ 100% of scoped items done.** Shipped on branch
-  `feat/social-post-race-import` (typecheck / lint / build all clean; migration applied locally). Admin
-  **"Import from post"** flow: a superadmin uploads the Instagram/Facebook poster image(s) and/or pastes
-  the caption, an **OpenAI vision** model extracts the race fields, and a **DRAFT** race is created and
-  opened in the existing edit page (review banner) to review + publish. Delivered items — all ✅:
-  1. ✅ **Provenance schema + migration** (`20260714120000_add_race_import_provenance`): `importSource`,
-     `importSourceUrl`, `importRawText`, `importExtractionJson` on `RaceEvent`.
-  2. ✅ **Vision extraction** (`src/lib/social-import/extract.ts`) — Responses API + `zodTextFormat`,
-     FR/AR/dialect-aware, `SOCIAL_IMPORT_MODEL` env (multimodal; defaults to the coach family).
-  3. ✅ **Normalization** (`normalize.ts`) — wilaya-snap to `src/lib/algeria.ts`, distance→raceType, date
-     parsing, always-valid DRAFT.
-  4. ✅ **Draft create** (`create.ts`) — `status: DRAFT`, `source: PLATFORM`, categories + provenance.
-  5. ✅ **Admin UI** (`/admin/races/import`, superadmin-only) + races-list entry point + `?imported=1`
-     review banner on the edit page; rate-limited, path-traversal-guarded image reads.
-  6. ✅ **Roadmap doc** `SOCIAL_IMPORT_PLAN.md` (Phase 2 = PWA/Android **Share Target**; 3–4 later).
-  **Decisions locked:** OpenAI provider · DRAFT status · images+caption ingestion · Instagram + Facebook.
-  **Owner follow-up (not part of this scope):** the live extraction call is untested until `OPENAI_API_KEY`
-  billing is enabled (already an open ops item below); then run one real post through it.
-- **2026-07-13 — P0 pass.** Shipped: Google-link account-takeover fix, invite-accept rate limit +
-  off-topic coach DB-bloat cap, `server-only` provider guards, past-race→COMPLETED cron, and **opt-in
-  TOTP two-factor** (RFC-6238-tested lib, `/account/security` enrollment, login two-step, migration
-  `20260713120000_add_user_mfa`). IDOR and secrets/PII audits both came back **CLEAN**. All changes pass
-  typecheck / lint / build / `test:mfa`. **Owner follow-ups:** `npx prisma migrate deploy`; schedule the
-  new cron; runtime click-through of MFA. **Still open in P0:** major-version dependency upgrade for the
-  5 high vulns (needs a tested pass), MFA enforcement flip for `/admin/*`, external review, owner ops.
-- **2026-07-14 — Product + perf + mobile session.** Shipped (all typecheck/lint/build-verified, on `main`):
-  admin↔runner **support chat** (`SupportThread`/`SupportMessage` + migration `add_support_chat`; runner chat, admin
-  inbox with name/email search, two-way in-app/push notifications); **first-login onboarding** (skippable
-  `/account/welcome` + AI-coach invite, `User.onboardedAt`); **cross-device language/theme** (`User.language`/`theme`,
-  applied on new-device login); trilingual **FAQ** page; **legal rewrite** — Terms (fulfillment/refund/warranty/
-  liability, Algiers law) + Privacy incl. a cookie policy, EN/FR/AR — plus a first-visit **cookie-consent banner**
-  (analytics honor a reject; banner hidden in-app); **blocked-user enforcement** on live sessions (`/blocked` +
-  forced sign-out); **admin login → `/admin`** redirect fix; demo-login removed; admin user detail now shows
-  target/#runs/#AI-prompts; coach trial-countdown + subscribe CTA; coach-subscription link in the mobile account hub.
-  **Mobile:** animated bouncing-Z boot splash. **Perf:** public race reads cached in Next's data cache with tag
-  invalidation on every mutation; server-only legal/FAQ text split into `src/lib/i18n-content.ts`, shrinking the
-  shared client chunk **48→25 KB gzipped**. **Follow-ups → new items below:** deploy the two new migrations;
-  consolidate the two middleware files; commit the still-uncommitted i18n split.
+| Order | Priority | Action | Owner | Done when |
+|---:|---|---|---|---|
+| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) | Engineering | Decide whether Groups commit `4f0453a` ships in this release; if included, finish its release acceptance, otherwise remove it from the candidate. Push every intended commit, remote CI passes, and tag the exact candidate. |
+| 2 | P0 | **Close Google Play testing** (`PR-052`) | Owner | Play Console confirms the required closed-test period is complete; feedback and crash/ANR reports are reviewed. The previous “2 days remaining” status is stale and requires owner confirmation. |
+| 3 | P0 | **Run signed physical-device acceptance** (`PR-050`) | Engineering + owner | The exact signed candidate passes auth, deep links/back navigation, safe areas, voice test, guided warm-up/work/cool-down, background GPS, pause/resume, force-kill restore, logout/account switching, sustained non-foot auto-pause, stationary-start drift, and Google Drive/local GPX import. Record device/OS/build and results in this file. |
+| 4 | P0 | **Verify native production integrations** (`PR-048`, `PR-049`) | Owner + engineering | Hosted `assetlinks.json` contains the Play App Signing SHA-256; production push reaches the signed app; notification taps route correctly; a Crashlytics test event appears. |
+| 5 | P0 | **Prove data recovery and private storage** (`PR-020`–`PR-025`) | Operations | Rehearse `prisma migrate deploy`; verify automated database backup and restore; make uploads durable; protect payment/private media; document retention, export, deletion, and production access; remove temporary bootstrap credentials. |
+| 6 | P0 | **Complete security and health review** (`PR-031`, `PR-041`) | Engineering + external reviewers | Constrain deployment to one instance or add shared rate limiting; validate headers/TLS/cookies/authz/upload abuse; enforce admin MFA or record an explicit owner risk decision; verify Caddy payment-proof rules; complete external security and sports-health reviews. |
+| 7 | P0 | **Run controlled web acceptance** (`PR-034`, `PR-036`–`PR-043`) | Product + engineering | On the exact candidate, pass runner registration, capacity/payment/cancellation, organizer lifecycle, admin moderation, Coach/voice/safety, EN/FR/AR/RTL/themes/accessibility, deployment, production smoke, monitoring, backup, and rollback checks. |
+| 8 | P0 | **Finish store and rollout governance** (`PR-051`, `PR-053`, `PR-058`–`PR-060`) | Owner | Listing, screenshots, privacy/Data Safety, deletion URL, version/release notes, staged percentage, rollback procedure, incident owner, escalation contacts, and final go/no-go are approved. |
 
----
+## Progress by gate group
 
-## P0 — Production hardening (before public launch) 🔴
+These counts preserve the existing 60-gate release baseline. A gate moves only when evidence exists;
+finishing code alone is not enough for a device, operations, or rollout gate.
 
-### Security
-- [x] ✅ **Google-linking account takeover** — FIXED `src/auth.ts`: nulls `passwordHash` (force reset)
-      when Google sign-in first-verifies an account that carried a credentials password. Credentials login
-      already denies a null hash (`auth.ts:77`).
-- [x] ✅ **Rate-limiting gaps** — FIXED: invite-accept now throttled (`invite/[token]/actions.ts`,
-      10/10min per user); off-topic coach BLOCKED rows capped at 30/user/day (`coach/service.ts`).
-- [x] ✅ **TOTP two-factor (opt-in)** — SHIPPED: self-contained TOTP (`src/lib/mfa.ts`, RFC-6238-tested
-      via `npm run test:mfa`) + recovery codes; enrollment at `/account/security`; login two-step prompt
-      (`login-form.tsx` + `loginAction`); authoritative gate in `authorize`. Migration
-      `20260713120000_add_user_mfa`. **Still open:** flip to *enforced-for-admins* later (currently any user
-      may opt in; `/admin/*` is not yet forced). — done
-- [x] ✅ **IDOR / authz sweep** — CLEAN. No cross-tenant IDOR; coach raw SQL is userId-scoped, org actions
-      org-scoped, admin gated. One **LOW** to consider: org `MEMBER` role can edit races / confirm payments /
-      export participant PII (only membership, not OWNER/ADMIN, is checked) — decide if MEMBER should be
-      view-only. Confined to the user's own org (not an IDOR).
-- [x] ✅ **Secrets/PII audit** — CLEAN. No secret via `NEXT_PUBLIC_`, no PII in responses/logs. Added
-      `server-only` guards to email/firebase providers. **MED (owner/ops):** coach payment-proof files live
-      under `public/uploads/coach-payment/*`; confidentiality relies on Caddy 403 + the Next port not being
-      directly reachable — keep the app port internal-only.
-- [x] ✅ **Dependency security upgrade** — DONE 2026-07-26. Next.js, Auth.js, Sentry, MDX, PostCSS,
-      Sharp, and vulnerable transitive packages were updated through a scoped release pass. `npm audit`
-      reports 0 vulnerabilities; lint, typecheck, focused domain tests, 40-test Playwright suite,
-      production build/smoke, and Android `bundleRelease` all pass.
-- [ ] **External security review** before public launch. — (external)
-- [x] ✅ *(optional)* Image **re-encode** on upload — DONE 2026-07-14 (`src/lib/storage.ts`). Every accepted
-      image is decoded + re-encoded through **sharp** before it's written, which strips all metadata (EXIF GPS,
-      camera info, embedded thumbnails/ICC) and collapses malformed/polyglot files that pass the magic-byte
-      sniff — the stored bytes come from our encoder, not the untrusted input. `.rotate()` bakes EXIF
-      orientation into the pixels first so photos stay right-side-up; animated GIFs re-encode frame-by-frame;
-      a decode failure surfaces as a normal `UploadError`; reported size reflects the re-encoded bytes.
-      *Verified:* a JPEG carrying EXIF GPS + orientation 6 comes out with no EXIF and the rotation baked in
-      (64x32 → 32x64), and a JPEG-magic/HTML polyglot is rejected. — S
-- [x] ✅ **Consolidate the two middleware files** — FIXED 2026-07-14. Confirmed the root `middleware.ts` never ran
-      (Next shadows it with `src/middleware.ts` when a `src/` dir is present) — so the auth guard was dead and, worse,
-      its `@/auth` import was **edge-unsafe** (`@/auth` pulls in `server-only` + Prisma via `auth-credentials.ts`),
-      so a naive merge would have broken the edge build. Applied the canonical next-auth v5 split: new edge-safe
-      `src/auth.config.ts` (JWT session strategy + pages + the pure `session` callback) is shared by `src/auth.ts`
-      (which adds the DB-touching providers + signIn/jwt callbacks) and `src/middleware.ts` (which builds an edge
-      `NextAuth(authConfig)` just to decode the JWT). `src/middleware.ts` now does **both** the auth guard (private
-      `/account|/organizer|/admin` areas, all methods) and locale persistence; root `middleware.ts` deleted. This
-      **restores** the previously-dead auth-guard redirect (defense-in-depth on top of the page/`layout` checks).
-      Typecheck + build clean (Middleware bundles at 144 kB, no server-only/Prisma leak into edge). — S
+| Gate group | Complete | Total | Open gate IDs |
+|---|---:|---:|---|
+| Code quality and release branch | 14 | 14 | — |
+| Platform, data, and secrets | 6 | 11 | `PR-020`–`PR-023`, `PR-025` |
+| External services and observability | 4 | 8 | `PR-030`–`PR-033` |
+| Controlled acceptance and production | 1 | 10 | `PR-034`, `PR-036`–`PR-043` |
+| Android and Play Store | 4 | 10 | `PR-048`–`PR-053` |
+| Release governance | 2 | 7 | `PR-056`–`PR-060` |
+| **Total** | **31** | **60** | **29 open** |
 
-### Data integrity / ops
-- [x] ✅ **Mark past races COMPLETED** — DONE: `src/lib/race-lifecycle.ts` `completePastRaces()` + cron route
-      `POST /api/internal/cron/complete-past-races` (CRON_SECRET-guarded, idempotent). The owner confirms
-      production cron jobs are scheduled as of 2026-07-26.
-- [x] ✅ **Deploy the 2026-07-14 migrations** *(owner)* — DONE (owner-confirmed 2026-07-14). `add_support_chat`
-      and `add_onboarding_and_appearance_prefs` (incl. the onboarding backfill that treats existing users as
-      onboarded) are deployed. Local `prisma migrate status`: 42 migrations, schema up to date.
-- [x] ✅ **Commit the perf i18n split** *(dev)* — DONE. `src/lib/i18n-content.ts` + the `terms/privacy/faq`
-      pages are committed (`7bdcf99`); nothing left uncommitted.
-- [ ] **Android push + Crashlytics** *(owner)* — `android/app/google-services.json` is present and included
-      in release builds, and the app is in closed testing. Still verify runtime token delivery and a
-      Crashlytics test event before setting this complete.
-- [ ] **Caddy reload after deploy** *(owner)* — bind-mounted `Caddyfile` (403s `/uploads/coach-payment/*`)
-      isn't auto-reloaded by `up -d`; run `caddy reload` after `./deploy.sh`.
-- [x] ✅ **OpenAI billing and limits** *(owner)* — DONE. Billing/quota, spend controls, and live model access
-      are operational in production; the live coach evaluation harness has passed.
-- [ ] **Sports-health professional review** of coach safety rules. — (external)
+### Completed baseline
 
----
+- `PR-001`–`PR-014`: dependency audit, lint/i18n, typecheck, domain tests, Playwright, visual
+  regression, production build/smoke, deterministic CI data, disabled placeholder mutations,
+  supported Sentry instrumentation, and self-hosted fonts are complete.
+- `PR-015`–`PR-019`, `PR-024`: production web hosting, HTTPS, PostgreSQL, secrets/canonical auth,
+  and scheduled cron jobs are operational.
+- `PR-026`–`PR-029`: verification email, OpenAI billing/limits, Sentry alerts, and uptime monitoring
+  are operational.
+- `PR-035`: owner confirmed register → email → verify → login in production.
+- `PR-044`–`PR-047`: Capacitor production identity, native shell/plugins, release bundle, and clean
+  production sync are verified.
+- `PR-054`, `PR-055`: release procedure and this maintained dashboard exist.
 
-## P1 — Launch-blocking UX & product gaps 🟠
+## P0 acceptance details
 
-### Progress log
-- **2026-07-13 — P1 pass.** Shipped: i18n parity gate, private profile, per-item notification read, CI
-  workflow, shirt 3XL + full organizer shirt config. Decisions: races-sort → keep soonest-first only;
-  notifications → per-item read. All pass typecheck/lint(+parity)/build.
+### Exact release quality gate
 
-- [x] ✅ **Private profile toggle** — `User.profilePrivate` opt-in in profile settings; honored in
-      leaderboards, activity feed, and follow. Migration `20260713130000_add_profile_privacy`.
-- [x] ✅ **Shirt option** — 3XL added; organizer per-race enable (all 4 create/edit forms); registration
-      selector gated on `race.shirtEnabled`; shirt totals-by-size on the organizer registrations page.
-      Migration `20260713140000_add_race_shirt`.
-- [x] ✅ **Notifications mark-read** — bell no longer marks-all-on-open; per-item read on click
-      (`POST /api/notifications/[id]/read`) + "Mark all read" button + unread dots.
-- [x] ✅ **i18n key-parity check** — `scripts/check-i18n-parity.ts`, fails `npm run lint` on en/fr/ar drift.
-- [x] ✅ **CI pipeline** — `.github/workflows/ci.yml`: postgres service, lint+typecheck+unit tests+build+smoke.
-- [x] ✅ **Races sort** — decided: keep soonest-first only (no UI selector). Resolved.
-- [x] ✅ **Notification i18n** — FIXED 2026-07-14. The recipient locale field is actually `User.language`
-      (not `User.locale`). New `src/lib/notifications/messages.ts` catalog holds en/fr/ar copy for every
-      fixed-string builder; `src/lib/notifications.ts` now threads each recipient's `language` → locale and
-      localizes title/body/subject + email chrome (button + meta labels) **per recipient** — `notifyRecipients`
-      was reworked to take a `localize(locale)` callback so a fan-out to recipients with different languages
-      each get their own translated copy. Email templates receive `locale` too, so Arabic emails render RTL.
-      Recipient queries now select `language`; single-recipient builders resolve it via `getUserLocale()`.
-      Free-text pieces (organizer announcements, support-chat previews, the change summary) are passed through
-      untranslated by design. Typecheck + lint (changed files) + i18n parity all clean; localized output
-      spot-checked at runtime. **Out of scope (unchanged):** admin-authored broadcasts and coach reminders
-      (the latter already localize via `preferredLocale`). — M
-- [ ] ❌ **Photo verification at registration** — no such feature. Let organizers require/upload a race photo
-      to be checked at registration. *(needs a short spec)* — L
-- [ ] **Remaining UI polish** (UI_AUDIT P3 + cross-cutting sweeps A–F) and UI_TODO homepage/race-detail/
-      listing polish. — L
-- [ ] ◐ **Playwright organizer/admin journeys** — auth + coach e2e exist; add positive organizer
-      (create→manage) and admin (approve) browser journeys + a seed/reset fixture command. — M
+Run against the release candidate:
 
----
+```bash
+npm audit --audit-level=low
+npm run lint
+npm run typecheck
+npm run test:all
+npm run build
+npm run smoke
+```
 
-## P2 — Growth & depth 🟡
+Then follow [docs/TESTING.md](docs/TESTING.md), [docs/OPERATIONS.md](docs/OPERATIONS.md), and
+[docs/MOBILE_ANDROID.md](docs/MOBILE_ANDROID.md). Browser automation does not close a physical-device
+gate, and a debug APK does not close a signed-release gate.
 
-- [x] ✅ **Follow / kudos / result notifications** — DONE 2026-07-14. Three new types (`SOCIAL_FOLLOW`,
-      `SOCIAL_KUDOS`, `RACE_RESULT_PUBLISHED`) wired into `social.ts` (`toggleFollow`/`toggleKudos`) and
-      `organizer.ts` (`saveOrganizerRaceResult`), each localized en/fr/ar via the notification message catalog
-      and delivered **in-app + push only** (per-event email would be noisy — same call as the support-message
-      alerts). All three are user-toggleable via `notificationPreferenceOptions`. Guards: only the *on*
-      transition notifies (unfollow / un-kudos are silent), never self-notify (own-run kudos, organizer
-      recording their own result), and an **unchanged** result re-save doesn't re-notify (a corrected time
-      does). Notifications are best-effort — the follow/kudos/result row is already committed, so a
-      notification failure is logged, not surfaced as a failed action.
-      *Verified end-to-end against a real DB:* 10/10 checks incl. an `ar` recipient receiving genuinely Arabic
-      copy and the actor receiving nothing. — M
-- [ ] ❌ **In-app share-my-run/plan card** — only a "share publicly" flag exists; no shareable artifact.
-      Build an OG/`ImageResponse` share card (route/distance/pace/"planned by Coach Zid"). Highest-leverage
-      growth item per marketing. — M
-- [ ] ❌ **Reverse trial / free allowance** — trial is already **7 days** (`COACH_TRIAL_DAYS`, env-overridable).
-      After it ends access is hard-blocked (tier `NONE`, 0/0). Marketing wants a small post-trial free
-      allowance (~5 actions/mo) instead of a hard wall — add a reverse-trial tier. — M
-- [ ] ❌ **GDPR self-service deletion** — only admin-initiated deletion exists, yet the privacy policy already
-      *claims* self-deletion (`i18n-content.ts:156`). Build a runner "delete my account + coach data" purge
-      (goals, runs+GPS, sleep logs, payment-proof files). **Promote to P0 if launching in an EU-data context.** — M
-- [ ] **Trial-ending lifecycle nudge** *(dev+marketing)* — in-app + push/email "2 days left," subscribe prompt
-      after a PB/great run. — M
-- [ ] **Coach context personalization hardening** — the richer onboarding fields are now present, but
-      the context still needs actual-plan adherence, confirmed long-term memory, target-race/timezone
-      realism, privacy-safe location enrichment, reproducible context versions, and stronger outcome
-      evaluation. Execute the prioritized checklist in
-      [`docs/COACH_CONTEXT_EXECUTION_TODO.md`](docs/COACH_CONTEXT_EXECUTION_TODO.md). **P0 first:**
-      data contract/consent, prompt-injection tests, actual plan state + adherence, and context audit
-      fixtures. — XL
-- [ ] **Notifications polish** — improve branded email template further; payment-proof review notifications;
-      race reminder jobs. — M
-- [ ] **Mobile — remaining PWA/Capacitor** — logo/SVG, manifest (`manifest.ts`), and the icon set are DONE.
-      Remaining: offline shell + FCM SW coexistence + mobile viewport/safe-area/tap-target audit (Phase A),
-      then Capacitor native bridges + store submission (Phase B/C). — XL
-- [ ] **Analytics key-action events** *(optional)* — page-view analytics + Sentry are DONE; there's no discrete
-      key-action/conversion event table. Add if funnel analysis needs it. — M
-- [ ] **Public runner profile page**; **clubs / running groups** (Tier-1 deferrals). — L
-- [ ] **Blog** — registered-runner comments (`BlogComment` + moderation); remaining posts (mental training,
-      cross-training, nutrition timing, foot types, recovery) EN+FR+AR. — L
+### Release decisions that are already locked
 
-### Scale / infrastructure — ~1000 concurrent (do in order, before the next big race)
-Context: run recording is **client-side** (one `POST /api/coach/runs` at run-end + offline retry, not a live
-stream), so raw throughput isn't the risk. The real bottleneck is the **registration thundering-herd** on
-registration-open, and the single-host stack (one app container + local-volume uploads) that can't scale out.
-Target ~€40/mo on Hetzner (CPX41 + object storage), no AWS needed at this size.
-- [x] ✅ **(1) Make the registration transaction atomic** — DONE (`src/lib/registrations.ts`). The
-      count-then-insert race is closed **without** a new counter column (which would drift against the
-      cancel-path `increment` and the CANCELLED/REJECTED-excluding count): the category cap now takes a
-      `SELECT … FOR UPDATE` row lock on the `RaceCategory` before its `count()`, serializing concurrent
-      registrations for the same distance; the event `availablePlaces` countdown became a single atomic
-      guarded `updateMany (WHERE availablePlaces > 0)` that can't go negative. Proven with a real-Postgres
-      thundering-herd test — `npm run test:registration` (`scripts/test-registration-concurrency.ts`): 40
-      concurrent registrations against a CAP-5 race yield exactly 5, and removing the lock overshoots to 17.
-      **Still optional:** front the registration-open moment with a Cloudflare waiting room for extra smoothing. — M
-- [ ] ❌ **(2) Externalize uploads to R2** — uploads currently write to a **local** Docker volume
-      (`racedz_uploads`, `src/lib/storage.ts`), which pins the app to one host. Move to Cloudflare R2 / Hetzner
-      Object Storage (S3 API) so the app tier becomes stateless and horizontally scalable. (Note: P3 already lists
-      "S3 upload migration" — this is the same work, promoted.) — M
-- [ ] ❌ **(3) PgBouncer + 3–4 app replicas on a CPX41** — bump to a Hetzner CPX41 (8 vCPU/16GB), run 3–4 `app`
-      replicas behind Caddy/LB, and put **PgBouncer** in front of Postgres so replicas don't exhaust
-      `max_connections` (default 100). Requires (2) done first. After this, "add a node" is a ~5-min op. — M
-- [ ] ❌ **(4) Load-test before the next big race** — use the existing `loadtest/k6` harness to simulate the
-      registration thundering-herd against the real endpoint and validate the atomic fix + replica setup under
-      ~1000 concurrent. — S
+- Payments remain manual for this release; do not add a gateway now.
+- Registration resale, bib transfer, and a goods marketplace are out of release scope.
+- iOS is not part of this release; it needs a Mac/Xcode and a separate distribution track.
+- A separate staging deployment is not required. Acceptance must still run against the exact commit
+  that is promoted through the owner-approved production-safe process.
+- Coach health-memory writes remain disabled until explicit consent, retention, export/deletion, and
+  sports-health review are complete.
+- Raw GPX routes and other precise location evidence must not be committed.
 
----
+### Parallel launch preparation (owner/marketing)
 
-## P3 — Later 🟢
-- [ ] Marketplace for running goods (admin-approved) — full spec in `TODO.md`.
-- [ ] Bib transfer / registration resale — pending fraud/payment/approval rules.
-- [ ] Strava / wearable sync (needs registered app + secrets); FIT import (binary decoder).
-- [ ] Coach/AI-authored custom workout structures; mid-step pace enforcement; persist guided run across kill.
-- [ ] Password reset UX polish; social login beyond Google; exportable admin audit reports; S3 upload
-      migration; web/JS error dashboard (GlitchTip self-host).
+These do not change the 60 engineering gates, but they must be ready before the public announcement:
 
----
+1. Confirm the Coach Zid persona/name/catchphrase with native runners and choose real, synthetic, or
+   hybrid presentation with transparent AI disclosure.
+2. Claim/complete Instagram, Facebook, and TikTok profiles; prepare the link-in-bio destinations.
+3. Onboard enough organizers and real races that launch discovery is not empty.
+4. Prepare reviewed store/social screenshots, demo recordings, Week 1–2 content, reusable templates,
+   and EN/FR/AR copy.
+5. Configure privacy-conscious UTM/activation reporting and assign the launch response/feedback owner.
 
-## Recommended sprint sequence
+## P1 — first work after release
 
-| Sprint | Focus | Items |
+Do these only after P0 is closed or when a P0 item is externally blocked.
+
+1. **Bound growing data surfaces:** paginate public races, organizer collections, long run histories,
+   and any remaining conversation/feed endpoints; add indexes from measured query patterns.
+2. **Complete accessibility and RTL acceptance:** 44 px touch targets, focus visibility, contrast,
+   logical spacing, directional-icon mirroring, loading/error/empty states, and EN/FR/AR copy parity.
+3. **Coach personalization after governance:** health-memory expiry/reconfirmation, progressive
+   profile prompts, opt-in coarse location/timezone, and qualified safety review.
+4. **Notifications:** payment-proof review notices, race reminders, delivery/idempotency hardening,
+   and final signed-device push routing.
+5. **Resolve Groups scope:** if Groups is excluded from the release candidate, finish/review its authz,
+   privacy, moderation, notifications, migrations, browser tests, and mobile UX before shipping later.
+6. **Growth:** shareable run/plan cards, post-trial free allowance, and trial-ending lifecycle nudges.
+
+## P2 — later roadmap
+
+- Public runner profiles, clubs/groups discovery, registered-runner blog comments, and remaining
+  EN/FR/AR editorial content.
+- Social-post Android/PWA Share Target after the existing admin import flow is stable.
+- Strava/wearable/FIT sync after provider registration, consent, deduplication, and import provenance.
+- Coach location personalization, travel-to-race advice, adaptive check-ins, and Coach as the primary
+  runner home.
+- Object storage plus PgBouncer/multiple app replicas and k6 registration-open load testing before a
+  high-concurrency race. Do not scale app replicas while rate limits and uploads remain process-local.
+- Marketplace and bib transfer only after fraud, organizer approval, refunds, and payment rules have
+  a separate approved specification.
+
+## Current evidence
+
+| Date | Evidence | Result |
 |---|---|---|
-| **1** | 🔴 Security | Google-link fix, invite-accept rate limit + coach-BLOCKED counting, admin MFA, IDOR sweep, secrets audit, npm audit/Node upgrade |
-| **2** | 🔴 Ops + integrity | Remaining: verify Android push/Crashlytics at runtime, verify Caddy reload, and complete external security/sports-health reviews. OpenAI billing, cron scheduling, dependency security, and upload re-encoding are done. |
-| **3** | 🟠 Product gaps | Private profile toggle, notification i18n (`User.locale` wiring), shirt config + 3XL, races-sort decision |
-| **4** | 🟠 Quality + UI | i18n parity check, CI pipeline, organizer/admin Playwright, notif mark-read decision, UI cross-cutting sweeps |
-| **5** | 🟡 Growth | Follow/kudos/result notifications, share card, reverse trial, lifecycle nudge, GDPR self-delete |
-| **6+** | 🟡 Depth | Coach onboarding (WS2), notifications polish, PWA/Capacitor, blog, public profile/clubs |
-| **Later** | 🟢 | Marketplace, bib transfer, Strava, etc. |
+| 2026-07-29 | Groups implementation, commit `4f0453a` | Private/public groups, join links, email invites, schema, and UI are committed. Release inclusion and exact-candidate acceptance are not yet decided, so no release gate moves. |
+| 2026-07-29 | GPX picker/startup-drift hardening, commit `a83e159` | Incident/run-stat tests, lint, typecheck, focused GPX browser test, and production build passed. Raw routes stayed untracked. Push/remote CI and signed-device validation remain open. |
+| 2026-07-28 | Pixel 8 debug-emulator incident matrix | Rapid guided skip, force-kill restore, and account switching passed. Sustained-speed auto-pause was inconclusive because Android throttled mock locations. |
+| 2026-07-27 | Runs lifecycle/validity hardening | Full local test suite and build passed; suspect activities are excluded; snapshot ownership and guided bounds are covered. |
+| 2026-07-26 | Android 2.0 release artifact | Clean production Capacitor sync and signed release build passed. Play App Signing fingerprint and runtime Firebase/Crashlytics verification remain open. |
 
-Run **marketing P0** (`marketing/03-marketing-todo.md`) in parallel from day 1.
+## Maintenance rules
 
----
-
-## Open decisions blocking work
-- **Races sort**: expose a sort dropdown, or keep soonest-first only? (backlog vs UI-audit conflict)
-- **Coach health data**: comfortable storing chronic-condition/medication data? Policy line needed before WS2.
-- **GDPR deletion**: is launch EU-data-facing? If yes, self-delete → P0.
-- **Mobile**: confirm Capacitor wrapper (RN rewrite ≈ 8–14 wks, not recommended).
-- **Logo/brand**: current mark is inline SVG; any further design work → hire a designer?
-- **Coach persona** (marketing): real ambassador vs AI avatar vs hybrid — blocks all coach video.
-
----
-
-## Verified DONE — removed from the plan (checked 2026-07-13)
-These were in the earlier plan but the code already implements them, so they were dropped:
-
-- **Security headers** (CSP/HSTS/X-Frame/X-Content-Type/Referrer/Permissions) — `next.config.ts`.
-- **Android `allowBackup="false"`** — `AndroidManifest.xml`.
-- **Upload hardening** — type/size/magic-byte validation + UUID filenames + auth'd payment-proof serving
-  (`src/lib/storage.ts`). *(only image re-encode absent — kept as optional P0.)*
-- **Admin dark-mode row-hover** — theme-remapped in `globals.css:159–194`.
-- **Confirm dialogs on destructive actions** — `ConfirmSubmit` used across admin/organizer cancel/delete/block.
-- **Resend-verification 120s countdown** — `src/app/login/resend-verification.tsx`.
-- **Admin user management** — delete/block/verify + status (verified, first/last login) in `admin/users/[id]`.
-- **Google profile picture on signup** — `getOAuthPicture` stored as `avatarUrl` in `src/auth.ts`.
-- **Auto-hide past races + "show past" opt-in** — `race-repository.ts` / `show-past-toggle.tsx`
-  *(only the COMPLETED status write is missing — kept as a small P0 item).*
-- **Coach answers in the user's language** — `preferredLocale` threaded through context/output/plan;
-  user-changeable in coach settings.
-- **Emergency contact + club name at registration** — `RaceRegistration` fields + form + validation.
-- **Usage analytics + error reporting** — first-party `PageView` + admin dashboard + Sentry.
-- **Branded email template** — `src/lib/notifications/email-template.ts`.
-- **Logo → inline SVG + PWA manifest + full icon set** — `racedz-logo.tsx`, `manifest.ts`, `public/` icons.
-- **7-day coach trial** — `COACH_TRIAL_DAYS = 7` *(reverse-trial allowance still missing — kept in P2).*
+1. Update the progress line, affected gate, current evidence, and `Last updated` date in this file in
+   the same change that affects release status.
+2. Never mark owner/external/device work complete from code inspection alone.
+3. Remove completed implementation detail; keep one concise evidence row instead of a growing diary.
+4. Product reference belongs in `PRODUCT.md`; architecture in `CODEX_CONTEXT.md`; procedures in
+   `docs/TESTING.md`, `docs/OPERATIONS.md`, or `docs/MOBILE_ANDROID.md`; incident facts in the incident
+   report. None of those files may maintain a separate backlog or percentage.
+5. If code and this plan conflict, verify the code, correct this file immediately, and do not create a
+   second tracker.

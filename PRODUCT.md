@@ -1,5 +1,8 @@
 # Product
 
+> Stable product and design reference only. Progress, priorities, release gates, and every open TODO
+> live exclusively in `EXECUTION_PLAN.md`.
+
 ## Register
 
 product

@@ -13,8 +13,8 @@ and auth working exactly like the website.
 
 ## 0. One-time machine setup (Ubuntu)
 
-You currently have **no Java / Android SDK / Android Studio**. KVM is available, so the
-emulator will be hardware-accelerated.
+Install Android Studio, its bundled JDK, the Android SDK/platform tools, and an API 34+ emulator
+image. Use hardware acceleration when available.
 
 ### Install Android Studio (recommended — bundles JDK + SDK + emulator)
 
@@ -49,9 +49,8 @@ java -version     # should print a version (17+)
 adb --version     # should print a version
 ```
 
-> Node note: you're on Node 18, so this project pins **Capacitor 6**. If you upgrade to
-> **Node 22 LTS** later, you can move to Capacitor latest (`npm i @capacitor/core@latest
-> @capacitor/cli@latest @capacitor/android@latest` then `npx cap sync`).
+Use the Node and Capacitor versions pinned by the repository. Upgrade native dependencies only in a
+separate reviewed change with a clean sync and signed-build verification.
 
 ---
 
@@ -174,19 +173,16 @@ the app exchanges it via the `native-bridge` credentials provider for a real ses
   `https://zidrun.com/api/auth/callback/google` redirect URI registered.
 - Backed by the `NativeAuthToken` model (5-min, single-use); see [`src/lib/native-auth.ts`](../src/lib/native-auth.ts).
 
-### Push notifications — needs `google-services.json`
+### Push notifications — runtime verification still required
 
 Native FCM device tokens are saved to the **same** backend as web push
 (`POST /api/notifications/push-subscriptions`); registration lives in
 [`native-push.tsx`](../src/components/layout/native-push.tsx). Until the Firebase config file is
 present, registration silently no-ops (the app still builds and runs).
 
-One-time setup (Firebase project `racedz-625ae` already exists):
-1. Firebase console → Project settings → **Add app → Android**, package name **`dz.racedz.app`**.
-2. Download **`google-services.json`** and place it at **`android/app/google-services.json`**
-   (gitignored; the Gradle config auto-applies the google-services plugin when present).
-3. `npm run cap:sync` and rebuild. Tokens then register for signed-in users and tapping a
-   notification routes to its `data.href`.
+`android/app/google-services.json` is present in the local release environment and the Gradle config
+applies the Google Services plugin when available. The remaining release work is to verify token
+registration, real delivery, preference opt-out, and `data.href` tap routing in the exact signed build.
 
 ---
 
@@ -203,5 +199,5 @@ For the Play Store you'll:
 > Quick debug APK (sideload on your own phone, no keystore):
 > `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
 
-iOS requires a Mac + Xcode (`npm i @capacitor/ios && npx cap add ios`) and an Apple Developer
-account ($99/yr); it can't be built on Ubuntu.
+iOS requires a Mac, Xcode, and a separate Apple distribution track. It is outside the current
+release scope; see `EXECUTION_PLAN.md`.

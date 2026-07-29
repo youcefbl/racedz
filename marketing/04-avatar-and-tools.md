@@ -1,5 +1,8 @@
 # ZidRun — Brand Avatar ("Coach Zid") & Marketing Tool Stack
 
+> This is a strategy reference, not a tracker. The current persona decision and priority live in
+> [`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md).
+
 Answers two questions: **(1)** should ZidRun have a human avatar/persona that makes posts and videos? and **(2)** which tools to use for a strong, lean marketing strategy.
 
 ---
@@ -14,7 +17,7 @@ Answers two questions: **(1)** should ZidRun have a human avatar/persona that ma
 - **Consistency = brand recall.** Same face, voice, catchphrase, and colors across every video trains recognition far faster than scattered stock content.
 - **Production leverage.** One persona = a repeatable format. You're not reinventing every video; you're filming/generating "Coach Zid says X" on a template.
 
-### Three routes — pick one (this is a P0 decision)
+### Three routes
 
 | Route | What it is | Pros | Cons | Best if |
 |---|---|---|---|---|

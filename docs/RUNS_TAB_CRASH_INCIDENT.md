@@ -1,495 +1,128 @@
 # Incident — Runs tab crash and runaway GPS recording
 
-**Reported:** 2026-07-26 · **Hardened:** 2026-07-27 · **Emulator-verified:** 2026-07-28 ·
-**GPX-reviewed:** 2026-07-29 ·
-**Status:** likely guided-state crash path fixed in code; P0/P1 containment implemented, covered by
-focused pure tests, and now exercised live on a Pixel 8 emulator (rapid guided-skip, cold-kill/
-force-stop restore, and cross-account switching all passed — see
-`docs/EMULATOR_E2E_TEST_PLAN.md` §4.18-4.20). Sustained non-foot-speed auto-pause could not be
-reliably reproduced on the emulator (Android's own location-throttling rejected rapid mock-location
-updates — see the 2026-07-28 evidence note there) despite the underlying logic passing its unit
-test; Crashlytics confirmation and physical-device QA remain release blockers.
+> Incident evidence and shipped remediation only. Current priority, progress, and release acceptance
+> live exclusively in [`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md), gate `PR-050`.
 
-**Severity:** P1/high — one runner was locked out of `/account/runs`, the native GPS watcher
-continued after the UI failed, and the resulting activity could corrupt training statistics and
-plan adherence.
-
----
+**Reported:** 2026-07-26 · **Code hardened:** 2026-07-27 · **Emulator verified:** 2026-07-28 ·
+**GPX evidence reviewed:** 2026-07-29 · **Severity:** P1/high
+**Current assessment:** the strongest guided-state crash path is fixed and emulator regression tests
+pass. The incident is not release-closed until signed physical-device acceptance closes `PR-050`.
 
 ## Summary
 
-During a guided interval run, the runner pressed **Skip step** several times and the native Android
-Runs tab fell into the account-level error boundary:
+During a guided interval run, the runner pressed **Skip step** repeatedly and the Android Runs tab
+fell into the account-level error boundary. Other tabs remained usable, but retry did not recover
+Runs. The module-level GPS engine continued recording after the React view failed. Logout/login later
+reset the JavaScript runtime, exposed the still-running session again, and allowed it to be saved after
+it had captured vehicle travel and approximately 60 km.
 
-> We couldn't load your account. Something went wrong loading this page. Please try again.
+The incident therefore combined two failures:
 
-The other bottom tabs continued to work, but **Try again** did not recover Runs. The GPS engine is a
-module-level singleton, so it continued recording after the React UI crashed. A logout/login later
-reset the JavaScript runtime, made the recording accessible again, and allowed the runner to save
-it. By then it contained car travel and reported approximately 60 km.
+1. A guided-run UI state path could read a workout step outside the available array.
+2. A React/UI failure did not own or stop the native GPS watcher, so recording continued invisibly.
 
-Commit `78ce19940d2c6a9b0efd2ff3eadad6228ae172e5` added useful containment, persisted-snapshot guards,
-and client-error reporting. It is a **partial mitigation**, not proof that the original crash is
-fixed. The original exception was not captured, and screenshot timing shows that the first crash
-happened before the recording became stale or implausibly long.
+The original exception was not captured. The guided-state defect is the best evidence-backed root
+cause, not a claim of certainty about an unavailable stack trace.
 
-## Evidence-backed timeline
-
-The two supplied Android screenshots include EXIF timestamps:
+## Timeline and evidence
 
 | Evidence | Timestamp | What it establishes |
 |---|---:|---|
-| Runs account-error screenshot | 2026-07-26 20:56:47 | The Runs tab had already crashed during the starting minute of the activity. |
-| Saved activity start | 2026-07-26 20:56 | The recording began in the same minute as the crash. |
-| Saved activity | 60.619 km; 3:17:58 elapsed; 1:46:28 moving | GPS continued after the UI failed and later captured motorized movement. |
-| Saved-run screenshot | 2026-07-27 01:02:37 | After a logout/login and full runtime reload, the runner could open and save the ongoing recording. |
+| Runs account-error screenshot | 2026-07-26 20:56:47 | Runs had failed during the activity's starting minute. |
+| Saved activity start | 2026-07-26 20:56 | The initial crash was not caused by a many-hour stale run. |
+| Saved activity | 60.619 km; 3:17:58 elapsed; 1:46:28 moving | Native GPS continued after the UI failed and later captured motorized movement. |
+| Saved-run screenshot | 2026-07-27 01:02:37 | A full auth/runtime reset made the session accessible and saveable again. |
 
-The saved activity's moving speed is approximately **9.49 m/s (34.2 km/h)**. Therefore the new
-`> 7 m/s` cold-restore predicate would reject this exact final snapshot if evaluated. It could not
-have prevented the initial 20:56 crash, because that crash occurred as the run started.
+The saved activity's moving speed was approximately **9.49 m/s (34.2 km/h)**, well outside normal
+running movement. That explains the final invalid activity, but cannot explain the UI crash that
+happened as recording began.
 
-### GPX evidence review (2026-07-29)
+## Root-cause assessment
 
-The exported incident track (`zidrun-2026-07-26-c8694f.gpx`) is useful as a regression and
-performance fixture, but it does **not** identify a different opening crash cause. Derived locally:
+`use-workout-guidance.ts` kept shared module progress without a run/workout identity and read
+`steps[stepIndex]!` without a runtime bound. Repeated skipping, a remount, or a changed workout could
+leave the shared index invalid. A logout/login reset that module state, matching the observed recovery.
 
-- 1,141 exported points, 60.66 km, and 3:17:20 between the first and last timestamp;
+The fix keys shared guidance by a stable session key (run plus workout identity), clamps every current
+step lookup, treats the next step as optional, and makes skip idempotent at the final step. This closes
+the known starting-minute render failure even though the original device exception is unavailable.
+
+## Shipped containment and hardening
+
+- Recorder-scoped and route-level error handling keeps one component failure from replacing the whole
+  account surface.
+- Global `window.onerror` and `unhandledrejection` reporting sends privacy-safe status, point-count,
+  elapsed/moving time, and guidance indexes—never route coordinates or health text.
+- Active-run snapshots are versioned and user-scoped. Wrong-user and unowned legacy data cannot be
+  restored into another account.
+- Abort/discard/logout paths await native GPS, timer, and step-counter teardown. Persisted watcher IDs
+  allow a fresh runtime to remove an orphan watcher before restoring a run paused.
+- Cold restore corrects paused time and never silently deletes a legitimate long/ultra activity.
+- Sustained implausible live speed pauses non-destructively instead of recording indefinitely.
+- Saved GPS activities receive `VALID`, `SUSPECT`, or `EXCLUDED` validity. Non-valid activities cannot
+  affect records, public/social surfaces, Coach metrics, adherence, or workout completion.
+- Route buffers are bounded/downsampled and live map/recompute work is throttled to reduce WebView
+  pressure on long sessions.
+- GPX export provides visible preparing/success/failure feedback and a sanitized filename.
+
+Relevant hardening landed across commits `78ce199`, `d79253d`, `ff26a10`, `67e06c9`, `08deea3`, and
+`a83e159`.
+
+## GPX forensic review
+
+### Incident export — 2026-07-26
+
+The supplied `zidrun-2026-07-26-c8694f.gpx` parses cleanly:
+
+- 1,141 exported points;
+- 60.66 km;
+- 3:17:20 between first and last exported timestamp;
 - monotonically increasing timestamps and no malformed opening segment;
-- ordinary walking at the beginning, followed later by 685 exported segments above 8 m/s and gaps
-  as long as 696 seconds, consistent with the saved activity capturing vehicle travel.
+- ordinary walking at the beginning;
+- later vehicle-speed movement, with 685 exported segments above 8 m/s and gaps up to roughly 696
+  seconds.
 
-The exported GPX is downsampled and does not contain the original Android `accuracy` or `speed`
-fields, so it cannot reconstruct every live fix or prove the native accuracy at the crash. It
-supports the existing validity exclusion and long-route tests; it does not contradict the
-session-keyed, bounds-safe guidance fix. The raw route remains untracked because it contains precise
-location history; only these derived measurements belong in the repository.
+The file supports the server-side invalid-activity exclusion and long-route performance work. It does
+not reveal a different opening crash cause. Export is downsampled and omits original Android `accuracy`
+and `speed`, so it cannot reconstruct every live native fix or prove acquisition quality at the crash.
 
-A second supplied track (`zidrun-2026-07-28-736998.gpx`) confirms a separate GPS-distance defect.
-While the runner was stationary, its first three exported displacements were approximately 20.34 m,
-7.47 m, and 6.57 m in 12.24 seconds — 34.38 m of GPS acquisition wander. Every hop passed the old
-`accuracy <= 40 m` and `distance <= 60 m` rules, which summed coordinate drift without consulting
-the Android fused provider's reported speed.
+### Stationary-start export — 2026-07-28
+
+The supplied `zidrun-2026-07-28-736998.gpx` confirms a separate distance defect. While the runner was
+stationary, the first three displacements were approximately **20.34 m, 7.47 m, and 6.57 m** in 12.24
+seconds: **34.38 m** of GPS acquisition wander. Every hop passed the former `accuracy <= 40 m` and
+`distance <= 60 m` rules, so coordinate drift was summed as movement.
 
 The recorder now:
 
-- accepts only fixes with reported accuracy up to 25 m (when accuracy is provided);
-- rejects a segment when the native provider reports speed below 0.4 m/s;
-- gives providers that omit speed a 15-second startup-settle window before trusting displacement;
-- replaces the unsaved starting fix while stationary, so acquisition drift is not retained in the
-  route; and
-- keeps the existing post-settle displacement fallback for devices that never report speed.
-
-Focused regression coverage uses only the derived segment measurements, not private coordinates.
-Signed physical-device testing remains required because an exported GPX omits the raw speed and
-accuracy signals used by the new filter.
-
-## Two coupled failures
-
-### A. The guided-run UI crashed
-
-The exact exception is unknown. The strongest current hypothesis is invalid module-scoped guided
-workout state after repeated step skipping or a component remount:
-
-- `useWorkoutGuidance` stores progress in module-level `sharedProgress`, independent of a specific
-  run session, workout ID, or workout-structure version.
-- It assumes `sharedProgress.current.stepIndex` is valid for the current `steps` array and later
-  reads `steps[stepIndex]!` without a runtime guard.
-- A full page reload resets this module state, matching the observed logout/login recovery.
-- Repeated **Skip step** was the action immediately associated with the report.
-
-This is a hypothesis, not a confirmed root cause. Other candidates that must be tested are live
-route/map rendering, per-fix main-thread work, audio/guidance effects, and malformed state emitted
-during navigation.
-
-### B. Recording continued after the UI failed
-
-`runEngine` (`src/lib/native/run-engine.ts`) deliberately owns the GPS watcher outside React so a
-run survives ordinary navigation away from Runs. That also means a React crash does not pause or
-stop recording. The engine continued to accept GPS fixes after the page failed, persisted the
-growing snapshot to Capacitor Preferences under `zidrun:active-run`, and eventually recorded the
-runner's car journey.
-
-The snapshot is device-local and independent of authentication. Logout/login reset the in-memory
-engine and guided state but did not clear the persisted recording. That explains why the runner
-could see the ongoing run after signing back in.
-
-## Assessment of commit `78ce199`
-
-### Improvements worth keeping
-
-- A recorder-scoped React error boundary prevents a synchronous recorder render/lifecycle failure
-  from replacing the whole Runs or Coach page.
-- Implausible cold snapshots such as the final 60.619 km incident snapshot are rejected.
-- `restoreFrom()` has a malformed-snapshot backstop.
-- Client boundary failures are sent to Sentry and the new `ClientErrorLog` endpoint.
-- `/admin/errors` gives administrators a searchable view of captured client failures.
-
-### Gaps that keep the incident open
-
-1. **The guard only runs during cold `init()`.** If the singleton is already in `tracking`, `init()`
-   returns without evaluating staleness or movement plausibility. A warm remount can therefore hit
-   the same broken in-memory state.
-2. **The initial crash is not fixed or reproduced.** It happened in the activity's starting minute,
-   before the three-hour snapshot existed.
-3. **The six-hour rule can delete legitimate ultra recordings.** It compares `Date.now()` with
-   `startTs`, not inactivity, and clears the snapshot without review. ZidRun supports races lasting
-   longer than six hours.
-4. **Recovery does not explicitly stop the native watcher.** The fallback clears Preferences and
-   reloads, but does not await watcher, timer, and step-counter shutdown.
-5. **Snapshots are not scoped to a user.** A second account on the same device can inherit the
-   previous account's unfinished route.
-6. **The discard notice is not immediately dismissible.** `ackDiscardedStaleRun()` mutates engine
-   state without emitting a new state to React.
-7. **A suspect saved activity still counts.** The UI warns that it may not count as a run, but the
-   server stores it normally and includes it in personal records, badges, coach metrics, workout
-   matching/completion, and potentially rankings/social surfaces.
-8. **React error boundaries are not universal.** They do not catch event-handler errors, rejected
-   promises, every asynchronous effect, native crashes, or Android ANRs. Global and native
-   diagnostics remain necessary.
-
-## Immediate remediation
-
-For the affected runner:
-
-1. Export the saved bad activity as GPX and retain a sanitized copy of its DB metadata/route as a
-   regression fixture. Do not commit the runner's real coordinates or identity.
-2. Delete the 60.619 km activity through the existing Runs UI after preserving the fixture. The
-   delete flow also reopens a linked planned workout and clears its completion metadata.
-3. Recompute or refresh any persisted coach snapshot derived after this activity was saved.
-4. Until a hardened build is released, Android Settings → Apps → ZidRun → Storage & cache →
-   **Clear storage** remains the last-resort recovery for an inaccessible local recording. This
-   also removes other device-local app state and must not be presented as the normal remedy.
-
-## Implementation plan
-
-### P0 — Make guided progress session-safe
-
-- Give every recording a unique `runSessionId`.
-- Associate guided state with `runSessionId`, `workoutId`, and a deterministic workout-structure
-  fingerprint.
-- Persist guided progress with the active-run snapshot rather than relying only on anonymous
-  module-level state.
-- Implement step progress as a pure validated transition/reducer.
-- Validate or reset an out-of-range `stepIndex` before every render/effect; remove non-null
-  assertions around the current step.
-- Make rapid repeated Skip actions idempotent and safe when GPS-driven auto-advance occurs in the
-  same render cycle.
-- Reset guidance and audio state on save, discard, crash recovery, logout, workout change, and new
-  session start.
-
-### P0 — Make the run lifecycle fail safe
-
-- Add one awaited `abortAndClear()` operation that stops the GPS watcher, interval timer, step
-  counter, and audio/guidance state before clearing Preferences.
-- Use that operation from recorder crash recovery and confirmed discard.
-- On logout with an active recording, require the runner to choose **Finish**, **Discard**, or
-  **Keep safely paused** before the auth session changes.
-- Store the owning `userId` in the snapshot and refuse to restore it for a different account.
-- Check run safety while live and when the app returns to the foreground, not only on cold restore.
-- For sustained impossible movement, auto-pause and ask the runner what happened. Never silently
-  delete the recording.
-- Remove total elapsed age as an automatic deletion criterion. A long but structurally valid ultra
-  must remain recoverable.
-
-### P1 — Quarantine suspect activities server-side
-
-- Add a persisted activity-validity state such as `VALID`, `SUSPECT`, and `EXCLUDED`, with a
-  machine-readable reason.
-- Classify GPS activities before workout matching and derived-stat updates.
-- Exclude `SUSPECT`/`EXCLUDED` activities from personal records, badges, rankings, social feeds,
-  coach metrics/context, adherence, and automatic workout completion.
-- Let the runner keep the route for review, reclassify it as a non-running activity where
-  supported, or discard it.
-- Align the warning copy with actual behavior; "may not count" must not mean "currently counts
-  everywhere."
-
-### P1 — Improve diagnostics without storing sensitive route data
-
-- Record safe breadcrumbs with a crash: run status, run-session ID, route point count, elapsed and
-  moving seconds, guided step index/count, workout fingerprint, last recorder action, and whether
-  the runtime is native.
-- Never send GPS coordinates, health notes, auth tokens, or the full snapshot to error logs.
-- Add `window.onerror` and `unhandledrejection` reporting in addition to React boundaries.
-- Verify Firebase Crashlytics captures native crashes/ANRs in the signed Android build.
-- Add bounded retention/pruning for `ClientErrorLog` before production approval.
-
-### P2 — Reduce long-run WebView pressure
-
-- Stop copying and fully recomputing the route/splits on every accepted GPS fix.
-- Throttle or incrementally update live splits and map polylines.
-- Avoid animated map recentering on every fix.
-- Avoid serializing the full growing route to Preferences every four seconds; use chunking,
-  incremental persistence, or a native/local database suitable for larger tracks.
-- Measure memory, CPU, battery, and frame responsiveness with 1,500-, 3,000-, and 20,000-point
-  fixtures.
-
-## Reproduction and test plan
-
-Do not reproduce this by driving with a physical phone recording. Use deterministic fixtures and
-Android emulator route playback.
-
-### Automated unit/domain tests
-
-Extract snapshot classification, run-engine transitions, and guidance transitions into pure,
-dependency-injected functions. Cover:
-
-1. Skip once, ten times, and 100 times rapidly.
-2. Skip while a GPS tick satisfies and auto-advances the same step.
-3. Remount during a guided run with the same workout.
-4. Remount with a shorter/different workout or no workout.
-5. Complete, save, discard, crash-recover, and logout after skipped steps.
-6. Restore a sanitized incident fixture: 60.619 km, 3:17:58 elapsed, 1:46:28 moving, with bounded
-   route points.
-7. Restore a valid 8–15 hour ultra; it must not be automatically deleted.
-8. Restore truncated, malformed, future-dated, wrong-user, and unsupported-version snapshots.
-9. Process routes with zero, one, 1,500, 3,000, and 20,000 points.
-10. Fuzz duplicate/reversed timestamps, long GPS gaps, inaccurate fixes, teleport jumps, missing
-    elevation, and extreme but valid coordinates.
-11. Prove a suspect server-side activity cannot update records, badges, coach metrics, workout
-    completion, leaderboards, or the public feed.
-12. Prove `abortAndClear()` stops every native/resource handle before storage is removed.
-
-Add focused tests to the normal CI command. Passing lint, typecheck, build, and unrelated coach
-domain tests is not sufficient evidence for this incident.
-
-### Debug-only deterministic harness
-
-Provide development-only presets that can seed persisted state or an already-live engine:
-
-- normal 5K;
-- the sanitized 60 km incident shape;
-- valid eight-hour ultra;
-- malformed route/snapshot;
-- 3,000-point active route;
-- guided progress with an out-of-range step index;
-- snapshot owned by a different runner.
-
-The harness must be unavailable in production builds and must never include real runner
-coordinates.
-
-### Android emulator/native integration
-
-Use the existing setup in `docs/MOBILE_ANDROID.md` and `docs/EMULATOR_E2E_TEST_PLAN.md`:
-
-```bash
-docker compose up -d postgres
-npm run dev:lan
-CAP_SERVER_URL=http://10.0.2.2:3003 npx cap sync android
-cd android
-./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Capture WebView/native errors while reproducing:
-
-```bash
-adb logcat -c
-adb logcat | rg -i "chromium|capacitor|AndroidRuntime|error|fatal|exception"
-```
-
-Replay a timestamped walking/running or fast vehicle GPX through Android Emulator → Extended
-Controls → Location → Routes. Exercise this lifecycle matrix:
-
-1. Start a guided workout and rapidly press Skip.
-2. Switch Runs → Coach → Races → Runs repeatedly while tracking.
-3. Background the app, turn the screen off, and return while GPS advances.
-4. Revoke and restore location permission mid-run.
-5. Pause/resume repeatedly and introduce GPS gaps or inaccurate fixes.
-6. Force-stop and relaunch to exercise cold snapshot restoration.
-7. Trigger recorder recovery and verify the foreground GPS notification disappears.
-8. Logout/login as the same runner, then as a different runner.
-9. Save offline, reconnect, and confirm only one activity is created.
-10. Repeat with a long/high-point fixture while monitoring memory:
-
-```bash
-adb shell dumpsys meminfo dz.racedz.app
-```
-
-Run the final matrix on at least one physical Android device because emulator testing does not
-cover OEM background-service limits, real GPS drift, battery optimization, native TTS interaction,
-or WebView/driver-specific failures.
-
-## Release acceptance criteria
-
-This incident can be marked resolved only when all of the following are recorded against the exact
-release commit:
-
-- Rapid Skip and every guided remount scenario complete without a route-level error.
-- A recorder failure leaves Runs usable and offers a recovery action that stops all native work.
-- No GPS watcher survives confirmed discard or logout.
-- A different account cannot inspect or save the previous account's snapshot.
-- Impossible sustained movement pauses safely and cannot contaminate running statistics.
-- A legitimate eight-hour-plus activity remains recoverable.
-- Force-kill, cold restore, navigation, screen-off, background, offline, permission-revocation, and
-  account-switch tests pass.
-- Client errors contain actionable safe state metadata and no precise route/health data.
-- Lint, typecheck, production build, focused run/guidance tests, Playwright coverage, emulator QA,
-  and physical-device QA pass.
-- `PRODUCTION_READINESS.md` gates PR-050 and PR-056 are updated with evidence before rollout.
-
-## Existing mitigation files
-
-Commit `78ce199` changed the following areas. These remain useful, but do not close the plan above:
-
-```text
-prisma/schema.prisma
-prisma/migrations/20260727002829_add_client_error_log/
-src/lib/native/run-engine.ts
-src/components/coach/run-recorder.tsx
-src/components/coach/copy.ts
-src/components/coach/coach-runs-panel.tsx
-src/components/ui/error-boundary.tsx
-src/components/ui/route-error.tsx
-src/lib/client-error-report.ts
-src/app/api/client-errors/route.ts
-src/lib/client-errors.ts
-src/app/admin/errors/
-src/components/layout/dashboard-shell.tsx
-```
-
-At the time of review, `npm run lint`, `npm run typecheck`, `npm run build`, and
-`npm run test:coach` passed. Those checks confirm compilation and unrelated coach behavior; they do
-not reproduce the native incident.
-
-## Follow-up — code hardening completed (2026-07-27)
-
-The strongest crash hypothesis is fixed, but it cannot honestly be called the confirmed root cause
-without the original exception or an exact-device reproduction. `use-workout-guidance.ts` no longer
-uses `steps[stepIndex]!`; current-step reads clamp safely, optional next-step reads return `null` when
-out of range, and module-scoped progress is keyed by the run/workout session. This directly closes
-the known starting-minute render failure while diagnostics and device QA remain necessary.
-
-Gap-by-gap:
-
-1. **Guard only ran during cold `init()`.** Superseded — the resume-time speed/age guard was
-   removed entirely (see #3 below), so this is moot. The real fix (session-keyed, bounds-clamped
-   guidance) applies on every render and every remount, warm or cold, not just `init()`.
-2. **Initial crash not fixed or reproduced.** The unsafe source path is fixed and has focused lookup
-   regression coverage. The original exception remains unavailable and exact physical-device
-   reproduction is still open, so the incident is hardened rather than declared proven resolved.
-3. **Six-hour rule could delete legitimate ultra recordings.** Removed entirely, per this doc's own
-   instruction. `run-engine.ts` no longer auto-discards anything based on age or implausible speed.
-   A cold-resumed snapshot is always restored (only a genuinely malformed/unparsable one is
-   cleared), and the existing "doesn't look like it was on foot" warning + pause/finish/discard
-   controls are what the runner sees — never a silent deletion. A live implausible-speed run now
-   **auto-pauses** instead (see #7), which is non-destructive and reversible.
-4. **Recovery/logout didn't stop the native watcher.** Fixed in code. `abortAndClear()` and the new
-   logout-safe pause path await GPS, timer, and step-counter teardown. Snapshot v2 also persists the
-   native watcher id immediately after start, so a fresh WebView can remove an orphan before
-   restoring the run paused. Global native-header initialization performs this recovery even when
-   the runner opens another account tab first.
-5. **Snapshots weren't safely scoped to a user.** Fixed with per-user Preferences keys and snapshot
-   v2. An explicitly owned v1 snapshot migrates only for its owner; wrong-user and unowned legacy
-   snapshots are never restored or deleted by another runner, and starting a second account's run
-   cannot overwrite the first account's snapshot. Cold downtime is added to paused time rather than
-   inflating elapsed duration, and structurally valid short runs are no longer silently discarded.
-6. **Discard notice wasn't dismissible (`ackDiscardedStaleRun()` didn't `emit()`).** Moot — that
-   whole flag/banner was removed along with the auto-discard behavior it supported (#3).
-7. **A suspect activity still counted everywhere.** Fixed server-side. `RunnerRun` gained a
-   `validity` enum (`VALID`/`SUSPECT`/`EXCLUDED`) + `validityReason`, set once at save time in
-   `createRunnerRun` for GPS-sourced runs using the same `detectNonFootActivity` signal the client
-   already warned with. `getRunnerRecords` and `getRunsForMetrics` (the single query that feeds
-   coach metrics, consistency/intensity, and the AI context/prompt) now filter to `validity =
-   'VALID'`. Non-`VALID` runs are forced private, excluded from feed/leaderboards/kudos, rejected by
-   manual workout matching, and cannot auto-complete a workout. The run stays visible in its owner's
-   Runs list with a reason. Live tracking now uses a consecutive two-minute segment-speed window,
-   independent of the activity's lifetime average, then pauses and tears down native tracking.
-8. **React error boundaries aren't universal.** Partially addressed: `GlobalErrorReporter`
-   (mounted in the root layout) now also reports `window.onerror` and `unhandledrejection` events
-   to the same `ClientErrorLog` pipeline. Native crash/ANR capture (Firebase Crashlytics) was **not**
-   verified in this pass — no signed Android build/device was available in this environment.
-
-Also fixed while in this code: `RunEngine.ackDiscardedStaleRun()` never called `emit()` (dead now,
-see #6). Both logout surfaces now warn, preserve the snapshot paused, await native teardown, and
-only then change the auth session.
-
-### Implementation-plan status
-
-- **P0 — guided progress session-safe:** done (session-keyed `sharedProgress`, bounds-safe
-  `stepAt()`, idempotent `skip()`). **Not done:** guided progress is still not itself persisted into
-  the snapshot, so a cold app-kill mid-guided-run resumes GPS tracking correctly but restarts
-  guidance from step 0 — a UX inconsistency, not a crash or data-integrity issue. Left for a
-  follow-up.
-- **P0 — run lifecycle fail-safe:** implemented in code (`abortAndClear()`, per-user v2 snapshots,
-  owned-v1 migration, orphan-watcher recovery, cold-time correction, awaited logout pause/teardown,
-  rolling live auto-pause, and no age/short-run deletion). Device verification remains open.
-- **P1 — quarantine suspect activities server-side:** implemented for records, badges/streaks,
-  coach metrics/context, adherence, automatic and manual matching, public visibility, social feed,
-  kudos, and leaderboards. **Not done:**
-  a `SUSPECT`/`EXCLUDED` reclassification UI beyond "delete it" (out of scope for a bug-fix pass);
-  no backfill of historical rows saved before this migration (all default to `VALID`).
-- **P1 — diagnostics without sensitive data:** done (safe breadcrumbs — run status, point count,
-  elapsed/moving seconds, guided step index/total, workout type — on a new `ClientErrorLog.context`
-  Json column; `window.onerror`/`unhandledrejection` reporting; retention via
-  `npm run client-errors:prune`, 30-day default, not yet wired to a cron). **Not done:** Crashlytics
-  verification (needs a signed device build).
-- **P2 — reduce WebView pressure:** partial. Live map recentering no longer animates on every fix;
-  the live route/splits recompute is throttled to every 5th point while tracking (exact on
-  pause/finish, so the summary is never stale). **Not done:** chunked/incremental route persistence,
-  and the 1,500/3,000/20,000-point memory/CPU/battery profiling — both need real device measurement.
-
-### Verification performed
-
-- The 2026-07-29 follow-up passes `npm run test:run-incident`, `npm run test:run-stats`, lint,
-  typecheck, the focused `tests/gpx-export.e2e.spec.ts` browser test, and the production build. The
-  browser check proves the picker emits no restrictive `accept` attribute and an invalid selection
-  receives a visible reason.
-- `npm run test:all` passes: lint/i18n, typecheck, coach/workout/audio/MFA, the focused Runs
-  incident suite, and 41 Playwright tests passed; the paid live-provider check was intentionally
-  skipped. `npm run build` also passes.
-- `npm run test:run-incident` covers owned/wrong-user/unowned snapshot parsing, v1→v2 migration,
-  cold-restore timing, consecutive high-speed reset/threshold behavior, bounds-safe current-step
-  lookup, correct final-step `next = null` behavior, accuracy limits, stationary reported-speed
-  rejection, and the speedless-provider startup fallback.
-- Two new migrations applied cleanly to a local dev DB (`RunValidity` enum +
-  `RunnerRun.validity`/`validityReason`; `ClientErrorLog.context`).
-- `createRunnerRun` exercised directly against the dev DB with the incident's exact numbers
-  (60.619 km / 3:17:58 elapsed / 1:46:28 moving): saved as `EXCLUDED` / `IMPOSSIBLE_PACE`, never
-  linked to a workout, excluded from `getRunnerRecords` (longest run stayed at the legitimate 5 km
-  entry, not 60.619), while still showing up in the runner's own run list with its validity flag —
-  and a normal 5 km run in the same batch saved as `VALID`.
-- `/account/runs` and `/admin/errors` driven end-to-end in a real headless-browser session
-  (login → render): no crash, no console errors.
-- `tests/run-validity.e2e.spec.ts` exercises the incident numbers in the isolated E2E database and
-  proves the activity is forced private, absent from records/feed/leaderboards, rejects kudos and
-  manual workout matching, and leaves the planned workout `PLANNED`.
-
-### Emulator verification (2026-07-28)
-
-Built the debug APK against a local `dev:lan` server, ran it on a Pixel 8 emulator, and drove the
-four highest-value scenarios end-to-end as `runner@example.com` (details/evidence in
-`docs/EMULATOR_E2E_TEST_PLAN.md` §4.18-4.20):
-
-- **Rapid guided-skip (the original crash trigger):** 20 rapid "Skip step" taps through a 14-step
-  Intervals workout → clean completion, no crash, no logcat exceptions. Passed.
-- **Force-kill mid-run + cold restore:** `am force-stop` while tracking (confirmed the foreground
-  notification was gone), relaunched → session persisted, `/account/runs` rendered with no crash,
-  route/stats restored intact as paused. Passed.
-- **Cross-account switch with an active recording:** signed out of `runner@example.com` mid-paused
-  (got the confirm dialog; the delay before redirect confirmed the native teardown is genuinely
-  awaited), logged in as `admin@zidrun.com` (no crash, no trace of the other account's run), logged
-  back in as `runner@example.com` (the paused run was still there, untouched). Passed.
-- **Sustained non-foot-speed auto-pause:** fed ~140s of simulated ~10 m/s movement two different
-  ways; the live "doesn't look like it was on foot" warning correctly appeared both times, but the
-  rolling 120-consecutive-second auto-pause itself never visibly triggered. `adb logcat` showed
-  Android's own `PersonalSafety` service rejecting rapid mock-location updates as "too frequent...
-  insignificant accuracy improvement," which plausibly breaks the consecutive-segment assumption.
-  The underlying `advanceHighSpeedWindow` function is deterministically unit-tested and passes in
-  isolation. Recorded as an emulator/mock-location fidelity limitation, not a confirmed app bug —
-  genuinely inconclusive without a real device generating a real moving GPS track.
-
-### Still open (not done in this pass)
-
-- Verify on a signed physical Android device that Google Drive and local storage both allow GPX
-  selection, and that unsupported/oversize files show the localized reason instead of failing
-  silently.
-- Record a real stationary-start test on a physical device, including the raw accuracy/speed values,
-  then begin walking/running and confirm drift stays at 0 m without clipping legitimate movement.
-- Sustained non-foot-speed auto-pause is unit-tested but not live-confirmed (see above) — needs a
-  real device with an actual moving GPS track (e.g. a bike/car ride with the app open) to close out.
-- Crashlytics verification and the rest of the physical-device QA matrix (permission revocation,
-  screen-off/background battery and memory profiling, offline-save race) — no signed device build
-  or physical hardware was available in this environment.
-- Guided progress is not persisted across a cold app-kill (noted above under P0).
-- Historical `RunnerRun` rows are not backfilled with a `validity` classification.
-- Chunked route persistence and the long-route device profiling matrix remain P2.
+- accepts reported accuracy up to 25 m;
+- rejects segments when native reported speed is below 0.4 m/s;
+- gives providers without speed a 15-second startup-settle window;
+- replaces the unsaved starting fix while stationary; and
+- preserves a post-settle displacement fallback for devices that never report speed.
+
+Regression tests use only derived distances/times—not private coordinates. The raw GPX files remain
+untracked because they contain precise location history.
+
+## Verification evidence
+
+- Focused incident tests cover guidance bounds, snapshot ownership/migration, cold timing, watcher
+  lifecycle helpers, high-speed windows, GPS accuracy, stationary-speed rejection, and speedless
+  startup fallback.
+- The run-stat suite covers splits, pause gaps, pace, and elevation profiles.
+- Browser coverage proves the Android picker has no restrictive `accept` MIME filter, invalid files
+  receive a visible reason, and GPX export shows preparing/success/failure states.
+- The server validity E2E scenario proves the incident's numbers are forced private and excluded from
+  records, feed, leaderboards, kudos, and workout matching.
+- Local lint, typecheck, full tests, and production build passed after hardening.
+- Pixel 8 debug-emulator acceptance passed rapid guided skipping, force-kill/cold restore, and
+  cross-account switching without a crash or route leak.
+- Emulator sustained-speed auto-pause remained inconclusive because Android throttled rapid mock
+  locations; the deterministic pure logic passed.
+
+## Release disposition
+
+Use [TESTING.md](TESTING.md) for the maintained signed-device matrix. `PR-050` remains open until the
+exact signed release candidate passes physical-device voice/guidance, background GPS lifecycle,
+stationary-start accuracy, genuine sustained non-foot movement, GPX selection from Drive/local storage,
+Crashlytics evidence, and account-switch isolation. Record that evidence only in `EXECUTION_PLAN.md`.

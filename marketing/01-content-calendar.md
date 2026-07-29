@@ -11,12 +11,15 @@ Phases: **Tease → Reveal → Prove → Sustain**
 ---
 
 ## Pre-launch checklist (do BEFORE Week 1)
-- [ ] Create/optimize IG, FB Page, TikTok profiles (bio, logo, link-in-bio — see brand doc).
-- [ ] Onboard 10–20 organizers so real races are live at reveal.
-- [ ] Build link-in-bio landing (Find a race / AI coach / Publish a race).
-- [ ] Batch-shoot Week 1–2 video (sunrise runs in 2–3 cities, b-roll, app screen-recordings).
-- [ ] Set up UTM links + tracking dashboard.
-- [ ] Prepare 5 carousel templates + 3 Reel templates in Canva/CapCut.
+
+The priority/status of these prerequisites is tracked only in `EXECUTION_PLAN.md`:
+
+- Create/optimize IG, FB Page, TikTok profiles (bio, logo, link-in-bio — see brand doc).
+- Onboard 10–20 organizers so real races are live at reveal.
+- Build link-in-bio landing (Find a race / AI coach / Publish a race).
+- Batch-shoot Week 1–2 video (sunrise runs in 2–3 cities, b-roll, app screen-recordings).
+- Set up UTM links + tracking dashboard.
+- Prepare 5 carousel templates + 3 Reel templates in Canva/CapCut.
 
 ---
 

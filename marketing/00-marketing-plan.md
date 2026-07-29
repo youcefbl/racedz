@@ -260,8 +260,11 @@ Our current **1-month free is too long**: the novelty fades before we ask, peopl
 ---
 
 ## 14. Definition of done (this campaign)
-- [ ] 6-week calendar executed (≥ 90% of planned posts shipped)
-- [ ] ≥ 1,000 sign-ups, ≥ 50% activation
-- [ ] ≥ 15 races published by organizers
-- [ ] Clear top-2 content formats identified for scale
-- [ ] Week-6 retro with next-quarter recommendation
+
+Campaign outcomes are measured here, while current actions are tracked only in `EXECUTION_PLAN.md`:
+
+- 6-week calendar executed (≥ 90% of planned posts shipped)
+- ≥ 1,000 sign-ups, ≥ 50% activation
+- ≥ 15 races published by organizers
+- Clear top-2 content formats identified for scale
+- Week-6 retro with next-quarter recommendation

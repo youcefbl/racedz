@@ -5,7 +5,7 @@ import { notifyNewFollower, notifyRunKudos } from "@/lib/notifications";
 
 // The social layer: a lightweight follow graph, an activity feed of public runs from people you
 // follow, and kudos (likes). This is the community surface the app was missing — a reason to open
-// it between races. Deliberately minimal: no comments/DMs yet (see TIER1_PROGRESS.md).
+// it between races. Deliberately minimal: comments/DMs remain outside the current release scope.
 
 export type FeedRun = {
   id: string;

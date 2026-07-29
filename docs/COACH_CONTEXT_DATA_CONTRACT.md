@@ -52,8 +52,9 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 - **Guardrails:** `MAX_RECENT_RUNS=10`, `MAX_CONVERSATION_TURNS=6`, note/summary length caps, and a
   compaction pass keep the payload bounded.
 
-## Open items (from the context-hardening track)
+## Governance
 
-- Field-level **consent** for the 🔴 rows before expanding collection (separate from general terms).
-- Self-service **export + deletion** of coach data (incl. context/memory).
-- A stored **context version + hash** per interaction for reproducibility (no raw prompt/health/GPS in logs).
+Context version and content-free hash provenance are implemented. Health-memory writes remain disabled
+until field-level consent, retention/reconfirmation, self-service export/deletion, and the qualified
+sports-health review are complete. Those actions and their release priority live only in
+[`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md).

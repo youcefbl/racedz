@@ -1,5 +1,8 @@
 # Load-test plan — ZidRun @ 1000 concurrent users
 
+> This is a repeatable test runbook; its checkboxes reset for each load-test execution. Scheduling and
+> release priority live only in [`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md).
+
 > Goal: prove whether today's architecture (one Next.js container + Postgres on
 > one 4GB Hetzner box) can handle **1000 concurrent users** doing the three real
 > things users do — **navigate** (web + mobile), **record runs**, **engage** as

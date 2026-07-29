@@ -6,21 +6,14 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 
 ## Source Of Truth
 
-- Consolidated cross-product execution order, remaining P0–P3 work, owner operations, and open
-  decisions: `EXECUTION_PLAN.md`.
-- Product-wide backlog and implementation reference: `TODO.md`.
-- AI Coach execution status and next-step priority: `execution-plan-coach.md`. For Coach work, read its
-  top progress table, latest dated updates, current blockers, and active phase before selecting a task.
-  It controls Coach-specific sequencing, while cross-cutting P0/owner blockers still come from
-  `EXECUTION_PLAN.md`.
-- Web/mobile release status and deployment gates: `PRODUCTION_READINESS.md`.
-- Historical full brief: `algeria-races-codex-brief.md`
+- All progress, priorities, release gates, and roadmap TODOs: `EXECUTION_PLAN.md`.
+- Stable product and design decisions: `PRODUCT.md`.
+- Testing, deployment, and Android procedures: `docs/TESTING.md`, `docs/OPERATIONS.md`, and
+  `docs/MOBILE_ANDROID.md`.
+- Coach data/privacy inventory: `docs/COACH_CONTEXT_DATA_CONTRACT.md`.
 - Brand assets: `public/brand/` for logo and mark exports; root-level `public/icon-*` files are generated PWA/app icons.
-- AWS deployment plan and cost estimate: `docs/AWS_DEPLOYMENT_PLAN.md`
 - Prisma schema: `prisma/schema.prisma`
 - Seed data: `prisma/seed.ts`
-
-`backlog.md` and `requirment.md` are intentionally only pointers now. Do not use them for planning.
 
 ## Current Stack
 
@@ -41,7 +34,7 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 - Algeria constants are in `src/lib/algeria.ts`.
 - Authorization helpers start in `src/lib/permissions.ts`.
 - Local image uploads go through `src/lib/storage.ts` and write to `public/uploads` for the MVP. Uploaded files are gitignored except `public/uploads/.gitkeep`. Keep the storage helper as the boundary for a later S3-compatible backend.
-- Notification records go through `src/lib/notifications.ts`. The MVP stores in-app notifications in PostgreSQL, shows recent notifications from the header bell dropdown, marks them read on dropdown open, sends transactional email through Resend using `RESEND_API_KEY` and `EMAIL_FROM`, and has Firebase FCM server delivery plus browser token registration via `PushNotificationControl`. The notification settings page can reconnect the FCM token and send a test push with delivery feedback. Local push testing requires Firebase public web config and `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
+- Notification records go through `src/lib/notifications.ts`. The MVP stores in-app notifications in PostgreSQL, shows recent notifications from the header bell dropdown, marks individual items on click with an explicit mark-all action, sends transactional email through Resend using `RESEND_API_KEY` and `EMAIL_FROM`, and has Firebase FCM server delivery plus browser token registration via `PushNotificationControl`. The notification settings page can reconnect the FCM token and send a test push with delivery feedback. Local push testing requires Firebase public web config and `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
 - Branded email HTML/text lives in `src/lib/notifications/email-template.ts`; use it for every ZidRun email instead of ad hoc HTML.
 - New accounts require email verification. Verification tokens use raw SQL helpers in `src/lib/email-verification.ts`; Auth.js blocks unverified accounts.
 - Organization invites are still copyable in `/organizer/members`, but the invite action also attempts branded email delivery with the invite link.
@@ -50,7 +43,7 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 - Runner coach UI lives at `/account/coach` and in `src/components/coach`. `npm run test:e2e:coach` checks the authenticated workflow and provider-failure persistence; set `RACEDZ_REQUIRE_LIVE_AI=1` to require a successful paid OpenAI response.
 - Coach persistence currently uses typed parameterized raw SQL in `src/lib/coach/service.ts` because the local Prisma 5.21 generator exits successfully without refreshing its generated client. `prisma/schema.prisma` and migration `20260621013000_runner_ai_coach` remain authoritative; migrate the service to generated delegates when client generation is repaired.
 - Admin audit logs support actor, target type, and action filters in `/admin/audit`.
-- Manual QA checklist lives in `docs/QA_CHECKLIST.md`. `npm run smoke` runs dependency-free local smoke checks against `RACEDZ_BASE_URL` or `http://127.0.0.1:3003`; keep `npm run dev` running first.
+- The full verification procedure lives in `docs/TESTING.md`. `npm run smoke` runs dependency-free local smoke checks against `RACEDZ_BASE_URL` or `http://127.0.0.1:3003`; keep `npm run dev` running first.
 - Local development uses one fixed app URL: `http://127.0.0.1:3003`. Do not rotate ports; Auth.js redirects are configured for this origin.
 - Local PostgreSQL can run with `docker compose up -d postgres`.
 - `OrganizationInvitation` exists in `prisma/schema.prisma` and its migration. The current app code uses typed raw SQL for that table in `src/lib/organizer.ts` because local `prisma generate` was not refreshing the generated client during this session.
@@ -59,20 +52,12 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 
 ## Priority Resolution
 
-- Read `EXECUTION_PLAN.md` first for the consolidated cross-product priority tier, launch blockers,
-  owner operations, and open decisions; use `TODO.md` for broader product detail.
-- For any AI Coach task, also read `execution-plan-coach.md` before proposing or implementing the next
-  step. Apply cross-cutting P0/owner constraints from `EXECUTION_PLAN.md`, then use
-  `execution-plan-coach.md` for the detailed Coach implementation sequence. Do not redo anything marked
-  shipped or complete.
-- These plans contain dated historical sections. If status conflicts, verify the code and use the newest
-  dated completion evidence, progress table, and checked marker. Update every affected tracker in the
-  same task so they converge again.
-- Current Coach position as of 2026-07-26: Phase 1 (adherence) and Phase 2 (adaptive planner) are
-  complete; Phase 3 (long-term memory) is about 90% complete. Its remaining health-memory kinds are
-  blocked on the Phase 0 health-data privacy/consent/retention policy. Resolve that policy/owner blocker
-  before enabling health-memory persistence; otherwise choose the next unblocked item identified by the
-  plan.
+- Read `EXECUTION_PLAN.md` first. It is the only tracker and overrides status text in reference or
+  incident documents. Do not recreate feature-specific phase plans.
+- For Coach work, also read the data contract and targeted code. Phases 1 (adherence) and 2 (adaptive
+  planner) are complete; Phase 3 memory is complete except health-memory kinds, which remain disabled
+  until the P0 consent/retention/export-deletion and sports-health requirements in `EXECUTION_PLAN.md`
+  are closed.
 
 ## Brand
 

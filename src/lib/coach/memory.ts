@@ -14,7 +14,7 @@ import type { CoachMemoryKind, CoachMemorySource, CoachMemoryStatus } from "@pri
  * Kinds the application is allowed to write today.
  *
  * INJURY_STATUS and RECOVERY_STATUS are deliberately absent. Storing health data requires the
- * privacy/consent/retention policy line that execution-plan-coach.md tracks as a Phase 0 blocker
+ * privacy/consent/retention policy line that EXECUTION_PLAN.md tracks as a P0 blocker
  * (what is stored, the consent model, retention and expiry, deletion). The enum values exist so the
  * schema does not need another migration when the policy lands, but until then every write path
  * refuses them — a runner's injury history must not be silently accumulated because a model inferred

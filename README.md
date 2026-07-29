@@ -61,13 +61,13 @@ All use password `racedz-demo-password`.
 
 ## Project Context
 
-- Planning and requirements source of truth: `TODO.md`
-- Historical product brief: `algeria-races-codex-brief.md`
+- Release plan, progress, priorities, and roadmap: `EXECUTION_PLAN.md`
+- Product/design definition: `PRODUCT.md`
 - Quick Codex context: `CODEX_CONTEXT.md`
 - Agent instructions: `AGENTS.md`
-- Manual QA flow: `docs/QA_CHECKLIST.md`
-- Browser e2e test strategy: `docs/E2E_TEST_STRATEGY.md`
-- AWS deployment plan and cost estimate: `docs/AWS_DEPLOYMENT_PLAN.md`
+- Testing and release QA: `docs/TESTING.md`
+- Operations and deployment: `docs/OPERATIONS.md`
+- Android setup and builds: `docs/MOBILE_ANDROID.md`
 
 ## Quality Checks
 

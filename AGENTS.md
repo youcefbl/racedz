@@ -1,12 +1,10 @@
 # Agent Notes For ZidRun
 
-These notes are for AI coding agents working on ZidRun. Read this file alongside `EXECUTION_PLAN.md`
-(consolidated cross-product priorities), `TODO.md` (the product-wide backlog), and `CODEX_CONTEXT.md`
-(architecture and priority-routing notes) before making changes. For any AI Coach work, also read
-`execution-plan-coach.md`; it is the source of truth for Coach phase status and implementation sequence,
-subject to cross-cutting P0 and owner blockers in `EXECUTION_PLAN.md`.
+These notes are for AI coding agents working on ZidRun. Read `EXECUTION_PLAN.md` first for the only
+progress, release-gate, priority, and roadmap source of truth; use `CODEX_CONTEXT.md` for architecture
+and `PRODUCT.md` for stable product/design decisions. Do not create separate backlog, phase-plan,
+audit-TODO, or progress files.
 
-- `backlog.md` and `requirment.md` are intentionally only pointers to `TODO.md`; do not add planning content there.
 - Do not commit `.env` files or uploaded user files.
 
 ---
@@ -131,8 +129,10 @@ For docs-only changes, do a targeted content check instead of a full build.
 
 ### Testing
 
-- There are currently **no automated tests** in the repo (no Jest, Vitest, Playwright, or Cypress).
-- `TODO.md` calls for a manual QA checklist first, then automated smoke/e2e tests for core journeys.
+- Focused TypeScript domain suites, Playwright browser/visual tests, production build checks, and
+  standalone smoke tests are available through the scripts in `package.json`.
+- Follow `docs/TESTING.md` for the canonical automated, browser, manual, emulator, and physical-device
+  verification procedure.
 - Add focused tests when changing shared domain logic, authorization, registration, payments, organization membership, or admin approvals.
 - Keep test data isolated from real data and use deterministic fixtures for users, organizations, races, categories, and registrations.
 
@@ -594,29 +594,28 @@ Auth.js v5 uses `AUTH_SECRET` and `AUTH_URL`. Legacy `NEXTAUTH_SECRET` and `NEXT
 
 ## Quick Reference: Files to Read Before Changes
 
-1. `EXECUTION_PLAN.md` – consolidated P0–P3 execution order, owner blockers, and open decisions.
-2. `TODO.md` – product-wide backlog and implementation detail.
-3. `execution-plan-coach.md` – Coach-specific progress and implementation sequence; required for Coach work.
-4. `CODEX_CONTEXT.md` – architecture notes, priority routing, and raw-SQL context.
-5. `prisma/schema.prisma` – data model.
-6. `src/auth.ts`, `middleware.ts`, `src/lib/permissions.ts` – auth/authz.
-7. `src/lib/validations.ts` – all input schemas.
-8. `src/lib/organizer.ts`, `src/lib/admin.ts`, `src/lib/registrations.ts` – domain logic.
-9. `src/lib/race-repository.ts`, `src/lib/races.ts` – public race reads.
-10. `src/lib/storage.ts` – upload boundary.
-11. `src/components/layout/dashboard-shell.tsx` – dashboard navigation.
-12. `src/app/globals.css`, `tailwind.config.ts` – theming.
+1. `EXECUTION_PLAN.md` – the only progress, priority, release-gate, and roadmap tracker.
+2. `CODEX_CONTEXT.md` – architecture notes and raw-SQL context.
+3. `PRODUCT.md` – stable product/design decisions.
+4. `docs/TESTING.md` – verification procedures; read when testing or releasing.
+5. `docs/OPERATIONS.md` – deployment/operations procedure; read for production work.
+6. `docs/MOBILE_ANDROID.md` – Android build/device setup; read for native work.
+7. `docs/COACH_CONTEXT_DATA_CONTRACT.md` – required for Coach data/privacy changes.
+8. `prisma/schema.prisma` – data model.
+9. `src/auth.ts`, `middleware.ts`, `src/lib/permissions.ts` – auth/authz.
+10. `src/lib/validations.ts` – input schemas.
+11. `src/lib/organizer.ts`, `src/lib/admin.ts`, `src/lib/registrations.ts` – domain logic.
+12. `src/lib/storage.ts` – upload boundary.
 
 ---
 
 ## Agent Working Rules
 
-- Read `EXECUTION_PLAN.md`, `TODO.md`, and `CODEX_CONTEXT.md` first. For Coach work, also read
-  `execution-plan-coach.md`: apply cross-cutting P0/owner blockers from the consolidated plan, then use
-  the Coach plan's newest dated status, progress table, open blockers, and completion markers to choose
-  the implementation priority. Do not repeat work marked shipped. If plans conflict, verify code, follow
-  the newest evidence, and update every affected tracker. Then use targeted reads for the feature.
-- For any production, deployment, release, infrastructure, or mobile-store work, update `PRODUCTION_READINESS.md` in the same task: progress bar, last-updated date, gate status, evidence, blockers, and release log.
+- Read `EXECUTION_PLAN.md` first and use targeted architecture/product/procedure references only as the
+  task requires. If documentation and code conflict, verify code and correct `EXECUTION_PLAN.md`; never
+  create or update a competing tracker.
+- For any production, deployment, release, infrastructure, or mobile-store work, update the progress
+  bar, last-updated date, affected gate, blocker, and evidence row in `EXECUTION_PLAN.md` in the same task.
 - Do not repeatedly reread large files unless they changed or the task depends on exact text.
 - Keep progress updates concise and only include what affects the current implementation.
 - Prefer implementing the next concrete task over restating long plans.
