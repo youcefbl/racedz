@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { resolveCoachPaymentProofPath } from "@/lib/storage";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ const CONTENT_TYPES: Record<string, string> = {
 export async function GET(_request: Request, context: { params: Promise<{ path: string[] }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+
+  const limited = enforceRateLimit(rateLimitKey("coach-payment-proof", session.user.id), 60, 5 * 60_000);
+  if (limited) return limited;
 
   const { path: segments } = await context.params;
   const proofUrl = `/api/coach/subscription/proof/${(segments ?? []).join("/")}`;

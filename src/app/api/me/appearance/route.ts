@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 // Returns the signed-in runner's saved language/theme so a fresh device can adopt them.
 // Public callers get nulls (no error) — the client sync just does nothing in that case.
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
+    const ip = clientIp(request.headers);
+    if (ip && !checkRateLimit(`me-appearance:${ip}`, 60, 60_000).ok) {
+      return NextResponse.json({ error: "Too many requests." }, { status: 429 });
+    }
     return NextResponse.json({ data: { language: null, theme: null } });
   }
   const user = await getPrisma().user.findUnique({
