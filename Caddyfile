@@ -9,6 +9,13 @@ zidrun.com, www.zidrun.com {
 		respond 403
 	}
 
+	# Race-registration payment proofs (BaridiMob/CCP screenshots) are the same class of
+	# financial PII as coach-payment above. Only the authenticated /api/registrations/[id]/proof
+	# route (owner, an admin, or an organizer member of the race's organization) may read them.
+	handle /uploads/payment/* {
+		respond 403
+	}
+
 	# User uploads are written to a runtime volume by the app and served straight
 	# from disk here (next start won't serve runtime-written public/ files).
 	# handle_path strips the /uploads prefix, so /uploads/avatar/x.jpg maps to

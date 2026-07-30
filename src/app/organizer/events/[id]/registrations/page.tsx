@@ -204,7 +204,7 @@ export default async function EventRegistrationsPage({ params, searchParams }: E
                             <Badge variant={getStatusVariant(registration.paymentStatus)}>{translateOrganizerEnum(locale, registration.paymentStatus)}</Badge>
                             {registration.paymentProofUrl ? (
                               <a
-                                href={registration.paymentProofUrl}
+                                href={`/api/registrations/${registration.id}/proof`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="mt-1 flex items-center gap-1 text-xs font-semibold text-brand-teal hover:underline"

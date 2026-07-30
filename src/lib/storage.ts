@@ -127,6 +127,18 @@ export function resolveCoachPaymentProofPath(proofUrl: string): string | null {
   return path.join(process.cwd(), "public", "uploads", "coach-payment", match[1], match[2]);
 }
 
+// Resolve a race-registration payment-proof URL (/uploads/payment/<month>/<file>, the value stored
+// verbatim in RaceRegistration.paymentProofUrl) back to its file on disk, or null if malformed.
+// SEC-007/SEC-010: this scope is financial PII like coach-payment above, but its stored URL predates
+// the authenticated-route convention — Caddy now 403s /uploads/payment/* directly, and
+// /api/registrations/[id]/proof is the only authorized way to read it, resolving the DB row's own
+// paymentProofUrl server-side rather than trusting a client-supplied path.
+export function resolvePaymentProofPath(proofUrl: string): string | null {
+  const match = /^\/uploads\/payment\/(\d{4}-\d{2})\/([a-f0-9-]+\.(?:jpg|png|webp|gif))$/.exec(proofUrl);
+  if (!match) return null;
+  return path.join(process.cwd(), "public", "uploads", "payment", match[1], match[2]);
+}
+
 // Identify an image strictly by its magic bytes (file signature). Returns null for
 // anything that isn't one of the four allowed raster formats.
 function detectImageType(bytes: Buffer): { mimeType: string; extension: string } | null {
