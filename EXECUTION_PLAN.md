@@ -4,9 +4,12 @@
 > Do not create another backlog, phase plan, audit TODO, or progress file. Supporting documents may
 > explain how to test or operate the product, but every open action belongs here.
 
-**Last updated:** 2026-07-29
+**Last updated:** 2026-07-30
 
 **Release readiness:** `█████████████░░░░░░░░░░░░` **52% — 31 of 60 gates complete**
+
+**Security hardening overlay:** **0 of 14 P0 security gates complete** — release remains on HOLD until
+the applicable gates below have evidence.
 
 **Status:** **HOLD** until the P0 release gates below are complete and recorded against one immutable
 commit. The web platform is live; this plan governs the next web deployment and Android production
@@ -23,7 +26,7 @@ Work from top to bottom. Do not start P1/P2 product work while an unblocked P0 i
 | 3 | P0 | **Run signed physical-device acceptance on 2026-07-30** (`PR-050`) | Engineering + owner | The exact signed candidate passes auth, deep links/back navigation, safe areas, Groups, voice test, guided warm-up/work/cool-down, background GPS, pause/resume, force-kill restore, logout/account switching, sustained non-foot auto-pause, stationary-start drift, and Google Drive/local GPX import. Record device/OS/build and results in this file. |
 | 4 | P0 | **Verify native production integrations after device acceptance** (`PR-048`, `PR-049`) | Owner + engineering | With Codex assistance: hosted `assetlinks.json` contains the Play App Signing SHA-256; production push reaches the signed app; notification taps route correctly; a Crashlytics test event appears. |
 | 5 | P0 | **Prove data recovery and private storage** (`PR-020`–`PR-025`) | Operations | Rehearse `prisma migrate deploy`; verify automated database backup and restore; make uploads durable; protect payment/private media; document retention, export, deletion, and production access; remove temporary bootstrap credentials. |
-| 6 | P0 | **Complete security and health review** (`PR-031`, `PR-041`) | Engineering + external reviewers | Constrain deployment to one instance or add shared rate limiting; validate headers/TLS/cookies/authz/upload abuse; enforce admin MFA or record an explicit owner risk decision; verify Caddy payment-proof rules; complete external security and sports-health reviews. |
+| 6 | P0 | **Complete the security hardening overlay** (`SEC-001`–`SEC-014`, plus `PR-031`, `PR-041`) | Engineering + owner + external reviewer | Close the privacy, identity, application, API, database, infrastructure, monitoring, recovery, and independent verification gates below. Existing controls count only after they are tested and recorded. |
 | 7 | P0 | **Run controlled web acceptance** (`PR-034`, `PR-036`–`PR-043`) | Product + engineering | On the exact candidate, pass runner registration, capacity/payment/cancellation, organizer lifecycle, admin moderation, Coach/voice/safety, EN/FR/AR/RTL/themes/accessibility, deployment, production smoke, monitoring, backup, and rollback checks. |
 | 8 | P0 | **Finish store and rollout governance** (`PR-051`, `PR-053`, `PR-058`–`PR-060`) | Owner | Listing, screenshots, privacy/Data Safety, deletion URL, version/release notes, staged percentage, rollback procedure, incident owner, escalation contacts, and final go/no-go are approved. |
 
@@ -55,6 +58,63 @@ finishing code alone is not enough for a device, operations, or rollout gate.
 - `PR-044`–`PR-047`: Capacitor production identity, native shell/plugins, release bundle, and clean
   production sync are verified.
 - `PR-054`, `PR-055`: release procedure and this maintained dashboard exist.
+
+## P0 — security hardening overlay
+
+This is a defense-in-depth plan, not a promise of perfect security. The goal is to minimize owner
+exposure, minimize the data ZidRun holds, make unauthorized access difficult, limit blast radius, and
+detect and recover from attacks. Use the [OWASP ASVS 5.0](https://owasp.org/www-project-application-security-verification-standard/)
+as the application verification baseline, the [OWASP API Security Top 10](https://owasp.org/API-Security/)
+for route review, and the [OWASP Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+and [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+guidance for identity controls.
+
+Do not mark a gate complete from code inspection alone. Each closed gate needs a commit or configuration
+change, a test/scan result, and production evidence where the control depends on Cloudflare, Caddy,
+PostgreSQL, Docker, backups, or the owner’s accounts.
+
+| Gate | Priority | Hardening outcome | Required evidence / acceptance |
+|---|---|---|---|
+| `SEC-001` | P0 | **Owner privacy and public metadata lockdown.** Remove owner personal identity, email, phone, home/location clues, local paths, infrastructure names, debug routes, framework/version banners, source maps, verbose error details, and accidental author metadata from public HTML, headers, manifests, emails, APK metadata, Git hosting, analytics, and Sentry. Use role accounts/aliases and a dedicated support/security contact; keep the owner’s personal account out of public-facing records. | Public-site metadata/header/error crawl plus `robots.txt`/sitemap review; inspect public repo/history and deployment artifacts; confirm `x-powered-by`/debug/source-map leakage is absent; owner privacy checklist signed. Do not rely on hiding the admin path as the control. |
+| `SEC-002` | P0 | **Data inventory, minimization, and lifecycle.** Classify credentials, identity fields, contact data, payment proofs, health/coach data, precise GPS/GPX, social data, logs, analytics, notifications, and backups. Define purpose, access role, retention, deletion, export, legal hold, and subprocessor/provider handling for every class. Default runner profiles and activity to private unless the user explicitly publishes them. | A maintained field-level inventory in this plan or an approved product/operations reference; privacy-policy alignment; working export/delete/revoke flows; retention jobs tested; no health-memory writes until consent and sports-health gates close. |
+| `SEC-003` | P0 | **Authentication and session lockdown.** Require phishing-resistant MFA (passkey/security key) for every owner/admin/superadmin account; TOTP is only an explicitly time-limited fallback. Protect enrollment/recovery, rotate/revoke sessions after password/MFA/role changes, enforce idle and absolute session limits, use Secure/HttpOnly/SameSite cookies, prevent account/email enumeration, harden reset/verification/native handoff tokens, and add breached-password/credential-stuffing defenses. | `npm run test:mfa` plus focused tests for reset, verification, OAuth linking, native handoff, logout, session revocation, callback URLs, enumeration, and brute force; production admin MFA proof; no bootstrap credentials remain. |
+| `SEC-004` | P0 | **Authorization and tenant isolation.** Review every page, action, API route, object ID, organization membership, admin function, coach record, support thread, payment proof, run/GPX, group, notification, and export for BOLA/BFLA/IDOR. Enforce deny-by-default server-side checks and narrow selects; never trust role or ownership from client input. | Route/object authorization matrix; negative tests using runner A, runner B, organizer A/B, admin, and superadmin; export/private-media denial tests; audit entries for sensitive admin/member changes. |
+| `SEC-005` | P0 | **CSRF, origin, CORS, and browser boundary lockdown.** Add explicit origin/fetch-metadata checks for state-changing browser requests, verify Auth.js CSRF behavior for all credential flows, allow only required origins/methods/headers, and ensure no state-changing GET. Keep CSP nonce-based where practical; retain HSTS, frame denial, nosniff, referrer, permissions, and upload sandbox policies. | Header scanner and browser tests for XSS/clickjacking/CSRF/CORS; production checks through Cloudflare → Caddy → Next; CSP report-only rollout followed by enforced policy with zero unexplained violations. |
+| `SEC-006` | P0 | **API abuse and resource controls.** Apply shared edge + application rate limits to login, reset, verification, registration, uploads, coach/AI/audio, search/import, support, reports, social actions, notifications, and exports. Add request-size, field-length, pagination, timeout, concurrency, and per-user/storage quotas. Use one app instance until limits are shared. | Route inventory with limits; Cloudflare rules and 429 evidence; load/abuse tests for credential stuffing, scraping, spam, upload exhaustion, AI cost abuse, race oversell, and slow requests; Redis/edge-backed limiter or documented single-instance boundary. |
+| `SEC-007` | P0 | **Input, output, and file safety.** Keep Zod validation and parameterized SQL everywhere; review raw SQL; prevent XSS/HTML/MDX injection, template injection, prompt injection, SSRF through imported URLs, unsafe redirects, CSV formula injection, and log injection. Keep uploads outside executable paths, re-encode images, strip metadata, enforce quotas, and make all private media authenticated/signed and non-cacheable. | ASVS/API-focused code review; SAST/dependency/secret scans; malicious corpus tests for images, URLs, CSV, Markdown, GPX, prompts, and oversized bodies; verify no public payment-proof or precise-location URL. |
+| `SEC-008` | P0 | **Database isolation and least privilege.** Put PostgreSQL on a private network with no public 5432; use a dedicated runtime role with only required privileges, separate migration/backup roles, TLS in transit, encrypted volumes, connection limits, safe pool sizing, statement/timeouts, and guarded admin access. Remove sample/demo credentials and rotate all production secrets. | Firewall/security-group output; role grants audit; encrypted-volume/DB TLS proof; migration/backup roles tested; secret inventory and rotation record; no secrets in Git, images, logs, client bundles, or `NEXT_PUBLIC_*`. |
+| `SEC-009` | P0 | **Backup, deletion, and recovery protection.** Encrypt database and upload backups, keep immutable/offsite copies with limited access, define RPO/RTO, alert on backup failure, test restore into isolation, and verify deletion/retention behavior across primary DB, uploads, backups, email, Sentry, analytics, AI provider, and push systems. | Restore drill with backup ID, timestamp, operator, duration, row/media checks, and result; documented RPO/RTO; deletion and legal-retention decision; no backup accessible from the public web. |
+| `SEC-010` | P0 | **Upload and private-data delivery lockdown.** Keep payment proofs, health-adjacent media, GPX, and any non-public user file behind authorization rather than Caddy’s public static handler; use short-lived signed/authenticated delivery, `Cache-Control: private/no-store` where appropriate, access logging without sensitive content, safe `Content-Disposition`, and separate storage prefixes/buckets. | Direct URL, referrer, cache, range-request, MIME, traversal, and cross-account tests; Cloudflare/Caddy config review; confirm the current public `/uploads/*` exception cannot expose a newly added private scope. |
+| `SEC-011` | P0 | **Edge, host, and container lockdown.** Cloudflare should be the only public origin path; restrict origin firewall ports, SSH to keys/approved sources, disable root/password SSH, patch the host and images, run containers as non-root with minimal capabilities/read-only mounts where possible, separate upload volume permissions, and remove unused services/routes. | External port scan; origin-IP bypass test; host/container hardening checklist; patch status; Docker/Caddy config review; rollback tested without restoring insecure defaults. |
+| `SEC-012` | P0 | **Supply-chain and release integrity.** Pin and audit dependencies, enable lockfile/dependency/security/secret scanning, protect the main branch and deployment secrets, review Prisma migrations/raw SQL, generate an SBOM, prevent source-map/debug artifact publication, and deploy only an owner-approved immutable commit. | Green `npm audit`, lint, typecheck, tests, build; CI scan logs; SBOM; migration review; branch/CI settings; exact production commit and rollback artifact recorded. |
+| `SEC-013` | P0 | **Detection, logging, and incident response.** Centralize structured security events while redacting passwords, tokens, payment images, health text, exact GPS, email/phone, and unnecessary IP/device data. Alert on login failures, reset abuse, MFA changes, privilege changes, exports, private-file denials, rate-limit spikes, DB failures, cost anomalies, and suspicious admin activity. Prepare breach containment, account lock, secret rotation, restore, user notification, and law/regulator escalation runbooks. | Synthetic alerts delivered; log-retention/access review; Sentry scrubbing verified; incident tabletop for account takeover, DB leak, ransomware/backup loss, DDoS, upload abuse, and insider misuse; named incident owner and escalation contacts. |
+| `SEC-014` | P0 | **Independent verification and recurring maintenance.** Run an external penetration test or qualified security review against web/API/mobile/host boundaries, remediate critical/high findings, and repeat dependency, secret, exposure, backup, access, and authorization reviews on a fixed cadence. | Signed report, severity-based remediation evidence, retest result, quarterly access review, monthly dependency/secret scan, recurring external attack-surface scan, and annual restore/incident exercise. |
+
+### Attack coverage required before security sign-off
+
+The acceptance set must explicitly exercise: credential stuffing, phishing-resistant admin takeover,
+session theft/fixation/replay, MFA recovery abuse, email/account enumeration, CSRF, XSS, injection and
+unsafe SQL, SSRF, malicious redirects, BOLA/IDOR/BFLA, privilege escalation, organization data leakage,
+payment/health/GPS exposure, malicious uploads and metadata leakage, scraping/spam, AI prompt and cost
+abuse, race-capacity oversell, notification abuse, DDoS/resource exhaustion, dependency/supply-chain
+compromise, container/host escape, database compromise, backup theft/ransomware, insider misuse, and
+third-party/provider compromise. “No known vulnerability” is not evidence; record the test, result,
+remaining risk, owner, and expiry date for every exception.
+
+### Security decisions that are locked for this release
+
+- Phishing-resistant MFA is mandatory for owner/admin/superadmin accounts; TOTP is only a temporary
+  fallback with an expiry date and documented exception.
+- The database and origin are private; public exposure of PostgreSQL or direct origin access fails release.
+- User private data is not served as public static content. Public race imagery is the only default-public
+  upload class; every other class needs an explicit privacy decision and access test.
+- Precise GPS/GPX, payment proofs, health/coach context, tokens, and credentials never appear in public
+  pages, client bundles, analytics, logs, error reports, emails, or backups without access controls.
+- Security-through-obscurity is not accepted as a control: hiding owner/admin routes or framework names
+  reduces reconnaissance but does not replace authentication, authorization, MFA, rate limiting, or WAF.
+- No new data-collecting feature, third-party SDK, public profile surface, or AI memory field ships until
+  its data classification, consent, retention, deletion/export, access, and provider-processing decisions
+  are recorded here and tested.
 
 ## P0 acceptance details
 
@@ -133,6 +193,7 @@ Do these only after P0 is closed or when a P0 item is externally blocked.
 
 | Date | Evidence | Result |
 |---|---|---|
+| 2026-07-30 | Security surface review and hardening overlay | Existing controls include CSP/HSTS/security headers, Auth.js JWT sessions, TOTP code paths, image magic-byte validation/re-encoding, private coach-payment routing, audit logs, and process-local rate limits. They are not yet security sign-off evidence. `SEC-001`–`SEC-014` were added; **0 of 14** security gates are closed pending tests, production configuration proof, recovery evidence, and independent review. |
 | 2026-07-29 | Owner release decisions and Groups commit `4f0453a` | Groups is included; signed physical-device acceptance is scheduled for 2026-07-30; native app-link/push/Crashlytics verification remains open with engineering assistance. `PR-052` remains open until Elmohassib's production-access decision and ZidRun's resulting Production-page state are verified; Google documentation does not clearly resolve second-app behavior. |
 | 2026-07-29 | AI race-post import release hardening | Import stays draft-only, exposes confidence/warnings/all source images, supports category correction, deduplicates source links, and requires an audited human confirmation across every publish path. Migration reset, focused normalization test, publish-guard browser test, lint, typecheck, and production build pass; remote candidate CI remains open. |
 | 2026-07-29 | GPX picker/startup-drift hardening, commit `a83e159` | Incident/run-stat tests, lint, typecheck, focused GPX browser test, and production build passed. Raw routes stayed untracked. Push/remote CI and signed-device validation remain open. |
