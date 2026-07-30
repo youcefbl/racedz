@@ -19,7 +19,8 @@ export function RunSummary({
   avgCadence,
   weightKg,
   calories: caloriesProp,
-  copy
+  copy,
+  showStats = true
 }: {
   points: RunRoutePoint[];
   distanceKm: number;
@@ -31,6 +32,7 @@ export function RunSummary({
   weightKg?: number | null;
   calories?: number | null;
   copy: CoachCopy;
+  showStats?: boolean;
 }) {
   const splits = computeSplits(points);
   const elevation = elevationSeries(points);
@@ -60,15 +62,17 @@ export function RunSummary({
           </div>
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
-        <Stat label={copy.statTime} value={formatDuration(durationSeconds)} big />
-        <Stat label={copy.statPace} value={formatPace(avgPaceSecondsPerKm)} big />
-        <Stat label={copy.statMovingTime} value={formatDuration(movingSeconds)} />
-        <Stat label={copy.statElevation} value={`${elevGain} m`} />
-        {avgCadence ? <Stat label={copy.statCadence} value={`${avgCadence} spm`} /> : null}
-        {calories ? <Stat label={copy.statCalories} value={`${calories} kcal`} /> : null}
-      </div>
+      {showStats ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Stat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
+          <Stat label={copy.statTime} value={formatDuration(durationSeconds)} big />
+          <Stat label={copy.statPace} value={formatPace(avgPaceSecondsPerKm)} big />
+          <Stat label={copy.statMovingTime} value={formatDuration(movingSeconds)} />
+          <Stat label={copy.statElevation} value={`${elevGain} m`} />
+          {avgCadence ? <Stat label={copy.statCadence} value={`${avgCadence} spm`} /> : null}
+          {calories ? <Stat label={copy.statCalories} value={`${calories} kcal`} /> : null}
+        </div>
+      ) : null}
 
       {splits.length > 0 ? (
         <div>

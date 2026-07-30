@@ -22,19 +22,19 @@ const HEADING = {
     longestRun: "Plus longue sortie"
   },
   ar: {
-    title: "الإنجازات",
+    title: "الحوايج لي حققتهم",
     of: (a: number, b: number) => `${a} من ${b}`,
-    showAll: "عرض الكل",
-    showLess: "عرض أقل",
-    longestRun: "أطول حصة جري"
+    showAll: "شوف كامل",
+    showLess: "نقص العرض",
+    longestRun: "أطول جَرية"
   }
 } as const;
 
 const META: Record<string, { icon: LucideIcon; label: Record<CoachLocale, string> }> = {
-  first_run: { icon: Footprints, label: { en: "First run", fr: "Première sortie", ar: "أول حصة جري" } },
-  runs_10: { icon: Footprints, label: { en: "10 runs", fr: "10 sorties", ar: "10 حصص جري" } },
-  runs_50: { icon: Footprints, label: { en: "50 runs", fr: "50 sorties", ar: "50 حصة جري" } },
-  runs_100: { icon: Award, label: { en: "100 runs", fr: "100 sorties", ar: "100 حصة جري" } },
+  first_run: { icon: Footprints, label: { en: "First run", fr: "Première sortie", ar: "أول جَرية" } },
+  runs_10: { icon: Footprints, label: { en: "10 runs", fr: "10 sorties", ar: "10 جريات" } },
+  runs_50: { icon: Footprints, label: { en: "50 runs", fr: "50 sorties", ar: "50 جَرية" } },
+  runs_100: { icon: Award, label: { en: "100 runs", fr: "100 sorties", ar: "100 جَرية" } },
   dist_50: { icon: RouteIcon, label: { en: "50 km total", fr: "50 km au total", ar: "50 كم إجمالاً" } },
   dist_250: { icon: RouteIcon, label: { en: "250 km total", fr: "250 km au total", ar: "250 كم إجمالاً" } },
   dist_1000: { icon: Award, label: { en: "1000 km total", fr: "1000 km au total", ar: "1000 كم إجمالاً" } },

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import { getCoachCopy } from "@/components/coach/copy";
+import { RunsOverview } from "@/components/coach/runs-overview";
 import { BadgesStrip } from "@/components/coach/badges-strip";
 import { GpxImport } from "@/components/coach/gpx-import";
 import { RecordsSummary, type RecordsSummary as RecordsSummaryData } from "@/components/coach/records-summary";
@@ -103,7 +104,9 @@ export function RunsView({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-3">
-      <CoachRunsPanel
+      <RunsOverview runs={runs} records={records} badges={badges} locale={locale} copy={copy} />
+      <div className="mt-8">
+        <CoachRunsPanel
         runs={runs}
         plan={null}
         locale={locale}
@@ -141,7 +144,8 @@ export function RunsView({
             />
           </div>
         }
-      />
+        />
+      </div>
     </div>
   );
 }

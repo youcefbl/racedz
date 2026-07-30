@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, LoaderCircle, Lock, Mountain, Plus, Route, Sparkles, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, ChevronDown, Download, Flame, Footprints, Globe, Images, LoaderCircle, Lock, Mountain, Plus, Route, Search, Sparkles, Trash2 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -11,7 +11,7 @@ import { RunRecorder, type GuidedWorkout } from "@/components/coach/run-recorder
 import { RunPhotoUploader } from "@/components/coach/run-photos";
 import { RunRouteMap } from "@/components/coach/run-route-map";
 import { RunMap } from "@/components/coach/run-map";
-import { RunSummary } from "@/components/coach/run-summary";
+import { RunDetailsPanel } from "@/components/coach/run-details-panel";
 import type { CoachLocale, CoachPlan, CoachRun, CoachSuggestedMatch, RunRoutePoint } from "@/components/coach/types";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -118,6 +118,9 @@ export function CoachRunsPanel({
   const [success, setSuccess] = useState<string | null>(null);
   // How the just-logged run linked to the plan, awaiting the runner's confirm/undo. Null = nothing to ask.
   const [matchPrompt, setMatchPrompt] = useState<MatchPrompt | null>(null);
+  const [runSearch, setRunSearch] = useState("");
+  const [runFilter, setRunFilter] = useState<"ALL" | "GPS" | "MANUAL">("ALL");
+  const [runMonthOnly, setRunMonthOnly] = useState(false);
   // Open the most recent GPS run by default so its map + per-km splits show without a
   // tap; older runs stay collapsed to avoid mounting many maps at once.
   const [expandedRun, setExpandedRun] = useState<string | null>(
@@ -130,6 +133,18 @@ export function CoachRunsPanel({
   const [saving, startSaving] = useTransition();
   const pace = useMemo(() => (distance > 0 && duration > 0 ? Math.round((duration * 60) / distance) : null), [distance, duration]);
   const plannedWorkouts = plan?.workouts.filter((workout) => workout.status !== "COMPLETED") ?? [];
+  const visibleRuns = useMemo(() => {
+    const query = runSearch.trim().toLowerCase();
+    const now = new Date();
+    return runs.filter((run) => {
+      const matchesQuery = !query || `${run.title ?? ""} ${run.notes ?? ""} ${run.startedAt}`.toLowerCase().includes(query);
+      const matchesType = runFilter === "ALL" || (runFilter === "GPS" ? run.source === "GPS" : run.source !== "GPS");
+      const startedAt = new Date(run.startedAt);
+      const matchesMonth = !runMonthOnly || (startedAt.getFullYear() === now.getFullYear() && startedAt.getMonth() === now.getMonth());
+      return matchesQuery && matchesType && matchesMonth;
+    });
+  }, [runFilter, runMonthOnly, runSearch, runs]);
+  const visibleDistance = useMemo(() => visibleRuns.reduce((total, run) => total + run.distanceKm, 0), [visibleRuns]);
 
   // Fetch the expanded run's full route once. Until it lands the card renders the preview, so
   // the map still draws (coarsely) rather than flashing empty; a failure just leaves the
@@ -333,26 +348,28 @@ export function CoachRunsPanel({
       {/* GPS run recorder — the record hero; renders only inside the phone app.
           Scoped error boundary: a bad locally-persisted in-progress-run snapshot must
           only break this card, not the whole Runs/Coach page. */}
-      <ErrorBoundary
-        boundary="RunRecorder"
-        fallback={<RecorderCrashFallback copy={copy} />}
-        getBreadcrumb={() => {
-          const state = runEngine.getState();
-          return {
-            ...getRunBreadcrumb(),
-            runStatus: state.status,
-            pointCount: state.pointCount,
-            elapsedSec: state.elapsedSec,
-            movingSec: state.movingSec,
-            errorCode: state.errorCode
-          };
-        }}
-      >
-        <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} userId={userId} />
-      </ErrorBoundary>
+      <div id="run-recorder" className="scroll-mt-24">
+        <ErrorBoundary
+          boundary="RunRecorder"
+          fallback={<RecorderCrashFallback copy={copy} />}
+          getBreadcrumb={() => {
+            const state = runEngine.getState();
+            return {
+              ...getRunBreadcrumb(),
+              runStatus: state.status,
+              pointCount: state.pointCount,
+              elapsedSec: state.elapsedSec,
+              movingSec: state.movingSec,
+              errorCode: state.errorCode
+            };
+          }}
+        >
+          <RunRecorder locale={locale} copy={copy} onSaved={onSaved} weightKg={weightKg} guidedWorkout={guidedWorkout} recentPaceSecondsPerKm={recentPaceSecondsPerKm} userId={userId} />
+        </ErrorBoundary>
+      </div>
       {afterRecorder}
 
-      <section>
+      <section id="run-history" className="scroll-mt-24">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-black text-gray-950">{copy.runHistory}</h2>
           <button
@@ -364,6 +381,29 @@ export function CoachRunsPanel({
             <Plus className={cn("size-4 transition-transform", showForm && "rotate-45")} aria-hidden="true" />
             {copy.logRun}
           </button>
+        </div>
+
+        <div className="mb-4 space-y-3">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
+            <span className="sr-only">{copy.searchRuns}</span>
+            <input value={runSearch} onChange={(event) => setRunSearch(event.target.value)} placeholder={copy.searchRuns} className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-10 text-sm font-semibold text-[var(--text-strong)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20" />
+          </label>
+          <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={copy.runHistory}>
+            {[
+              ["ALL", copy.filterAll],
+              ["GPS", copy.filterGps],
+              ["MANUAL", copy.filterManual]
+            ].map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={runFilter === value} onClick={() => setRunFilter(value as "ALL" | "GPS" | "MANUAL")} className={cn("min-h-10 shrink-0 rounded-full border px-3 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange", runFilter === value ? "border-brand-teal bg-[var(--primary-soft)] text-brand-teal" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-brand-teal hover:text-brand-teal")}>
+                {label}
+              </button>
+            ))}
+            <button type="button" aria-pressed={runMonthOnly} onClick={() => setRunMonthOnly((value) => !value)} className={cn("min-h-10 shrink-0 rounded-full border px-3 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange", runMonthOnly ? "border-brand-orange bg-[var(--accent-soft)] text-brand-orange" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-brand-orange hover:text-brand-orange")}>
+              {copy.filterThisMonth}
+            </button>
+          </div>
+          {runs.length > 0 ? <p className="text-xs font-bold text-[var(--text-muted)]">{copy.runCountSummary(visibleRuns.length, visibleDistance)}</p> : null}
         </div>
 
         {showForm ? (
@@ -465,9 +505,11 @@ export function CoachRunsPanel({
             </span>
             <p className="mt-3 text-sm font-semibold text-gray-600">{copy.noRuns}</p>
           </div>
+        ) : visibleRuns.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-5 py-10 text-center"><p className="text-sm font-semibold text-[var(--text-muted)]">{copy.noFilteredRuns}</p></div>
         ) : (
           <div className="space-y-3">
-            {runs.map((run) => (
+            {visibleRuns.map((run) => (
               <RunRow
                 key={run.id}
                 run={run}
@@ -588,6 +630,7 @@ const RunRow = memo(function RunRow({
               {run.title ? formatCoachDateTime(run.startedAt, locale) : run.route ? copy.gpsRunLabel : copy.manualRunLabel}
             </p>
           </div>
+          {highlight ? <span role="status" className="inline-flex shrink-0 rounded-full bg-[var(--primary-soft)] px-2 py-1 text-[10px] font-black text-brand-teal">{copy.runSavedJustNow}</span> : null}
           {photos.length > 0 ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-50 px-2 py-1 text-xs font-bold text-gray-500" title={copy.photos}>
               <Images className="size-3.5" aria-hidden="true" />
@@ -656,19 +699,9 @@ const RunRow = memo(function RunRow({
           {hasRoute && detailRoute ? (
             <>
               <RunMap points={detailRoute} className="h-56 w-full overflow-hidden rounded-lg border border-gray-200" />
-              <RunSummary
-                points={detailRoute}
-                distanceKm={run.distanceKm}
-                durationSeconds={run.durationSeconds}
-                movingSeconds={run.movingTimeSeconds ?? run.durationSeconds}
-                avgPaceSecondsPerKm={run.averagePaceSecondsPerKm}
-                elevationGainM={run.elevationGainM}
-                avgCadence={run.avgCadence}
-                calories={run.calories}
-                copy={copy}
-              />
             </>
           ) : null}
+          <RunDetailsPanel run={run} route={detailRoute ?? []} locale={locale} copy={copy} />
           <div>
             <p className="mb-2 text-sm font-bold text-gray-800">{copy.photos}</p>
             <RunPhotoUploader value={photos} onChange={(next) => onUpdatePhotos(run, next)} copy={copy} disabled={saving} />

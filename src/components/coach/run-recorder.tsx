@@ -172,6 +172,7 @@ export function RunRecorder({
   }, []);
 
   const status = state.status;
+  const liveStatusLabel = status === "tracking" ? copy.recordingStatus : status === "paused" ? copy.pausedStatus : null;
 
   useEffect(() => {
     if (status === "finished" && previousStatusRef.current !== "finished") {
@@ -427,10 +428,11 @@ export function RunRecorder({
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" dir={locale === "ar" ? "rtl" : "ltr"}>
       <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-4">
         <MapPin className="size-5 text-brand-orange" aria-hidden="true" />
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-black text-gray-950">{copy.recordRun}</h2>
           <p className="text-xs font-semibold text-gray-500">{copy.recordHint}</p>
         </div>
+        {liveStatusLabel ? <span role="status" className="ms-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--primary-soft)] px-2.5 py-1 text-xs font-black text-brand-teal"><span className="size-1.5 rounded-full bg-brand-teal" aria-hidden="true" />{liveStatusLabel}</span> : null}
       </div>
 
       <div className="p-5">
@@ -490,14 +492,11 @@ export function RunRecorder({
 
             {/* Keep the primary action in the first phone viewport. Its label
                 updates as soon as the runner chooses a plan or guided session. */}
-            <Button type="button" size="lg" className="w-full" onClick={() => void startSelectedRun()}>
-              <Play className="size-5" aria-hidden="true" />
-              {startMode === "planned"
-                ? guidedCopy.startGuided
-                : startMode === "library" && draftLibrarySession
-                  ? `${copy.startRun}: ${draftLibrarySession.label}`
-                  : copy.startRun}
-            </Button>
+            <HoldToStartButton
+              copy={copy}
+              label={startMode === "planned" ? guidedCopy.startGuided : startMode === "library" && draftLibrarySession ? `${copy.startRun}: ${draftLibrarySession.label}` : copy.startRun}
+              onComplete={() => startSelectedRun()}
+            />
 
             {guidedWorkout && structure ? (
               <button
@@ -561,6 +560,16 @@ export function RunRecorder({
                 </div>
               </div>
             ) : null}
+            <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] text-white shadow-sm">
+              <div className="border-e border-white/10 px-4 py-4 text-center">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/60">{copy.statDistance}</p>
+                <p className="mt-1 text-4xl font-black tabular-nums tracking-tight">{distanceKm.toFixed(2)}<span className="ms-1 text-sm font-bold text-white/60">km</span></p>
+              </div>
+              <div className="px-4 py-4 text-center">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/60">{copy.statTime}</p>
+                <p className="mt-1 text-4xl font-black tabular-nums tracking-tight">{formatDuration(state.elapsedSec)}</p>
+              </div>
+            </div>
             {state.pointCount > 1 && trackPoints.length > 1 ? (
               <RunMap points={trackPoints} live className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
             ) : (
@@ -573,8 +582,6 @@ export function RunRecorder({
               </div>
             )}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <LiveStat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
-              <LiveStat label={copy.statTime} value={formatDuration(state.elapsedSec)} big />
               <LiveStat label={copy.statCurrentPace} value={formatPace(state.currentPace)} big />
               <LiveStat label={copy.statAvgPace} value={formatPace(avgPace)} />
               <LiveStat label={copy.statMovingTime} value={formatDuration(state.movingSec)} />
@@ -715,5 +722,62 @@ function GpsSignalStat({ label, status, level }: { label: string; status: string
       </div>
       <p className="mt-1 text-xs font-black text-gray-950">{status}</p>
     </div>
+  );
+}
+
+function HoldToStartButton({ copy, label, onComplete }: { copy: CoachCopy; label: string; onComplete: () => void | Promise<void> }) {
+  const [holding, setHolding] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const timerRef = useRef<number | null>(null);
+  const progressRef = useRef<number | null>(null);
+
+  const cancel = useCallback(() => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    if (progressRef.current !== null) window.clearInterval(progressRef.current);
+    timerRef.current = null;
+    progressRef.current = null;
+    setHolding(false);
+    setProgress(0);
+  }, []);
+
+  const begin = useCallback(() => {
+    if (holding) return;
+    const startedAt = Date.now();
+    setHolding(true);
+    progressRef.current = window.setInterval(() => setProgress(Math.min(100, ((Date.now() - startedAt) / 700) * 100)), 35);
+    timerRef.current = window.setTimeout(() => {
+      if (progressRef.current !== null) window.clearInterval(progressRef.current);
+      progressRef.current = null;
+      timerRef.current = null;
+      setProgress(100);
+      setHolding(false);
+      void onComplete();
+    }, 700);
+  }, [holding, onComplete]);
+
+  useEffect(() => cancel, [cancel]);
+
+  return (
+    <button
+      type="button"
+      className="relative min-h-16 w-full overflow-hidden rounded-2xl bg-brand-teal px-5 text-white shadow-sm transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange active:scale-[0.99]"
+      onPointerDown={begin}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onKeyDown={(event) => {
+        if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
+          event.preventDefault();
+          begin();
+        }
+      }}
+      onKeyUp={(event) => {
+        if (event.key === "Enter" || event.key === " ") cancel();
+      }}
+      aria-label={`${copy.holdToStart}: ${label}`}
+    >
+      <span className="absolute inset-y-0 start-0 bg-white/15 transition-[width] duration-75" style={{ width: `${progress}%` }} aria-hidden="true" />
+      <span className="relative flex items-center justify-center gap-2 text-base font-black"><Footprints className="size-5" aria-hidden="true" />{holding ? copy.holdingToStart : copy.holdToStart}<span className="font-semibold text-white/75">· {label}</span></span>
+    </button>
   );
 }

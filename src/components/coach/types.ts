@@ -43,6 +43,7 @@ export type CoachRun = {
   avgCadence: number | null;
   calories: number | null;
   route: RunRoutePoint[] | null;
+  source?: "MANUAL" | "IMPORTED" | "GPS";
   isPublic: boolean;
   perceivedEffort: number;
   fatigueLevel: number;

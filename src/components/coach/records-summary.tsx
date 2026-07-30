@@ -48,17 +48,17 @@ const copy = {
     none: "—"
   },
   ar: {
-    title: "أرقامك القياسية",
-    personalBests: "أفضل الأرقام الشخصية",
-    longest: "أطول جري",
-    fastestPace: "أسرع وتيرة",
-    best5k: "أفضل 5 كم",
-    best10k: "أفضل 10 كم",
-    streak: "سلسلة الأسابيع",
-    weeks: (n: number) => `${n} ${n === 1 ? "أسبوع" : "أسابيع"}`,
-    bestStreak: (n: number) => `الأفضل: ${n}`,
-    totalDistance: "المسافة الإجمالية",
-    totalRuns: (n: number) => `${n} جري`,
+    title: "أرقامك المليحة",
+    personalBests: "أحسن أرقامك",
+    longest: "أطول جَرية",
+    fastestPace: "أسرع ريتم",
+    best5k: "أحسن 5 كم",
+    best10k: "أحسن 10 كم",
+    streak: "أسابيع ورا بعض",
+    weeks: (n: number) => `${n} ${n === 1 ? "سيمانة" : "سيمانات"}`,
+    bestStreak: (n: number) => `الأحسن: ${n}`,
+    totalDistance: "المسافة الكاملة",
+    totalRuns: (n: number) => `${n} جريات`,
     none: "—"
   }
 } as const;

@@ -33,17 +33,17 @@ const copy = {
     importFailed: "L'importation a échoué. Vérifiez votre connexion et réessayez."
   },
   ar: {
-    title: "استيراد جري",
-    hint: "أضف جريًا مسجَّلًا على ساعة أو تطبيق آخر (.gpx).",
-    choose: "اختر ملف GPX",
-    effort: "الجهد المُدرَك (1–10)",
-    makePublic: "مشاركة علنية",
-    importBtn: "استيراد",
-    importing: "جارٍ الاستيراد…",
-    cancel: "إلغاء",
-    invalidFile: "اختر ملفًا ينتهي اسمه بـ .gpx.",
-    fileTooLarge: "حجم ملف GPX هذا أكبر من 5 ميغابايت.",
-    importFailed: "فشل الاستيراد. تحقق من الاتصال وحاول مرة أخرى."
+    title: "دخل جَرية",
+    hint: "زيد جَرية تسجّلت فالساعة ولا فتطبيق آخر (.gpx).",
+    choose: "اختار ملف GPX",
+    effort: "شحال حسّيت بالجُهد (1–10)",
+    makePublic: "شاركها للناس",
+    importBtn: "دخل الجَرية",
+    importing: "راه يدخل…",
+    cancel: "خليها",
+    invalidFile: "اختار ملف يسالي بـ .gpx.",
+    fileTooLarge: "ملف GPX هذا كبير بزاف (أكثر من 5 ميغا).",
+    importFailed: "ما دخلتش الجَرية. شوف النت وعاود."
   }
 } as const;
 
