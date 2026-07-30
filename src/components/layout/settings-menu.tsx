@@ -65,7 +65,10 @@ export function SettingsMenu({ currentLocale, persist = false }: { currentLocale
   }
 
   function persistLocale(locale: Locale) {
-    document.cookie = `racedz-locale=${locale}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    // "; secure" only over HTTPS — appending it on plain http:// (local dev) makes the browser
+    // silently drop the cookie write entirely.
+    const secure = location.protocol === "https:" ? "; secure" : "";
+    document.cookie = `racedz-locale=${locale}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax${secure}`;
     if (persist) void saveAppearanceAction({ language: locale });
   }
 

@@ -84,7 +84,10 @@ function applyLocale(request: NextRequest): NextResponse {
     response.cookies.set(LOCALE_COOKIE, isLocale(explicit) ? explicit : "en", {
       path: "/",
       maxAge: ONE_YEAR,
-      sameSite: "lax"
+      sameSite: "lax",
+      // Only over HTTPS — local dev runs on plain http://127.0.0.1, where a Secure cookie
+      // would silently fail to be set at all.
+      secure: process.env.NODE_ENV === "production"
     });
     return response;
   }

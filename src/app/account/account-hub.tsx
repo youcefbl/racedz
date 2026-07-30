@@ -280,7 +280,10 @@ function LanguagePicker({
           href={localeHref(pathname, searchParams, loc)}
           onClick={() => {
             tapHaptic("light");
-            document.cookie = `racedz-locale=${loc}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+            // "; secure" only over HTTPS — appending it on plain http:// (local dev) makes the
+            // browser silently drop the cookie write entirely.
+            const secure = location.protocol === "https:" ? "; secure" : "";
+            document.cookie = `racedz-locale=${loc}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax${secure}`;
             // Signed-in: persist so the language follows the runner to other devices.
             if (loggedIn) void saveAppearanceAction({ language: loc });
           }}
