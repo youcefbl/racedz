@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export async function POST() {
   const session = await auth();
@@ -9,6 +10,9 @@ export async function POST() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = enforceRateLimit(rateLimitKey("notifications-test-push", session.user.id), 5, 10 * 60_000);
+  if (limited) return limited;
 
   const notification = await createNotification({
     userId: session.user.id,

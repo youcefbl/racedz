@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
 import { rescheduleWorkout, setWorkoutSkipReason, skipWorkout } from "@/lib/coach/service";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 type WorkoutRouteContext = { params: Promise<{ id: string }> };
 
@@ -41,6 +42,8 @@ const bodySchema = z.discriminatedUnion("action", [
 export async function PATCH(request: Request, context: WorkoutRouteContext) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const { id } = await context.params;

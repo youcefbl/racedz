@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getCoachOpsReport } from "@/lib/coach/report";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 // GET /api/admin/coach/report?days=30
 // Admin-only observability over the coaching loop: run logging, run→workout match performance,
@@ -10,6 +11,9 @@ export async function GET(request: Request) {
   if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPERADMIN") {
     return NextResponse.json({ error: "Admin access is required" }, { status: 403 });
   }
+
+  const limited = enforceRateLimit(rateLimitKey("admin-read", session.user.id), 60, 5 * 60_000);
+  if (limited) return limited;
 
   const requested = Number.parseInt(new URL(request.url).searchParams.get("days") ?? "30", 10);
   const days = Number.isFinite(requested) ? requested : 30;

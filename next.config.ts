@@ -37,6 +37,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Don't advertise the framework/version in responses (SEC-001: no framework/version banners).
+  poweredByHeader: false,
   // Blog posts are MDX files read from src/content at runtime (the blog + sitemap render
   // dynamically for the ?lang param). Standalone tracing wouldn't copy these non-imported
   // files, so include them explicitly for the routes that read them.

@@ -52,7 +52,8 @@ export async function approveOrganizationAction(formData: FormData) {
         role: "RUNNER"
       },
       data: {
-        role: "ORGANIZER"
+        role: "ORGANIZER",
+        securityStampAt: new Date()
       }
     });
   });
@@ -380,7 +381,7 @@ export async function toggleBlockUserAction(formData: FormData) {
   }
 
   const nextBlockedAt = target.blockedAt ? null : new Date();
-  await prisma.user.update({ where: { id: userId }, data: { blockedAt: nextBlockedAt } });
+  await prisma.user.update({ where: { id: userId }, data: { blockedAt: nextBlockedAt, securityStampAt: new Date() } });
   await recordAdminAuditLog({
     actorId: session.user.id,
     action: nextBlockedAt ? "user.blocked" : "user.unblocked",

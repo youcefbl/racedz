@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
 import { updateRunnerRunSchema } from "@/lib/coach/schemas";
 import { deleteRun, getRunnerRunDetail, updateRun } from "@/lib/coach/service";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 type RunRouteContext = { params: Promise<{ id: string }> };
 
@@ -11,6 +12,8 @@ type RunRouteContext = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, context: RunRouteContext) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const { id } = await context.params;
@@ -25,6 +28,8 @@ export async function GET(_request: Request, context: RunRouteContext) {
 export async function PATCH(request: Request, context: RunRouteContext) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const { id } = await context.params;
@@ -39,6 +44,8 @@ export async function PATCH(request: Request, context: RunRouteContext) {
 export async function DELETE(_request: Request, context: RunRouteContext) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const { id } = await context.params;

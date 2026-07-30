@@ -35,6 +35,10 @@ model User {
   mfaSecret       String? // base32 TOTP secret, server-only; set while enrolled
   mfaBackupCodes  String[]  @default([]) // sha256 hashes of one-time recovery codes
   mfaEnabledAt    DateTime?
+  // Bumped on password reset, MFA enroll/disable, block, or role change. A session token minted
+  // before this timestamp is treated as revoked the next time it reaches a Node-side auth check
+  // (see the jwt() callback in src/auth.ts) — a stateless-JWT approximation of session revocation.
+  securityStampAt DateTime  @default(now())
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

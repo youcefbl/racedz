@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
 import { updateCoachGoal, updateCoachGoalSettings, updateCoachGoalStatus } from "@/lib/coach/service";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 type GoalRouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, context: GoalRouteContext) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const { id } = await context.params;

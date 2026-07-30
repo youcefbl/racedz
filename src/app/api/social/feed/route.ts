@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getFeed } from "@/lib/social";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 // Activity feed: public runs from people you follow + your own. Cursor-paginated.
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("social-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   const url = new URL(request.url);
   const cursor = url.searchParams.get("cursor");

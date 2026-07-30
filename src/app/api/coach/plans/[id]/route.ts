@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
 import { updateTrainingPlanStatus } from "@/lib/coach/service";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 type PlanRouteContext = { params: Promise<{ id: string }> };
 const updatePlanSchema = z.object({ status: z.enum(["ACTIVE", "CANCELLED"]) });
@@ -10,6 +11,8 @@ const updatePlanSchema = z.object({ status: z.enum(["ACTIVE", "CANCELLED"]) });
 export async function PATCH(request: Request, context: PlanRouteContext) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const { id } = await context.params;

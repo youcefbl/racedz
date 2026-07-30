@@ -3,11 +3,14 @@ import { NextResponse } from "next/server";
 import type { RunRoutePoint } from "@/components/coach/types";
 import { buildGpx } from "@/lib/coach/gpx";
 import { getRunnerRunForExport } from "@/lib/coach/service";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 // Export one of the caller's runs as a downloadable .gpx file (data portability).
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Login is required." }, { status: 401 });
+  const limited = enforceRateLimit(rateLimitKey("coach-export", session.user.id), 30, 5 * 60_000);
+  if (limited) return limited;
 
   const { id } = await params;
   const run = await getRunnerRunForExport(session.user.id, id);

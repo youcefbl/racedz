@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { revokePushSubscription, upsertPushSubscription } from "@/lib/notifications";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 const pushSubscriptionSchema = z.object({
   token: z.string().min(20),
@@ -14,6 +15,9 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = enforceRateLimit(rateLimitKey("notifications-api", session.user.id), 60, 5 * 60_000);
+  if (limited) return limited;
 
   const parsed = pushSubscriptionSchema.safeParse(await request.json().catch(() => null));
 
@@ -36,6 +40,9 @@ export async function DELETE(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = enforceRateLimit(rateLimitKey("notifications-api", session.user.id), 60, 5 * 60_000);
+  if (limited) return limited;
 
   const parsed = pushSubscriptionSchema.pick({ token: true }).safeParse(await request.json().catch(() => null));
 

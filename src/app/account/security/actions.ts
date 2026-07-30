@@ -79,7 +79,12 @@ export async function confirmMfaAction(_previous: MfaActionResult, formData: For
   const backupCodes = generateBackupCodes();
   await prisma.user.update({
     where: { id: userId },
-    data: { mfaEnabled: true, mfaEnabledAt: new Date(), mfaBackupCodes: hashBackupCodes(backupCodes) }
+    data: {
+      mfaEnabled: true,
+      mfaEnabledAt: new Date(),
+      mfaBackupCodes: hashBackupCodes(backupCodes),
+      securityStampAt: new Date()
+    }
   });
 
   revalidatePath("/account/security");
@@ -107,7 +112,7 @@ export async function disableMfaAction(_previous: MfaActionResult, formData: For
 
   await prisma.user.update({
     where: { id: userId },
-    data: { mfaEnabled: false, mfaSecret: null, mfaEnabledAt: null, mfaBackupCodes: [] }
+    data: { mfaEnabled: false, mfaSecret: null, mfaEnabledAt: null, mfaBackupCodes: [], securityStampAt: new Date() }
   });
 
   revalidatePath("/account/security");

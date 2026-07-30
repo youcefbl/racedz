@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrganizerRace, OrganizerError, getOrganizerRaces, requireApprovedOrganizer } from "@/lib/organizer";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export async function GET() {
-  const { organization } = await requireApprovedOrganizer();
+  const { session, organization } = await requireApprovedOrganizer();
+  const limited = enforceRateLimit(rateLimitKey("organizer-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
   // Bounded so the query can't be unbounded; 200 is far above any realistic per-org count.
   const { items: races, total } = await getOrganizerRaces(organization.id, { page: 1, limit: 200, skip: 0 });
 
@@ -15,7 +18,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { organization } = await requireApprovedOrganizer();
+  const { session, organization } = await requireApprovedOrganizer();
+  const limited = enforceRateLimit(rateLimitKey("organizer-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
 
   try {
     const race = await createOrganizerRace({

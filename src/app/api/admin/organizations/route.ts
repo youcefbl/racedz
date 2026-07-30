@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAdminOrganizations } from "@/lib/admin";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export async function GET() {
   const session = await auth();
@@ -8,6 +9,9 @@ export async function GET() {
   if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPERADMIN") {
     return NextResponse.json({ error: "Admin access is required" }, { status: 403 });
   }
+
+  const limited = enforceRateLimit(rateLimitKey("admin-read", session.user.id), 60, 5 * 60_000);
+  if (limited) return limited;
 
   const { items, total } = await getAdminOrganizations({});
 

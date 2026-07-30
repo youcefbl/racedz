@@ -20,5 +20,10 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: UserRole;
     organizationIds: string[];
+    /** Epoch ms of the user's securityStampAt as of the last freshness check (see src/auth.ts). */
+    securityStamp?: number;
+    /** Set when securityStampAt has advanced past this token's stamp (password reset, MFA change,
+     *  block, role change) — session() treats a revoked token as logged out. */
+    revoked?: boolean;
   }
 }

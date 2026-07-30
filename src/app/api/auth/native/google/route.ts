@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
 import { getPrisma } from "@/lib/db";
 import { createNativeAuthToken, upsertGoogleUserFromPayload } from "@/lib/native-auth";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,12 @@ export async function POST(request: Request) {
   const clientId = process.env.AUTH_GOOGLE_ID;
   if (!clientId) {
     return NextResponse.json({ error: "Google sign-in is not configured." }, { status: 503 });
+  }
+
+  // Pre-auth (no session yet), so key on IP like the other login/register flows.
+  const ip = clientIp(request.headers);
+  if (ip && !checkRateLimit(`native-google:${ip}`, 20, 10 * 60_000).ok) {
+    return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
   }
 
   let idToken: string | null = null;

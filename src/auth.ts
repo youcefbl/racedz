@@ -148,28 +148,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.name = authUser.name;
           token.role = authUser.role;
           token.organizationIds = authUser.organizationIds;
-
-          return token;
         } catch (error) {
           console.error("[auth][google] jwt callback failed to resolve user:", error);
           throw error;
         }
+      } else {
+        if (user) {
+          token.role = user.role;
+          token.organizationIds = user.organizationIds;
+        }
+
+        if (!token.role && token.email) {
+          const authUser = await getAuthUserByEmail(token.email);
+
+          if (authUser) {
+            token.sub = authUser.id;
+            token.email = authUser.email;
+            token.name = authUser.name;
+            token.role = authUser.role;
+            token.organizationIds = authUser.organizationIds;
+          }
+        }
       }
 
-      if (user) {
-        token.role = user.role;
-        token.organizationIds = user.organizationIds;
-      }
+      // Freshness/revocation check — runs on every request that reaches this Node-side callback
+      // (server components, actions, API routes), for every provider. Compares against the live
+      // User.securityStampAt: a stamp bump from a password reset, MFA change, block, or role
+      // change invalidates any token minted before it. Deliberately does NOT run in the edge
+      // middleware (no DB there) — see session() in auth.config.ts for the enforcement side.
+      if (typeof token.sub === "string") {
+        const current = await getPrisma().user.findUnique({
+          where: { id: token.sub },
+          select: { securityStampAt: true, blockedAt: true }
+        });
 
-      if (!token.role && token.email) {
-        const authUser = await getAuthUserByEmail(token.email);
-
-        if (authUser) {
-          token.sub = authUser.id;
-          token.email = authUser.email;
-          token.name = authUser.name;
-          token.role = authUser.role;
-          token.organizationIds = authUser.organizationIds;
+        if (!current || current.blockedAt) {
+          token.revoked = true;
+        } else {
+          const stampMs = current.securityStampAt.getTime();
+          token.revoked = typeof token.securityStamp === "number" && token.securityStamp < stampMs;
+          if (!token.revoked) token.securityStamp = stampMs;
         }
       }
 

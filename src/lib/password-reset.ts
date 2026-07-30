@@ -73,7 +73,7 @@ export async function consumePasswordResetToken(token: string, passwordHash: str
 
   await getPrisma().$transaction(async (tx) => {
     await tx.$executeRaw`
-      UPDATE "User" SET "passwordHash" = ${passwordHash} WHERE "id" = ${reset.userId}
+      UPDATE "User" SET "passwordHash" = ${passwordHash}, "securityStampAt" = NOW() WHERE "id" = ${reset.userId}
     `;
     await tx.$executeRaw`
       UPDATE "PasswordResetToken" SET "usedAt" = NOW() WHERE "id" = ${reset.id}

@@ -20,6 +20,16 @@ export const authConfig = {
   providers: [],
   callbacks: {
     session({ session, token }) {
+      // A password reset, MFA change, block, or role change bumps User.securityStampAt; the
+      // Node-side jwt() callback (src/auth.ts) marks any session token minted before that moment
+      // as revoked the next time it's used. Drop `user` here so every existing `!session?.user`
+      // check across the app (middleware, requireUserId()-style helpers) treats it as logged out,
+      // with no per-call-site changes needed. This is edge-safe: it only reads the token already
+      // decoded from the cookie, no DB access.
+      if (token.revoked) {
+        return { ...session, user: undefined } as unknown as typeof session;
+      }
+
       if (session.user) {
         session.user.id = token.sub ?? "";
         session.user.role = token.role as UserRole;

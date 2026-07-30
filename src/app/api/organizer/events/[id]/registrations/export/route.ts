@@ -1,4 +1,5 @@
 import { getOrganizerRaceById, getOrganizerRaceRegistrations, requireApprovedOrganizer } from "@/lib/organizer";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 type ExportContext = {
   params: Promise<{ id: string }>;
@@ -6,7 +7,12 @@ type ExportContext = {
 
 export async function GET(_request: Request, context: ExportContext) {
   const { id } = await context.params;
-  const { organization } = await requireApprovedOrganizer();
+  const { session, organization } = await requireApprovedOrganizer();
+  // PII export (name/email/phone) up to 10k rows — worth its own tighter limit vs. the
+  // read-only registrations list below.
+  const limited = enforceRateLimit(rateLimitKey("organizer-export", session.user.id), 20, 10 * 60_000);
+  if (limited) return limited;
+
   const [race, registrationResult] = await Promise.all([
     getOrganizerRaceById(organization.id, id),
     getOrganizerRaceRegistrations(organization.id, id, {}, { page: 1, limit: 10000, skip: 0 })

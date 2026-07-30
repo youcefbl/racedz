@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOrganizerRaceRegistrations, requireApprovedOrganizer } from "@/lib/organizer";
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 type OrganizerRegistrationsContext = {
   params: Promise<{ id: string }>;
@@ -7,7 +8,10 @@ type OrganizerRegistrationsContext = {
 
 export async function GET(_request: Request, context: OrganizerRegistrationsContext) {
   const { id } = await context.params;
-  const { organization } = await requireApprovedOrganizer();
+  const { session, organization } = await requireApprovedOrganizer();
+  const limited = enforceRateLimit(rateLimitKey("organizer-api", session.user.id), 120, 5 * 60_000);
+  if (limited) return limited;
+
   const registrations = await getOrganizerRaceRegistrations(organization.id, id);
 
   return NextResponse.json({
