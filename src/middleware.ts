@@ -48,10 +48,11 @@ function detectAcceptLanguage(header: string | null): Locale {
   return "en";
 }
 
-function publicOriginRedirect(request: NextRequest, url: URL): NextResponse {
+function resolvePublicOrigin(request: NextRequest): string {
   // Next's standalone server can expose its internal `localhost` origin through
-  // request.nextUrl. Build redirects from the browser-facing proxy headers while
-  // keeping an absolute URL, which Auth.js requires during credential sign-in.
+  // request.nextUrl. Resolve the browser-facing origin from the proxy headers instead —
+  // this backs both the absolute-URL redirect below (Auth.js requires one during
+  // credential sign-in) and the cross-origin API guard's same-origin comparison.
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
   // Next standalone synthesizes x-forwarded-host as `localhost`; Caddy preserves
   // the incoming Host header, so prefer Host and retain x-forwarded-host as fallback.
@@ -62,25 +63,119 @@ function publicOriginRedirect(request: NextRequest, url: URL): NextResponse {
       ? forwardedProtocol
       : request.nextUrl.protocol.replace(":", "");
   const configuredUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL;
-  const publicOrigin = configuredUrl
+  return configuredUrl
     ? new URL(configuredUrl).origin
     : host
       ? `${protocol}://${host}`
       : request.nextUrl.origin;
-  const redirectUrl = new URL(`${url.pathname}${url.search}${url.hash}`, publicOrigin);
+}
 
+function publicOriginRedirect(request: NextRequest, url: URL): NextResponse {
+  const redirectUrl = new URL(`${url.pathname}${url.search}${url.hash}`, resolvePublicOrigin(request));
   return NextResponse.redirect(redirectUrl);
+}
+
+// SEC-005: explicit origin/fetch-metadata check for state-changing API requests. Auth.js's
+// session cookie is already SameSite=Lax (blocks it on cross-site POSTs in modern browsers),
+// so this is defense in depth against browsers/clients that don't honor SameSite. Only guards
+// requests that carry the session cookie — bearer/native-token auth (e.g. the native Google
+// handoff route) has no ambient credential for a cross-site request to ride on, so it's not
+// CSRF-able and is left alone.
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const SESSION_COOKIE_NAMES = ["authjs.session-token", "__Secure-authjs.session-token"];
+
+function hasSessionCookie(request: NextRequest): boolean {
+  return SESSION_COOKIE_NAMES.some((name) => request.cookies.get(name)?.value);
+}
+
+function applyApiOriginGuard(request: NextRequest): NextResponse {
+  if (SAFE_METHODS.has(request.method) || !hasSessionCookie(request)) {
+    return NextResponse.next();
+  }
+
+  // Fetch metadata (sent by all current browser engines) is the primary signal: same-origin/
+  // none means the request came from this site or a direct client, not another site's page.
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite === "same-origin" || fetchSite === "none") return NextResponse.next();
+  if (fetchSite) {
+    return new NextResponse("Cross-site request blocked", { status: 403 });
+  }
+
+  // No fetch-metadata header (older browser or non-browser client): fall back to comparing
+  // Origin against this deployment's public origin when the client sent one.
+  const origin = request.headers.get("origin");
+  if (origin && origin !== resolvePublicOrigin(request)) {
+    return new NextResponse("Cross-site request blocked", { status: 403 });
+  }
+
+  return NextResponse.next();
+}
+
+// SEC-005: nonce-based script-src instead of the previous static 'unsafe-inline'. The nonce
+// must differ per request, and Next.js auto-nonces its own injected scripts by reading the
+// Content-Security-Policy header back off the *request* object (see
+// next/dist/server/app-render/get-script-nonce-from-header.js) — so it has to be set on both
+// the forwarded request headers and the response headers, not only the response. 'strict-dynamic'
+// lets those Next-injected scripts load further scripts (chunks, the dynamic gstatic Firebase
+// messaging scripts in src/lib/notifications/push-client.ts) without host-listing every source;
+// 'unsafe-inline'/https://www.gstatic.com stay as a fallback for browsers that don't support
+// nonces/strict-dynamic (which ignore them once a nonce is present). style-src is intentionally
+// left 'unsafe-inline': Tailwind's arbitrary-value utilities and component `style={}` attributes
+// would need a much larger migration (inline style attributes can't carry a nonce at all — only
+// hashes or 'unsafe-hashes' — and the XSS risk of attribute-style injection is far lower than
+// script injection), tracked as a follow-up rather than blocking this pass.
+function generateNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function buildCsp(nonce: string): string {
+  const isDev = process.env.NODE_ENV !== "production";
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://www.gstatic.com 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    `connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.sentry.io${isDev ? " ws: http://10.0.2.2:3003" : ""}`,
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "form-action 'self' https://accounts.google.com"
+  ].join("; ");
+}
+
+// Builds the NextResponse that continues on to page rendering, with a fresh per-request CSP
+// nonce threaded onto both the request (for Next's own auto-nonced scripts) and the response
+// (for the browser to enforce). Every "let the page render" return path in this file should
+// go through this instead of a bare NextResponse.next().
+function nextWithNonce(request: NextRequest): NextResponse {
+  const nonce = generateNonce();
+  const csp = buildCsp(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
 }
 
 function applyLocale(request: NextRequest): NextResponse {
   // Only act on top-level page GET navigations.
-  if (request.method !== "GET") return NextResponse.next();
+  if (request.method !== "GET") return nextWithNonce(request);
 
   const { searchParams } = request.nextUrl;
   const explicit = searchParams.get("lang");
 
   if (explicit !== null) {
-    const response = NextResponse.next();
+    const response = nextWithNonce(request);
     response.cookies.set(LOCALE_COOKIE, isLocale(explicit) ? explicit : "en", {
       path: "/",
       maxAge: ONE_YEAR,
@@ -103,12 +198,17 @@ function applyLocale(request: NextRequest): NextResponse {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return nextWithNonce(request);
 }
 
 export default auth((request) => {
   const { nextUrl } = request;
   const path = nextUrl.pathname;
+
+  // 0) API routes get only the origin guard — no page auth-redirects or locale cookies apply.
+  if (path.startsWith("/api/")) {
+    return applyApiOriginGuard(request);
+  }
 
   // 1) Auth guard for the private areas. Runs on every method (as the original guard did),
   //    so it also covers server-action POSTs to these page routes.
@@ -141,7 +241,8 @@ export default auth((request) => {
 });
 
 export const config = {
-  // Skip API, Next internals, and any file with an extension (icons, manifest, sw, images).
-  // This superset covers the private areas too, so the auth guard runs on them.
-  matcher: ["/((?!api|_next|.*\\..*).*)"]
+  // Skip Next internals and any file with an extension (icons, manifest, sw, images).
+  // This superset covers the private areas and API routes too, so the auth guard and the
+  // API origin guard both run on them.
+  matcher: ["/((?!_next|.*\\..*).*)"]
 };

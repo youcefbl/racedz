@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import "@fontsource-variable/manrope/wght.css";
 
@@ -65,11 +66,16 @@ export const viewport: Viewport = {
   ]
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // SEC-005: the CSP's script-src is nonce-based (src/middleware.ts sets it per request), so
+  // this inline bootstrap script needs the matching nonce or the browser blocks it outright.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html:
               "try{var t=localStorage.getItem('racedz-theme');if(!(t==='dark'||t==='race'||t==='light')){var m=document.cookie.match(/(?:^|; )racedz-theme=([^;]*)/);t=m?decodeURIComponent(m[1]):null;}document.documentElement.dataset.theme=(t==='dark'||t==='race'||t==='light')?t:'light'}catch(e){document.documentElement.dataset.theme='light'}" +
