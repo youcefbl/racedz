@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -53,6 +54,25 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- @capacitor-community/background-geolocation's own manifest declares this service
+             exported="true" with no permission guard, so any other installed app could start/bind
+             it. It's only ever started by this app's own Capacitor bridge (same process), which
+             doesn't need exported="true" — override it closed. -->
+        <service
+            android:name="com.equimaps.capacitor_background_geolocation.BackgroundGeolocationService"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported" />
+
+        <!-- @capgo/capacitor-social-login hard-depends on the Facebook Login SDK even though this
+             app only ever calls it with provider "google" (see google-sign-in-button.tsx) — Facebook
+             sign-in is never used. CustomTabActivity is the one Facebook component that ships
+             exported with a BROWSABLE intent-filter (an OAuth-redirect catcher); remove it since
+             nothing in the app can trigger the flow that would use it. -->
+        <activity
+            android:name="com.facebook.CustomTabActivity"
+            tools:node="remove" />
     </application>
 
     <!-- Permissions -->
