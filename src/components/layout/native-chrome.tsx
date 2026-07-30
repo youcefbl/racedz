@@ -2,6 +2,7 @@
 
 import { Capacitor } from "@capacitor/core";
 import { useEffect } from "react";
+import { MobileInputFocus } from "@/components/layout/mobile-input-focus";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 
 // Native-app shell: adds the `.native-app` class (so CSS can switch on app-only styling),
@@ -101,5 +102,10 @@ export function NativeChrome() {
     };
   }, []);
 
-  return <MobileTabBar />;
+  return (
+    <>
+      <MobileInputFocus />
+      <MobileTabBar />
+    </>
+  );
 }

@@ -56,6 +56,7 @@ export function CoachRunsPanel({
   onSaved,
   onAnalyze,
   analyzedRuns,
+  highlightRunId,
   onViewAnalysis,
   weightKg,
   guidedWorkout,
@@ -74,6 +75,8 @@ export function CoachRunsPanel({
   onAnalyze: (runId: string) => Promise<void>;
   /** runId → id of the existing POST_RUN analysis, when the run has already been analyzed. */
   analyzedRuns?: Record<string, string>;
+  /** Newly saved run to bring into view so a successful save is visible without a refresh. */
+  highlightRunId?: string | null;
   onViewAnalysis?: (interactionId: string) => void;
   userId: string;
   /** Runner's weight, forwarded to the recorder for a live calorie estimate. */
@@ -151,6 +154,18 @@ export function CoachRunsPanel({
       cancelled = true;
     };
   }, [expandedRun, fullRoutes, runs]);
+
+  // A GPS save completes above the history list. Bring the new row into view and open it so the
+  // runner gets immediate proof that the server accepted the activity, even on a short phone
+  // viewport where the list would otherwise be far below the recorder card.
+  useEffect(() => {
+    if (!highlightRunId || !runs.some((run) => run.id === highlightRunId)) return;
+    setExpandedRun(highlightRunId);
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`run-${highlightRunId}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [highlightRunId, runs]);
 
   // Today hero → "Log this run": open the form, preselect the workout, and prefill its target distance.
   useEffect(() => {
@@ -460,6 +475,7 @@ export function CoachRunsPanel({
                 fullRoute={fullRoutes[run.id]}
                 photoOverride={photoOverrides[run.id]}
                 analysisId={analyzedRuns?.[run.id]}
+                highlight={highlightRunId === run.id}
                 saving={saving}
                 pendingAction={pendingAction}
                 locale={locale}
@@ -503,6 +519,7 @@ const RunRow = memo(function RunRow({
   fullRoute,
   photoOverride,
   analysisId,
+  highlight,
   saving,
   pendingAction,
   locale,
@@ -520,6 +537,7 @@ const RunRow = memo(function RunRow({
   fullRoute: RunRoutePoint[] | undefined;
   photoOverride: string[] | undefined;
   analysisId: string | undefined;
+  highlight: boolean;
   saving: boolean;
   pendingAction: string | null;
   locale: CoachLocale;
@@ -546,7 +564,14 @@ const RunRow = memo(function RunRow({
   });
   const excludedFromStats = run.validity === "SUSPECT" || run.validity === "EXCLUDED";
   return (
-    <article className={cn("overflow-hidden rounded-xl border bg-white shadow-sm transition-colors", isOpen ? "border-brand-teal" : "border-gray-200")}>
+    <article
+      id={`run-${run.id}`}
+      className={cn(
+        "overflow-hidden rounded-xl border bg-white shadow-sm transition-colors",
+        isOpen ? "border-brand-teal" : "border-gray-200",
+        highlight && "ring-2 ring-brand-teal/35 ring-offset-2"
+      )}
+    >
       <div className="p-4">
         {/* Header: route thumbnail as the run's visual anchor + title/date */}
         <div className="flex items-start gap-3">

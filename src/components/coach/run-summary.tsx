@@ -170,8 +170,11 @@ function Profile({
   minVisualSpan?: number;
 }) {
   const W = 300;
-  const H = 64;
-  const pad = 4;
+  const H = 78;
+  const plotLeft = 32;
+  const plotRight = 4;
+  const plotTop = 8;
+  const plotBottom = 16;
   const xs = series.map((p) => p.distanceKm);
   const ys = series.map((p) => p.value);
   const minX = Math.min(...xs);
@@ -183,18 +186,20 @@ function Profile({
   const maxY = rawMaxY + visualPadding;
   const spanX = Math.max(1e-6, maxX - minX);
   const spanY = Math.max(1e-6, maxY - minY);
-  const px = (x: number) => pad + ((x - minX) / spanX) * (W - 2 * pad);
+  const px = (x: number) => plotLeft + ((x - minX) / spanX) * (W - plotLeft - plotRight);
   // Elevation rises upward. Pace is inverted: fewer seconds/km is faster and
   // must also rise upward, instead of making the running section look like a dip.
-  const py = (y: number) => pad + (invert ? (y - minY) / spanY : 1 - (y - minY) / spanY) * (H - 2 * pad);
+  const py = (y: number) => plotTop + (invert ? (y - minY) / spanY : 1 - (y - minY) / spanY) * (H - plotTop - plotBottom);
 
   const line = series.map((p, i) => `${i === 0 ? "M" : "L"}${px(p.distanceKm).toFixed(1)} ${py(p.value).toFixed(1)}`).join(" ");
-  const area = `${line} L${px(maxX).toFixed(1)} ${H - pad} L${px(minX).toFixed(1)} ${H - pad} Z`;
+  const area = `${line} L${px(maxX).toFixed(1)} ${H - plotBottom} L${px(minX).toFixed(1)} ${H - plotBottom} Z`;
 
   const fmt = format ?? ((v: number) => `${Math.round(v)}${unit ? ` ${unit}` : ""}`);
   // For pace, lower is "better" — show fastest (min) and slowest (max).
   const hi = invert ? rawMinY : rawMaxY;
   const lo = invert ? rawMaxY : rawMinY;
+  const xLabel = `${maxX.toFixed(maxX < 10 ? 1 : 0)} km`;
+  const axisLabel = (value: number) => (format ? format(Math.round(value)) : fmt(value));
 
   return (
     <div>
@@ -202,7 +207,14 @@ function Profile({
         <span className="uppercase tracking-wide">{title}</span>
         <span className="text-gray-400">{caption ?? `${fmt(hi)} · ${fmt(lo)}`}</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-16 w-full" preserveAspectRatio="none" role="img" aria-label={title}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-20 w-full" preserveAspectRatio="none" role="img" aria-label={title}>
+        <line x1={plotLeft} y1={plotTop} x2={plotLeft} y2={H - plotBottom} stroke="var(--border-strong)" strokeWidth={1} />
+        <line x1={plotLeft} y1={H - plotBottom} x2={W - plotRight} y2={H - plotBottom} stroke="var(--border-strong)" strokeWidth={1} />
+        <line x1={plotLeft} y1={plotTop} x2={W - plotRight} y2={plotTop} stroke="var(--border)" strokeWidth={1} strokeDasharray="2 3" />
+        <text x={plotLeft - 4} y={plotTop + 3} textAnchor="end" fontSize="8" fill="var(--text-muted)">{axisLabel(hi)}</text>
+        <text x={plotLeft - 4} y={H - plotBottom + 3} textAnchor="end" fontSize="8" fill="var(--text-muted)">{axisLabel(lo)}</text>
+        <text x={plotLeft} y={H - 3} textAnchor="start" fontSize="8" fill="var(--text-muted)">0</text>
+        <text x={W - plotRight} y={H - 3} textAnchor="end" fontSize="8" fill="var(--text-muted)">{xLabel}</text>
         {mode === "area" ? <path d={area} fill={color} opacity={0.15} /> : null}
         <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       </svg>

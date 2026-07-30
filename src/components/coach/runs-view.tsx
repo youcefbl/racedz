@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import { CoachRunsPanel } from "@/components/coach/coach-runs-panel";
 import { getCoachCopy } from "@/components/coach/copy";
@@ -42,8 +42,15 @@ export function RunsView({
   const copy = getCoachCopy(locale);
   const [runs, setRuns] = useState<CoachRun[]>(initialRuns);
   const optimisticRun = useRef<CoachRun | null>(null);
+  const [highlightRunId, setHighlightRunId] = useState<string | null>(null);
   const [analyzedRuns, setAnalyzedRuns] = useState<Record<string, string>>(initialAnalyzedRuns);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightRunId) return;
+    const timer = window.setTimeout(() => setHighlightRunId((current) => (current === highlightRunId ? null : current)), 5000);
+    return () => window.clearTimeout(timer);
+  }, [highlightRunId]);
 
   const refresh = useCallback(async () => {
     try {
@@ -107,11 +114,13 @@ export function RunsView({
         guidedWorkout={guidedWorkout}
         recentPaceSecondsPerKm={recentPaceSecondsPerKm}
         analyzedRuns={analyzedRuns}
+        highlightRunId={highlightRunId}
         onViewAnalysis={openAnalysis}
         onSaved={async (_runId, analyzeNow, savedRun) => {
           if (savedRun) {
             optimisticRun.current = savedRun;
             setRuns((current) => [savedRun, ...current.filter((run) => run.id !== savedRun.id)]);
+            setHighlightRunId(savedRun.id);
           }
           // The POST response is enough to show the run. Refresh in the background so records,
           // matching, and server-side enrichment catch up without blocking save feedback.

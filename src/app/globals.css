@@ -474,6 +474,14 @@ textarea {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Leave a little breathing room when the native keyboard scrolls a form control into view. */
+.native-app input:focus,
+.native-app textarea:focus,
+.native-app select:focus,
+.native-app [contenteditable="true"]:focus {
+  scroll-margin-block: 6rem;
+}
+
 /* The website header is replaced by a purpose-built app bar in the native app. */
 .native-app .site-header {
   display: none;

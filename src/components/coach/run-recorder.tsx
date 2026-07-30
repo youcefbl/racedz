@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, BatteryCharging, Footprints, MapPin, MapPinOff, Pause, Play, Route as RouteIcon, Square, TimerReset } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
 import { formatDuration, formatPace } from "@/components/coach/format";
@@ -76,6 +76,8 @@ export function RunRecorder({
 }) {
   const [native, setNative] = useState(false);
   const [state, setState] = useState<RunEngineState>(() => runEngine.getState());
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const previousStatusRef = useRef(state.status);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -170,6 +172,18 @@ export function RunRecorder({
   }, []);
 
   const status = state.status;
+
+  useEffect(() => {
+    if (status === "finished" && previousStatusRef.current !== "finished") {
+      const timer = window.setTimeout(() => {
+        titleInputRef.current?.focus({ preventScroll: true });
+        titleInputRef.current?.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+      }, 80);
+      previousStatusRef.current = status;
+      return () => window.clearTimeout(timer);
+    }
+    previousStatusRef.current = status;
+  }, [status]);
 
   // Upload any runs that were saved offline, and retry when connectivity returns.
   const flushQueue = useCallback(async () => {
@@ -395,7 +409,7 @@ export function RunRecorder({
           : copy.gpsWeak;
   // Signal strength as 0–4 bars (like cellular reception): 0 while acquiring a fix.
   const gpsLevel =
-    state.pointCount === 0 || state.gpsAccuracy == null
+    state.pointCount <= 1 || state.gpsAccuracy == null
       ? 0
       : state.gpsAccuracy <= 12
         ? 4
@@ -547,9 +561,17 @@ export function RunRecorder({
                 </div>
               </div>
             ) : null}
-            {state.pointCount > 0 ? (
+            {state.pointCount > 1 && trackPoints.length > 1 ? (
               <RunMap points={trackPoints} live className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
-            ) : null}
+            ) : (
+              <div role="status" className="flex items-start gap-2.5 rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-900">
+                <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-black">{copy.gpsAcquiring}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-blue-800">{copy.gpsWarmup}</p>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <LiveStat label={copy.statDistance} value={`${distanceKm.toFixed(2)} km`} big />
               <LiveStat label={copy.statTime} value={formatDuration(state.elapsedSec)} big />
@@ -557,7 +579,7 @@ export function RunRecorder({
               <LiveStat label={copy.statAvgPace} value={formatPace(avgPace)} />
               <LiveStat label={copy.statMovingTime} value={formatDuration(state.movingSec)} />
               <LiveStat label={copy.statElevation} value={`${Math.round(state.elevationM)} m`} />
-              <GpsSignalStat label={copy.statGps} status={state.pointCount > 0 ? gpsValue : copy.gpsAcquiring} level={gpsLevel} />
+              <GpsSignalStat label={copy.statGps} status={state.pointCount > 1 ? gpsValue : copy.gpsAcquiring} level={state.pointCount > 1 ? gpsLevel : 0} />
               <LiveStat label={copy.statCalories} value={calories != null ? `${calories} kcal` : "-"} />
             </div>
             {liveSplits.length > 0 ? (
@@ -585,7 +607,11 @@ export function RunRecorder({
 
         {status === "finished" ? (
           <div className="space-y-5">
-            {state.pointCount > 1 ? (
+            <div role="status" className="rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-900">
+              <p className="text-sm font-black">{copy.runPendingTitle}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-blue-800">{copy.runPendingText}</p>
+            </div>
+            {state.pointCount > 1 && trackPoints.length > 1 ? (
               <RunMap points={trackPoints} className="h-56 w-full overflow-hidden rounded-md border border-gray-200" />
             ) : null}
             <RunSummary
@@ -601,6 +627,7 @@ export function RunRecorder({
             <label className="grid gap-2 text-sm font-bold text-gray-800">
               <span>{copy.runTitle}</span>
               <input
+                ref={titleInputRef}
                 type="text"
                 value={state.title}
                 onChange={(event) => runEngine.setTitle(event.target.value)}
