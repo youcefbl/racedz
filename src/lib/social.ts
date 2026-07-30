@@ -160,9 +160,10 @@ export async function toggleKudos(userId: string, runId: string): Promise<{ kudo
   const prisma = getPrisma();
   const run = await prisma.runnerRun.findUnique({
     where: { id: runId },
-    select: { id: true, userId: true, isPublic: true, validity: true }
+    select: { id: true, userId: true, isPublic: true, validity: true, user: { select: { profilePrivate: true } } }
   });
-  if (!run || run.validity !== "VALID" || (!run.isPublic && run.userId !== userId)) {
+  const viewable = !!run && run.validity === "VALID" && (run.userId === userId || (run.isPublic && !run.user.profilePrivate));
+  if (!viewable) {
     throw new Error("RUN_NOT_FOUND");
   }
   const existing = await prisma.runKudos.findUnique({ where: { runId_userId: { runId, userId } }, select: { id: true } });
