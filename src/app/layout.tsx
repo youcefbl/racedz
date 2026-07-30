@@ -76,6 +76,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="flex min-h-screen flex-col">
         <script
           nonce={nonce}
+          // Browsers deliberately blank the `.nonce` DOM property once a script is inserted
+          // (so page JS can never read a live nonce back out), so React's hydration diff always
+          // sees server "<value>" vs client "" here — a known, harmless false positive with
+          // nonce-based CSP. suppressHydrationWarning silences just that mismatch on this element.
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html:
               "try{var t=localStorage.getItem('racedz-theme');if(!(t==='dark'||t==='race'||t==='light')){var m=document.cookie.match(/(?:^|; )racedz-theme=([^;]*)/);t=m?decodeURIComponent(m[1]):null;}document.documentElement.dataset.theme=(t==='dark'||t==='race'||t==='light')?t:'light'}catch(e){document.documentElement.dataset.theme='light'}" +
