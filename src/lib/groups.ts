@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "crypto";
 import { getPrisma } from "@/lib/db";
 import type { Locale } from "@/lib/i18n";
 import { notifyAddedToGroup, notifyGroupMemberRemoved, notifyGroupRoleChanged, sendGroupInviteEmailToNonUser } from "@/lib/notifications";
@@ -361,12 +362,27 @@ export async function removeGroupMember({
 
     const group = await tx.group.findUniqueOrThrow({ where: { id: groupId }, select: { name: true } });
     await tx.groupMember.delete({ where: { id: target.id } });
+    // Moderation: a removed member (or anyone they shared the link with) could otherwise rejoin
+    // instantly through the still-valid join link — rotate it so removal actually sticks. Existing
+    // members are unaffected; only future joins-by-link need the new link, which an admin can
+    // re-share deliberately via rotateGroupJoinToken()'s return value if they want to re-invite others.
+    await tx.group.update({ where: { id: groupId }, data: { joinToken: randomUUID() } });
     return group.name;
   });
 
   await notifyGroupMemberRemoved({ userId: targetUserId, groupName }).catch((error) => {
     console.error("[groups] failed to notify removed member:", error);
   });
+}
+
+// Admin-only. Invalidates the current join link immediately (anyone still holding the old link,
+// including a just-removed member, can no longer use it) and returns the new one to share.
+export async function rotateGroupJoinToken(actorUserId: string, groupId: string): Promise<{ joinUrl: string }> {
+  const actor = await getPrisma().groupMember.findUnique({ where: { groupId_userId: { groupId, userId: actorUserId } }, select: { role: true } });
+  if (!actor || actor.role !== "ADMIN") throw new GroupError("Only group admins can reset the join link.", 403);
+
+  const group = await getPrisma().group.update({ where: { id: groupId }, data: { joinToken: randomUUID() }, select: { joinToken: true } });
+  return { joinUrl: groupJoinUrl(group.joinToken) };
 }
 
 // A member removing themselves. Unlike removeGroupMember, this IS self-service — but an admin

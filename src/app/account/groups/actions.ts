@@ -10,12 +10,15 @@ import {
   joinPublicGroup,
   leaveGroup,
   removeGroupMember,
+  rotateGroupJoinToken,
+  updateGroup,
   updateGroupMemberRole
 } from "@/lib/groups";
 import { getLocale } from "@/lib/i18n";
 import { checkRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export type GroupFormState = { error?: string; added?: boolean };
+export type UpdateGroupState = { error?: string; success?: boolean };
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -108,6 +111,42 @@ export async function leaveGroupAction(formData: FormData) {
   }
   revalidatePath("/account/groups");
   redirect("/account/groups");
+}
+
+export async function updateGroupAction(_prev: UpdateGroupState, formData: FormData): Promise<UpdateGroupState> {
+  const userId = await requireUserId();
+  const groupId = String(formData.get("groupId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const isPrivate = formData.get("isPrivate") === "on";
+
+  const rate = checkRateLimit(rateLimitKey("group-update", userId), 20, 60 * 60 * 1000);
+  if (!rate.ok) return { error: "Too many changes recently. Please try again later." };
+
+  try {
+    await updateGroup(userId, groupId, { name, isPrivate });
+  } catch (error) {
+    if (error instanceof GroupError) return { error: error.message };
+    throw error;
+  }
+  revalidatePath(`/account/groups/${groupId}`);
+  revalidatePath("/account/groups");
+  return { success: true };
+}
+
+export async function rotateGroupJoinTokenAction(formData: FormData) {
+  const userId = await requireUserId();
+  const groupId = String(formData.get("groupId") ?? "");
+
+  const rate = checkRateLimit(rateLimitKey("group-rotate-token", userId), 20, 60 * 60 * 1000);
+  if (!rate.ok) redirect(`/account/groups/${groupId}?error=${encodeURIComponent("Too many resets recently. Please try again later.")}`);
+
+  try {
+    await rotateGroupJoinToken(userId, groupId);
+  } catch (error) {
+    if (!(error instanceof GroupError)) throw error;
+    redirect(`/account/groups/${groupId}?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath(`/account/groups/${groupId}`);
 }
 
 export async function joinPublicGroupAction(formData: FormData) {

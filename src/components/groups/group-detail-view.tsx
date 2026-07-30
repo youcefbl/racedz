@@ -1,16 +1,20 @@
 "use client";
 
-import { AlertCircle, Globe, Lock, LogOut, Shield, ShieldOff, Trash2, UserPlus, Users } from "lucide-react";
-import { useActionState } from "react";
+import { AlertCircle, Globe, Lock, LogOut, RotateCw, Settings, Shield, ShieldOff, Trash2, UserPlus, Users } from "lucide-react";
+import { useActionState, useState } from "react";
 import {
   inviteGroupMemberAction,
   leaveGroupAction,
   removeGroupMemberAction,
+  rotateGroupJoinTokenAction,
+  updateGroupAction,
   updateGroupMemberRoleAction,
-  type GroupFormState
+  type GroupFormState,
+  type UpdateGroupState
 } from "@/app/account/groups/actions";
 import { CopyLinkButton } from "@/components/groups/groups-list-view";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import type { CoachLocale } from "@/components/coach/types";
 import type { GroupDetail, GroupFeedRun } from "@/lib/groups";
 
@@ -35,7 +39,19 @@ const copy = {
     feedEmpty: "No runs from this group yet.",
     km: "km",
     admin: "Admin",
-    member: "Member"
+    member: "Member",
+    editGroup: "Edit group",
+    groupName: "Group name",
+    visibility: "Visibility",
+    visibilityPrivate: "Private — invite or join link only",
+    visibilityPublic: "Public — anyone can find and join",
+    saveChanges: "Save changes",
+    saving: "Saving…",
+    saved: "Group updated.",
+    resetLink: "Reset join link",
+    resetLinkTitle: "Reset the join link?",
+    resetLinkDescription: "The current link stops working immediately. Anyone who still has it — including a member you've just removed — won't be able to use it to join.",
+    resetLinkConfirm: "Reset link"
   },
   fr: {
     members: "membres",
@@ -57,7 +73,19 @@ const copy = {
     feedEmpty: "Aucune course de ce groupe pour l'instant.",
     km: "km",
     admin: "Admin",
-    member: "Membre"
+    member: "Membre",
+    editGroup: "Modifier le groupe",
+    groupName: "Nom du groupe",
+    visibility: "Visibilité",
+    visibilityPrivate: "Privé — invitation ou lien uniquement",
+    visibilityPublic: "Public — visible et rejoignable par tous",
+    saveChanges: "Enregistrer",
+    saving: "Enregistrement…",
+    saved: "Groupe mis à jour.",
+    resetLink: "Réinitialiser le lien",
+    resetLinkTitle: "Réinitialiser le lien de partage ?",
+    resetLinkDescription: "L'ancien lien cesse de fonctionner immédiatement. Toute personne qui le détient encore — y compris un membre que vous venez de retirer — ne pourra plus l'utiliser pour rejoindre.",
+    resetLinkConfirm: "Réinitialiser"
   },
   ar: {
     members: "أعضاء",
@@ -79,7 +107,19 @@ const copy = {
     feedEmpty: "لا توجد جريات لهذه المجموعة بعد.",
     km: "كم",
     admin: "مشرف",
-    member: "عضو"
+    member: "عضو",
+    editGroup: "تعديل المجموعة",
+    groupName: "اسم المجموعة",
+    visibility: "الظهور",
+    visibilityPrivate: "خاصة — بالدعوة أو الرابط فقط",
+    visibilityPublic: "عامة — يمكن للجميع رؤيتها والانضمام إليها",
+    saveChanges: "حفظ التغييرات",
+    saving: "جارٍ الحفظ…",
+    saved: "تم تحديث المجموعة.",
+    resetLink: "إعادة تعيين رابط الانضمام",
+    resetLinkTitle: "إعادة تعيين رابط الانضمام؟",
+    resetLinkDescription: "سيتوقف الرابط الحالي عن العمل فورًا. أي شخص لا يزال يملكه — بما في ذلك عضو قمت بإزالته للتو — لن يتمكن من استخدامه للانضمام.",
+    resetLinkConfirm: "إعادة التعيين"
   }
 } as const;
 
@@ -143,6 +183,65 @@ function InviteForm({ groupId, locale }: { groupId: string; locale: CoachLocale 
   );
 }
 
+const initialEditState: UpdateGroupState = {};
+
+function EditGroupForm({ group, locale }: { group: GroupDetail; locale: CoachLocale }) {
+  const t = copy[locale];
+  const [state, formAction, pending] = useActionState(updateGroupAction, initialEditState);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 text-sm font-black text-gray-600 hover:text-brand-teal"
+      >
+        <Settings className="size-4" aria-hidden="true" />
+        {t.editGroup}
+      </button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="groupId" value={group.id} />
+      <label className="grid gap-1.5 text-sm font-semibold text-gray-800">
+        {t.groupName}
+        <input
+          type="text"
+          name="name"
+          required
+          minLength={2}
+          maxLength={60}
+          defaultValue={group.name}
+          className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-950 outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+        />
+      </label>
+      <label className="grid gap-1.5 text-sm font-semibold text-gray-800">
+        {t.visibility}
+        <select
+          name="isPrivate"
+          defaultValue={group.isPrivate ? "on" : ""}
+          className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-950 outline-none focus:border-brand-teal focus:ring-2 focus:ring-teal-100"
+        >
+          <option value="on">{t.visibilityPrivate}</option>
+          <option value="">{t.visibilityPublic}</option>
+        </select>
+      </label>
+      {state.error ? (
+        <p className="text-sm font-semibold text-red-700" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {state.success ? <p className="text-sm font-semibold text-green-700">{t.saved}</p> : null}
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? t.saving : t.saveChanges}
+      </Button>
+    </form>
+  );
+}
+
 export function GroupDetailView({
   group,
   feed,
@@ -191,11 +290,29 @@ export function GroupDetailView({
               />
               <CopyLinkButton url={group.joinUrl} locale={locale} />
             </div>
-            <p className="mt-1.5 text-xs font-semibold text-gray-400">{t.shareLinkHint}</p>
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-400">{t.shareLinkHint}</p>
+              <form action={rotateGroupJoinTokenAction} className="shrink-0">
+                <input type="hidden" name="groupId" value={group.id} />
+                <ConfirmSubmit
+                  variant="outline"
+                  size="sm"
+                  title={t.resetLinkTitle}
+                  description={t.resetLinkDescription}
+                  confirmLabel={t.resetLinkConfirm}
+                >
+                  <RotateCw className="size-3.5" aria-hidden="true" />
+                  {t.resetLink}
+                </ConfirmSubmit>
+              </form>
+            </div>
           </div>
           <div className="border-t border-gray-100 pt-3">
             <p className="mb-1.5 text-xs font-black uppercase tracking-wide text-gray-500">{t.invite}</p>
             <InviteForm groupId={group.id} locale={locale} />
+          </div>
+          <div className="border-t border-gray-100 pt-3">
+            <EditGroupForm group={group} locale={locale} />
           </div>
         </div>
       ) : null}
