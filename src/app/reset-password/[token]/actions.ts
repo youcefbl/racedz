@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { getDictionary, getLocale, withLocale } from "@/lib/i18n";
 import { consumePasswordResetToken } from "@/lib/password-reset";
+import { logSecurityEvent } from "@/lib/security-log";
 import { resetPasswordSchema } from "@/lib/validations";
 
 export type ResetPasswordState = {
@@ -40,5 +41,6 @@ export async function resetPasswordAction(
     return { error: t.resetInvalid };
   }
 
+  logSecurityEvent("password_reset_completed", { userId: result.userId });
   redirect(withLocale("/login?reset=1", locale));
 }

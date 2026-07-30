@@ -6,6 +6,7 @@ import { getPrisma } from "@/lib/db";
 import { verifyLoginCredentials, verifyMfaCode } from "@/lib/auth-credentials";
 import { createMfaTicket } from "@/lib/mfa-ticket";
 import { consumeNativeAuthToken } from "@/lib/native-auth";
+import { logSecurityEvent } from "@/lib/security-log";
 import { loginSchema } from "@/lib/validations";
 import type { UserRole } from "@/types/race";
 
@@ -49,6 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await verifyLoginCredentials(parsed.data.email, parsed.data.password);
 
         if (!user) {
+          logSecurityEvent("login_failure", { email: parsed.data.email, reason: "invalid_credentials" });
           return null;
         }
 
@@ -58,6 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (user.mfaEnabled) {
           const totp = typeof credentials?.totp === "string" ? credentials.totp : "";
           if (!(await verifyMfaCode(user, totp))) {
+            logSecurityEvent("login_failure", { email: user.email, userId: user.id, reason: "invalid_mfa_code" });
             return null;
           }
         }
@@ -67,6 +70,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: user.id },
           data: { lastLoginAt: now, firstLoginAt: user.firstLoginAt ?? now }
         });
+
+        logSecurityEvent("login_success", { email: user.email, userId: user.id, role: user.role, provider: "credentials" });
 
         return {
           id: user.id,

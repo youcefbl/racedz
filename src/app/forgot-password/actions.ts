@@ -5,6 +5,7 @@ import { getPrisma } from "@/lib/db";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { logSecurityEvent } from "@/lib/security-log";
 
 export type ForgotPasswordState = { ok?: boolean; error?: string };
 
@@ -36,6 +37,7 @@ export async function requestPasswordResetAction(
   if (user?.passwordHash) {
     const token = await createPasswordResetToken(user.id);
     await sendPasswordResetEmail({ to: user.email, firstName: user.firstName, token });
+    logSecurityEvent("password_reset_requested", { userId: user.id, email: user.email });
   }
 
   return { ok: true };

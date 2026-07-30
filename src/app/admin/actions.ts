@@ -6,6 +6,7 @@ import { revalidateRacesCache } from "@/lib/race-repository";
 import { generateTipProposals } from "@/lib/coach/tip-generator";
 import { invalidatePublishedTipsCache } from "@/lib/coach/tips";
 import { notifyOrganizerRaceStatusChanged } from "@/lib/notifications";
+import { logSecurityEvent } from "@/lib/security-log";
 import {
   cancelAdminRaceRegistration,
   confirmAdminRegistrationPayment,
@@ -305,6 +306,12 @@ export async function updateUserRoleAction(formData: FormData) {
       nextRole: role
     }
   });
+  logSecurityEvent("admin_role_changed", {
+    actorId: session.user.id,
+    targetUserId: userId,
+    previousRole: target.role,
+    nextRole: role
+  });
 
   revalidateAdmin();
 }
@@ -389,6 +396,10 @@ export async function toggleBlockUserAction(formData: FormData) {
     targetId: userId,
     summary: nextBlockedAt ? "Blocked the account." : "Unblocked the account."
   });
+  logSecurityEvent(nextBlockedAt ? "admin_account_blocked" : "admin_account_unblocked", {
+    actorId: session.user.id,
+    targetUserId: userId
+  });
   revalidateAdmin();
 }
 
@@ -429,6 +440,7 @@ export async function deleteUserAction(formData: FormData) {
     targetId: userId,
     summary: `Deleted the account (${target.email}).`
   });
+  logSecurityEvent("admin_account_deleted", { actorId: session.user.id, targetUserId: userId, email: target.email });
   revalidateAdmin();
 }
 

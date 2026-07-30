@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { resolveCoachPaymentProofPath } from "@/lib/storage";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { logSecurityEvent } from "@/lib/security-log";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,10 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
     WHERE "paymentProofUrl" = ${proofUrl} ${ownershipFilter}
     LIMIT 1
   `;
-  if (!rows[0]) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (!rows[0]) {
+    logSecurityEvent("private_file_denied", { userId: session.user.id, resource: "coach-payment-proof" });
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
 
   try {
     const file = await readFile(filePath);

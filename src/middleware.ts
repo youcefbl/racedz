@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authConfig } from "@/auth.config";
+import { logSecurityEvent } from "@/lib/security-log";
 import type { UserRole } from "@/types/race";
 
 // The single Next.js middleware. Next runs at most one middleware file, and when a
@@ -98,6 +99,7 @@ function applyApiOriginGuard(request: NextRequest): NextResponse {
   const fetchSite = request.headers.get("sec-fetch-site");
   if (fetchSite === "same-origin" || fetchSite === "none") return NextResponse.next();
   if (fetchSite) {
+    logSecurityEvent("cross_site_request_blocked", { path: request.nextUrl.pathname, method: request.method, fetchSite });
     return new NextResponse("Cross-site request blocked", { status: 403 });
   }
 
@@ -105,6 +107,7 @@ function applyApiOriginGuard(request: NextRequest): NextResponse {
   // Origin against this deployment's public origin when the client sent one.
   const origin = request.headers.get("origin");
   if (origin && origin !== resolvePublicOrigin(request)) {
+    logSecurityEvent("cross_site_request_blocked", { path: request.nextUrl.pathname, method: request.method, origin });
     return new NextResponse("Cross-site request blocked", { status: 403 });
   }
 

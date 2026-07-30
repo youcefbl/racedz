@@ -12,6 +12,7 @@ import {
   hashBackupCodes,
   verifyTotp
 } from "@/lib/mfa";
+import { logSecurityEvent } from "@/lib/security-log";
 
 export type MfaEnrollment = {
   secret: string;
@@ -87,6 +88,7 @@ export async function confirmMfaAction(_previous: MfaActionResult, formData: For
     }
   });
 
+  logSecurityEvent("mfa_enrolled", { userId });
   revalidatePath("/account/security");
   return { success: "Two-factor authentication is on.", backupCodes };
 }
@@ -115,6 +117,7 @@ export async function disableMfaAction(_previous: MfaActionResult, formData: For
     data: { mfaEnabled: false, mfaSecret: null, mfaEnabledAt: null, mfaBackupCodes: [], securityStampAt: new Date() }
   });
 
+  logSecurityEvent("mfa_disabled", { userId });
   revalidatePath("/account/security");
   return { success: "Two-factor authentication is off." };
 }

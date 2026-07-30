@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { resolvePaymentProofPath } from "@/lib/storage";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { logSecurityEvent } from "@/lib/security-log";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         )
       : false;
   if (!isOwner && !isAdmin && !isOrganizerForRace) {
+    logSecurityEvent("private_file_denied", { userId: session.user.id, registrationId: id, resource: "registration-payment-proof" });
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logSecurityEvent } from "@/lib/security-log";
 
 // Lightweight in-memory fixed-window rate limiter for a single Node instance.
 // Defense-in-depth for write/abuse-prone endpoints; the primary auth brute-force
@@ -71,6 +72,11 @@ export function rateLimitKey(scope: string, identifier: string): string {
 export function enforceRateLimit(key: string, limit: number, windowMs: number): NextResponse | null {
   const result = checkRateLimit(key, limit, windowMs);
   if (result.ok) return null;
+
+  // SEC-013: one call site covers every rate-limited route in the app (~20+ routes already wire
+  // enforceRateLimit — see EXECUTION_PLAN.md's SEC-006 evidence), so a spike here is a strong
+  // credential-stuffing/scraping/abuse signal regardless of which route tripped it.
+  logSecurityEvent("rate_limit_blocked", { key, limit, windowMs });
 
   return NextResponse.json(
     { error: "Too many requests. Please slow down.", code: "RATE_LIMITED" },

@@ -85,7 +85,7 @@ export async function consumePasswordResetToken(token: string, passwordHash: str
     `;
   });
 
-  return { ok: true as const };
+  return { ok: true as const, userId: reset.userId };
 }
 
 function getAppUrl() {
