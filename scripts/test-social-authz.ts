@@ -6,13 +6,19 @@
  * reference, shared link, etc.) could be kudoed forever. Also covers the existing toggleFollow
  * private-profile guard and RUN_NOT_FOUND on another user's private run.
  *
- * Requires DATABASE_URL pointed at a disposable/test DB. Seeds and cleans up after itself.
+ * Requires DATABASE_URL pointed at a disposable/test DB (loaded from .env automatically if not
+ * already exported). Seeds and cleans up after itself.
  * Run: npx tsx scripts/test-social-authz.ts
  */
-import { getPrisma } from "../src/lib/db";
-import { toggleFollow, toggleKudos } from "../src/lib/social";
+import { loadEnvConfig } from "@next/env";
 
-const prisma = getPrisma();
+// Load .env the same way scripts/run-e2e.mjs does, so DATABASE_URL is available regardless of
+// whether the invoking shell happens to have it exported already — this script is wired into
+// `npm run test:all`, which must work the same in a fresh CI shell as it does interactively.
+// Must run before the src/lib/db import below (which reads DATABASE_URL at module load time),
+// so it's a dynamic import inside main() rather than a static/top-level one.
+loadEnvConfig(process.cwd());
+
 const tag = `authz-${process.pid}-${Date.now()}`;
 
 let allOk = true;
@@ -22,6 +28,20 @@ const check = (label: string, cond: boolean, detail: string) => {
 };
 
 async function main() {
+  const { getPrisma } = await import("../src/lib/db");
+  const { toggleFollow, toggleKudos } = await import("../src/lib/social");
+  const prisma = getPrisma();
+  try {
+    await run(prisma, { toggleFollow, toggleKudos });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function run(
+  prisma: Awaited<ReturnType<typeof import("../src/lib/db").getPrisma>>,
+  { toggleFollow, toggleKudos }: Pick<typeof import("../src/lib/social"), "toggleFollow" | "toggleKudos">
+) {
   const runnerA = await prisma.user.create({
     data: { email: `${tag}-a@example.test`, firstName: "Runner", lastName: "A" }
   });
@@ -106,11 +126,7 @@ async function main() {
   console.log("Social kudos/follow privacy authorization checks passed.");
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
