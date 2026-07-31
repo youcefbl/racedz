@@ -12,7 +12,11 @@ import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
 import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.AskCoachRequest
+import dz.racedz.nativeapp.core.network.CoachConversationDto
 import dz.racedz.nativeapp.core.network.CoachOnboardingStateDto
+import dz.racedz.nativeapp.core.network.LogSleepRequest
+import dz.racedz.nativeapp.core.network.SleepHistoryDto
 import dz.racedz.nativeapp.core.network.CoachPlanWeekDto
 import dz.racedz.nativeapp.core.network.CoachOverviewDto
 import dz.racedz.nativeapp.core.network.CreateCoachGoalRequest
@@ -188,6 +192,21 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
     suspend fun overview(): ApiResult<CoachOverviewDto> = client.call { api.coachOverview() }
 
     /** This week of the active plan, bounded server-side to one Mon-Sun window. */
+    suspend fun conversation(before: String? = null): ApiResult<CoachConversationDto> =
+        client.call { api.coachConversation(before) }
+
+    /**
+     * Sends a message. The reply is generated asynchronously, so a 201 means "accepted", not
+     * "answered" — the caller reloads the conversation to pick it up.
+     */
+    suspend fun ask(request: AskCoachRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
+        client.call { api.askCoach(request) }
+
+    suspend fun sleepHistory(): ApiResult<SleepHistoryDto> = client.call { api.sleepHistory() }
+
+    suspend fun logSleep(request: LogSleepRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
+        client.call { api.logSleep(request) }
+
     suspend fun planWeek(): ApiResult<CoachPlanWeekDto> = client.call { api.coachPlanWeek() }
 
     suspend fun onboardingState(): ApiResult<CoachOnboardingStateDto> = client.call { api.coachOnboardingState() }

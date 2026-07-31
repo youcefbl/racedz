@@ -72,6 +72,18 @@ interface ZidRunApi {
     @GET("api/v1/coach")
     suspend fun coachOverview(): Response<ApiEnvelope<CoachOverviewDto>>
 
+    @GET("api/v1/coach/interactions")
+    suspend fun coachConversation(@Query("before") before: String? = null): Response<ApiEnvelope<CoachConversationDto>>
+
+    @POST("api/v1/coach/interactions")
+    suspend fun askCoach(@Body body: AskCoachRequest): Response<ApiEnvelope<JsonObject>>
+
+    @GET("api/v1/coach/sleep")
+    suspend fun sleepHistory(): Response<ApiEnvelope<SleepHistoryDto>>
+
+    @POST("api/v1/coach/sleep")
+    suspend fun logSleep(@Body body: LogSleepRequest): Response<ApiEnvelope<JsonObject>>
+
     @GET("api/v1/coach/plan")
     suspend fun coachPlanWeek(): Response<ApiEnvelope<CoachPlanWeekDto>>
 

@@ -347,4 +347,21 @@
     <string name="coach_rest_short">Repos</string>
     <string name="coach_rest_body">La récupération fait partie de l’entraînement. Reposez-vous aujourd’hui.</string>
     <string name="coach_view_plan">Voir le plan</string>
+    <string name="coach_chat_title">Demandez à votre coach</string>
+    <string name="coach_chat_hint">Posez une question</string>
+    <string name="coach_chat_send">Envoyer</string>
+    <string name="coach_chat_thinking">Votre coach réfléchit…</string>
+    <string name="coach_chat_empty_title">Posez n’importe quelle question</string>
+    <string name="coach_chat_empty_body">Entraînement, allure, récupération — votre coach connaît votre plan et votre historique.</string>
+    <string name="coach_chat_blocked">Votre coach ne peut pas répondre à cela. Si cela concerne votre santé, consultez un médecin.</string>
+    <string name="coach_chat_failed">La réponse n’est pas arrivée. Réessayez.</string>
+    <string name="coach_chat_safety">Cette réponse contient une note de sécurité — lisez-la avec le conseil.</string>
+    <string name="coach_sleep_title">Sommeil et récupération</string>
+    <string name="coach_sleep_log">Enregistrer la nuit</string>
+    <string name="coach_sleep_hours">Heures de sommeil</string>
+    <string name="coach_sleep_note">Quelque chose à noter ?</string>
+    <string name="coach_sleep_empty_title">Aucun sommeil enregistré</string>
+    <string name="coach_sleep_empty_body">Enregistrez une nuit et votre coach tiendra compte de la récupération.</string>
+    <string name="coach_sleep_saved">Enregistré</string>
+    <string name="coach_sleep_history">Nuits récentes</string>
 </resources>

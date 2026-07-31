@@ -348,4 +348,21 @@
     <string name="coach_rest_short">راحة</string>
     <string name="coach_rest_body">الراحة هي كذلك تدريب. ارتاح اليوم.</string>
     <string name="coach_view_plan">شوف البرنامج</string>
+    <string name="coach_chat_title">اسأل المدرب</string>
+    <string name="coach_chat_hint">اطرح سؤالك</string>
+    <string name="coach_chat_send">ابعث</string>
+    <string name="coach_chat_thinking">المدرب قاعد يفكّر…</string>
+    <string name="coach_chat_empty_title">اسأل المدرب واش ما تحب</string>
+    <string name="coach_chat_empty_body">التدريب، الإيقاع، الاسترجاع — المدرب عندو البرنامج والتاريخ تاعك.</string>
+    <string name="coach_chat_blocked">المدرب ما يقدرش يجاوب على هذي. إذا كانت على صحتك، شوف طبيب.</string>
+    <string name="coach_chat_failed">الجواب ما وصلش. عاود اسأل.</string>
+    <string name="coach_chat_safety">هذا الجواب فيه ملاحظة أمان — اقراها مع النصيحة.</string>
+    <string name="coach_sleep_title">النوم والاسترجاع</string>
+    <string name="coach_sleep_log">سجّل البارح</string>
+    <string name="coach_sleep_hours">ساعات النوم</string>
+    <string name="coach_sleep_note">كاين حاجة تستاهل تتسجّل؟</string>
+    <string name="coach_sleep_empty_title">مازال ما سجّلت نوم</string>
+    <string name="coach_sleep_empty_body">سجّل ليلة والمدرب يحسب الاسترجاع في البرنامج.</string>
+    <string name="coach_sleep_saved">تسجّل</string>
+    <string name="coach_sleep_history">الليالي الأخيرة</string>
 </resources>

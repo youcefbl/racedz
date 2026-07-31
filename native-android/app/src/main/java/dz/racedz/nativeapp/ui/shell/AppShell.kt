@@ -96,6 +96,8 @@ fun AppShell(
     onOpenSubscribe: () -> Unit,
     onOpenCoachSetup: () -> Unit,
     onOpenCoachPlan: () -> Unit,
+    onOpenCoachChat: () -> Unit,
+    onOpenCoachSleep: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -154,6 +156,8 @@ fun AppShell(
                     onLogRun = onRecordRun,
                     onSetUpCoach = onOpenCoachSetup,
                     onViewPlan = onOpenCoachPlan,
+                    onAskCoach = onOpenCoachChat,
+                    onOpenSleep = onOpenCoachSleep,
                     contentPadding = innerPadding,
                 )
             }

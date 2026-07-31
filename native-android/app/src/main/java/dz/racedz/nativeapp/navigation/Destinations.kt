@@ -21,6 +21,8 @@ object RootDestinations {
     const val RUN_SUMMARY = "runs/summary"
     const val COACH_SETUP = "coach/setup"
     const val COACH_PLAN = "coach/plan"
+    const val COACH_CHAT = "coach/chat"
+    const val COACH_SLEEP = "coach/sleep"
 
     fun runDetail(runId: String) = "runs/$runId"
     fun raceDetail(idOrSlug: String) = "race/$idOrSlug"

@@ -75,6 +75,8 @@ fun CoachScreen(
     onLogRun: () -> Unit,
     onSetUpCoach: () -> Unit,
     onViewPlan: () -> Unit,
+    onAskCoach: () -> Unit,
+    onOpenSleep: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -229,7 +231,7 @@ fun CoachScreen(
                     }
 
                     overview.latestReview?.text?.let { review ->
-                        ZidRunCard {
+                        ZidRunCard(onClick = onAskCoach) {
                             Row(verticalAlignment = Alignment.Top) {
                                 Box(
                                     modifier = Modifier.size(40.dp).clip(CircleShape).background(colors.primary.copy(alpha = 0.14f)),
@@ -276,6 +278,12 @@ fun CoachScreen(
                             onClick = onViewPlan,
                         )
                     }
+
+                    ZidRunButton(text = stringResource(R.string.coach_chat_title), onClick = onAskCoach)
+                    ZidRunOutlinedButton(
+                        text = stringResource(R.string.coach_sleep_title),
+                        onClick = onOpenSleep,
+                    )
 
                     Spacer(Modifier.height(ZidRunDimens.spaceXxl))
                 }

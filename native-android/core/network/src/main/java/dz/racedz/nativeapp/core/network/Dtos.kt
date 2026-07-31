@@ -469,6 +469,61 @@ data class CoachOverviewDto(
     val latestReview: CoachReviewDto? = null,
 )
 
+/**
+ * One turn of the coach conversation.
+ *
+ * [status] is PENDING, COMPLETED, BLOCKED, or FAILED — generation is asynchronous, so a message can
+ * legitimately arrive with no response yet. [safety] is kept separate from the reply text because
+ * the web renders safety notices deliberately and flattening one into prose would strip a guardrail.
+ */
+@Serializable
+data class CoachMessageDto(
+    val id: String = "",
+    val type: String = "CHAT",
+    val status: String = "PENDING",
+    val runId: String? = null,
+    val userMessage: String? = null,
+    val response: String? = null,
+    val safety: kotlinx.serialization.json.JsonElement? = null,
+    val createdAt: String = "",
+)
+
+@Serializable
+data class CoachConversationDto(
+    val entitlement: CoachEntitlementDto = CoachEntitlementDto(),
+    val nextCursor: String? = null,
+    val messages: List<CoachMessageDto> = emptyList(),
+)
+
+@Serializable
+data class AskCoachRequest(
+    val type: String = "CHAT",
+    val message: String? = null,
+    val runId: String? = null,
+)
+
+@Serializable
+data class SleepEntryDto(
+    val id: String = "",
+    val night: String = "",
+    val durationMinutes: Int = 0,
+    val bedTime: String? = null,
+    val wakeTime: String? = null,
+    val note: String? = null,
+    val source: String = "MANUAL",
+)
+
+@Serializable
+data class SleepHistoryDto(val entries: List<SleepEntryDto> = emptyList())
+
+@Serializable
+data class LogSleepRequest(
+    val durationHours: Double? = null,
+    val bedTime: String? = null,
+    val wakeTime: String? = null,
+    val note: String? = null,
+)
+
 /** One workout in the plan week. [status] is PLANNED, COMPLETED, or SKIPPED. */
 @Serializable
 data class CoachPlanWorkoutDto(

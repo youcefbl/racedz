@@ -366,4 +366,21 @@
     <string name="coach_rest_short">Rest</string>
     <string name="coach_rest_body">Recovery is training too. Take it easy today.</string>
     <string name="coach_view_plan">View plan</string>
+    <string name="coach_chat_title">Ask your coach</string>
+    <string name="coach_chat_hint">Ask a question</string>
+    <string name="coach_chat_send">Send</string>
+    <string name="coach_chat_thinking">Your coach is thinking…</string>
+    <string name="coach_chat_empty_title">Ask your coach anything</string>
+    <string name="coach_chat_empty_body">Training, pacing, recovery, or how a run felt — your coach has your plan and your history.</string>
+    <string name="coach_chat_blocked">Your coach cannot answer that one. If this is about your health, please speak to a doctor.</string>
+    <string name="coach_chat_failed">That answer did not come through. Try asking again.</string>
+    <string name="coach_chat_safety">This answer includes a safety note — read it alongside the advice.</string>
+    <string name="coach_sleep_title">Sleep &amp; recovery</string>
+    <string name="coach_sleep_log">Log last night</string>
+    <string name="coach_sleep_hours">Hours slept</string>
+    <string name="coach_sleep_note">Anything worth noting?</string>
+    <string name="coach_sleep_empty_title">No sleep logged yet</string>
+    <string name="coach_sleep_empty_body">Log a night and your coach can factor recovery into your plan.</string>
+    <string name="coach_sleep_saved">Saved</string>
+    <string name="coach_sleep_history">Recent nights</string>
 </resources>
