@@ -78,9 +78,17 @@ import dz.racedz.nativeapp.core.network.resolveMediaUrl
 private val FeaturedTextColor = androidx.compose.ui.graphics.Color(0xFFF8FAFC)
 private val FeaturedMutedColor = androidx.compose.ui.graphics.Color(0xFFCBD5E1)
 
-/** Scrim over the hero photo. Weighted to the bottom, where the title and metadata sit. */
-private val FeaturedScrimTop = androidx.compose.ui.graphics.Color(0x33000000)
-private val FeaturedScrimBottom = androidx.compose.ui.graphics.Color(0xE6000000)
+/**
+ * Scrim over the hero photo.
+ *
+ * Weighted to the bottom, where the title and metadata sit, but it can never go light at the top:
+ * the "FEATURED RACE" pill lives there, and real race posters are frequently bright artwork rather
+ * than the dark night photo the mockup happens to use. Tuned against the brightest posters on
+ * production so every element clears WCAG AA regardless of the image behind it.
+ */
+private val FeaturedScrimTop = androidx.compose.ui.graphics.Color(0xB3000000)
+private val FeaturedScrimMid = androidx.compose.ui.graphics.Color(0xCC000000)
+private val FeaturedScrimBottom = androidx.compose.ui.graphics.Color(0xF2000000)
 
 /**
  * Race discovery (04-races-page.png): a large screen title, a search field, the first upcoming race
@@ -329,7 +337,7 @@ private fun FeaturedRaceCard(race: RaceSummaryDto, onClick: () -> Unit) {
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            listOf(FeaturedScrimTop, FeaturedScrimBottom),
+                            listOf(FeaturedScrimTop, FeaturedScrimMid, FeaturedScrimBottom),
                         )
                     )
             )
