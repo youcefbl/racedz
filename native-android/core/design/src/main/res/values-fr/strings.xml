@@ -232,6 +232,15 @@
     <string name="runs_analyze">Analyser</string>
     <string name="runs_detail_title">Sortie</string>
     <string name="runs_title">Sorties</string>
+    <string name="runs_view_history">Voir l’historique</string>
+    <string name="runs_highlights">Points forts</string>
+    <string name="runs_longest_run">Sortie la plus longue</string>
+    <string name="runs_insight_finish">Belle fin — votre dernier kilomètre était le plus rapide.</string>
+    <string name="runs_insight_steady">Effort régulier — votre allure est restée maîtrisée.</string>
+    <string name="runs_recovery_body">Demain, restez facile · hydratez-vous et gardez une allure confortable.</string>
+    <string name="runs_heart_rate">Fréquence cardiaque</string>
+    <string name="runs_cadence">Cadence</string>
+    <string name="runs_effort">Effort</string>
     <string name="runs_elevation_gain_value">Positif %1$d m</string>
     <string name="runs_notification_channel">Enregistrement</string>
     <string name="runs_notification_title">Enregistrement en cours</string>

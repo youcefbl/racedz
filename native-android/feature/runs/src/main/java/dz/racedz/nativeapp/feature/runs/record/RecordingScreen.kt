@@ -2,6 +2,7 @@ package dz.racedz.nativeapp.feature.runs.record
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -312,13 +313,29 @@ fun RecordingScreen(
 
         Spacer(Modifier.height(ZidRunDimens.spaceMd))
 
-        RunMap(
-            route = state.route,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .clip(RoundedCornerShape(ZidRunDimens.cornerLg)),
-        )
+                .heightIn(min = 144.dp)
+                .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                .border(1.dp, ZidRunDarkColors.border, RoundedCornerShape(ZidRunDimens.cornerLg)),
+        ) {
+            RunMap(route = state.route, modifier = Modifier.fillMaxSize())
+            if (state.route.orEmpty().size < 2) {
+                Text(
+                    text = stringResource(R.string.runs_gps_searching),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ZidRunDarkColors.textStrong,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = ZidRunDimens.spaceMd)
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                        .background(ZidRunDarkColors.surface.copy(alpha = 0.88f))
+                        .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                )
+            }
+        }
 
         if (state.autoPaused) {
             Text(
@@ -416,6 +433,7 @@ private fun LiveTile(label: String, value: String, tint: Color, modifier: Modifi
         modifier = modifier
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
             .background(tint.copy(alpha = 0.10f))
+            .border(1.dp, tint.copy(alpha = 0.34f), RoundedCornerShape(ZidRunDimens.cornerLg))
             .padding(ZidRunDimens.spaceMd)
             .semantics(mergeDescendants = true) { contentDescription = "$label $value" },
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),

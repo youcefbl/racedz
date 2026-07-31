@@ -2,6 +2,7 @@ package dz.racedz.nativeapp.feature.runs.record
 
 import android.Manifest
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
@@ -30,6 +31,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -51,8 +54,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -76,7 +82,7 @@ import kotlinx.coroutines.delay
 private const val FOOTPRINT_COUNT = 24
 
 /** How long the runner must hold before recording starts. */
-private const val HOLD_TO_BEGIN_MS = 1_200L
+private const val HOLD_TO_BEGIN_MS = 700L
 
 /**
  * "Ready when you are" (02-create-new-run.png): the pre-run screen.
@@ -130,7 +136,8 @@ fun StartRunScreen(
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = ZidRunDimens.spaceLg),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
@@ -325,9 +332,24 @@ private fun ReadyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
  */
 @Composable
 private fun HoldToBegin(onTriggered: () -> Unit) {
+    val context = LocalContext.current
     var holding by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
-    val animated by animateFloatAsState(targetValue = progress, label = "hold")
+    // Respect Android's system animation scale. The hold still works, but the visual state jumps
+    // directly to its current value when the runner has asked for reduced motion.
+    val animationsEnabled = remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) > 0f
+    }
+    val animated by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 90, easing = LinearEasing),
+        label = "hold",
+    )
+    val visibleProgress = if (animationsEnabled) animated else progress
     val holdLabel = stringResource(R.string.runs_hold_to_begin)
     val startLabel = stringResource(R.string.runs_start_run)
 
@@ -373,17 +395,23 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             },
     ) {
         // Footprints stepping round the ring, one lighting up at a time — the mockup's motif, and a
-        // cue that the screen is alive while the runner waits for GPS.
-        val transition = rememberInfiniteTransition(label = "footsteps")
-        val phase by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = FOOTPRINT_COUNT.toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 2600, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "phase",
-        )
+        // cue that the screen is alive while the runner waits for GPS. The trail is static when
+        // reduced motion is enabled.
+        val phase = if (animationsEnabled) {
+            val transition = rememberInfiniteTransition(label = "footsteps")
+            val animatedPhase by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = FOOTPRINT_COUNT.toFloat(),
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 2600, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
+                label = "phase",
+            )
+            animatedPhase
+        } else {
+            0f
+        }
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val centre = Offset(size.width / 2, size.height / 2)
@@ -409,6 +437,53 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 )
             }
 
+            // The start control's visual anchor: a warm orange glow under the foot, then a clear
+            // ZidRun green outline. The glow intensifies with the hold, while the foot remains
+            // stable enough to read at a glance outdoors.
+            val footGlowRadius = 58.dp.toPx() + (visibleProgress * 12.dp.toPx())
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        ZidRunDarkColors.accent.copy(alpha = 0.42f + visibleProgress * 0.14f),
+                        ZidRunDarkColors.accent.copy(alpha = 0.14f + visibleProgress * 0.08f),
+                        Color.Transparent,
+                    ),
+                    center = centre,
+                    radius = footGlowRadius,
+                ),
+                radius = footGlowRadius,
+                center = centre,
+            )
+
+            val footPath = runningFootPath(
+                center = centre,
+                width = 72.dp.toPx(),
+                height = 96.dp.toPx(),
+            )
+            drawPath(
+                path = footPath,
+                color = ZidRunDarkColors.surfaceStrong.copy(alpha = 0.96f),
+            )
+            drawPath(
+                path = footPath,
+                color = ZidRunDarkColors.primary.copy(alpha = 0.86f + visibleProgress * 0.14f),
+                style = Stroke(
+                    width = 4.dp.toPx() + visibleProgress * 1.5.dp.toPx(),
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round,
+                ),
+            )
+
+            // A small sole mark makes the icon read as a foot rather than a generic blob without
+            // adding another competing accent colour.
+            drawLine(
+                color = ZidRunDarkColors.primary.copy(alpha = 0.42f + visibleProgress * 0.18f),
+                start = Offset(centre.x - 12.dp.toPx(), centre.y + 29.dp.toPx()),
+                end = Offset(centre.x + 12.dp.toPx(), centre.y + 29.dp.toPx()),
+                strokeWidth = 3.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+
             val strokePx = 8.dp.toPx()
             // Inset past the footprint ring so the two do not overlap.
             val inset = strokePx / 2 + 18.dp.toPx()
@@ -422,11 +497,11 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 size = arcSize,
                 style = Stroke(width = strokePx, cap = StrokeCap.Round),
             )
-            if (animated > 0f) {
+            if (visibleProgress > 0f) {
                 drawArc(
                     color = ZidRunDarkColors.primary,
                     startAngle = -90f,
-                    sweepAngle = 360f * animated,
+                    sweepAngle = 360f * visibleProgress,
                     useCenter = false,
                     topLeft = Offset(inset, inset),
                     size = arcSize,
@@ -446,5 +521,58 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 color = ZidRunDarkColors.textMuted,
             )
         }
+    }
+}
+
+/** A compact running-foot silhouette sized for the central hold control. */
+private fun runningFootPath(center: Offset, width: Float, height: Float): Path {
+    val left = center.x - width / 2
+    val right = center.x + width / 2
+    val top = center.y - height / 2
+    val bottom = center.y + height / 2
+
+    return Path().apply {
+        moveTo(center.x - width * 0.14f, top)
+        cubicTo(
+            center.x - width * 0.30f,
+            top + height * 0.02f,
+            left + width * 0.09f,
+            top + height * 0.20f,
+            left + width * 0.10f,
+            top + height * 0.38f,
+        )
+        cubicTo(
+            left + width * 0.12f,
+            top + height * 0.61f,
+            left + width * 0.24f,
+            bottom - height * 0.10f,
+            center.x - width * 0.18f,
+            bottom,
+        )
+        cubicTo(
+            center.x - width * 0.02f,
+            bottom + height * 0.02f,
+            center.x + width * 0.16f,
+            bottom - height * 0.02f,
+            center.x + width * 0.25f,
+            bottom - height * 0.12f,
+        )
+        cubicTo(
+            right - width * 0.13f,
+            top + height * 0.68f,
+            right - width * 0.07f,
+            top + height * 0.47f,
+            right - width * 0.16f,
+            top + height * 0.29f,
+        )
+        cubicTo(
+            center.x + width * 0.15f,
+            top + height * 0.10f,
+            center.x + width * 0.05f,
+            top - height * 0.01f,
+            center.x - width * 0.14f,
+            top,
+        )
+        close()
     }
 }

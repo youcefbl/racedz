@@ -184,8 +184,77 @@ fun RunsOverviewScreen(
 
                 val latest = state.latestRun
                 if (latest != null) {
-                    ZidRunSectionHeader(title = stringResource(R.string.runs_latest))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ZidRunSectionHeader(title = stringResource(R.string.runs_latest))
+                        Spacer(Modifier.weight(1f))
+                        val historyLabel = stringResource(R.string.runs_cd_history)
+                        Text(
+                            text = stringResource(R.string.runs_view_history),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                                .clickable(role = Role.Button, onClick = onOpenHistory)
+                                .padding(horizontal = ZidRunDimens.spaceSm, vertical = ZidRunDimens.spaceXs)
+                                .semantics { contentDescription = historyLabel },
+                        )
+                    }
                     LatestRunCard(run = latest, onClick = { onOpenRun(latest.id) })
+
+                    // A real, server-backed highlight gives the overview the motivational beat from
+                    // the mockup without inventing an achievement system that the API does not yet
+                    // expose.
+                    state.runs.maxByOrNull { it.distanceKm }?.let { longest ->
+                        ZidRunCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.primarySoft),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.DirectionsRun,
+                                        contentDescription = null,
+                                        tint = colors.primary,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.runs_highlights),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = colors.textMuted,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.runs_longest_run),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = colors.textStrong,
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = ZidRunFormat.decimal(longest.distanceKm, locale),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = colors.primary,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.runs_unit_km),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colors.textMuted,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 } else {
                     ZidRunStatusView(
                         icon = Icons.AutoMirrored.Filled.DirectionsRun,
@@ -202,6 +271,7 @@ fun RunsOverviewScreen(
                         icon = Icons.AutoMirrored.Filled.DirectionsRun,
                         label = stringResource(R.string.runs_record),
                         onClick = onRecordRun,
+                        emphasized = true,
                         modifier = Modifier.weight(1f),
                     )
                     QuickAction(
@@ -396,13 +466,14 @@ private fun QuickAction(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    emphasized: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val colors = ZidRunTheme.colors
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(colors.surface)
+            .background(if (emphasized) colors.primarySoft else colors.surface)
             .clickable(role = Role.Button, onClick = onClick)
             .heightIn(min = ZidRunDimens.minTouchTarget)
             .padding(vertical = ZidRunDimens.spaceMd, horizontal = ZidRunDimens.spaceSm)
@@ -411,10 +482,18 @@ private fun QuickAction(
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         Box(
-            modifier = Modifier.size(48.dp).clip(CircleShape).background(colors.primary),
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(if (emphasized) colors.primary else colors.primarySoft),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(24.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (emphasized) colors.onPrimary else colors.primary,
+                modifier = Modifier.size(24.dp),
+            )
         }
         Text(
             text = label,

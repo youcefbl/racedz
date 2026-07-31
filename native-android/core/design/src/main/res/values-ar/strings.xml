@@ -233,6 +233,15 @@
     <string name="runs_analyze">حلّل</string>
     <string name="runs_detail_title">سورتي</string>
     <string name="runs_title">الجري</string>
+    <string name="runs_view_history">شوف التاريخ</string>
+    <string name="runs_highlights">اللحظات المليحة</string>
+    <string name="runs_longest_run">أطول سورتي</string>
+    <string name="runs_insight_finish">سالي مليح — آخر كيلومتر كان الأسرع تاعك.</string>
+    <string name="runs_insight_steady">مجهود ثابت — الإيقاع بقى متحكّم فيه طول السورتي.</string>
+    <string name="runs_recovery_body">غدوة ديرها خفيفة · اشرب الماء وخلي الإيقاع مريح.</string>
+    <string name="runs_heart_rate">دقات القلب</string>
+    <string name="runs_cadence">الخطوات</string>
+    <string name="runs_effort">المجهود</string>
     <string name="runs_elevation_gain_value">الصعود %1$d م</string>
     <string name="runs_notification_channel">تسجيل السورتي</string>
     <string name="runs_notification_title">قاعد نسجّل السورتي</string>

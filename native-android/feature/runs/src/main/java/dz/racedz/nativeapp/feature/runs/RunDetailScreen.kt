@@ -2,6 +2,7 @@ package dz.racedz.nativeapp.feature.runs
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +23,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -199,10 +202,11 @@ fun RunDetailScreen(
                                     color = colors.textStrong,
                                 )
                             }
-                            LineChart(
+                            ChartWithAxes(
                                 values = elevations.map { it.value },
                                 color = colors.primary,
-                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                yLabel = { "${it.toInt()} m" },
+                                xMax = run.distanceKm,
                             )
                         }
                     }
@@ -220,19 +224,101 @@ fun RunDetailScreen(
                             )
                             // Pace is inverted: a lower seconds-per-km is a faster kilometre, so the
                             // chart is flipped to put "faster" at the top where a runner expects it.
-                            LineChart(
+                            ChartWithAxes(
                                 values = paces.map { it.value },
                                 color = colors.accent,
                                 invert = true,
-                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                yLabel = { ZidRunFormat.pace(it.toInt()) },
+                                xMax = run.distanceKm,
                             )
                         }
+                    }
+                }
+
+                val fastestFinish = run.splits.size > 1 &&
+                    run.splits.last().paceSecondsPerKm < run.splits.first().paceSecondsPerKm
+                InsightBanner(
+                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                    text = stringResource(
+                        if (fastestFinish) R.string.runs_insight_finish else R.string.runs_insight_steady,
+                    ),
+                    tint = colors.success,
+                    container = colors.successSoft,
+                )
+                InsightBanner(
+                    icon = Icons.Filled.WaterDrop,
+                    text = stringResource(R.string.runs_recovery_body),
+                    tint = colors.info,
+                    container = colors.infoSoft,
+                )
+
+                ZidRunSectionHeader(title = stringResource(R.string.runs_highlights))
+                ZidRunCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+                    ) {
+                        DetailMetric(
+                            label = stringResource(R.string.runs_heart_rate),
+                            value = run.averageHeartRate?.let { "$it bpm" } ?: "—",
+                            modifier = Modifier.weight(1f),
+                        )
+                        DetailMetric(
+                            label = stringResource(R.string.runs_cadence),
+                            value = run.avgCadence?.let { "$it spm" } ?: "—",
+                            modifier = Modifier.weight(1f),
+                        )
+                        DetailMetric(
+                            label = stringResource(R.string.runs_effort),
+                            value = "${run.perceivedEffort}/10",
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
 
                 Spacer(Modifier.height(ZidRunDimens.spaceXxl))
             }
         }
+    }
+}
+
+@Composable
+private fun InsightBanner(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    tint: androidx.compose.ui.graphics.Color,
+    container: androidx.compose.ui.graphics.Color,
+) {
+    val colors = ZidRunTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(container)
+            .border(1.dp, tint.copy(alpha = 0.35f), RoundedCornerShape(ZidRunDimens.cornerLg))
+            .padding(ZidRunDimens.spaceMd),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(ZidRunDimens.cornerPill)).background(tint),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(20.dp))
+        }
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.textStrong)
+    }
+}
+
+@Composable
+private fun DetailMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    val colors = ZidRunTheme.colors
+    Column(
+        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = "$label $value" },
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+    ) {
+        Text(value, style = MaterialTheme.typography.titleLarge, color = colors.textStrong)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
     }
 }
 
@@ -337,5 +423,48 @@ private fun LineChart(
             color = color,
             style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
+    }
+}
+
+/** Compact axes keep the charts useful without turning the detail screen into a dashboard. */
+@Composable
+private fun ChartWithAxes(
+    values: List<Double>,
+    color: androidx.compose.ui.graphics.Color,
+    yLabel: (Double) -> String,
+    xMax: Double,
+    invert: Boolean = false,
+) {
+    val colors = ZidRunTheme.colors
+    if (values.size < 2) return
+    val top = if (invert) values.min() else values.max()
+    val bottom = if (invert) values.max() else values.min()
+
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(
+                modifier = Modifier.width(44.dp).height(120.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(yLabel(top), style = MaterialTheme.typography.labelSmall, color = colors.textMuted)
+                Text(yLabel(bottom), style = MaterialTheme.typography.labelSmall, color = colors.textMuted)
+            }
+            LineChart(
+                values = values,
+                color = color,
+                invert = invert,
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.width(44.dp))
+            Text("0 km", style = MaterialTheme.typography.labelSmall, color = colors.textMuted)
+            Spacer(Modifier.weight(1f))
+            Text(
+                "${ZidRunFormat.decimal(xMax, currentLocale())} km",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textMuted,
+            )
+        }
     }
 }

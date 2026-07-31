@@ -251,6 +251,15 @@
     <string name="runs_analyze">Analyze run</string>
     <string name="runs_detail_title">Run</string>
     <string name="runs_title">Runs</string>
+    <string name="runs_view_history">View history</string>
+    <string name="runs_highlights">Highlights</string>
+    <string name="runs_longest_run">Longest run</string>
+    <string name="runs_insight_finish">Strong finish — your final kilometre was your fastest.</string>
+    <string name="runs_insight_steady">Steady effort — your pacing stayed controlled across the run.</string>
+    <string name="runs_recovery_body">Easy day next · hydrate and keep it conversational.</string>
+    <string name="runs_heart_rate">Heart rate</string>
+    <string name="runs_cadence">Cadence</string>
+    <string name="runs_effort">Effort</string>
     <string name="runs_elevation_gain_value">Gain %1$d m</string>
     <string name="runs_notification_channel">Run recording</string>
     <string name="runs_notification_title">Recording your run</string>
