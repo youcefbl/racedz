@@ -1,7 +1,7 @@
 import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
-import { readIdempotencyKey, recordIdempotent, replayIdempotent } from "@/lib/api/v1/idempotency";
+import { claimIdempotent, completeIdempotent, readIdempotencyKey, releaseIdempotent } from "@/lib/api/v1/idempotency";
 import { toRegistrationDto } from "@/lib/api/v1/dto";
 import { createRaceRegistrationForUser, RegistrationError } from "@/lib/registrations";
 import { raceRegistrationSchema } from "@/lib/validations";
@@ -39,11 +39,7 @@ export const POST = withApi(async (request, context: Context) => {
   const body = (await readJsonBody(request)) as Record<string, unknown>;
   const endpoint = "POST /api/v1/races/:id/registrations";
   const idempotencyKey = readIdempotencyKey(request);
-
-  if (idempotencyKey) {
-    const replay = await replayIdempotent(request, viewer.id, endpoint, idempotencyKey, { race: race.id, ...body });
-    if (replay) return replay;
-  }
+  const idempotencyBody = { race: race.id, ...body };
 
   // email is on the shared schema but always taken from the session — a client must not be able
   // to register a race under another address.
@@ -65,6 +61,13 @@ export const POST = withApi(async (request, context: Context) => {
     throw new ApiError("VALIDATION_FAILED", "Check the highlighted fields.", { fields });
   }
 
+  // Reserved BEFORE the mutation so the unique constraint serializes concurrent retries. Validation
+  // runs first so a malformed body cannot burn the key.
+  if (idempotencyKey) {
+    const claim = await claimIdempotent(request, viewer.id, endpoint, idempotencyKey, idempotencyBody);
+    if (claim.outcome === "replay") return claim.response;
+  }
+
   try {
     const registration = await createRaceRegistrationForUser({
       userId: viewer.id,
@@ -79,11 +82,17 @@ export const POST = withApi(async (request, context: Context) => {
     });
 
     if (idempotencyKey) {
-      await recordIdempotent(viewer.id, endpoint, idempotencyKey, { race: race.id, ...body }, 201, dto);
+      await completeIdempotent(viewer.id, endpoint, idempotencyKey, 201, dto);
     }
 
     return apiOk(request, dto, { status: 201 });
   } catch (error) {
+    // The registration transaction either commits fully or rolls back, so a failure here left
+    // nothing behind and the user may retry with the same key.
+    if (idempotencyKey) {
+      await releaseIdempotent(viewer.id, endpoint, idempotencyKey);
+    }
+
     if (error instanceof RegistrationError) {
       // RegistrationError already carries the right status and a user-facing message from the
       // shared domain layer; map it onto this facade's envelope without rewording it.

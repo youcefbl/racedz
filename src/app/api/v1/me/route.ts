@@ -51,16 +51,33 @@ export const GET = withApi(async (request) => {
   });
 });
 
+/**
+ * Makes an optional field clearable. An empty string means "remove this value" and becomes null,
+ * which is what the client sends when the user empties the input; omitting the field entirely still
+ * means "leave it alone". Without this the two are indistinguishable on the wire — the client's
+ * JSON drops nulls — so a runner could never delete a phone number they had once entered.
+ *
+ * Only for columns that are nullable in the database. `firstName`/`lastName` are not: a runner must
+ * have a name, so blanking those is a validation error rather than a clear.
+ */
+function clearable(schema: z.ZodString) {
+  return z
+    .union([schema, z.literal("")])
+    .transform<string | null>((value) => (value === "" ? null : value));
+}
+
 // Only the fields the runner may edit about themselves. Email, role, and verification state are
 // deliberately absent: changing an email is a verification flow, not a profile edit.
 const profileSchema = z.object({
   firstName: z.string().trim().min(2).max(60).optional(),
   lastName: z.string().trim().min(2).max(60).optional(),
-  phone: z.string().trim().min(6).max(24).optional(),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.").optional(),
-  wilaya: z.string().trim().max(60).optional(),
-  city: z.string().trim().max(60).optional()
+  phone: clearable(z.string().trim().min(6).max(24)).optional(),
+  gender: z.union([z.enum(["MALE", "FEMALE", "OTHER"]), z.literal("")])
+    .transform((value) => (value === "" ? null : value))
+    .optional(),
+  dateOfBirth: clearable(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")).optional(),
+  wilaya: clearable(z.string().trim().max(60).min(1)).optional(),
+  city: clearable(z.string().trim().max(60).min(1)).optional()
 });
 
 export const PATCH = withApi(async (request) => {
@@ -84,7 +101,11 @@ export const PATCH = withApi(async (request) => {
     where: { id: viewer.id },
     data: {
       ...rest,
-      ...(dateOfBirth ? { dateOfBirth: new Date(`${dateOfBirth}T00:00:00.000Z`) } : {})
+      // `undefined` leaves the column alone, `null` clears it — Prisma distinguishes the two, which
+      // is exactly the distinction the schema above preserves.
+      ...(dateOfBirth === undefined
+        ? {}
+        : { dateOfBirth: dateOfBirth === null ? null : new Date(`${dateOfBirth}T00:00:00.000Z`) })
     },
     select: meSelect
   });

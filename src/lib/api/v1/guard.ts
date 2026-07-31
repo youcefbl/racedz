@@ -16,16 +16,23 @@ export type MobileUser = {
 /**
  * Authenticate an /api/v1 request from the `Authorization: Bearer <access token>` header.
  *
- * A valid signature is necessary but not sufficient. The live User row is re-read on every call to
- * confirm the account still exists, is not blocked, and has not bumped `securityStampAt` since the
- * token was minted — a password reset, MFA enroll/disable, block, or role change therefore
- * invalidates every outstanding access token within its 15-minute lifetime rather than at expiry.
- * This mirrors what the web JWT callback does in src/auth.ts; the mobile client just carries the
- * stamp in the token instead of the cookie.
+ * A valid signature is necessary but not sufficient. Three live checks run on every call:
+ *
+ *   1. the account still exists and is not blocked;
+ *   2. `securityStampAt` has not moved since the token was minted — a password reset, MFA
+ *      enroll/disable, block, or role change therefore invalidates every outstanding access token
+ *      immediately rather than at its 15-minute expiry (mirrors the web JWT callback in
+ *      src/auth.ts);
+ *   3. the device session the token was issued for is still active.
+ *
+ * Check 3 is what makes logout mean something. Access tokens are stateless, so without it a token
+ * captured before "log out" or "sign out everywhere" would keep working for the rest of its
+ * lifetime — precisely the window in which someone would use a stolen one. It costs nothing extra:
+ * the session is fetched as a filtered relation on the same query as the user.
  *
  * The failure code is deliberately the same (SESSION_EXPIRED) for "no token", "bad signature",
- * "expired", and "stamp bumped": the app's response is identical — refresh, then re-login — and a
- * caller probing this endpoint learns nothing about which condition it hit.
+ * "expired", "stamp bumped", and "session revoked": the app's response is identical — refresh, then
+ * re-login — and a caller probing this endpoint learns nothing about which condition it hit.
  */
 export async function requireMobileUser(request: Request): Promise<MobileUser> {
   const header = request.headers.get("authorization") ?? "";
@@ -41,7 +48,18 @@ export async function requireMobileUser(request: Request): Promise<MobileUser> {
 
   const user = await getPrisma().user.findUnique({
     where: { id: claims.sub },
-    select: { id: true, email: true, role: true, blockedAt: true, securityStampAt: true }
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      blockedAt: true,
+      securityStampAt: true,
+      mobileSessions: {
+        where: { familyId: claims.sid, revokedAt: null, expiresAt: { gt: new Date() } },
+        select: { id: true },
+        take: 1
+      }
+    }
   });
 
   if (!user) {
@@ -51,6 +69,9 @@ export async function requireMobileUser(request: Request): Promise<MobileUser> {
     throw new ApiError("ACCOUNT_BLOCKED", "This account has been blocked.");
   }
   if (claims.sst < user.securityStampAt.getTime()) {
+    throw new ApiError("SESSION_EXPIRED", "Your session has expired. Please sign in again.");
+  }
+  if (user.mobileSessions.length === 0) {
     throw new ApiError("SESSION_EXPIRED", "Your session has expired. Please sign in again.");
   }
 

@@ -30,6 +30,24 @@ function check(name: string, condition: boolean, detail?: unknown) {
 
 type ApiResponse = { status: number; body: Record<string, unknown>; headers: Headers };
 
+/**
+ * Sign-in is rate limited per client IP (10 per 10 minutes), and this suite legitimately signs in
+ * far more often than one real user would — every revocation check needs a fresh session. Each
+ * phase therefore presents its own X-Forwarded-For, which is what genuinely distinct clients would
+ * look like. The limiter is still exercised inside a phase, and `login rate limit trips` below
+ * proves it works rather than assuming it.
+ */
+// Randomised per run so a second invocation within the limiter's 10-minute window starts with
+// fresh buckets instead of inheriting the previous run's and failing on its own rate limit.
+const RUN_OCTET = 1 + Math.floor(Math.random() * 250);
+let currentClientIp = `203.0.${RUN_OCTET}.1`;
+
+/** Switches the client IP subsequent requests present. Named away from a `use` prefix so the
+ *  react-hooks lint rule does not mistake it for a React Hook. */
+function actAsClient(ip: string) {
+  currentClientIp = ip;
+}
+
 async function api(
   path: string,
   options: { method?: string; token?: string; body?: unknown; headers?: Record<string, string> } = {}
@@ -37,6 +55,7 @@ async function api(
   const response = await fetch(`${BASE}${path}`, {
     method: options.method ?? "GET",
     headers: {
+      "X-Forwarded-For": currentClientIp,
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
       ...options.headers
@@ -107,6 +126,7 @@ async function main() {
 
     // ---- login -------------------------------------------------------------------------------
     console.log("\nlogin");
+    actAsClient(`203.0.${RUN_OCTET}.10`);
     const password = `Test-${randomUUID()}`;
     const user = await makeUser(password);
     createdUserIds.push(user.id);
@@ -163,6 +183,7 @@ async function main() {
 
     // ---- refresh rotation and reuse -----------------------------------------------------------
     console.log("\nrefresh rotation");
+    actAsClient(`203.0.${RUN_OCTET}.20`);
     const firstRefresh = await api("/api/v1/auth/refresh", { method: "POST", body: { refreshToken } });
     check("refresh returns a new pair", firstRefresh.status === 200 && Boolean(tokensOf(firstRefresh).refreshToken));
     check("the refresh token actually rotates", tokensOf(firstRefresh).refreshToken !== refreshToken);
@@ -182,6 +203,7 @@ async function main() {
 
     // ---- security-stamp revocation ------------------------------------------------------------
     console.log("\nrevocation");
+    actAsClient(`203.0.${RUN_OCTET}.30`);
     const second = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
     accessToken = tokensOf(second).accessToken;
     refreshToken = tokensOf(second).refreshToken;
@@ -207,13 +229,44 @@ async function main() {
     check("a blocked account cannot refresh", blockedRefresh.status === 401, blockedRefresh.body);
     await prisma.user.update({ where: { id: user.id }, data: { blockedAt: null } });
 
+    // A stolen refresh token must not outlive the password reset performed to lock the thief out.
+    const stampVictim = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const stolenRefresh = tokensOf(stampVictim).refreshToken;
+    await prisma.user.update({ where: { id: user.id }, data: { securityStampAt: new Date() } });
+    const refreshAfterStamp = await api("/api/v1/auth/refresh", { method: "POST", body: { refreshToken: stolenRefresh } });
+    check(
+      "bumping securityStampAt also invalidates the refresh token",
+      refreshAfterStamp.status === 401,
+      refreshAfterStamp.body
+    );
+
     // ---- logout --------------------------------------------------------------------------------
     console.log("\nlogout");
+    actAsClient(`203.0.${RUN_OCTET}.40`);
     const fourth = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
     accessToken = tokensOf(fourth).accessToken;
     refreshToken = tokensOf(fourth).refreshToken;
     const loggedOut = await api("/api/v1/auth/logout", { method: "POST", body: { refreshToken } });
     check("logout succeeds", loggedOut.status === 200, loggedOut.body);
+
+    // Access tokens are stateless, so without a session-liveness check a token captured before
+    // logout would keep working for the rest of its 15 minutes.
+    const meAfterLogout = await api("/api/v1/me", { token: accessToken });
+    check(
+      "the access token is dead immediately after logout",
+      meAfterLogout.status === 401,
+      meAfterLogout.body
+    );
+
+    const allDevices = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const allDevicesToken = tokensOf(allDevices).accessToken;
+    await api("/api/v1/auth/logout-all", { method: "POST", token: allDevicesToken });
+    const meAfterLogoutAll = await api("/api/v1/me", { token: allDevicesToken });
+    check(
+      "the access token is dead immediately after sign-out-everywhere",
+      meAfterLogoutAll.status === 401,
+      meAfterLogoutAll.body
+    );
     check(
       "the refresh token is dead after logout",
       (await api("/api/v1/auth/refresh", { method: "POST", body: { refreshToken } })).status === 401
@@ -255,6 +308,7 @@ async function main() {
 
     // ---- registration + idempotency + authorization ---------------------------------------------
     console.log("\nregistration");
+    actAsClient(`203.0.${RUN_OCTET}.50`);
     const openRace = await prisma.raceEvent.findFirst({
       where: { status: "PUBLISHED", registrationStatus: "OPEN", categories: { some: {} } },
       select: { id: true, categories: { select: { id: true }, take: 1 } }
@@ -302,6 +356,60 @@ async function main() {
         (replay.body.data as { id?: string })?.id === (created.body.data as { id?: string })?.id
       );
 
+      // Two identical taps racing each other must produce one registration, not two. Before the
+      // reservation was inserted ahead of the mutation, both could pass a "no record yet" check.
+      //
+      // The earlier registration is removed first: leaving it would make every request in the burst
+      // fail on the (userId, raceCategoryId) unique constraint, and the assertions below would pass
+      // without the reservation ever being exercised.
+      await prisma.notificationDelivery.deleteMany({ where: { notification: { userId: { in: createdUserIds } } } });
+      await prisma.notification.deleteMany({ where: { userId: { in: createdUserIds } } });
+      await prisma.raceRegistration.deleteMany({ where: { userId: { in: createdUserIds } } });
+
+      const raceKey = randomUUID();
+      const concurrent = await Promise.all(
+        [0, 1].map(() =>
+          api(`/api/v1/races/${openRace.id}/registrations`, {
+            method: "POST",
+            token: accessToken,
+            body: { ...registrationBody, raceCategoryId: openRace.categories[0].id },
+            headers: { "Idempotency-Key": raceKey }
+          })
+        )
+      );
+      const created201 = concurrent.filter((response) => response.status === 201);
+      const rejected = concurrent.filter((response) => response.status !== 201);
+      const rowsAfterRace = await prisma.raceRegistration.count({ where: { userId: { in: createdUserIds } } });
+      check(
+        "exactly one of two concurrent same-key requests wins",
+        created201.length === 1,
+        concurrent.map((r) => ({ status: r.status, code: errorCode(r) }))
+      );
+      check(
+        "the race leaves exactly one registration in the database",
+        rowsAfterRace === 1,
+        rowsAfterRace
+      );
+      check(
+        "the losing concurrent request is told so rather than silently duplicating",
+        rejected.every((r) => r.status === 409),
+        rejected.map((r) => ({ status: r.status, code: errorCode(r) }))
+      );
+      // Distinguishes the reservation from the (userId, raceCategoryId) unique constraint, which
+      // would also produce a 409 — but with a different message and, crucially, without the replay
+      // below. Without the reservation the retry surfaces "already registered" as a failure.
+      const replayAfterRace = await api(`/api/v1/races/${openRace.id}/registrations`, {
+        method: "POST",
+        token: accessToken,
+        body: { ...registrationBody, raceCategoryId: openRace.categories[0].id },
+        headers: { "Idempotency-Key": raceKey }
+      });
+      check(
+        "a retry after the race replays the winner's 201 instead of failing as a duplicate",
+        replayAfterRace.status === 201 && replayAfterRace.headers.get("idempotent-replay") === "true",
+        { status: replayAfterRace.status, body: replayAfterRace.body }
+      );
+
       const duplicate = await api(`/api/v1/races/${openRace.id}/registrations`, {
         method: "POST",
         token: accessToken,
@@ -346,8 +454,59 @@ async function main() {
       await prisma.raceRegistration.deleteMany({ where: { id: registrationId } });
     }
 
+    // ---- profile edits ----------------------------------------------------------------------------
+    console.log("\nprofile");
+    actAsClient(`203.0.${RUN_OCTET}.60`);
+    const profileLogin = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const profileToken = tokensOf(profileLogin).accessToken;
+
+    await api("/api/v1/me", { method: "PATCH", token: profileToken, body: { phone: "0555111222", city: "Oran" } });
+    const cleared = await api("/api/v1/me", { method: "PATCH", token: profileToken, body: { phone: "", city: "" } });
+    check(
+      "an emptied optional field is actually cleared, not ignored",
+      (cleared.body.data as { phone: string | null; city: string | null })?.phone === null &&
+        (cleared.body.data as { city: string | null })?.city === null,
+      cleared.body
+    );
+
+    const untouched = await api("/api/v1/me", { method: "PATCH", token: profileToken, body: { wilaya: "Alger" } });
+    check(
+      "omitting a field leaves it alone",
+      (untouched.body.data as { wilaya: string | null })?.wilaya === "Alger",
+      untouched.body
+    );
+
+    const blankName = await api("/api/v1/me", { method: "PATCH", token: profileToken, body: { firstName: "" } });
+    check("a required name cannot be blanked", blankName.status === 422, blankName.body);
+
+    // ---- filters ----------------------------------------------------------------------------------
+    console.log("\nfilters");
+    const badFilter = await api("/api/v1/races?type=NOT_A_REAL_TYPE");
+    check(
+      "an unknown race type filter is a validation error, not a 500",
+      badFilter.status === 422 && errorCode(badFilter) === "VALIDATION_FAILED",
+      { status: badFilter.status, body: badFilter.body }
+    );
+    check("a valid race type filter still works", (await api("/api/v1/races?type=TEN_K")).status === 200);
+
+    // ---- rate limiting ----------------------------------------------------------------------------
+    console.log("\nrate limiting");
+    actAsClient(`203.0.${RUN_OCTET}.99`);
+    let sawRateLimit = false;
+    for (let attempt = 0; attempt < 14 && !sawRateLimit; attempt += 1) {
+      const response = await api("/api/v1/auth/login", {
+        method: "POST",
+        body: { email: user.email, password: "wrong-on-purpose" }
+      });
+      sawRateLimit = response.status === 429 && errorCode(response) === "RATE_LIMITED";
+    }
+    // Proves the per-phase X-Forwarded-For above is a realistic separation of clients rather than a
+    // way of quietly disabling a protection this suite depends on being there.
+    check("repeated sign-in attempts from one IP are rate limited", sawRateLimit);
+
     // ---- preferences ------------------------------------------------------------------------------
     console.log("\npreferences");
+    actAsClient(`203.0.${RUN_OCTET}.70`);
     const sixth = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
     accessToken = tokensOf(sixth).accessToken;
     const prefs = await api("/api/v1/me/preferences", {

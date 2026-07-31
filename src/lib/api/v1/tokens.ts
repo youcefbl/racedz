@@ -131,12 +131,22 @@ async function issueRefreshRow(userId: string, familyId: string, device?: Device
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
   const info = normalizeDevice(device);
 
+  const user = await getPrisma().user.findUnique({
+    where: { id: userId },
+    select: { securityStampAt: true }
+  });
+  if (!user) throw new Error("Cannot issue a refresh token for a user that no longer exists.");
+
   await getPrisma().mobileSession.create({
     data: {
       userId,
       familyId,
       refreshTokenHash: sha256(refreshToken),
       platform: info.platform,
+      // Recorded so rotateRefreshToken() can tell whether the stamp moved after this device
+      // authenticated. Rotation carries the current value forward, so a bump between any two
+      // refreshes is caught.
+      securityStamp: user.securityStampAt,
       appVersion: info.appVersion,
       deviceName: info.deviceName,
       expiresAt
@@ -169,7 +179,7 @@ export async function rotateRefreshToken(refreshToken: string, device?: DeviceIn
   const prisma = getPrisma();
   const row = await prisma.mobileSession.findUnique({
     where: { refreshTokenHash: sha256(refreshToken) },
-    select: { id: true, userId: true, familyId: true, revokedAt: true, expiresAt: true }
+    select: { id: true, userId: true, familyId: true, revokedAt: true, expiresAt: true, securityStamp: true }
   });
 
   if (!row) return { ok: false, reason: "invalid" };
@@ -188,10 +198,22 @@ export async function rotateRefreshToken(refreshToken: string, device?: DeviceIn
     return { ok: false, reason: "expired" };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: row.userId }, select: { blockedAt: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: row.userId },
+    select: { blockedAt: true, securityStampAt: true }
+  });
   if (!user || user.blockedAt) {
     await revokeFamily(row.familyId, "LOGOUT_ALL");
     return { ok: false, reason: "blocked" };
+  }
+
+  // A password reset, MFA change, or role change must kill the refresh token too, not only the
+  // 15-minute access token. Without this a stolen refresh token stays good for its full 60 days and
+  // can mint fresh access tokens indefinitely — the reset the user performed to lock an attacker
+  // out would not have locked them out at all.
+  if (user.securityStampAt.getTime() > row.securityStamp.getTime()) {
+    await revokeFamily(row.familyId, "SECURITY_STAMP_CHANGED");
+    return { ok: false, reason: "expired" };
   }
 
   // Claim the row atomically so two concurrent refreshes (app foregrounded twice, retry after a

@@ -225,7 +225,7 @@ fun ZidRunApp(
                 RegistrationsScreen(
                     viewModel = rememberAccountViewModel(container, appearance),
                     onBack = { navController.popBackStack() },
-                    onOpenRegistration = { },
+                    onOpenRace = { navController.navigate(RootDestinations.raceDetail(it)) },
                 )
             }
 

@@ -6,6 +6,22 @@ import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+/** Mirrors the `RaceType` enum in prisma/schema.prisma. */
+const RACE_TYPES = [
+  "ROAD",
+  "TRAIL",
+  "ULTRA_TRAIL",
+  "MARATHON",
+  "HALF_MARATHON",
+  "TEN_K",
+  "FIVE_K",
+  "KIDS",
+  "CHARITY",
+  "OTHER"
+] as const;
+
+type RaceType = (typeof RACE_TYPES)[number];
+
 /**
  * Public, paginated race discovery for the native Races screen.
  *
@@ -24,8 +40,16 @@ export const GET = withApi(async (request) => {
 
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
   const wilaya = (url.searchParams.get("wilaya") ?? "").trim().slice(0, 60) || undefined;
-  const type = (url.searchParams.get("type") ?? "").trim().slice(0, 30) || undefined;
   const distance = Number(url.searchParams.get("distance") ?? "");
+
+  // Validate against the enum instead of casting: Prisma raises on an unknown enum value, which
+  // surfaced as a 500 for a caller who simply mistyped a filter. A bad filter is the caller's
+  // mistake, so answer 422 and name the accepted values.
+  const rawType = (url.searchParams.get("type") ?? "").trim();
+  if (rawType && !RACE_TYPES.includes(rawType as RaceType)) {
+    throw new ApiError("VALIDATION_FAILED", "Unknown race type filter.", { allowed: RACE_TYPES.join(", ") });
+  }
+  const type = rawType || undefined;
   const includePast = url.searchParams.get("past") === "1";
 
   const startOfToday = new Date();
@@ -34,7 +58,7 @@ export const GET = withApi(async (request) => {
   const where: Prisma.RaceEventWhereInput = {
     status: "PUBLISHED",
     ...(wilaya ? { wilaya } : {}),
-    ...(type ? { raceType: type as Prisma.RaceEventWhereInput["raceType"] } : {}),
+    ...(type ? { raceType: type as RaceType } : {}),
     ...(Number.isFinite(distance) && distance > 0 ? { categories: { some: { distanceKm: distance } } } : {}),
     ...(query
       ? {

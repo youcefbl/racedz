@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash } from "crypto";
+import { Prisma } from "@prisma/client";
 import type { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/db";
 import { ApiError, apiOk } from "@/lib/api/v1/http";
@@ -11,8 +12,20 @@ import { ApiError, apiOk } from "@/lib/api/v1/http";
 //
 // The client sends `Idempotency-Key: <uuid>`; a retry with the same key returns the first stored
 // response verbatim instead of re-running the mutation. Records are scoped per user and endpoint.
+//
+// The protection is a *reservation*, not a check-then-act. `claim()` inserts the row before the
+// mutation runs, so the (userId, endpoint, key) unique constraint — not application logic — is what
+// serializes concurrent duplicates. Two taps that race now resolve as one winner plus one
+// "already in progress", instead of both reading "no record yet" and both registering.
 
 const KEY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+
+/**
+ * How long a reservation may sit unfinished before another attempt is allowed to take it over.
+ * Long enough to cover the registration transaction's own 20s timeout plus request overhead; short
+ * enough that a server killed mid-request does not lock the user out of retrying for long.
+ */
+const STALE_RESERVATION_MS = 60_000;
 
 export function readIdempotencyKey(request: Request): string | null {
   const key = request.headers.get("idempotency-key");
@@ -23,59 +36,106 @@ export function readIdempotencyKey(request: Request): string | null {
   return key;
 }
 
+export type IdempotencyClaim =
+  /** This caller owns the mutation and must call `complete()` (or `release()`) afterwards. */
+  | { outcome: "claimed" }
+  /** A previous attempt finished; its response is replayed verbatim. */
+  | { outcome: "replay"; response: NextResponse };
+
 /**
- * Look for a stored result for this (user, endpoint, key).
+ * Reserve this (user, endpoint, key) before running the mutation.
+ *
+ * Returns `claimed` for exactly one caller. Everyone else either replays the finished response or,
+ * if the winner is still running, gets a CONFLICT telling the client to retry shortly — which is
+ * honest, and far better than silently performing the mutation twice.
  *
  * A repeat of the same key with a *different* body is rejected rather than replayed: that is a
- * client bug (a key reused across two genuinely different registrations), and silently returning
- * the first result would tell the user their second registration succeeded when it never ran.
+ * client bug (a key reused across two genuinely different registrations), and returning the first
+ * result would tell the user their second registration succeeded when it never ran.
  */
-export async function replayIdempotent(
+export async function claimIdempotent(
   request: Request,
   userId: string,
   endpoint: string,
   key: string,
   body: unknown
-): Promise<NextResponse | null> {
+): Promise<IdempotencyClaim> {
+  const prisma = getPrisma();
   const requestHash = hashBody(body);
-  const existing = await getPrisma().mobileIdempotencyRecord.findUnique({
+
+  try {
+    await prisma.mobileIdempotencyRecord.create({
+      data: { userId, endpoint, key, requestHash, responseCode: null, responseBody: Prisma.DbNull }
+    });
+    return { outcome: "claimed" };
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+      throw error;
+    }
+  }
+
+  // Lost the insert: someone else got here first.
+  const existing = await prisma.mobileIdempotencyRecord.findUnique({
     where: { userId_endpoint_key: { userId, endpoint, key } },
-    select: { requestHash: true, responseCode: true, responseBody: true }
+    select: { id: true, requestHash: true, responseCode: true, responseBody: true, createdAt: true }
   });
 
-  if (!existing) return null;
+  if (!existing) {
+    // Vanishingly rare: the winner released its reservation between the failed insert and this
+    // read. Treat it as ours to retry rather than inventing a failure.
+    return claimIdempotent(request, userId, endpoint, key, body);
+  }
 
   if (existing.requestHash !== requestHash) {
     throw new ApiError("IDEMPOTENCY_KEY_REUSED", "This request key was already used for a different request.");
   }
 
-  return apiOk(request, existing.responseBody, {
-    status: existing.responseCode,
-    headers: { "Idempotent-Replay": "true" }
-  });
+  if (existing.responseCode == null) {
+    // Still in flight — unless the owner died and left the reservation behind, in which case take
+    // it over so a crashed request cannot permanently block this key.
+    if (Date.now() - existing.createdAt.getTime() > STALE_RESERVATION_MS) {
+      const takenOver = await prisma.mobileIdempotencyRecord.updateMany({
+        where: { id: existing.id, responseCode: null },
+        data: { createdAt: new Date() }
+      });
+      if (takenOver.count === 1) return { outcome: "claimed" };
+    }
+
+    throw new ApiError("CONFLICT", "This request is already being processed. Please try again in a moment.");
+  }
+
+  return {
+    outcome: "replay",
+    response: apiOk(request, existing.responseBody, {
+      status: existing.responseCode,
+      headers: { "Idempotent-Replay": "true" }
+    })
+  };
 }
 
 /** Store the result of a successful mutation so a retry with the same key replays it. */
-export async function recordIdempotent(
+export async function completeIdempotent(
   userId: string,
   endpoint: string,
   key: string,
-  body: unknown,
   responseCode: number,
   responseBody: unknown
 ): Promise<void> {
-  await getPrisma().mobileIdempotencyRecord.upsert({
-    where: { userId_endpoint_key: { userId, endpoint, key } },
-    // A concurrent duplicate that lost the race already wrote the same outcome; keep the first.
-    update: {},
-    create: {
-      userId,
-      endpoint,
-      key,
-      requestHash: hashBody(body),
-      responseCode,
-      responseBody: responseBody as never
-    }
+  await getPrisma().mobileIdempotencyRecord.updateMany({
+    where: { userId, endpoint, key },
+    data: { responseCode, responseBody: responseBody as Prisma.InputJsonValue }
+  });
+}
+
+/**
+ * Drop a reservation whose mutation failed, so the user can retry with the same key.
+ *
+ * Only for failures that left nothing behind. A mutation that partially applied must NOT be
+ * released — the reservation is the only thing stopping a retry from applying it again.
+ */
+export async function releaseIdempotent(userId: string, endpoint: string, key: string): Promise<void> {
+  await getPrisma().mobileIdempotencyRecord.deleteMany({
+    where: { userId, endpoint, key, responseCode: null }
   });
 }
 

@@ -185,11 +185,17 @@ fun ProfilePreferencesScreen(viewModel: AccountViewModel, onBack: () -> Unit) {
             onClick = {
                 viewModel.saveProfile(
                     ProfileRequest(
+                        // Names are required, so an empty box means "still editing" rather than
+                        // "delete my name" — omit it and let the stored value stand.
                         firstName = firstName.trim().takeIf { it.isNotEmpty() },
                         lastName = lastName.trim().takeIf { it.isNotEmpty() },
-                        phone = phone.trim().takeIf { it.isNotEmpty() },
-                        wilaya = wilaya.trim().takeIf { it.isNotEmpty() },
-                        city = city.trim().takeIf { it.isNotEmpty() },
+                        // The optional fields send the empty string on purpose: the API reads "" as
+                        // a clear. Sending null instead would be dropped by the serializer
+                        // (explicitNulls = false) and look identical to "field not supplied", so
+                        // emptying one of these boxes would silently do nothing.
+                        phone = phone.trim(),
+                        wilaya = wilaya.trim(),
+                        city = city.trim(),
                     ),
                     savedMessage,
                 )
@@ -365,7 +371,8 @@ fun PrivacyDataScreen(viewModel: AccountViewModel, onBack: () -> Unit, onSignedO
 fun RegistrationsScreen(
     viewModel: AccountViewModel,
     onBack: () -> Unit,
-    onOpenRegistration: (String) -> Unit,
+    /** Opens the race this registration belongs to; there is no separate registration detail screen. */
+    onOpenRace: (slug: String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
@@ -393,7 +400,7 @@ fun RegistrationsScreen(
         }
 
         state.registrations.forEach { registration ->
-            ZidRunCard(onClick = { onOpenRegistration(registration.id) }) {
+            ZidRunCard(onClick = { onOpenRace(registration.race.slug) }) {
                 Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
                     Text(
                         registration.race.title,
