@@ -255,4 +255,21 @@
     <string name="runs_gps_weak">GPS ضعيف</string>
     <string name="runs_stat_calories">السعرات</string>
     <string name="runs_save_failed">ما قدرناش نسجّلو. السورتي مازالت هنا — عاود.</string>
+    <string name="runs_current_pace">الإيقاع الحالي</string>
+    <string name="runs_avg_pace">معدل الإيقاع</string>
+    <string name="runs_moving_time">في الحركة</string>
+    <string name="runs_gps_strong">GPS قوي</string>
+    <string name="runs_gps_good">GPS مليح</string>
+    <string name="runs_gps_none">ما كاش GPS</string>
+    <string name="runs_gps_searching">يقلّب</string>
+    <string name="runs_finish_confirm_title">تسالي السورتي؟</string>
+    <string name="runs_finish_confirm_body">%1$s كم في %2$s. تقدر تزيد عنوان وتصاور من بعد.</string>
+    <string name="runs_keep_running">كمّل</string>
+    <string name="runs_recording_banner">قاعد يسجّل · %1$s كم</string>
+    <string name="runs_open_recording">حل</string>
+    <string name="runs_summary_title">سجّل السورتي</string>
+    <string name="runs_title_label">العنوان</string>
+    <string name="runs_notes_label">كيفاش كانت؟</string>
+    <string name="runs_effort_label">المجهود: %1$d / 10</string>
+    <string name="runs_discard_confirm">عاود اضغط باش تمسح</string>
 </resources>

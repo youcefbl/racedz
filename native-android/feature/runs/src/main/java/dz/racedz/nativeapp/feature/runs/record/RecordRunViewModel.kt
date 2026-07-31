@@ -30,7 +30,12 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
     private val _state = MutableStateFlow(SaveRunUiState())
     val state: StateFlow<SaveRunUiState> = _state.asStateFlow()
 
-    fun save(onSaved: (String) -> Unit) {
+    fun save(
+        title: String? = null,
+        notes: String? = null,
+        perceivedEffort: Int = 5,
+        onSaved: (String) -> Unit,
+    ) {
         val recording = RunRecorder.state.value
         if (_state.value.saving) return
 
@@ -41,9 +46,9 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 startedAt = Instant.ofEpochMilli(recording.startedAtEpochMs).toString(),
                 distanceKm = recording.distanceKm,
                 durationSeconds = recording.elapsedSeconds.coerceAtLeast(1),
-                // Effort is asked for on the website's save form; until this screen has one, the
-                // neutral middle is sent rather than inventing a number the runner did not give.
-                perceivedEffort = 5,
+                perceivedEffort = perceivedEffort,
+                title = title,
+                notes = notes,
                 movingTimeSeconds = recording.movingSeconds.takeIf { it > 0 },
                 elevationGainM = recording.elevationGainM.toInt().takeIf { it > 0 },
                 route = recording.route.takeIf { it.size >= 2 },

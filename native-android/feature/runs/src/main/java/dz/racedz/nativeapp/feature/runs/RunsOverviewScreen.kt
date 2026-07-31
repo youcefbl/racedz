@@ -59,6 +59,8 @@ import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.RunDto
+import dz.racedz.nativeapp.feature.runs.record.RecordingStatus
+import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.core.network.displayRoute
 import kotlin.math.min
 
@@ -73,6 +75,7 @@ import kotlin.math.min
 fun RunsOverviewScreen(
     viewModel: RunsViewModel,
     onOpenHistory: () -> Unit,
+    onResumeRecording: () -> Unit,
     onOpenRun: (String) -> Unit,
     onRecordRun: () -> Unit,
     onLogManually: () -> Unit,
@@ -113,6 +116,42 @@ fun RunsOverviewScreen(
                     onAction = onOpenHistory,
                 )
                 ZidRunDisplayTitle(text = stringResource(R.string.runs_title))
+
+                // A run left recording in the background needs an obvious way back — otherwise the
+                // runner's only clue that it is still going is the system notification.
+                val recording by RunRecorder.state.collectAsStateWithLifecycle()
+                if (recording.status == RecordingStatus.Recording ||
+                    recording.status == RecordingStatus.Acquiring ||
+                    recording.status == RecordingStatus.Paused
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                            .background(colors.primarySoft)
+                            .clickable(role = Role.Button, onClick = onResumeRecording)
+                            .padding(ZidRunDimens.spaceMd)
+                            .semantics(mergeDescendants = true) { },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(colors.primary))
+                        Spacer(Modifier.width(ZidRunDimens.spaceSm))
+                        Text(
+                            text = stringResource(
+                                R.string.runs_recording_banner,
+                                ZidRunFormat.decimal(recording.distanceKm, locale),
+                            ),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = stringResource(R.string.runs_open_recording),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.primary,
+                        )
+                    }
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),

@@ -35,6 +35,7 @@ import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
+import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
@@ -178,6 +179,7 @@ fun ZidRunApp(
                     onOpenRunHistory = { navController.navigate(RootDestinations.RUN_HISTORY) },
                     onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
                     onRecordRun = { navController.navigate(RootDestinations.RUN_START) },
+                    onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
@@ -201,19 +203,27 @@ fun ZidRunApp(
             }
 
             composable(RootDestinations.RUN_RECORDING) {
+                RecordingScreen(
+                    onFinished = { navController.navigate(RootDestinations.RUN_SUMMARY) },
+                    onDiscarded = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                    // Minimising leaves the recording running in the service; the Runs tab shows a
+                    // banner to come back.
+                    onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.RUN_SUMMARY) {
                 val recordViewModel: RecordRunViewModel = viewModel(
                     factory = SimpleViewModelFactory { RecordRunViewModel(container.runsRepository) }
                 )
-                RecordingScreen(
+                RunSummaryScreen(
                     viewModel = recordViewModel,
                     onSaved = { runId ->
                         navController.navigate(RootDestinations.runDetail(runId)) {
-                            popUpTo(RootDestinations.RUN_RECORDING) { inclusive = true }
+                            popUpTo(RootDestinations.SHELL) { inclusive = false }
                         }
                     },
-                    onDiscarded = {
-                        navController.popBackStack(RootDestinations.SHELL, inclusive = false)
-                    },
+                    onDiscarded = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
                 )
             }
 

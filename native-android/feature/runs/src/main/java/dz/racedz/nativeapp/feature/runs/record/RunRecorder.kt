@@ -35,7 +35,63 @@ data class RecordingState(
         }
 
     val hasUsableFix: Boolean get() = GpsQuality.isUsableFix(gpsAccuracyM)
+
+    /** Same MET estimate the website uses, so both show one number for one run. */
+    val calories: Int? get() = GpsQuality.estimateCalories(distanceKm, movingSeconds)
+
+    /**
+     * GPS strength, from the reported accuracy. Four buckets rather than a number, because a runner
+     * glancing mid-stride needs "is it working", not "12.4 m".
+     */
+    val gpsStrength: GpsStrength
+        get() = when {
+            gpsAccuracyM == null -> GpsStrength.Unknown
+            gpsAccuracyM <= 8f -> GpsStrength.Strong
+            gpsAccuracyM <= 15f -> GpsStrength.Good
+            gpsAccuracyM <= GpsQuality.MAX_RECORDING_ACCURACY_M.toFloat() -> GpsStrength.Weak
+            // Beyond the recording ceiling nothing is being accumulated at all.
+            else -> GpsStrength.None
+        }
+
+    /**
+     * Completed kilometre splits, so the runner can see the last km's pace while still running.
+     * Derived from the route's own timestamps, interpolating the boundary crossing.
+     */
+    val splits: List<LiveSplit>
+        get() {
+            if (route.size < 2) return emptyList()
+            val out = mutableListOf<LiveSplit>()
+            var kmStartMs = route.first().t ?: return emptyList()
+            var travelled = 0.0
+            var boundary = 1000.0
+            var index = 1
+            for (i in 1 until route.size) {
+                val a = route[i - 1]
+                val b = route[i]
+                val segment = GpsQuality.haversineMeters(a.lat, a.lng, b.lat, b.lng)
+                if (segment <= 0) continue
+                val aMs = a.t ?: continue
+                val bMs = b.t ?: continue
+                val segmentStart = travelled
+                travelled += segment
+                while (travelled >= boundary) {
+                    val fraction = (boundary - segmentStart) / segment
+                    val crossedMs = aMs + ((bMs - aMs) * fraction).toLong()
+                    val seconds = ((crossedMs - kmStartMs) / 1000L).toInt()
+                    if (seconds > 0) out += LiveSplit(index, seconds)
+                    kmStartMs = crossedMs
+                    boundary += 1000.0
+                    index += 1
+                }
+            }
+            return out
+        }
 }
+
+enum class GpsStrength { Unknown, None, Weak, Good, Strong }
+
+/** A completed kilometre during the run in progress. */
+data class LiveSplit(val km: Int, val paceSecondsPerKm: Int)
 
 /**
  * Accumulates a run from GPS fixes.

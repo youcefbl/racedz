@@ -254,4 +254,21 @@
     <string name="runs_gps_weak">GPS faible</string>
     <string name="runs_stat_calories">Calories</string>
     <string name="runs_save_failed">Impossible d\'enregistrer. La sortie est conservée — réessayez.</string>
+    <string name="runs_current_pace">Allure actuelle</string>
+    <string name="runs_avg_pace">Allure moy.</string>
+    <string name="runs_moving_time">En mouvement</string>
+    <string name="runs_gps_strong">GPS fort</string>
+    <string name="runs_gps_good">GPS bon</string>
+    <string name="runs_gps_none">Pas de GPS</string>
+    <string name="runs_gps_searching">Recherche</string>
+    <string name="runs_finish_confirm_title">Terminer cette sortie ?</string>
+    <string name="runs_finish_confirm_body">%1$s km en %2$s. Vous pourrez ajouter un titre et des photos ensuite.</string>
+    <string name="runs_keep_running">Continuer</string>
+    <string name="runs_recording_banner">Enregistrement · %1$s km</string>
+    <string name="runs_open_recording">Ouvrir</string>
+    <string name="runs_summary_title">Enregistrer la sortie</string>
+    <string name="runs_title_label">Titre</string>
+    <string name="runs_notes_label">Comment c’était ?</string>
+    <string name="runs_effort_label">Effort : %1$d / 10</string>
+    <string name="runs_discard_confirm">Appuyez encore pour supprimer</string>
 </resources>

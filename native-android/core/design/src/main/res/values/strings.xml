@@ -273,4 +273,21 @@
     <string name="runs_gps_weak">Weak GPS</string>
     <string name="runs_stat_calories">Calories</string>
     <string name="runs_save_failed">Could not save this run. It is still here — try again.</string>
+    <string name="runs_current_pace">Current pace</string>
+    <string name="runs_avg_pace">Avg pace</string>
+    <string name="runs_moving_time">Moving</string>
+    <string name="runs_gps_strong">GPS strong</string>
+    <string name="runs_gps_good">GPS good</string>
+    <string name="runs_gps_none">No GPS</string>
+    <string name="runs_gps_searching">Searching</string>
+    <string name="runs_finish_confirm_title">Finish this run?</string>
+    <string name="runs_finish_confirm_body">%1$s km in %2$s. You can add a title and photos next.</string>
+    <string name="runs_keep_running">Keep running</string>
+    <string name="runs_recording_banner">Recording · %1$s km</string>
+    <string name="runs_open_recording">Open</string>
+    <string name="runs_summary_title">Save your run</string>
+    <string name="runs_title_label">Title</string>
+    <string name="runs_notes_label">How did it feel?</string>
+    <string name="runs_effort_label">Effort: %1$d / 10</string>
+    <string name="runs_discard_confirm">Tap again to discard</string>
 </resources>

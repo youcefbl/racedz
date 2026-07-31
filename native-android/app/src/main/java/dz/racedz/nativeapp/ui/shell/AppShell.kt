@@ -90,6 +90,7 @@ fun AppShell(
     onOpenRunHistory: () -> Unit,
     onOpenRun: (String) -> Unit,
     onRecordRun: () -> Unit,
+    onResumeRecording: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -126,6 +127,7 @@ fun AppShell(
                 RunsOverviewScreen(
                     viewModel = runsViewModel,
                     onOpenHistory = onOpenRunHistory,
+                    onResumeRecording = onResumeRecording,
                     onOpenRun = onOpenRun,
                     onRecordRun = onRecordRun,
                     // Manual entry and GPX import are still to come; until then they open history

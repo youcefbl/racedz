@@ -73,6 +73,21 @@ object GpsQuality {
         }
     }
 
+    /**
+     * Calories, ported from estimateCalories() in src/lib/coach/run-stats.ts.
+     *
+     * A MET approximation by speed. It is an estimate either way, so what matters is that the phone
+     * and the website produce the SAME estimate for the same run — a runner comparing the two should
+     * not see two different numbers.
+     */
+    fun estimateCalories(distanceKm: Double, movingSeconds: Int, weightKg: Double? = null): Int? {
+        if (distanceKm <= 0 || movingSeconds <= 0) return null
+        val weight = weightKg?.takeIf { it > 0 } ?: 70.0
+        val speedKmh = distanceKm / (movingSeconds / 3600.0)
+        val met = (speedKmh * 1.0 + 3.5).coerceIn(6.0, 20.0)
+        return Math.round(met * weight * (movingSeconds / 3600.0)).toInt()
+    }
+
     /** Great-circle distance in metres. */
     fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val earthRadiusM = 6_371_000.0
