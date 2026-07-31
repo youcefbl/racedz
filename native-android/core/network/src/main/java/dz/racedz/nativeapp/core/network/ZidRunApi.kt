@@ -72,6 +72,9 @@ interface ZidRunApi {
     @GET("api/v1/coach")
     suspend fun coachOverview(): Response<ApiEnvelope<CoachOverviewDto>>
 
+    @GET("api/v1/coach/plan")
+    suspend fun coachPlanWeek(): Response<ApiEnvelope<CoachPlanWeekDto>>
+
     @GET("api/v1/coach/goals")
     suspend fun coachOnboardingState(): Response<ApiEnvelope<CoachOnboardingStateDto>>
 

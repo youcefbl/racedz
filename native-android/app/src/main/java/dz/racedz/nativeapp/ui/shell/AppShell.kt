@@ -95,6 +95,7 @@ fun AppShell(
     onResumeRecording: () -> Unit,
     onOpenSubscribe: () -> Unit,
     onOpenCoachSetup: () -> Unit,
+    onOpenCoachPlan: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -152,6 +153,7 @@ fun AppShell(
                     onOpenSubscribe = onOpenSubscribe,
                     onLogRun = onRecordRun,
                     onSetUpCoach = onOpenCoachSetup,
+                    onViewPlan = onOpenCoachPlan,
                     contentPadding = innerPadding,
                 )
             }

@@ -359,4 +359,11 @@
     <string name="day_thu">Thu</string>
     <string name="day_fri">Fri</string>
     <string name="day_sat">Sat</string>
+    <string name="coach_plan_week_title">Your plan this week</string>
+    <string name="coach_plan_sessions">%1$d of %2$d sessions</string>
+    <string name="coach_session">Session</string>
+    <string name="coach_rest_day">Rest day</string>
+    <string name="coach_rest_short">Rest</string>
+    <string name="coach_rest_body">Recovery is training too. Take it easy today.</string>
+    <string name="coach_view_plan">View plan</string>
 </resources>

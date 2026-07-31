@@ -52,6 +52,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
+import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTheme
@@ -73,6 +74,7 @@ fun CoachScreen(
     onOpenSubscribe: () -> Unit,
     onLogRun: () -> Unit,
     onSetUpCoach: () -> Unit,
+    onViewPlan: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -264,6 +266,14 @@ fun CoachScreen(
                             body = stringResource(R.string.coach_no_plan_body),
                             actionLabel = stringResource(R.string.coach_setup_submit),
                             onAction = onSetUpCoach,
+                        )
+                    }
+
+                    // The mockup closes the overview with a way into the full week.
+                    if (overview.todayWorkout != null || overview.nextWorkout != null) {
+                        ZidRunOutlinedButton(
+                            text = stringResource(R.string.coach_view_plan),
+                            onClick = onViewPlan,
                         )
                     }
 

@@ -340,4 +340,11 @@
     <string name="day_thu">Jeu</string>
     <string name="day_fri">Ven</string>
     <string name="day_sat">Sam</string>
+    <string name="coach_plan_week_title">Votre plan cette semaine</string>
+    <string name="coach_plan_sessions">%1$d séances sur %2$d</string>
+    <string name="coach_session">Séance</string>
+    <string name="coach_rest_day">Jour de repos</string>
+    <string name="coach_rest_short">Repos</string>
+    <string name="coach_rest_body">La récupération fait partie de l’entraînement. Reposez-vous aujourd’hui.</string>
+    <string name="coach_view_plan">Voir le plan</string>
 </resources>

@@ -469,6 +469,27 @@ data class CoachOverviewDto(
     val latestReview: CoachReviewDto? = null,
 )
 
+/** One workout in the plan week. [status] is PLANNED, COMPLETED, or SKIPPED. */
+@Serializable
+data class CoachPlanWorkoutDto(
+    val id: String = "",
+    val title: String = "",
+    val workoutType: String = "",
+    val status: String = "PLANNED",
+    val intensity: String = "",
+    val instructions: String = "",
+    val targetDistanceKm: Double? = null,
+    val targetDurationMin: Int? = null,
+    val scheduledFor: String = "",
+)
+
+@Serializable
+data class CoachPlanWeekDto(
+    val hasPlan: Boolean = false,
+    val weekStart: String? = null,
+    val workouts: List<CoachPlanWorkoutDto> = emptyList(),
+)
+
 /** What the coach onboarding still has to ask for. */
 @Serializable
 data class CoachOnboardingStateDto(

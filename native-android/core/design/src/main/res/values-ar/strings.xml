@@ -341,4 +341,11 @@
     <string name="day_thu">خميس</string>
     <string name="day_fri">جمعة</string>
     <string name="day_sat">سبت</string>
+    <string name="coach_plan_week_title">برنامجك هذا الأسبوع</string>
+    <string name="coach_plan_sessions">%1$d حصص من %2$d</string>
+    <string name="coach_session">الحصة</string>
+    <string name="coach_rest_day">نهار راحة</string>
+    <string name="coach_rest_short">راحة</string>
+    <string name="coach_rest_body">الراحة هي كذلك تدريب. ارتاح اليوم.</string>
+    <string name="coach_view_plan">شوف البرنامج</string>
 </resources>

@@ -36,6 +36,8 @@ import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
 import dz.racedz.nativeapp.feature.coach.CoachOnboardingScreen
+import dz.racedz.nativeapp.feature.coach.PlanWeekScreen
+import dz.racedz.nativeapp.feature.coach.PlanWeekViewModel
 import dz.racedz.nativeapp.feature.coach.CoachOnboardingViewModel
 import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
@@ -189,6 +191,7 @@ fun ZidRunApp(
                         onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/coach/subscribe"))
                     },
                     onOpenCoachSetup = { navController.navigate(RootDestinations.COACH_SETUP) },
+                    onOpenCoachPlan = { navController.navigate(RootDestinations.COACH_PLAN) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
@@ -222,6 +225,17 @@ fun ZidRunApp(
                     // Minimising leaves the recording running in the service; the Runs tab shows a
                     // banner to come back.
                     onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.COACH_PLAN) {
+                val planViewModel: PlanWeekViewModel = viewModel(
+                    factory = SimpleViewModelFactory { PlanWeekViewModel(container.coachRepository) }
+                )
+                PlanWeekScreen(
+                    viewModel = planViewModel,
+                    onBack = { navController.popBackStack() },
+                    onLogRun = { navController.navigate(RootDestinations.RUN_START) },
                 )
             }
 
