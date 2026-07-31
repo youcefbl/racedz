@@ -284,6 +284,7 @@ a relationship that does not exist.
 
 | Version | Date | What changed |
 |---|---|---|
+| `0.5.0` | 2026-07-31 | Runs UI aligned with the mockups (footprint ring, guided/free choice, audio cues, run detail charts); Coach tab and coach onboarding |
 | `0.4.0` | 2026-07-31 | Design-fidelity pass over Races, Race detail, Account, and Auth; first build against the deployed production API |
 | `0.2.0` | 2026-07-31 | First production-wired build (shipped twice, as "v0.2" and "v0.3" — the mistake this section exists to prevent) |
 
