@@ -110,6 +110,32 @@ body {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+/* Coach trust panel: keep privacy messaging calm and readable in every visual mode. */
+[data-theme="dark"] .border-teal-200.bg-teal-50 {
+  background: #111c2b !important;
+  border-color: #34506b !important;
+}
+
+[data-theme="dark"] .border-teal-200.bg-teal-50 .border-teal-200\/70.bg-white\/75 {
+  background: #192a3d !important;
+  border-color: #3a526b !important;
+}
+
+[data-theme="race"] .border-teal-200.bg-teal-50 {
+  background: #1a0d2b !important;
+  border-color: #7133ff !important;
+}
+
+[data-theme="race"] .border-teal-200.bg-teal-50 .bg-white.text-brand-teal {
+  background: #2b1246 !important;
+  color: #ff5bdd !important;
+}
+
+[data-theme="race"] .border-teal-200.bg-teal-50 .border-teal-200\/70.bg-white\/75 {
+  background: #291440 !important;
+  border-color: #854dff !important;
+}
+
 /* Comfortable measure for long-form prose (race rules, descriptions, articles). */
 .prose-measure {
   max-width: 70ch;
