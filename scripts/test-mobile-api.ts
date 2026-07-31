@@ -518,6 +518,164 @@ async function main() {
     );
     check("a valid race type filter still works", (await api("/api/v1/races?type=TEN_K")).status === 200);
 
+    // ---- runs sync -------------------------------------------------------------------------------
+    console.log("\nruns sync");
+    actAsClient(`203.0.${RUN_OCTET}.80`);
+    const runsLogin = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const runsToken = tokensOf(runsLogin).accessToken;
+
+    const runClientId = randomUUID();
+    const runBody = {
+      clientId: runClientId,
+      startedAt: new Date(Date.now() - 3_600_000).toISOString(),
+      distanceKm: 5.2,
+      durationSeconds: 1800,
+      perceivedEffort: 5,
+      route: [
+        { lat: 36.75, lng: 3.06 },
+        { lat: 36.76, lng: 3.07 }
+      ]
+    };
+
+    const savedRun = await api("/api/v1/runs", { method: "POST", token: runsToken, body: runBody });
+    check("a run saves without a coaching goal", savedRun.status === 201, savedRun.body);
+    const runDto = savedRun.body.data as Record<string, unknown>;
+    check("the saved run carries a revision", runDto?.revision === 1, runDto?.revision);
+    check("the saved run echoes its clientId", runDto?.clientId === runClientId);
+    check("pace is server-computed, not client-supplied", typeof runDto?.averagePaceSecondsPerKm === "number");
+
+    // The whole point of clientId: a phone that never saw the 201 retries the identical body.
+    const replayedRun = await api("/api/v1/runs", { method: "POST", token: runsToken, body: runBody });
+    check(
+      "re-posting the same clientId returns the original run, not a second one",
+      replayedRun.status === 200 && (replayedRun.body.data as { id: string }).id === runDto.id,
+      { status: replayedRun.status, body: replayedRun.body }
+    );
+    check("the replay is flagged", replayedRun.headers.get("idempotent-replay") === "true");
+
+    const runId = runDto.id as string;
+
+    // Routes are only served per-run; a delta page carrying 50 of them would be enormous.
+    const runDetail = await api(`/api/v1/runs/${runId}`, { token: runsToken });
+    check("the single-run endpoint includes the route", Array.isArray((runDetail.body.data as { route: unknown }).route));
+    const listForRoute = await api("/api/v1/runs", { token: runsToken });
+    check(
+      "the list endpoint omits routes",
+      (listForRoute.body.data as Array<Record<string, unknown>>).every((r) => !("route" in r)),
+      listForRoute.body
+    );
+
+    // Optimistic concurrency: the second of two edits from the same base must lose.
+    const firstEdit = await api(`/api/v1/runs/${runId}`, {
+      method: "PATCH",
+      token: runsToken,
+      body: { baseRevision: 1, title: "Morning run" }
+    });
+    check("an edit at the current revision succeeds", firstEdit.status === 200, firstEdit.body);
+    check("the revision advances", (firstEdit.body.data as { revision: number }).revision === 2);
+
+    const staleEdit = await api(`/api/v1/runs/${runId}`, {
+      method: "PATCH",
+      token: runsToken,
+      body: { baseRevision: 1, title: "Written from a stale device" }
+    });
+    check(
+      "an edit from a stale revision is refused, not silently applied",
+      staleEdit.status === 409 && errorCode(staleEdit) === "CONFLICT",
+      { status: staleEdit.status, code: errorCode(staleEdit) }
+    );
+    check(
+      "the conflict carries the current server record so the client can reconcile",
+      ((staleEdit.body.error as { details?: { run?: { title?: string } } })?.details?.run?.title) === "Morning run",
+      staleEdit.body.error
+    );
+
+    // Delta sync must report the tombstone, or a delete never reaches the runner's other devices.
+    const beforeDelete = await api("/api/v1/runs", { token: runsToken });
+    const cursor = (beforeDelete.body.meta as { nextCursor: string }).nextCursor;
+    check("the list issues a server-side cursor", typeof cursor === "string" && cursor.length > 0, cursor);
+
+    const deleted = await api(`/api/v1/runs/${runId}`, { method: "DELETE", token: runsToken });
+    check("deleting succeeds", deleted.status === 200, deleted.body);
+    check("the deleted run is marked as a tombstone", (deleted.body.data as { deleted: boolean }).deleted === true);
+    check("deleting again is not an error", (await api(`/api/v1/runs/${runId}`, { method: "DELETE", token: runsToken })).status === 200);
+
+    const delta = await api(`/api/v1/runs?updatedSince=${encodeURIComponent(cursor)}`, { token: runsToken });
+    const deltaItems = delta.body.data as Array<Record<string, unknown>>;
+    check(
+      "a delta sync reports the deletion to other devices",
+      deltaItems.some((r) => r.id === runId && r.deleted === true),
+      deltaItems
+    );
+    check(
+      "a tombstone carries no route or notes",
+      deltaItems.filter((r) => r.deleted).every((r) => !("route" in r) && !("notes" in r) && !("startedAt" in r)),
+      deltaItems.filter((r) => r.deleted)
+    );
+    check("a deleted run is no longer readable", (await api(`/api/v1/runs/${runId}`, { token: runsToken })).status === 404);
+    check(
+      "the default list hides deleted runs",
+      !((await api("/api/v1/runs", { token: runsToken })).body.data as Array<{ id: string }>).some((r) => r.id === runId)
+    );
+
+    // A route the size the recorder actually produces (1500 points) must be accepted. The first
+    // draft of this endpoint inherited the shared 64 KB body cap and would have rejected it.
+    const realisticRoute = Array.from({ length: 1500 }, (_, i) => ({
+      lat: 36.75 + i * 0.00001,
+      lng: 3.06 + i * 0.00001,
+      elevation: 25 + (i % 40),
+      timestamp: 1_760_000_000 + i
+    }));
+    const bigButValid = await api("/api/v1/runs", {
+      method: "POST",
+      token: runsToken,
+      body: { ...runBody, clientId: randomUUID(), route: realisticRoute }
+    });
+    check("a full 1500-point recorded route is accepted", bigButValid.status === 201, {
+      status: bigButValid.status,
+      code: errorCode(bigButValid)
+    });
+
+    // Bounded payloads: refused outright rather than truncated, which would corrupt the distance.
+    const hugeRoute = await api("/api/v1/runs", {
+      method: "POST",
+      token: runsToken,
+      body: { ...runBody, clientId: randomUUID(), route: Array.from({ length: 5001 }, () => ({ lat: 36.75, lng: 3.06 })) }
+    });
+    check(
+      "an oversized route is rejected rather than silently truncated",
+      hugeRoute.status === 422 && errorCode(hugeRoute) === "VALIDATION_FAILED",
+      { status: hugeRoute.status, code: errorCode(hugeRoute) }
+    );
+
+    // Measurements are server-computed; a client must not be able to rewrite them after the fact.
+    const tamper = await api("/api/v1/runs", { method: "POST", token: runsToken, body: { ...runBody, clientId: randomUUID() } });
+    const tamperId = (tamper.body.data as { id: string }).id;
+    const tampered = await api(`/api/v1/runs/${tamperId}`, {
+      method: "PATCH",
+      token: runsToken,
+      body: { baseRevision: 1, distanceKm: 42.2, title: "ok" }
+    });
+    const afterTamper = await api(`/api/v1/runs/${tamperId}`, { token: runsToken });
+    check(
+      "a client cannot rewrite a server-measured distance",
+      (afterTamper.body.data as { distanceKm: number }).distanceKm === 5.2,
+      { patch: tampered.status, distance: (afterTamper.body.data as { distanceKm: number }).distanceKm }
+    );
+
+    // Another runner's run must be invisible, not merely unlisted. A run carries GPS: the failure
+    // mode here is one person learning where another lives.
+    const stranger = await makeUser(password);
+    createdUserIds.push(stranger.id);
+    const strangerLogin = await api("/api/v1/auth/login", { method: "POST", body: { email: stranger.email, password } });
+    const strangerToken = tokensOf(strangerLogin).accessToken;
+    const otherRun = await api(`/api/v1/runs/${tamperId}`, { token: strangerToken });
+    check("another runner cannot read this run", otherRun.status === 404, otherRun.status);
+    check(
+      "another runner's list does not contain it",
+      !((await api("/api/v1/runs", { token: strangerToken })).body.data as Array<{ id: string }>).some((r) => r.id === tamperId)
+    );
+
     // ---- rate limiting ----------------------------------------------------------------------------
     console.log("\nrate limiting");
     actAsClient(`203.0.${RUN_OCTET}.99`);
