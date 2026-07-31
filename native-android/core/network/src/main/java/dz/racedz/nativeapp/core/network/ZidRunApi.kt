@@ -1,5 +1,6 @@
 package dz.racedz.nativeapp.core.network
 
+import kotlinx.serialization.json.JsonObject
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -70,6 +71,12 @@ interface ZidRunApi {
 
     @GET("api/v1/coach")
     suspend fun coachOverview(): Response<ApiEnvelope<CoachOverviewDto>>
+
+    @GET("api/v1/coach/goals")
+    suspend fun coachOnboardingState(): Response<ApiEnvelope<CoachOnboardingStateDto>>
+
+    @POST("api/v1/coach/goals")
+    suspend fun createCoachGoal(@Body body: CreateCoachGoalRequest): Response<ApiEnvelope<JsonObject>>
 
     @GET("api/v1/runs/guided")
     suspend fun guidedSession(): Response<ApiEnvelope<GuidedSessionDto>>

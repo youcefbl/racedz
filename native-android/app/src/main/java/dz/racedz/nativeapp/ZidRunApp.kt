@@ -35,6 +35,8 @@ import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
+import dz.racedz.nativeapp.feature.coach.CoachOnboardingScreen
+import dz.racedz.nativeapp.feature.coach.CoachOnboardingViewModel
 import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunViewModel
@@ -186,6 +188,7 @@ fun ZidRunApp(
                     onOpenSubscribe = {
                         onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/coach/subscribe"))
                     },
+                    onOpenCoachSetup = { navController.navigate(RootDestinations.COACH_SETUP) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
@@ -219,6 +222,18 @@ fun ZidRunApp(
                     // Minimising leaves the recording running in the service; the Runs tab shows a
                     // banner to come back.
                     onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.COACH_SETUP) {
+                val onboardingViewModel: CoachOnboardingViewModel = viewModel(
+                    factory = SimpleViewModelFactory { CoachOnboardingViewModel(container.coachRepository) }
+                )
+                CoachOnboardingScreen(
+                    viewModel = onboardingViewModel,
+                    onBack = { navController.popBackStack() },
+                    // Back to the Coach tab, which now has a plan to show.
+                    onCreated = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
                 )
             }
 

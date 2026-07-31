@@ -469,6 +469,37 @@ data class CoachOverviewDto(
     val latestReview: CoachReviewDto? = null,
 )
 
+/** What the coach onboarding still has to ask for. */
+@Serializable
+data class CoachOnboardingStateDto(
+    val needsSex: Boolean = false,
+    val needsBirthDate: Boolean = false,
+    val hasActiveGoal: Boolean = false,
+)
+
+/**
+ * The coaching goal, as the onboarding form submits it.
+ *
+ * Mirrors createCoachGoalSchema. Only the fields the schema requires are non-null here; the rest are
+ * genuinely optional and omitted rather than sent as invented defaults — a fabricated resting heart
+ * rate would feed the plan as though the runner had measured it.
+ */
+@Serializable
+data class CreateCoachGoalRequest(
+    val goalType: String,
+    val targetDate: String,
+    val experienceLevel: String,
+    val currentWeeklyDistanceKm: Double,
+    val availableTrainingDays: List<Int>,
+    val customGoal: String? = null,
+    val targetDistanceKm: Double? = null,
+    val sex: String? = null,
+    val dateOfBirth: String? = null,
+    val preferredLongRunDay: Int? = null,
+    val injuryNotes: String? = null,
+    val preferredLocale: String = "en",
+)
+
 /** One step of a guided session: warm up, work, recover, steady, or cool down. */
 @Serializable
 data class GuidedStepDto(

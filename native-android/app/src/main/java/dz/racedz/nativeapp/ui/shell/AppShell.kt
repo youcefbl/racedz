@@ -94,6 +94,7 @@ fun AppShell(
     onRecordRun: () -> Unit,
     onResumeRecording: () -> Unit,
     onOpenSubscribe: () -> Unit,
+    onOpenCoachSetup: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -150,6 +151,7 @@ fun AppShell(
                     // out rather than shipping a second, divergent version of it.
                     onOpenSubscribe = onOpenSubscribe,
                     onLogRun = onRecordRun,
+                    onSetUpCoach = onOpenCoachSetup,
                     contentPadding = innerPadding,
                 )
             }

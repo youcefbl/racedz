@@ -72,6 +72,7 @@ fun CoachScreen(
     viewModel: CoachViewModel,
     onOpenSubscribe: () -> Unit,
     onLogRun: () -> Unit,
+    onSetUpCoach: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -255,10 +256,14 @@ fun CoachScreen(
                     }
 
                     if (overview.todayWorkout == null && overview.nextWorkout == null) {
+                        // No goal means no plan can exist yet — send the runner to onboarding
+                        // rather than leaving them looking at an empty dashboard.
                         ZidRunStatusView(
                             icon = Icons.AutoMirrored.Filled.DirectionsRun,
                             title = stringResource(R.string.coach_no_plan_title),
                             body = stringResource(R.string.coach_no_plan_body),
+                            actionLabel = stringResource(R.string.coach_setup_submit),
+                            onAction = onSetUpCoach,
                         )
                     }
 

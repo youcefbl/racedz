@@ -12,7 +12,9 @@ import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
 import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.CoachOnboardingStateDto
 import dz.racedz.nativeapp.core.network.CoachOverviewDto
+import dz.racedz.nativeapp.core.network.CreateCoachGoalRequest
 import dz.racedz.nativeapp.core.network.GuidedSessionDto
 import dz.racedz.nativeapp.core.network.RunDetailDto
 import dz.racedz.nativeapp.core.network.RunDto
@@ -183,4 +185,10 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
  */
 class CoachRepository(private val api: ZidRunApi, private val client: ApiClient) {
     suspend fun overview(): ApiResult<CoachOverviewDto> = client.call { api.coachOverview() }
+
+    suspend fun onboardingState(): ApiResult<CoachOnboardingStateDto> = client.call { api.coachOnboardingState() }
+
+    /** Creates the goal, which is what unlocks plan generation. */
+    suspend fun createGoal(request: CreateCoachGoalRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
+        client.call { api.createCoachGoal(request) }
 }
