@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZidRun</string>
+
+    <string name="splash_tagline">اجري قصتك الجاية</string>
+    <string name="cd_zidrun_logo">شعار ZidRun</string>
+
+    <string name="nav_races">السباقات</string>
+    <string name="nav_runs">الجري</string>
+    <string name="nav_coach">المدرب</string>
+    <string name="nav_account">الحساب</string>
+
+    <string name="placeholder_coming_soon">قريباً</string>
+    <string name="placeholder_runs_body">الجري الموجّه وتسجيل GPS جايين مع مرحلة الجري.</string>
+    <string name="placeholder_coach_body">المدرب الذكي ديالك جاي مع مرحلة الكوتش.</string>
+
+</resources>

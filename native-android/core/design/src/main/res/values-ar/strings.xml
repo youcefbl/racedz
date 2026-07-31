@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Algerian Darija, matching the tone of the web dictionaries in src/lib/i18n.ts. -->
+<resources>
+
+    <string name="common_retry">عاود المحاولة</string>
+    <string name="common_loading">قاع يحمّل…</string>
+    <string name="common_cancel">ألغِ</string>
+    <string name="common_save">سجّل</string>
+    <string name="common_continue">كمّل</string>
+    <string name="common_back">ارجع</string>
+    <string name="common_close">سكّر</string>
+    <string name="common_search">قلّب</string>
+    <string name="common_offline_title">ما كاينش كونيكسيون</string>
+    <string name="common_offline_body">شوف الكونيكسيون وعاود المحاولة.</string>
+    <string name="common_error_title">صرا مشكل</string>
+    <string name="common_show_password">وري كلمة السر</string>
+    <string name="common_hide_password">خبّي كلمة السر</string>
+    <string name="common_session_expired">الجلسة ديالك سالات. دخل مرة أخرى.</string>
+
+    <string name="auth_welcome_back">مرحبا بيك من جديد</string>
+    <string name="auth_welcome_subtitle">السباق الجاي ديالك يستناك.</string>
+    <string name="auth_email_label">البريد الإلكتروني</string>
+    <string name="auth_password_label">كلمة السر</string>
+    <string name="auth_forgot_password">نسيت كلمة السر؟</string>
+    <string name="auth_sign_in">دخل</string>
+    <string name="auth_or">ولا</string>
+    <string name="auth_continue_with_google">كمّل مع Google</string>
+    <string name="auth_new_here">جديد في ZidRun؟</string>
+    <string name="auth_create_account_link">دير حساب</string>
+    <string name="auth_signed_out_expired">خرّجناك حيت الجلسة ديالك سالات.</string>
+    <string name="auth_signed_out_security">خرّجناك للأمان. دخل مرة أخرى.</string>
+    <string name="auth_signed_out_blocked">هذا الحساب مبلوكي. اتصل بالدعم إذا تحسب راه غلط.</string>
+    <string name="auth_browser_opening">راح يتحل المتصفح…</string>
+
+    <string name="auth_create_title">دير الحساب ديالك</string>
+    <string name="auth_step_of">الخطوة %1$d من %2$d</string>
+    <string name="auth_full_name_label">الاسم الكامل</string>
+    <string name="auth_password_hint">استعمل 8 حروف ولا أكثر</string>
+    <string name="auth_accept_terms">نوافق على الشروط وسياسة الخصوصية</string>
+    <string name="auth_profile_next_title">البروفايل اختياري من بعد</string>
+    <string name="auth_profile_next_body">تقدر تزيد تصويرة والتفضيلات ديالك من بعد ما دير الحساب.</string>
+    <string name="auth_create_account">دير الحساب</string>
+    <string name="auth_have_account">عندك حساب من قبل؟</string>
+    <string name="auth_privacy_footnote">النشاط ديالك يبقى خاص بشكل افتراضي.</string>
+
+    <string name="auth_verify_title">شوف البريد ديالك</string>
+    <string name="auth_verify_body">صيفطنالك رابط التفعيل لـ %1$s. حلّه باش تفعّل الحساب، ومن بعد دخل.</string>
+    <string name="auth_resend_email">عاود صيفط البريد</string>
+    <string name="auth_resend_sent">إذا هاذ العنوان يحتاج التفعيل، صيفطنا رابط جديد.</string>
+    <string name="auth_back_to_sign_in">ارجع للدخول</string>
+
+    <string name="auth_mfa_title">التحقق بخطوتين</string>
+    <string name="auth_mfa_body">دخّل الكود ديال 6 أرقام من تطبيق المصادقة، ولا واحد من أكواد الاسترجاع.</string>
+    <string name="auth_mfa_code_label">كود التحقق</string>
+    <string name="auth_mfa_verify">تحقق</string>
+
+    <string name="races_title">السباقات</string>
+    <string name="races_search_hint">قلّب على سباق، مدينة، ولا منظّم</string>
+    <string name="races_featured">سباق مميّز</string>
+    <string name="races_view_race">شوف السباق</string>
+    <string name="races_coming_up">الجاي قريب</string>
+    <string name="races_empty_title">ما لقينا حتى سباق</string>
+    <string name="races_empty_body">جرّب بحث آخر ولا امسح الفلاتر.</string>
+    <string name="races_clear_filters">امسح الفلاتر</string>
+    <string name="races_all_wilayas">الجزائر كاملة</string>
+    <string name="races_filter_wilaya">الولاية</string>
+    <string name="races_loading_more">قاع نحمّلو سباقات أخرى…</string>
+    <string name="races_cd_search">قلّب على السباقات</string>
+
+    <string name="race_about">على هاذ السباق</string>
+    <string name="race_distances">المسافات</string>
+    <string name="race_rules">القوانين</string>
+    <string name="race_required_documents">واش تجيب معاك</string>
+    <string name="race_conditions">الشروط</string>
+    <string name="race_announcements">الإعلانات</string>
+    <string name="race_organizer">منظّم من طرف %1$s</string>
+    <string name="race_register">سجّل</string>
+    <string name="race_registration_closed">التسجيل مسدود</string>
+    <string name="race_registration_not_open">التسجيل مازال ما تحلّش</string>
+    <string name="race_registration_full">هاذ السباق عمر</string>
+    <string name="race_already_registered">راك مسجّل</string>
+    <string name="race_view_registration">شوف التسجيل ديالي</string>
+    <string name="race_places_left">باقي %1$d بلايص</string>
+    <string name="race_free">بلا فلوس</string>
+    <string name="race_price_from">من %1$s دج</string>
+    <string name="race_not_found_title">السباق ماشي متوفر</string>
+    <string name="race_not_found_body">يمكن هاذ السباق تحيّد ولا ما بقاش منشور.</string>
+    <string name="race_sign_in_to_register">دخل باش تسجّل</string>
+
+    <string name="registration_title">التسجيل في %1$s</string>
+    <string name="registration_step_distance">اختار المسافة ديالك</string>
+    <string name="registration_step_details">المعلومات ديالك</string>
+    <string name="registration_step_confirm">أكّد</string>
+    <string name="registration_first_name">الاسم</string>
+    <string name="registration_last_name">اللقب</string>
+    <string name="registration_phone">رقم الهاتف</string>
+    <string name="registration_dob">تاريخ الميلاد (سنة-شهر-يوم)</string>
+    <string name="registration_gender">الجنس</string>
+    <string name="registration_gender_male">ذكر</string>
+    <string name="registration_gender_female">أنثى</string>
+    <string name="registration_gender_other">آخر</string>
+    <string name="registration_wilaya">الولاية</string>
+    <string name="registration_city">المدينة</string>
+    <string name="registration_emergency_name">اسم جهة الاتصال في الطوارئ</string>
+    <string name="registration_emergency_phone">هاتف جهة الاتصال في الطوارئ</string>
+    <string name="registration_club">النادي (اختياري)</string>
+    <string name="registration_shirt">قياس التي-شيرت (اختياري)</string>
+    <string name="registration_accept">نوافق على قوانين السباق</string>
+    <string name="registration_submit">أكّد التسجيل</string>
+    <string name="registration_success_title">راك مسجّل</string>
+    <string name="registration_success_body">البلاصة ديالك محجوزة. خلّص وصيفط الإثبات باش المنظّم يأكّد.</string>
+    <string name="registration_already">راك مسجّل من قبل في هاذ المسافة.</string>
+
+    <string name="payment_title">الدفع</string>
+    <string name="payment_amount">المبلغ: %1$s دج</string>
+    <string name="payment_method">كيفاش خلّصت؟</string>
+    <string name="payment_method_baridimob">بريدي موب</string>
+    <string name="payment_method_ccp">CCP</string>
+    <string name="payment_method_transfer">تحويل بنكي</string>
+    <string name="payment_method_cash">كاش</string>
+    <string name="payment_method_other">آخر</string>
+    <string name="payment_baridimob_number">بريدي موب: %1$s</string>
+    <string name="payment_ccp_account">CCP: %1$s</string>
+    <string name="payment_ccp_key">المفتاح: %1$s</string>
+    <string name="payment_choose_proof">اختار تصويرة</string>
+    <string name="payment_upload_proof">صيفط إثبات الدفع</string>
+    <string name="payment_proof_uploaded">وصل الإثبات. المنظّم راح يشوفو.</string>
+    <string name="payment_proof_private">غير نتا والمنظّم تشوفو هاذ التصويرة.</string>
+    <string name="payment_status_pending">في انتظار الدفع</string>
+    <string name="payment_status_review">تحت المراجعة</string>
+    <string name="payment_status_paid">مخلّص</string>
+    <string name="payment_status_not_required">ما يحتاجش دفع</string>
+
+    <string name="account_title">الحساب</string>
+    <string name="account_settings">الإعدادات</string>
+    <string name="account_your_season">الموسم ديالك</string>
+    <string name="account_stat_races">سباقات</string>
+    <string name="account_stat_km">كم</string>
+    <string name="account_stat_runs">جريات</string>
+    <string name="account_my_registrations">التسجيلات ديالي</string>
+    <string name="account_profile_preferences">البروفايل والتفضيلات</string>
+    <string name="account_privacy_data">الخصوصية والبيانات</string>
+    <string name="account_support">الدعم</string>
+    <string name="account_sign_out">خرّج</string>
+    <string name="account_sign_out_confirm">تحب تخرج من ZidRun في هاذ الجهاز؟</string>
+    <string name="account_signed_in_as">داخل باسم %1$s</string>
+
+    <string name="profile_title">البروفايل والتفضيلات</string>
+    <string name="profile_personal">المعلومات الشخصية</string>
+    <string name="profile_appearance">المظهر</string>
+    <string name="profile_language">اللغة</string>
+    <string name="profile_theme">الثيم</string>
+    <string name="profile_theme_light">فاتح</string>
+    <string name="profile_theme_dark">غامق</string>
+    <string name="profile_theme_race">سباق</string>
+    <string name="profile_language_en">English</string>
+    <string name="profile_language_fr">Français</string>
+    <string name="profile_language_ar">الدارجة</string>
+    <string name="profile_saved">تسجّل</string>
+
+    <string name="privacy_title">الخصوصية والبيانات</string>
+    <string name="privacy_private_profile">بروفايل خاص</string>
+    <string name="privacy_private_profile_body">خبّي النشاط ديالك من الترتيب ومن الجرّايين الآخرين.</string>
+    <string name="privacy_devices">الأجهزة الداخلة</string>
+    <string name="privacy_device_current">هاذ الجهاز</string>
+    <string name="privacy_sign_out_all">خرّج من كل الأجهزة</string>
+    <string name="privacy_sign_out_all_body">يخرّج كل الأجهزة، حتى هاذ واحد.</string>
+    <string name="privacy_delete_account">اطلب حذف الحساب</string>
+    <string name="privacy_delete_account_body">نراجعو طلبات الحذف حيت السباقات اللي سجّلت فيهم فيها منظّم. تبقى داخل حتى نكملو.</string>
+    <string name="privacy_delete_confirm">صيفط طلب الحذف</string>
+    <string name="privacy_delete_sent">تصيفط الطلب ديالك. نردّو عليك في الدعم.</string>
+    <string name="privacy_last_used">آخر استعمال %1$s</string>
+
+    <string name="registrations_title">التسجيلات ديالي</string>
+    <string name="registrations_empty_title">ما كاين حتى تسجيل</string>
+    <string name="registrations_empty_body">كي تسجّل في سباق يبان هنا مع حالة الدفع.</string>
+    <string name="registration_status_pending">في الانتظار</string>
+    <string name="registration_status_confirmed">مؤكّد</string>
+    <string name="registration_status_cancelled">ملغي</string>
+    <string name="registration_status_rejected">مرفوض</string>
+    <string name="registration_status_waiting">قائمة الانتظار</string>
+
+    <string name="cd_zidrun_wordmark">ZidRun</string>
+    <string name="cd_race_image">تصويرة السباق</string>
+    <string name="cd_avatar">تصويرة البروفايل ديالك</string>
+    <string name="cd_open_settings">حل الإعدادات</string>
+
+</resources>

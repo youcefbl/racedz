@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base activity theme. Compose owns all real UI; this only sets the window background used
+         for the brief moment before the first Compose frame lands. -->
+    <style name="Theme.ZidRunNative" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- androidx.core.splashscreen theme: the system splash shown before MainActivity draws
+         anything, handed off to Theme.ZidRunNative once the SplashScreen composable takes over. -->
+    <style name="Theme.ZidRunNative.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.ZidRunNative</item>
+    </style>
+
+</resources>

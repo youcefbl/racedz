@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZidRun</string>
+
+    <string name="splash_tagline">Run your next story</string>
+    <string name="cd_zidrun_logo">ZidRun logo</string>
+
+    <string name="nav_races">Races</string>
+    <string name="nav_runs">Runs</string>
+    <string name="nav_coach">Coach</string>
+    <string name="nav_account">Account</string>
+
+    <string name="placeholder_coming_soon">Coming soon</string>
+    <string name="placeholder_runs_body">Guided runs and GPS recording arrive with the Runs phase.</string>
+    <string name="placeholder_coach_body">Your AI coach arrives with the Coach phase.</string>
+
+</resources>

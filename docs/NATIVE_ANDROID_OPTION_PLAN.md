@@ -9,7 +9,8 @@
 - Do not switch the current release from Capacitor while the native option is being evaluated.
 - Do not rewrite or delete `android/`; it remains the Capacitor project and release fallback.
 - Build the native experiment as a separate project at `native-android/` or in a separate repository,
-  with a separate Gradle package such as `dz.racedz.native` for internal testing.
+  with a separate Gradle package such as `dz.racedz.nativeapp` for internal testing (`native` alone is
+  a reserved Java keyword and is rejected as an Android namespace segment).
 - Keep the current production Capacitor package `dz.racedz.app` and its Play listing untouched until a
   later decision gate approves a migration or a second product.
 - Share backend domain logic, database schema, privacy rules, security controls, and API contracts;
@@ -118,6 +119,21 @@ native-android/
 The native app may share generated API models or a small contract package, but it must not import
 Next.js, React, Prisma, server-only modules, or web secrets.
 
+**As built (phases 1–5).** Everything above exists except `core/database/`, `feature/runs/`,
+`feature/coach/`, and `feature/notifications/`, which belong to phase 6 and are deliberately absent
+rather than stubbed — an empty Room module would imply an offline story that does not exist yet.
+Two decisions worth knowing before extending it:
+
+- **No DI framework.** The graph is a handful of singletons wired by hand in
+  `app/AppContainer.kt`. `SessionManager` is created before the OkHttp client and injected as the
+  token provider through a small indirection, because the client needs the provider and the manager
+  needs the API the client builds. Adding Hilt later is possible; it is not needed at this size and
+  annotation processing is a real build-time cost.
+- **Repositories currently live in `core/auth/Repositories.kt`.** Races, account, and registration
+  repositories sit there because they are thin wrappers over `ApiClient` and all need
+  `SessionManager` to react to an expired session. If a `core/data` module is added for phase 6,
+  move them; do not duplicate them.
+
 ### Stage 3 — implement the vertical slice
 
 Build in this order:
@@ -138,6 +154,17 @@ Build in this order:
 
 At each stage, compare native behavior against the frozen Capacitor reference on the same device and
 backend commit. A feature is not “parity complete” because its happy path works once.
+
+**Progress.** Steps 1–5 are implemented and verified on an emulator against a local backend; steps
+6–9 (FCM, run recording, Coach, social) are not started. The full evidence — including the eight
+defects the emulator pass found and how each was fixed — is recorded in
+[`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md) under "Current evidence", not duplicated here.
+
+Running the app against a local backend: `npm run dev` (the app's debug build points at
+`http://10.0.2.2:3003`, the emulator's alias for the host loopback) and
+`./gradlew :app:installDebug` from `native-android/`. The debug build installs as
+`dz.racedz.nativeapp.debug`, so it coexists with both the release evaluation build and the
+production Capacitor app.
 
 ## Backend changes required
 
@@ -163,6 +190,25 @@ Every endpoint must have a Zod or equivalent contract, explicit response DTO, pa
 page/body size, consistent error envelope, request/correlation ID, authorization check, rate limit,
 audit behavior where sensitive, and OpenAPI documentation. Do not expose Prisma rows directly.
 
+**As built.** `src/lib/api/v1/` holds the shared pieces — `http.ts` (envelope, typed `ApiErrorCode`
+union, bounded body reader, pagination capped at 50), `tokens.ts` (access/refresh lifecycle),
+`guard.ts` (`requireMobileUser`), `dto.ts` (every response shape, listed field by field), and
+`idempotency.ts`. Live routes cover `auth`, `me`, `races`, `registrations`, `uploads` (as the
+registration payment-proof route), and `config`; `runs`, `coach`, `notifications`, and
+`social/groups` are **not** implemented and must not be added without the authorization and privacy
+tests this plan already requires. OpenAPI documentation is still outstanding — the contract is
+currently pinned by `scripts/test-mobile-api.ts` (`npm run test:mobile-api`, 44 assertions against a
+live server) rather than by a published schema.
+
+Two rules the DTO layer encodes, worth restating because they are easy to undo:
+
+- **Organizer bank details** (`baridiMobNumber`, `ccpAccount`, `ccpKey`) appear only on a
+  registration the caller owns — never on race list or race detail, where they would be public.
+- **Payment proofs** are exposed as a boolean (`hasPaymentProof`), never as a storage path. The
+  image is reachable only through `/api/v1/registrations/:id/payment-proof`, which re-checks
+  ownership on every read and answers 404 (not 403) for someone else's registration, so the
+  endpoint cannot be used to enumerate registration ids.
+
 ### 2. Native authentication and device sessions
 
 Do not make the native app depend permanently on browser cookies or the current one-time bridge.
@@ -179,6 +225,29 @@ Introduce a native session model with:
 
 The current Auth.js web flow remains for the website and Capacitor compatibility during evaluation.
 Implement native auth behind a feature flag and test both clients before changing any shared behavior.
+
+**As built.** Access tokens are 15-minute HS256 JWTs signed with `AUTH_SECRET`; refresh tokens are
+opaque 256-bit values persisted only as SHA-256 hashes in `MobileSession`, rotated on every use and
+grouped by `familyId`. Presenting an already-rotated token revokes the entire family and logs
+`mobile_refresh_reuse_detected`. Every authenticated call re-reads the live `User` row and compares
+`securityStampAt`, so the existing web revocation mechanism (password reset, MFA change, block, role
+change) logs mobile devices out within the access token's lifetime rather than at its expiry —
+verified on device.
+
+Google sign-in is authorization-code + PKCE through a Custom Tab, deliberately **not** a WebView and
+deliberately **not** a second copy of the Google integration: `/api/v1/auth/authorize` redirects to
+the website's own `/login`, so Google, blocked accounts, rate limits, and the MFA page all apply
+unchanged, and only the resulting single-use code comes back over `zidrun://auth/callback`. Two
+consequences to preserve if this is ever refactored:
+
+- The redirect target is allowlisted server-side. A custom scheme can be claimed by any installed
+  app, so the code is bound to a PKCE `S256` challenge whose verifier never leaves the app process —
+  an interceptor receives a value it cannot spend.
+- The app compares the returned `state` before redeeming. Without that check, any app or web page
+  able to fire the deep link could hand the app a code for an account the user did not choose.
+
+Still outstanding for `NATIVE-004`: account switching (only single-account sign-in exists), device
+registration for push, and an independent security review of the above.
 
 ### 3. Offline run and sync contract
 

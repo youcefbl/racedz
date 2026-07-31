@@ -1,0 +1,96 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+}
+
+android {
+    namespace = "dz.racedz.nativeapp"
+    compileSdk = 36
+
+    defaultConfig {
+        // Separate application ID from the Capacitor release (dz.racedz.app) per
+        // docs/NATIVE_ANDROID_OPTION_PLAN.md — this is an isolated internal evaluation build.
+        applicationId = "dz.racedz.nativeapp"
+        minSdk = 26
+        targetSdk = 36
+        versionCode = 2
+        versionName = "0.2.0-native-phase5"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        debug {
+            // Keeps the evaluation build installable next to a release build, and makes it obvious
+            // on the launcher which one is which.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose = true
+        // ZidRunApplication reads BuildConfig.VERSION_NAME to report the app version on sign-in.
+        buildConfig = true
+    }
+
+    packaging {
+        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+}
+
+dependencies {
+    implementation(project(":core:design"))
+    implementation(project(":core:network"))
+    implementation(project(":core:auth"))
+    implementation(project(":feature:auth"))
+    implementation(project(":feature:races"))
+    implementation(project(":feature:account"))
+    implementation(project(":feature:registration"))
+
+    val composeBom = platform(libs.compose.bom)
+    implementation(composeBom)
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.appcompat)
+    // Only for the Theme.Material3.DayNight.NoActionBar XML parent (system splash / pre-Compose
+    // window background); Compose screens use core:design's ZidRunTheme, not Material Components views.
+    implementation("com.google.android.material:material:1.12.0")
+    implementation(libs.androidx.activity.compose)
+    // Custom Tabs: the system-browser sign-in must not run in a WebView.
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.lifecycle.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.compose.ui.tooling.preview)
+
+    debugImplementation(libs.compose.ui.tooling)
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
+}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Belt and braces alongside android:allowBackup="false": even if backup were enabled, the encrypted
+  session file must never leave the device, because its Keystore key cannot travel with it and a
+  refresh token is a 60-day credential.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="zidrun_session.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="zidrun_session.xml" />
+    </device-transfer>
+</data-extraction-rules>
