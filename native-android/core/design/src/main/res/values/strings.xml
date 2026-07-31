@@ -252,4 +252,25 @@
     <string name="runs_detail_title">Run</string>
     <string name="runs_title">Runs</string>
     <string name="runs_elevation_gain_value">Gain %1$d m</string>
+    <string name="runs_notification_channel">Run recording</string>
+    <string name="runs_notification_title">Recording your run</string>
+    <string name="runs_notification_body">%1$s km · %2$s</string>
+    <string name="runs_ready_title">Ready when you are</string>
+    <string name="runs_ready_gps">GPS ready</string>
+    <string name="runs_hold">Hold</string>
+    <string name="runs_hold_to_begin">to begin</string>
+    <string name="runs_start_run">Start run</string>
+    <string name="runs_permission_denied">Location access is needed to measure your route. Nothing is recorded until you start a run.</string>
+    <string name="runs_grant_permission">Allow location</string>
+    <string name="runs_recording">Recording</string>
+    <string name="runs_paused">Paused</string>
+    <string name="runs_pause">Pause</string>
+    <string name="runs_resume">Resume</string>
+    <string name="runs_finish">Finish</string>
+    <string name="runs_discard">Discard</string>
+    <string name="runs_save">Save run</string>
+    <string name="runs_auto_paused">Paused — that looked faster than running. Resume when you are back on foot.</string>
+    <string name="runs_gps_weak">Weak GPS</string>
+    <string name="runs_stat_calories">Calories</string>
+    <string name="runs_save_failed">Could not save this run. It is still here — try again.</string>
 </resources>

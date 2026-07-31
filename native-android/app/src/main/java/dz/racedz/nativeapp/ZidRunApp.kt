@@ -33,6 +33,9 @@ import dz.racedz.nativeapp.feature.runs.RunDetailScreen
 import dz.racedz.nativeapp.feature.runs.RunDetailViewModel
 import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
+import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
+import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
+import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
 import dz.racedz.nativeapp.locale.LocaleManager
@@ -174,11 +177,42 @@ fun ZidRunApp(
                     onOpenRace = { navController.navigate(RootDestinations.raceDetail(it)) },
                     onOpenRunHistory = { navController.navigate(RootDestinations.RUN_HISTORY) },
                     onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
+                    onRecordRun = { navController.navigate(RootDestinations.RUN_START) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
                     onSignedOut = {
                         navController.navigate(RootDestinations.AUTH) { popUpTo(0) { inclusive = true } }
+                    },
+                )
+            }
+
+            composable(RootDestinations.RUN_START) {
+                StartRunScreen(
+                    onBack = { navController.popBackStack() },
+                    onStarted = {
+                        // Replaces itself in the back stack: once recording has begun, "back" should
+                        // not return to a screen offering to begin it again.
+                        navController.navigate(RootDestinations.RUN_RECORDING) {
+                            popUpTo(RootDestinations.RUN_START) { inclusive = true }
+                        }
+                    },
+                )
+            }
+
+            composable(RootDestinations.RUN_RECORDING) {
+                val recordViewModel: RecordRunViewModel = viewModel(
+                    factory = SimpleViewModelFactory { RecordRunViewModel(container.runsRepository) }
+                )
+                RecordingScreen(
+                    viewModel = recordViewModel,
+                    onSaved = { runId ->
+                        navController.navigate(RootDestinations.runDetail(runId)) {
+                            popUpTo(RootDestinations.RUN_RECORDING) { inclusive = true }
+                        }
+                    },
+                    onDiscarded = {
+                        navController.popBackStack(RootDestinations.SHELL, inclusive = false)
                     },
                 )
             }

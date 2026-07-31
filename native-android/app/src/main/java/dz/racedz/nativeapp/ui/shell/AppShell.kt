@@ -89,6 +89,7 @@ fun AppShell(
     onOpenRace: (String) -> Unit,
     onOpenRunHistory: () -> Unit,
     onOpenRun: (String) -> Unit,
+    onRecordRun: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -126,10 +127,9 @@ fun AppShell(
                     viewModel = runsViewModel,
                     onOpenHistory = onOpenRunHistory,
                     onOpenRun = onOpenRun,
-                    // Recording, manual entry and GPX import are the remaining half of phase 7
-                    // (foreground location service, Room outbox). Until they exist the actions open
-                    // the history rather than a dead end.
-                    onRecordRun = onOpenRunHistory,
+                    onRecordRun = onRecordRun,
+                    // Manual entry and GPX import are still to come; until then they open history
+                    // rather than a dead end.
                     onLogManually = onOpenRunHistory,
                     onImportGpx = onOpenRunHistory,
                     contentPadding = innerPadding,

@@ -37,6 +37,9 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.coil.compose)
+    // Runtime permission request + the foreground service notification.
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.ktx)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

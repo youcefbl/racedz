@@ -233,4 +233,25 @@
     <string name="runs_detail_title">Sortie</string>
     <string name="runs_title">Sorties</string>
     <string name="runs_elevation_gain_value">Positif %1$d m</string>
+    <string name="runs_notification_channel">Enregistrement</string>
+    <string name="runs_notification_title">Enregistrement en cours</string>
+    <string name="runs_notification_body">%1$s km · %2$s</string>
+    <string name="runs_ready_title">Quand vous voulez</string>
+    <string name="runs_ready_gps">GPS prêt</string>
+    <string name="runs_hold">Maintenez</string>
+    <string name="runs_hold_to_begin">pour démarrer</string>
+    <string name="runs_start_run">Démarrer</string>
+    <string name="runs_permission_denied">L\'accès à la position est nécessaire pour mesurer votre parcours. Rien n\'est enregistré avant que vous ne démarriez.</string>
+    <string name="runs_grant_permission">Autoriser la position</string>
+    <string name="runs_recording">Enregistrement</string>
+    <string name="runs_paused">En pause</string>
+    <string name="runs_pause">Pause</string>
+    <string name="runs_resume">Reprendre</string>
+    <string name="runs_finish">Terminer</string>
+    <string name="runs_discard">Supprimer</string>
+    <string name="runs_save">Enregistrer</string>
+    <string name="runs_auto_paused">En pause — trop rapide pour de la course. Reprenez quand vous courez à nouveau.</string>
+    <string name="runs_gps_weak">GPS faible</string>
+    <string name="runs_stat_calories">Calories</string>
+    <string name="runs_save_failed">Impossible d\'enregistrer. La sortie est conservée — réessayez.</string>
 </resources>

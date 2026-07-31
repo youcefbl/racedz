@@ -234,4 +234,25 @@
     <string name="runs_detail_title">سورتي</string>
     <string name="runs_title">الجري</string>
     <string name="runs_elevation_gain_value">الصعود %1$d م</string>
+    <string name="runs_notification_channel">تسجيل السورتي</string>
+    <string name="runs_notification_title">قاعد نسجّل السورتي</string>
+    <string name="runs_notification_body">%1$s كم · %2$s</string>
+    <string name="runs_ready_title">ملّي تكون واجد</string>
+    <string name="runs_ready_gps">GPS واجد</string>
+    <string name="runs_hold">شدّ</string>
+    <string name="runs_hold_to_begin">باش تبدا</string>
+    <string name="runs_start_run">ابدا السورتي</string>
+    <string name="runs_permission_denied">نحتاجو الموقع باش نقيسو الطريق. ما نسجّلو والو حتى تبدا.</string>
+    <string name="runs_grant_permission">سمح بالموقع</string>
+    <string name="runs_recording">قاعد يسجّل</string>
+    <string name="runs_paused">واقف</string>
+    <string name="runs_pause">وقّف</string>
+    <string name="runs_resume">كمّل</string>
+    <string name="runs_finish">سالي</string>
+    <string name="runs_discard">امسح</string>
+    <string name="runs_save">سجّل</string>
+    <string name="runs_auto_paused">وقّفنا — هذي بزاف بالنسبة للجري. كمّل ملّي ترجع تجري.</string>
+    <string name="runs_gps_weak">GPS ضعيف</string>
+    <string name="runs_stat_calories">السعرات</string>
+    <string name="runs_save_failed">ما قدرناش نسجّلو. السورتي مازالت هنا — عاود.</string>
 </resources>
