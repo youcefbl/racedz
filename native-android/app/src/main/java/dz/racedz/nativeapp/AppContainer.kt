@@ -3,6 +3,7 @@ package dz.racedz.nativeapp
 import android.content.Context
 import dz.racedz.nativeapp.core.auth.AccountRepository
 import dz.racedz.nativeapp.core.auth.AuthRepository
+import dz.racedz.nativeapp.core.auth.CoachRepository
 import dz.racedz.nativeapp.core.auth.RacesRepository
 import dz.racedz.nativeapp.core.auth.RunsRepository
 import dz.racedz.nativeapp.core.auth.RegistrationRepository
@@ -47,6 +48,7 @@ class AppContainer(context: Context, appVersion: String) {
     val authRepository = AuthRepository(api, apiClient, sessionManager)
     val racesRepository = RacesRepository(api, apiClient)
     val runsRepository = RunsRepository(api, apiClient)
+    val coachRepository = CoachRepository(api, apiClient)
     val accountRepository = AccountRepository(api, apiClient, sessionManager)
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
 }

@@ -56,6 +56,8 @@ import dz.racedz.nativeapp.SimpleViewModelFactory
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.feature.account.AccountScreen
 import dz.racedz.nativeapp.feature.races.RacesScreen
+import dz.racedz.nativeapp.feature.coach.CoachScreen
+import dz.racedz.nativeapp.feature.coach.CoachViewModel
 import dz.racedz.nativeapp.feature.races.RacesViewModel
 import dz.racedz.nativeapp.feature.runs.RunsOverviewScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
@@ -91,6 +93,7 @@ fun AppShell(
     onOpenRun: (String) -> Unit,
     onRecordRun: () -> Unit,
     onResumeRecording: () -> Unit,
+    onOpenSubscribe: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -137,7 +140,19 @@ fun AppShell(
                     contentPadding = innerPadding,
                 )
             }
-            composable(ShellTab.Coach.route) { CoachPlaceholder(innerPadding) }
+            composable(ShellTab.Coach.route) {
+                val coachViewModel: CoachViewModel = viewModel(
+                    factory = SimpleViewModelFactory { CoachViewModel(container.coachRepository) }
+                )
+                CoachScreen(
+                    viewModel = coachViewModel,
+                    // Subscribing is a payment-proof flow that lives on the website; the app links
+                    // out rather than shipping a second, divergent version of it.
+                    onOpenSubscribe = onOpenSubscribe,
+                    onLogRun = onRecordRun,
+                    contentPadding = innerPadding,
+                )
+            }
             composable(ShellTab.Account.route) {
                 AccountScreen(
                     viewModel = rememberAccountViewModel(container, appearance),
@@ -160,17 +175,6 @@ private fun RunsPlaceholder(contentPadding: androidx.compose.foundation.layout.P
         title = stringResource(R.string.nav_runs),
         badge = stringResource(R.string.placeholder_coming_soon),
         body = stringResource(R.string.placeholder_runs_body),
-        contentPadding = contentPadding,
-    )
-}
-
-@Composable
-private fun CoachPlaceholder(contentPadding: androidx.compose.foundation.layout.PaddingValues) {
-    PlaceholderScreen(
-        icon = Icons.AutoMirrored.Filled.Assignment,
-        title = stringResource(R.string.nav_coach),
-        badge = stringResource(R.string.placeholder_coming_soon),
-        body = stringResource(R.string.placeholder_coach_body),
         contentPadding = contentPadding,
     )
 }

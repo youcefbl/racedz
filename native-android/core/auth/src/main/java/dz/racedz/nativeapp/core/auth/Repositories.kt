@@ -12,6 +12,7 @@ import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
 import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.CoachOverviewDto
 import dz.racedz.nativeapp.core.network.GuidedSessionDto
 import dz.racedz.nativeapp.core.network.RunDetailDto
 import dz.racedz.nativeapp.core.network.RunDto
@@ -172,4 +173,14 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
     companion object {
         const val PAGE_SIZE = 50
     }
+}
+
+/**
+ * The AI coach. Read-only for now: the overview the Coach tab draws.
+ *
+ * A NONE entitlement comes back as a normal success with empty sections rather than an error — not
+ * having subscribed is a state to render, not a failure to retry.
+ */
+class CoachRepository(private val api: ZidRunApi, private val client: ApiClient) {
+    suspend fun overview(): ApiResult<CoachOverviewDto> = client.call { api.coachOverview() }
 }

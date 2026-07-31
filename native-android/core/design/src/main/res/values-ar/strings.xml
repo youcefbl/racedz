@@ -287,4 +287,21 @@
     <string name="runs_cue_km">كيلومتر %1$d. الإيقاع %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
     <string name="runs_cue_done">سالات الحصة. هدّي ملّي تحب.</string>
+    <string name="coach_goal">الهدف</string>
+    <string name="coach_today_workout">حصة اليوم</string>
+    <string name="coach_target_effort">المجهود المطلوب</string>
+    <string name="coach_what_to_do">واش تدير</string>
+    <string name="coach_log_run">سجّل هذي السورتي</string>
+    <string name="coach_this_week">هذا الأسبوع</string>
+    <string name="coach_sessions_done">حصص كمّلتها</string>
+    <string name="coach_of_n">من %1$d</string>
+    <string name="coach_next_workout">الحصة الجاية</string>
+    <string name="coach_latest_review">آخر ملاحظة من المدرب</string>
+    <string name="coach_trial">تجربة مجانية</string>
+    <string name="coach_locked_title">المدرب الذكي تاعك</string>
+    <string name="coach_locked_body">برنامج مبني على هدفك، مع ملاحظات بعد كل سورتي.</string>
+    <string name="coach_subscribe">شوف العروض</string>
+    <string name="coach_no_plan_title">مازال ما كاش برنامج</string>
+    <string name="coach_no_plan_body">حدّد هدف والمدرب يبني لك برنامج أسبوع بأسبوع.</string>
+    <string name="coach_title">المدرب</string>
 </resources>

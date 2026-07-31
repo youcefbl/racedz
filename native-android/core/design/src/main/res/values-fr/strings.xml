@@ -286,4 +286,21 @@
     <string name="runs_cue_km">Kilomètre %1$d. Allure %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
     <string name="runs_cue_done">Séance terminée. Retour au calme quand vous voulez.</string>
+    <string name="coach_goal">Objectif</string>
+    <string name="coach_today_workout">Séance du jour</string>
+    <string name="coach_target_effort">Effort cible</string>
+    <string name="coach_what_to_do">À faire</string>
+    <string name="coach_log_run">Enregistrer cette sortie</string>
+    <string name="coach_this_week">Cette semaine</string>
+    <string name="coach_sessions_done">Séances terminées</string>
+    <string name="coach_of_n">sur %1$d</string>
+    <string name="coach_next_workout">Prochaine séance</string>
+    <string name="coach_latest_review">Dernier retour du coach</string>
+    <string name="coach_trial">Essai gratuit</string>
+    <string name="coach_locked_title">Votre coach IA</string>
+    <string name="coach_locked_body">Un plan bâti autour de votre objectif, avec un retour après chaque sortie.</string>
+    <string name="coach_subscribe">Voir les offres</string>
+    <string name="coach_no_plan_title">Pas encore de plan</string>
+    <string name="coach_no_plan_body">Définissez un objectif et votre coach construira un plan semaine par semaine.</string>
+    <string name="coach_title">Coach</string>
 </resources>

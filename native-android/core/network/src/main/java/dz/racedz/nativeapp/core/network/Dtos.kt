@@ -416,6 +416,59 @@ data class RunDetailDto(
     val elevationSeries: List<SeriesPointDto> = emptyList(),
 )
 
+// ---- coach ------------------------------------------------------------------------------------
+
+@Serializable
+data class CoachEntitlementDto(
+    /** SUBSCRIBED, TRIAL, or NONE. NONE means show the subscribe prompt, not an error. */
+    val tier: String = "NONE",
+    val trialEndsAt: String? = null,
+    val subscriptionEndsAt: String? = null,
+    val plan: String? = null,
+)
+
+@Serializable
+data class CoachGoalDto(
+    val id: String = "",
+    val goalType: String = "",
+    val targetDate: String? = null,
+    val targetDistanceKm: Double? = null,
+    val customGoal: String? = null,
+)
+
+@Serializable
+data class CoachWorkoutDto(
+    val id: String = "",
+    val title: String = "",
+    val workoutType: String = "",
+    val targetDistanceKm: Double? = null,
+    val targetDurationMin: Int? = null,
+    val intensity: String = "",
+    val instructions: String = "",
+    val scheduledFor: String = "",
+)
+
+@Serializable
+data class CoachAdherenceDto(
+    val plannedSessions: Int = 0,
+    val completedSessions: Int = 0,
+    val remainingSessions: Int = 0,
+    val completionRate: Double = 0.0,
+)
+
+@Serializable
+data class CoachReviewDto(val text: String? = null, val createdAt: String = "")
+
+@Serializable
+data class CoachOverviewDto(
+    val entitlement: CoachEntitlementDto = CoachEntitlementDto(),
+    val goal: CoachGoalDto? = null,
+    val todayWorkout: CoachWorkoutDto? = null,
+    val nextWorkout: CoachWorkoutDto? = null,
+    val adherence: CoachAdherenceDto? = null,
+    val latestReview: CoachReviewDto? = null,
+)
+
 /** One step of a guided session: warm up, work, recover, steady, or cool down. */
 @Serializable
 data class GuidedStepDto(

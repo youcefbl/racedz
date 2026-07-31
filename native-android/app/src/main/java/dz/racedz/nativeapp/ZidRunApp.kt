@@ -181,6 +181,11 @@ fun ZidRunApp(
                     onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
                     onRecordRun = { navController.navigate(RootDestinations.RUN_START) },
                     onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
+                    // Subscribing is a payment-proof upload flow that already exists on the website;
+                    // the app opens it in a custom tab rather than shipping a second version of it.
+                    onOpenSubscribe = {
+                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/coach/subscribe"))
+                    },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },

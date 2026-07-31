@@ -305,4 +305,21 @@
     <string name="runs_cue_km">Kilometre %1$d. Pace %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
     <string name="runs_cue_done">Session complete. Cool down when you are ready.</string>
+    <string name="coach_goal">Goal</string>
+    <string name="coach_today_workout">Today’s workout</string>
+    <string name="coach_target_effort">Target effort</string>
+    <string name="coach_what_to_do">What to do</string>
+    <string name="coach_log_run">Log this run</string>
+    <string name="coach_this_week">This week</string>
+    <string name="coach_sessions_done">Sessions completed</string>
+    <string name="coach_of_n">of %1$d</string>
+    <string name="coach_next_workout">Next workout</string>
+    <string name="coach_latest_review">Latest coach review</string>
+    <string name="coach_trial">Free trial</string>
+    <string name="coach_locked_title">Your AI running coach</string>
+    <string name="coach_locked_body">Get a training plan built around your goal, with feedback after every run.</string>
+    <string name="coach_subscribe">See plans</string>
+    <string name="coach_no_plan_title">No plan yet</string>
+    <string name="coach_no_plan_body">Set a goal and your coach will build a week-by-week plan.</string>
+    <string name="coach_title">Coach</string>
 </resources>
