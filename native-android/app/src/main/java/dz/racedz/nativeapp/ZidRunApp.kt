@@ -44,6 +44,7 @@ import dz.racedz.nativeapp.feature.coach.SleepScreen
 import dz.racedz.nativeapp.feature.coach.SleepViewModel
 import dz.racedz.nativeapp.feature.coach.PlanWeekViewModel
 import dz.racedz.nativeapp.feature.coach.CoachOnboardingViewModel
+import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunViewModel
@@ -186,6 +187,16 @@ fun ZidRunApp(
             }
 
             composable(RootDestinations.SHELL) {
+                // A run finished but never saved — the app was killed, or the save failed and the
+                // runner backed out. Surfaced once, on the first shell entry, rather than left
+                // sitting silently on disk where it would look like the run simply vanished.
+                LaunchedEffect(Unit) {
+                    RunRecorder.restorePending()?.let { pending ->
+                        RunRecorder.resumeFinished(pending)
+                        navController.navigate(RootDestinations.RUN_SUMMARY)
+                    }
+                }
+
                 AppShell(
                     container = container,
                     appearance = appearance,

@@ -193,23 +193,39 @@ destination and never an arbitrary URL, and tokens must be revoked on logout, ac
 account deletion. Needs a separate Firebase app registration per variant — the production
 `google-services.json` must not be copied here.
 
-#### Phase 7 — runs (step 7)
+#### Phase 7 — runs (step 7) — **partly done**
 
-The largest remaining phase, and the one that decides this evaluation. It is not a UI job: it needs
-a foreground location service, `core/database` (Room) as an encrypted outbox, WorkManager sync, GPX
-import/export, and recovery across force-stop, reboot, and Doze. The `/api/v1/runs` sync contract in
-[§3 Offline run and sync contract](#3-offline-run-and-sync-contract) must be settled *before* the UI
-is written — client-generated idempotency keys, server revisions, tombstones, a conflict policy that
-never overwrites a newer server record, and bounded route payloads.
+Shipped: the `/api/v1/runs` sync contract (clientId idempotency, server revisions, tombstones,
+bounded routes), the foreground location service with the website's own GPS acceptance rules ported
+1:1, the recording and summary screens, run history, and run detail with splits and elevation.
 
-This is the phase that produces the evidence for [the decision gate](#decision-gate-native-or-capacitor),
-because GPS correctness and offline reliability carry 40% of the weighting.
+The durable outbox now exists: a recording is written to app-private storage from its first fix
+(rate-limited to every 15s, forced on pause and finish), a failed save never clears it, and a
+finished run left behind by a killed process is restored on the next launch and taken straight to
+the summary. It is a JSON file rather than Room — a single pending record with no queries, no
+relations, and no migrations does not justify the annotation processor this project has otherwise
+avoided — and it sits behind a small interface so Room can replace the storage without touching
+callers. Revisit that if the outbox ever needs to hold many runs or be queried.
 
-#### Phase 8 — coach (step 8)
+**Still missing:** WorkManager background retry (today a retry needs the app opened), GPX
+import/export, manual entry, and reboot/Doze recovery of an *in-progress* recording — only a
+finished run is restored, because an interrupted GPS stream cannot be resumed honestly.
 
-Coach surfaces against `/api/v1/coach`, under the existing safety, consent, retention, and memory
-governance rules. No health-memory expansion without governance, and no background sync of health
-text without explicit consent.
+GPS distance accumulation has never been verified. The Android emulator reports `speed = 0` on every
+fix through both `geo fix` and NMEA, so the (correct) speed filter rejects everything and no
+simulated run accumulates a metre. This needs a physical device, and it is the single highest-value
+outstanding test — GPS correctness and offline reliability carry 40% of the
+[decision gate](#decision-gate-native-or-capacitor) weighting.
+
+#### Phase 8 — coach (step 8) — **UI done, unverified**
+
+All five Coach mockups are built against `/api/v1/coach{,/goals,/plan,/interactions,/sleep}`, each
+reusing the website's own helpers so no AI behaviour lives in the mobile facade. Two-stage onboarding
+(profile, then goal) is enforced server-side.
+
+Not verified on a device, and three gaps remain: the plan's "Log this run" does not pass `workoutId`
+to the recorder, "Move"/"I can't today" are not built, and voice input and TTS playback of replies
+are not wired.
 
 #### Phase 9 — social and groups (step 9)
 

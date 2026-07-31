@@ -107,6 +107,56 @@ object RunRecorder {
 
     private const val MAX_ROUTE_POINTS = 1500
 
+    /**
+     * How often the in-progress recording is written to disk.
+     *
+     * Every fix would mean ~1 write per second with a growing route, which is wasteful and wears
+     * flash for no gain. Every 15s bounds the worst case to a quarter-minute of a run lost to a
+     * process kill, against a run that is still in progress and can be resumed anyway.
+     */
+    private const val SNAPSHOT_INTERVAL_MS = 15_000L
+
+    /** Set once at startup. Null in unit tests, which exercise the accumulation logic only. */
+    private var outbox: RunOutbox? = null
+    private var lastSnapshotMs = 0L
+
+    fun attachOutbox(outbox: RunOutbox) {
+        this.outbox = outbox
+    }
+
+    /**
+     * Writes the current recording to the outbox.
+     *
+     * [force] bypasses the interval — used on pause and finish, the two moments where losing what
+     * has been recorded so far would be most obviously the app's fault.
+     */
+    fun snapshot(force: Boolean = false) {
+        val box = outbox ?: return
+        val current = _state.value
+        if (current.status == RecordingStatus.Idle || current.clientId.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        if (!force && now - lastSnapshotMs < SNAPSHOT_INTERVAL_MS) return
+        lastSnapshotMs = now
+
+        box.save(
+            PendingRun(
+                request = current.toCreateRequest(),
+                finished = current.status == RecordingStatus.Finished,
+                updatedAtEpochMs = now,
+            )
+        )
+    }
+
+    /**
+     * Restores a recording left behind by a previous process.
+     *
+     * Only a FINISHED run is restored: an interrupted in-progress recording has no reliable way to
+     * resume its GPS stream, and presenting a partial run as though it were still live would be
+     * worse than handing the runner what was measured and letting them save or discard it.
+     */
+    fun restorePending(): PendingRun? = outbox?.load()?.takeIf { it.finished }
+
     private val _state = MutableStateFlow(RecordingState())
     val state: StateFlow<RecordingState> = _state.asStateFlow()
 
@@ -142,6 +192,7 @@ object RunRecorder {
         if (_state.value.status != RecordingStatus.Recording && _state.value.status != RecordingStatus.Acquiring) return
         pauseStartedMs = System.currentTimeMillis()
         _state.update { it.copy(status = RecordingStatus.Paused) }
+        snapshot(force = true)
     }
 
     fun resume() {
@@ -161,14 +212,53 @@ object RunRecorder {
             pauseStartedMs = 0
         }
         _state.update { it.copy(status = RecordingStatus.Finished, elapsedSeconds = elapsedSeconds()) }
+        // The run is over and everything it measured is now at risk until the server has it.
+        snapshot(force = true)
     }
 
-    /** Clears the recording. Called after a successful save, or when the runner discards. */
+    /**
+     * Clears the recording and the outbox.
+     *
+     * Only after the server confirmed the save, or when the runner explicitly discarded. A failed
+     * request must never reach here — the outbox exists precisely so the run survives it.
+     */
     fun reset() {
         route.clear()
         lastFix = null
+        lastSnapshotMs = 0L
+        outbox?.clear()
         _state.value = RecordingState()
     }
+
+    /** Restores a finished run into memory so the summary screen can show and save it. */
+    fun resumeFinished(pending: PendingRun) {
+        route.clear()
+        pending.request.route?.let { route += it }
+        _state.value = RecordingState(
+            status = RecordingStatus.Finished,
+            clientId = pending.request.clientId,
+            startedAtEpochMs = runCatching { java.time.Instant.parse(pending.request.startedAt).toEpochMilli() }
+                .getOrDefault(pending.updatedAtEpochMs),
+            distanceMeters = pending.request.distanceKm * 1000.0,
+            elapsedSeconds = pending.request.durationSeconds,
+            movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds,
+            elevationGainM = (pending.request.elevationGainM ?: 0).toDouble(),
+            route = route.toList(),
+        )
+    }
+
+    /** The body this recording will be posted as. Shared by the outbox and the save call. */
+    fun RecordingState.toCreateRequest() = dz.racedz.nativeapp.core.network.CreateRunRequest(
+        clientId = clientId,
+        startedAt = java.time.Instant.ofEpochMilli(startedAtEpochMs).toString(),
+        distanceKm = distanceKm,
+        durationSeconds = elapsedSeconds.coerceAtLeast(1),
+        perceivedEffort = 5,
+        movingTimeSeconds = movingSeconds.takeIf { it > 0 },
+        elevationGainM = elevationGainM.toInt().takeIf { it > 0 },
+        route = route.takeIf { it.size >= 2 },
+        source = "GPS",
+    )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */
     fun tick() {

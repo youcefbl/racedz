@@ -94,6 +94,8 @@ class RunTrackingService : Service(), LocationListener {
             // Fixes can be seconds apart; the clock on screen has to keep moving between them.
             while (isActive) {
                 RunRecorder.tick()
+                // Rate-limited inside the recorder; this only offers the opportunity.
+                RunRecorder.snapshot()
                 notificationManager().notify(NOTIFICATION_ID, buildNotification())
                 delay(1_000)
             }

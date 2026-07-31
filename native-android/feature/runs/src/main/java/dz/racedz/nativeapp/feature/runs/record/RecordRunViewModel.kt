@@ -57,6 +57,8 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
 
             when (val result = repository.create(request)) {
                 is ApiResult.Success -> {
+                    // Clears the outbox too: the server has it, so the local copy is no longer the
+                    // only one. Nothing else is allowed to call this.
                     RunRecorder.reset()
                     // Otherwise the next free run would inherit this session's steps.
                     GuidedSessionController.clear()
@@ -64,6 +66,9 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                     onSaved(result.value.id)
                 }
                 is ApiResult.Failure -> _state.update {
+                    // Deliberately does NOT clear the recording or the outbox. The run is still on
+                    // disk and still sendable; losing an hour's effort to a dropped request would be
+                    // the worst thing this screen could do.
                     it.copy(saving = false, error = result.error.message)
                 }
             }

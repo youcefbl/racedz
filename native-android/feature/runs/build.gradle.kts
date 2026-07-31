@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // The outbox persists the pending run as JSON; @Serializable needs the compiler plugin.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {

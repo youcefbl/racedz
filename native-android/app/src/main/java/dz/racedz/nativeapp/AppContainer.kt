@@ -4,6 +4,8 @@ import android.content.Context
 import dz.racedz.nativeapp.core.auth.AccountRepository
 import dz.racedz.nativeapp.core.auth.AuthRepository
 import dz.racedz.nativeapp.core.auth.CoachRepository
+import dz.racedz.nativeapp.feature.runs.record.RunOutbox
+import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.core.auth.RacesRepository
 import dz.racedz.nativeapp.core.auth.RunsRepository
 import dz.racedz.nativeapp.core.auth.RegistrationRepository
@@ -49,6 +51,13 @@ class AppContainer(context: Context, appVersion: String) {
     val racesRepository = RacesRepository(api, apiClient)
     val runsRepository = RunsRepository(api, apiClient)
     val coachRepository = CoachRepository(api, apiClient)
+
+    /**
+     * Durable storage for a run that has not reached the server yet. Attached to the recorder at
+     * construction so a recording is being persisted from its first fix, not from the moment the
+     * runner presses Save.
+     */
+    val runOutbox = RunOutbox(context).also { RunRecorder.attachOutbox(it) }
     val accountRepository = AccountRepository(api, apiClient, sessionManager)
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
 }
