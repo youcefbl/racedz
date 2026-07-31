@@ -160,6 +160,66 @@ backend commit. A feature is not “parity complete” because its happy path wo
 defects the emulator pass found and how each was fixed — is recorded in
 [`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md) under "Current evidence", not duplicated here.
 
+### Remaining phases
+
+Phases 1–5 shipped on 2026-07-31 (project structure and branding; auth; races; account;
+registration). What is left, in the order it should be done — the first item is not optional and
+blocks everything else on a real device.
+
+#### Phase 0 (blocking) — deploy `/api/v1` to production
+
+Nothing native can be tested off the emulator until this lands. Production currently answers 404 for
+every `/api/v1/*` route, so the internal APK reaches `zidrun.com` over TLS and fails on every
+screen. Needs: `20260731000000_mobile_api_v1_sessions` applied to the production database, the new
+routes deployed, and a post-deploy check that the website and the Capacitor app still behave
+identically (they share the auth helpers these routes call).
+
+Also outstanding from phase 2–5 before those can be called done, not just working:
+
+- OpenAPI documentation for the shipped endpoints — `NATIVE-003` names it and the contract is
+  currently pinned only by `scripts/test-mobile-api.ts`.
+- Account switching. Only single-account sign-in exists; `NATIVE-004` requires switching.
+- A physical-device pass: TalkBack, large-text, small screens, and the real photo picker.
+- An independent security review of the token/PKCE design before it guards production sessions.
+
+#### Phase 6 — notifications (step 6)
+
+FCM token registration tied to a device session, notification preferences, in-app history, and tap
+routing. Two constraints already written into this plan: `data.href` must be a signed or allowlisted
+destination and never an arbitrary URL, and tokens must be revoked on logout, account switch, and
+account deletion. Needs a separate Firebase app registration per variant — the production
+`google-services.json` must not be copied here.
+
+#### Phase 7 — runs (step 7)
+
+The largest remaining phase, and the one that decides this evaluation. It is not a UI job: it needs
+a foreground location service, `core/database` (Room) as an encrypted outbox, WorkManager sync, GPX
+import/export, and recovery across force-stop, reboot, and Doze. The `/api/v1/runs` sync contract in
+[§3 Offline run and sync contract](#3-offline-run-and-sync-contract) must be settled *before* the UI
+is written — client-generated idempotency keys, server revisions, tombstones, a conflict policy that
+never overwrites a newer server record, and bounded route payloads.
+
+This is the phase that produces the evidence for [the decision gate](#decision-gate-native-or-capacitor),
+because GPS correctness and offline reliability carry 40% of the weighting.
+
+#### Phase 8 — coach (step 8)
+
+Coach surfaces against `/api/v1/coach`, under the existing safety, consent, retention, and memory
+governance rules. No health-memory expansion without governance, and no background sync of health
+text without explicit consent.
+
+#### Phase 9 — social and groups (step 9)
+
+Feed, follows, kudos, and groups — only after object-level authorization and privacy tests pass.
+Deliberately last: it is the area where a mistake exposes one runner's data to another.
+
+#### Then: release safety and the decision (`NATIVE-006`–`NATIVE-008`)
+
+Parity measurement against the frozen Capacitor build on the same devices, a signed internal-track
+release with its own keystore, App Links and Firebase fingerprints, Data Safety copy, staged
+rollout, crash/ANR and battery baselines, and finally the weighted comparison that picks Capacitor,
+native, or both. None of this starts before phase 7 has real numbers.
+
 ### Build variants
 
 | Variant | Application ID | API base URL | Signing | Purpose |
