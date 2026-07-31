@@ -577,6 +577,16 @@ model RunnerGoal {
 model RunnerRun {
   id                      String              @id @default(cuid())
   userId                  String
+  /// Client-generated UUID for runs created on a phone. Doubles as the idempotency key and as the
+  /// run's stable identity while it is still only on the device, so a client that never saw the
+  /// 201 can retry without creating a second copy of the same run. Null for runs created on the web.
+  clientId                String?
+  /// Bumped on every server-side write. A mutating client sends the revision its edit was based on;
+  /// if the server has moved on, the write is refused rather than silently overwriting newer data.
+  revision                Int                 @default(1)
+  /// Tombstone. Soft-deleted so a delta sync can tell other devices the run is gone — a hard delete
+  /// would leave it resurrected on any device that still held a copy.
+  deletedAt               DateTime?
   goalId                  String?
   workoutId               String?             @unique
   // How this run got linked to its workout (Phase 1.3), and how sure that link is (0–1).
@@ -616,8 +626,11 @@ model RunnerRun {
   interactions CoachInteraction[]
   kudos        RunKudos[]
 
+  @@unique([userId, clientId])
   @@index([userId, startedAt])
   @@index([goalId, startedAt])
+  /// Cursor for delta sync: "everything of mine that changed since X", tombstones included.
+  @@index([userId, updatedAt])
 }
 
 model TrainingPlan {

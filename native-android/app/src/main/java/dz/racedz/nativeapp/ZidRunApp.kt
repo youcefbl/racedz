@@ -29,6 +29,19 @@ import dz.racedz.nativeapp.feature.auth.AuthScreen
 import dz.racedz.nativeapp.feature.auth.AuthViewModel
 import dz.racedz.nativeapp.feature.races.RaceDetailScreen
 import dz.racedz.nativeapp.feature.races.RaceDetailViewModel
+import dz.racedz.nativeapp.feature.runs.RunDetailScreen
+import dz.racedz.nativeapp.feature.runs.RunDetailViewModel
+import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
+import dz.racedz.nativeapp.feature.runs.RunsViewModel
+import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
+import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
+import dz.racedz.nativeapp.feature.coach.CoachOnboardingScreen
+import dz.racedz.nativeapp.feature.coach.PlanWeekScreen
+import dz.racedz.nativeapp.feature.coach.PlanWeekViewModel
+import dz.racedz.nativeapp.feature.coach.CoachOnboardingViewModel
+import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
+import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
+import dz.racedz.nativeapp.feature.runs.record.StartRunViewModel
 import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
 import dz.racedz.nativeapp.locale.LocaleManager
@@ -168,6 +181,17 @@ fun ZidRunApp(
                     container = container,
                     appearance = appearance,
                     onOpenRace = { navController.navigate(RootDestinations.raceDetail(it)) },
+                    onOpenRunHistory = { navController.navigate(RootDestinations.RUN_HISTORY) },
+                    onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
+                    onRecordRun = { navController.navigate(RootDestinations.RUN_START) },
+                    onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
+                    // Subscribing is a payment-proof upload flow that already exists on the website;
+                    // the app opens it in a custom tab rather than shipping a second version of it.
+                    onOpenSubscribe = {
+                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/coach/subscribe"))
+                    },
+                    onOpenCoachSetup = { navController.navigate(RootDestinations.COACH_SETUP) },
+                    onOpenCoachPlan = { navController.navigate(RootDestinations.COACH_PLAN) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
@@ -175,6 +199,94 @@ fun ZidRunApp(
                         navController.navigate(RootDestinations.AUTH) { popUpTo(0) { inclusive = true } }
                     },
                 )
+            }
+
+            composable(RootDestinations.RUN_START) {
+                val startViewModel: StartRunViewModel = viewModel(
+                    factory = SimpleViewModelFactory { StartRunViewModel(container.runsRepository) }
+                )
+                StartRunScreen(
+                    viewModel = startViewModel,
+                    onBack = { navController.popBackStack() },
+                    onStarted = {
+                        // Replaces itself in the back stack: once recording has begun, "back" should
+                        // not return to a screen offering to begin it again.
+                        navController.navigate(RootDestinations.RUN_RECORDING) {
+                            popUpTo(RootDestinations.RUN_START) { inclusive = true }
+                        }
+                    },
+                )
+            }
+
+            composable(RootDestinations.RUN_RECORDING) {
+                RecordingScreen(
+                    onFinished = { navController.navigate(RootDestinations.RUN_SUMMARY) },
+                    onDiscarded = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                    // Minimising leaves the recording running in the service; the Runs tab shows a
+                    // banner to come back.
+                    onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.COACH_PLAN) {
+                val planViewModel: PlanWeekViewModel = viewModel(
+                    factory = SimpleViewModelFactory { PlanWeekViewModel(container.coachRepository) }
+                )
+                PlanWeekScreen(
+                    viewModel = planViewModel,
+                    onBack = { navController.popBackStack() },
+                    onLogRun = { navController.navigate(RootDestinations.RUN_START) },
+                )
+            }
+
+            composable(RootDestinations.COACH_SETUP) {
+                val onboardingViewModel: CoachOnboardingViewModel = viewModel(
+                    factory = SimpleViewModelFactory { CoachOnboardingViewModel(container.coachRepository) }
+                )
+                CoachOnboardingScreen(
+                    viewModel = onboardingViewModel,
+                    onBack = { navController.popBackStack() },
+                    // Back to the Coach tab, which now has a plan to show.
+                    onCreated = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.RUN_SUMMARY) {
+                val recordViewModel: RecordRunViewModel = viewModel(
+                    factory = SimpleViewModelFactory { RecordRunViewModel(container.runsRepository) }
+                )
+                RunSummaryScreen(
+                    viewModel = recordViewModel,
+                    onSaved = { runId ->
+                        navController.navigate(RootDestinations.runDetail(runId)) {
+                            popUpTo(RootDestinations.SHELL) { inclusive = false }
+                        }
+                    },
+                    onDiscarded = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.RUN_HISTORY) {
+                val runsViewModel: RunsViewModel = viewModel(
+                    factory = SimpleViewModelFactory { RunsViewModel(container.runsRepository) }
+                )
+                RunHistoryScreen(
+                    viewModel = runsViewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
+                )
+            }
+
+            composable(
+                route = RootDestinations.RUN_DETAIL,
+                arguments = listOf(navArgument("runId") { type = NavType.StringType }),
+            ) { entry ->
+                val runId = entry.arguments?.getString("runId").orEmpty()
+                val detailViewModel: RunDetailViewModel = viewModel(
+                    key = "run-$runId",
+                    factory = SimpleViewModelFactory { RunDetailViewModel(container.runsRepository, runId) },
+                )
+                RunDetailScreen(viewModel = detailViewModel, onBack = { navController.popBackStack() })
             }
 
             composable(

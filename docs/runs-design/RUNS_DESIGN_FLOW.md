@@ -190,6 +190,20 @@ Motion is feedback, not decoration. All motion must have a reduced-motion altern
 Avoid continuous decorative animations, parallax, flashing neon, and movement that makes a live
 metric harder to read outdoors.
 
+### Press-and-hold start animation frames
+
+Use these frames as the visual reference for the start-control animation. Keep the central foot
+silhouette, orange ambient glow, and green border consistent while the outer progress ring fills:
+
+1. [Ready — green border, orange background glow](images/02-create-new-run-hold-ready.png)
+2. [Holding — progress ring approximately 60%](images/02-create-new-run-hold-progress.png)
+3. [Complete — full green progress ring and success aura](images/02-create-new-run-hold-complete.png)
+
+The animation should interpolate between these states in roughly 700 ms, use a short haptic
+confirmation only when supported, and keep the label readable throughout. The orange glow belongs
+behind the foot; the active outline and progress ring remain green. Do not replace the foot control
+with a generic spinner, button, or neon flash.
+
 ## Theme modes
 
 ### Light mode

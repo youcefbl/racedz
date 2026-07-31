@@ -18,11 +18,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +40,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,14 +56,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import dz.racedz.nativeapp.core.design.R
+import dz.racedz.nativeapp.core.design.ZidRunBrandBar
 import dz.racedz.nativeapp.core.design.ZidRunButton
+import dz.racedz.nativeapp.core.design.ZidRunDisplayTitle
+import dz.racedz.nativeapp.core.design.ZidRunFilterChip
+import dz.racedz.nativeapp.core.design.ZidRunSectionHeader
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunPill
-import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunSearchField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
@@ -65,9 +78,17 @@ import dz.racedz.nativeapp.core.network.resolveMediaUrl
 private val FeaturedTextColor = androidx.compose.ui.graphics.Color(0xFFF8FAFC)
 private val FeaturedMutedColor = androidx.compose.ui.graphics.Color(0xFFCBD5E1)
 
-/** Scrim over the hero photo. Weighted to the bottom, where the title and metadata sit. */
-private val FeaturedScrimTop = androidx.compose.ui.graphics.Color(0x33000000)
-private val FeaturedScrimBottom = androidx.compose.ui.graphics.Color(0xE6000000)
+/**
+ * Scrim over the hero photo.
+ *
+ * Weighted to the bottom, where the title and metadata sit, but it can never go light at the top:
+ * the "FEATURED RACE" pill lives there, and real race posters are frequently bright artwork rather
+ * than the dark night photo the mockup happens to use. Tuned against the brightest posters on
+ * production so every element clears WCAG AA regardless of the image behind it.
+ */
+private val FeaturedScrimTop = androidx.compose.ui.graphics.Color(0xB3000000)
+private val FeaturedScrimMid = androidx.compose.ui.graphics.Color(0xCC000000)
+private val FeaturedScrimBottom = androidx.compose.ui.graphics.Color(0xF2000000)
 
 /**
  * Race discovery (04-races-page.png): a large screen title, a search field, the first upcoming race
@@ -86,6 +107,10 @@ fun RacesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
     val listState = rememberLazyListState()
+    // rememberSaveable: both survive process death, so a restored screen does not silently drop the
+    // user back to an unfiltered list with the search field closed.
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var wilayaPickerOpen by rememberSaveable { mutableStateOf(false) }
 
     // Prefetch one screen early so the next page is usually ready before the user hits the bottom.
     val shouldLoadMore by remember {
@@ -97,6 +122,17 @@ fun RacesScreen(
     }
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) viewModel.loadNextPage()
+    }
+
+    if (wilayaPickerOpen) {
+        WilayaPickerSheet(
+            selected = state.wilaya,
+            onSelect = {
+                viewModel.onWilayaChange(it)
+                wilayaPickerOpen = false
+            },
+            onDismiss = { wilayaPickerOpen = false },
+        )
     }
 
     Box(modifier = modifier.fillMaxSize().background(colors.background).padding(contentPadding)) {
@@ -128,15 +164,29 @@ fun RacesScreen(
             ) {
                 item(key = "header") {
                     Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
-                        ZidRunSectionTitle(
-                            text = stringResource(R.string.races_title),
-                            modifier = Modifier.padding(top = ZidRunDimens.spaceSm),
+                        ZidRunBrandBar(
+                            actionIcon = Icons.Filled.Search,
+                            actionContentDescription = stringResource(R.string.races_cd_search),
+                            onAction = { searchOpen = !searchOpen },
                         )
-                        ZidRunSearchField(
-                            value = state.query,
-                            onValueChange = viewModel::onQueryChange,
-                            placeholder = stringResource(R.string.races_search_hint),
-                            contentDescription = stringResource(R.string.races_cd_search),
+                        ZidRunDisplayTitle(text = stringResource(R.string.races_title))
+
+                        // The mockup shows search as an icon action rather than a permanent field,
+                        // so the field appears on demand. It stays visible while a query is active,
+                        // otherwise dismissing it would silently leave the list filtered.
+                        if (searchOpen || state.query.isNotEmpty()) {
+                            ZidRunSearchField(
+                                value = state.query,
+                                onValueChange = viewModel::onQueryChange,
+                                placeholder = stringResource(R.string.races_search_hint),
+                                contentDescription = stringResource(R.string.races_cd_search),
+                            )
+                        }
+
+                        ZidRunFilterChip(
+                            label = state.wilaya ?: stringResource(R.string.races_filter_all_algeria),
+                            onClick = { wilayaPickerOpen = true },
+                            contentDescription = stringResource(R.string.races_cd_filter_wilaya),
                         )
                     }
                 }
@@ -162,8 +212,12 @@ fun RacesScreen(
 
                     if (state.races.size > 1) {
                         item(key = "coming-up") {
-                            ZidRunSectionTitle(
-                                text = stringResource(R.string.races_coming_up),
+                            ZidRunSectionHeader(
+                                title = stringResource(R.string.races_coming_up),
+                                actionLabel = stringResource(R.string.races_view_all),
+                                // "View all" clears any active filter and shows the unfiltered list,
+                                // which is the only broader view this screen has.
+                                onAction = viewModel::clearFilters,
                                 modifier = Modifier.padding(top = ZidRunDimens.spaceSm),
                             )
                         }
@@ -186,11 +240,70 @@ fun RacesScreen(
     }
 }
 
+/**
+ * Wilaya filter. A plain scrollable list rather than a dropdown: 58 entries do not fit a menu, and
+ * a sheet gives each row a full-width 44dp target.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WilayaPickerSheet(
+    selected: String?,
+    onSelect: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = ZidRunTheme.colors
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = colors.borderStrong) },
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = ZidRunDimens.spaceXxl),
+        ) {
+            item(key = "all") {
+                WilayaRow(
+                    label = stringResource(R.string.races_filter_all_algeria),
+                    selected = selected == null,
+                    onClick = { onSelect(null) },
+                )
+            }
+            items(AlgeriaWilayas, key = { it }) { wilaya ->
+                WilayaRow(label = wilaya, selected = selected == wilaya, onClick = { onSelect(wilaya) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun WilayaRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = ZidRunTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = ZidRunDimens.minTouchTarget)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = ZidRunDimens.spaceLg, vertical = ZidRunDimens.spaceMd),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) colors.primary else colors.textStrong,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            // Decorative: `selectable` already reports the selected state to TalkBack.
+            Icon(Icons.Filled.Check, contentDescription = null, tint = colors.primary)
+        }
+    }
+}
+
 @Composable
 private fun FeaturedRaceCard(race: RaceSummaryDto, onClick: () -> Unit) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
-    val dateLabel = ZidRunFormat.date(race.startDate, locale)
+    val dateLabel = ZidRunFormat.dateCompact(race.startDate, locale)
     // Drop the photo (and its scrim) when it fails to load, so the card falls back to its dark
     // base rather than showing a scrim over nothing.
     var imageFailed by remember(race.id) { mutableStateOf(false) }
@@ -224,7 +337,7 @@ private fun FeaturedRaceCard(race: RaceSummaryDto, onClick: () -> Unit) {
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            listOf(FeaturedScrimTop, FeaturedScrimBottom),
+                            listOf(FeaturedScrimTop, FeaturedScrimMid, FeaturedScrimBottom),
                         )
                     )
             )
@@ -234,7 +347,7 @@ private fun FeaturedRaceCard(race: RaceSummaryDto, onClick: () -> Unit) {
             modifier = Modifier.padding(ZidRunDimens.spaceLg),
             verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
         ) {
-            ZidRunPill(text = stringResource(R.string.races_featured), color = colors.primary)
+            ZidRunPill(text = stringResource(R.string.races_featured).uppercase(locale), color = colors.heroAccent)
             Text(
                 text = race.title,
                 style = MaterialTheme.typography.headlineLarge,
@@ -249,13 +362,21 @@ private fun FeaturedRaceCard(race: RaceSummaryDto, onClick: () -> Unit) {
             if (race.distancesKm.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
                     race.distancesKm.take(3).forEach { distance ->
-                        ZidRunPill(text = ZidRunFormat.distance(distance, locale), color = colors.primary)
+                        ZidRunPill(text = ZidRunFormat.distance(distance, locale), color = colors.heroAccent)
                     }
                 }
             }
 
             Spacer(Modifier.height(ZidRunDimens.spaceXs))
-            ZidRunButton(text = stringResource(R.string.races_view_race), onClick = onClick)
+            // Bright fill with a trailing arrow, per the mockup: on a near-black hero the brand's
+            // forest green would recede instead of reading as the card's primary action.
+            ZidRunButton(
+                text = stringResource(R.string.races_view_race),
+                onClick = onClick,
+                containerColor = colors.heroAccent,
+                contentColor = colors.onHeroAccent,
+                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+            )
         }
     }
 }
@@ -264,7 +385,7 @@ private fun FeaturedRaceCard(race: RaceSummaryDto, onClick: () -> Unit) {
 private fun RaceRow(race: RaceSummaryDto, onClick: () -> Unit) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
-    val dateLabel = ZidRunFormat.date(race.startDate, locale)
+    val dateLabel = ZidRunFormat.dateCompact(race.startDate, locale)
 
     ZidRunCard(
         onClick = onClick,

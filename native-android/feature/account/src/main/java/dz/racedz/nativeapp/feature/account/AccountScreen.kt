@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -23,7 +26,9 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Icon
@@ -41,12 +46,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import dz.racedz.nativeapp.core.design.R
+import dz.racedz.nativeapp.core.design.ZidRunBrandBar
 import dz.racedz.nativeapp.core.design.ZidRunCard
+import dz.racedz.nativeapp.core.design.ZidRunMenuRow
+import dz.racedz.nativeapp.core.design.ZidRunStatTile
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
-import dz.racedz.nativeapp.core.design.ZidRunListRow
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunTheme
@@ -100,10 +107,16 @@ fun AccountScreen(
                         .padding(ZidRunDimens.spaceLg),
                     verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
                 ) {
+                    ZidRunBrandBar(
+                        actionIcon = Icons.Filled.Settings,
+                        actionContentDescription = stringResource(R.string.account_profile_preferences),
+                        onAction = onOpenProfile,
+                    )
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(76.dp)
+                                .size(88.dp)
                                 .clip(CircleShape)
                                 .background(colors.surfaceMuted),
                             contentAlignment = Alignment.Center,
@@ -126,7 +139,11 @@ fun AccountScreen(
                         }
                         Spacer(Modifier.width(ZidRunDimens.spaceLg))
                         Column {
-                            ZidRunSectionTitle(user.displayName)
+                            Text(
+                                text = user.displayName,
+                                style = MaterialTheme.typography.displaySmall,
+                                color = colors.textStrong,
+                            )
                             val place = listOfNotNull(user.city, user.wilaya).joinToString(", ")
                             if (place.isNotBlank()) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -150,21 +167,29 @@ fun AccountScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 color = colors.textStrong,
                             )
-                            Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                                SeasonStat(
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                ZidRunStatTile(
                                     icon = Icons.Filled.EmojiEvents,
                                     value = user.season.races.toString(),
                                     label = stringResource(R.string.account_stat_races),
+                                    modifier = Modifier.weight(1f),
                                 )
-                                SeasonStat(
+                                StatSeparator()
+                                ZidRunStatTile(
                                     icon = Icons.Filled.Straighten,
                                     value = ZidRunFormat.money(user.season.totalDistanceKm.toInt(), locale),
                                     label = stringResource(R.string.account_stat_km),
+                                    modifier = Modifier.weight(1f),
                                 )
-                                SeasonStat(
+                                StatSeparator()
+                                ZidRunStatTile(
                                     icon = Icons.Filled.EventAvailable,
                                     value = user.season.runs.toString(),
                                     label = stringResource(R.string.account_stat_runs),
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
                         }
@@ -176,17 +201,59 @@ fun AccountScreen(
                         ?.let { registration ->
                             ZidRunCard(onClick = onOpenRegistrations) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(84.dp)
+                                            .clip(RoundedCornerShape(ZidRunDimens.cornerMd))
+                                            .background(colors.surfaceMuted),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.EmojiEvents,
+                                            contentDescription = null,
+                                            tint = colors.textMuted,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                    }
+                                    Spacer(Modifier.width(ZidRunDimens.spaceMd))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                                    ) {
                                         Text(
                                             registration.race.title,
                                             style = MaterialTheme.typography.titleMedium,
                                             color = colors.textStrong,
                                         )
-                                        Text(
-                                            ZidRunFormat.date(registration.race.startDate, locale),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = colors.textMuted,
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Filled.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = colors.textMuted,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                            Spacer(Modifier.width(ZidRunDimens.spaceXs))
+                                            Text(
+                                                ZidRunFormat.dateCompact(registration.race.startDate, locale),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = colors.textMuted,
+                                            )
+                                        }
+                                        // The mockup labels this "Open ticket". There is no ticket
+                                        // screen yet, so the wording says what actually happens
+                                        // rather than promising a screen that does not exist.
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
+                                                .background(colors.primarySoft)
+                                                .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                                        ) {
+                                            Text(
+                                                stringResource(R.string.account_view_registration),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = colors.primary,
+                                            )
+                                        }
                                     }
                                     Icon(
                                         Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -199,38 +266,35 @@ fun AccountScreen(
 
                     ZidRunCard(contentPadding = PaddingValues(0.dp)) {
                         Column {
-                            ZidRunListRow(
-                                title = stringResource(R.string.account_my_registrations),
+                            ZidRunMenuRow(
                                 icon = Icons.Filled.EventAvailable,
+                                label = stringResource(R.string.account_my_registrations),
                                 onClick = onOpenRegistrations,
-                                trailing = { Chevron() },
                             )
                             ZidRunDivider()
-                            ZidRunListRow(
-                                title = stringResource(R.string.account_profile_preferences),
+                            ZidRunMenuRow(
                                 icon = Icons.Filled.Person,
+                                label = stringResource(R.string.account_profile_preferences),
                                 onClick = onOpenProfile,
-                                trailing = { Chevron() },
                             )
                             ZidRunDivider()
-                            ZidRunListRow(
-                                title = stringResource(R.string.account_privacy_data),
+                            ZidRunMenuRow(
                                 icon = Icons.Filled.PrivacyTip,
+                                label = stringResource(R.string.account_privacy_data),
                                 onClick = onOpenPrivacy,
-                                trailing = { Chevron() },
                             )
                             ZidRunDivider()
-                            ZidRunListRow(
-                                title = stringResource(R.string.account_support),
+                            ZidRunMenuRow(
                                 icon = Icons.Filled.SupportAgent,
+                                label = stringResource(R.string.account_support),
                                 onClick = onOpenSupport,
-                                trailing = { Chevron() },
                             )
                             ZidRunDivider()
-                            ZidRunListRow(
-                                title = stringResource(R.string.account_sign_out),
+                            ZidRunMenuRow(
                                 icon = Icons.AutoMirrored.Filled.Logout,
+                                label = stringResource(R.string.account_sign_out),
                                 onClick = { viewModel.signOut(onSignedOut) },
+                                tint = colors.textMuted,
                             )
                         }
                     }
@@ -249,29 +313,14 @@ fun AccountScreen(
     }
 }
 
+/** The hairline the mockup draws between the three season stats. */
 @Composable
-private fun SeasonStat(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, label: String) {
-    val colors = ZidRunTheme.colors
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(colors.primarySoft),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.width(ZidRunDimens.spaceSm))
-        Column {
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = colors.textStrong)
-            Text(label, style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
-        }
-    }
-}
-
-@Composable
-private fun Chevron() {
-    Icon(
-        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-        contentDescription = null,
-        tint = ZidRunTheme.colors.textMuted,
+private fun StatSeparator() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .fillMaxHeight()
+            .background(ZidRunTheme.colors.border),
     )
 }
+

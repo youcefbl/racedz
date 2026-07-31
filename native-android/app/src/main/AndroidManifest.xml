@@ -2,6 +2,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Recording a run needs precise location while the app is in the foreground OR while a
+      foreground service is running. ACCESS_BACKGROUND_LOCATION is deliberately NOT requested:
+      it covers collecting location when the app is not in use at all, Play grades it far more
+      harshly, and a foreground service with a visible ongoing notification covers screen-off and
+      backgrounded recording without it. The Capacitor app made the same call — do not re-add it.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- The ongoing "recording" notification; from API 33 this is a runtime permission. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- GPS is required to record; the app is still useful for races and account without it. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
@@ -75,6 +91,11 @@
                 <data android:scheme="https" android:host="zidrun.com" android:pathPrefix="/races/" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name="dz.racedz.nativeapp.feature.runs.record.RunTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
     </application>
 

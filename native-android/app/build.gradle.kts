@@ -14,8 +14,12 @@ android {
         applicationId = "dz.racedz.nativeapp"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-native-phase5"
+        // Bumped for EVERY APK handed to a tester — see "APK versioning" in
+        // docs/NATIVE_ANDROID_OPTION_PLAN.md. versionCode must increase or Android refuses the
+        // install as a downgrade; versionName is what the filename is derived from, so the two can
+        // never disagree. Do not reuse a number that has already left this machine.
+        versionCode = 5
+        versionName = "0.5.0"
     }
 
     buildTypes {
@@ -83,6 +87,11 @@ dependencies {
     implementation(project(":feature:races"))
     implementation(project(":feature:account"))
     implementation(project(":feature:registration"))
+    implementation(project(":feature:runs"))
+    implementation(project(":feature:coach"))
+    // Coil is configured app-wide (User-Agent for OSM tiles), so the app module needs it directly.
+    implementation(libs.coil.compose)
+    implementation(libs.okhttp)
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

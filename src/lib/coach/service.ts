@@ -357,9 +357,12 @@ function errorMessageFor(error: unknown, fallback = "Unknown error.") {
 export async function createRunnerRun(userId: string, rawInput: unknown) {
   const input = createRunnerRunSchema.parse(rawInput);
   const prisma = getPrisma();
+  // A goal is optional. Recording a run is a free feature — the Runs surface stands beside Coach
+  // rather than behind it — and RunnerRun.goalId has always been nullable. When there is no active
+  // goal the run is simply saved free: no workout matching (there is no plan to match against), no
+  // coach snapshot, and no safety evaluation, all of which are goal-scoped by definition. An
+  // explicit goalId is still validated as the caller's own.
   const goal = input.goalId ? await requireOwnedGoal(userId, input.goalId) : await getActiveGoal(userId);
-
-  if (!goal) throw new CoachError("Create an active coaching goal before logging a coached run.", 409, "ACTIVE_GOAL_REQUIRED");
 
   // Resolve the workout link. An explicit workoutId is a runner-picked link (confidence 1); an
   // unlinked run is run through the matcher, which only auto-links a same-day run within a tight
@@ -480,7 +483,7 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   const calories =
     input.calories ??
     estimateRunCalories({
-      weightKg: input.weightKg ?? goal.weightKg,
+      weightKg: input.weightKg ?? goal?.weightKg ?? null,
       distanceKm: input.distanceKm,
       elevationGainM
     });
@@ -497,7 +500,7 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       "calories", "route", "weather", "isPublic", "perceivedEffort",
       "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "validity", "validityReason", "updatedAt"
     ) VALUES (
-      ${runId}, ${userId}, ${goal.id}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
+      ${runId}, ${userId}, ${goal?.id ?? null}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${validity === "VALID" ? input.isPublic : false}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
@@ -526,8 +529,13 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     `;
   }
 
-  const metrics = await refreshCoachSnapshot(userId, goal);
-  const safety = evaluateCoachSafety(rows[0], metrics, { chronicConditions: goal.chronicConditions });
+  // Both are goal-scoped: the snapshot summarises progress toward a goal, and the safety evaluation
+  // reads that goal's declared chronic conditions. With no goal there is nothing to compute, so a
+  // free run returns nulls rather than a fabricated snapshot.
+  const metrics = goal ? await refreshCoachSnapshot(userId, goal) : null;
+  const safety = goal && metrics
+    ? evaluateCoachSafety(rows[0], metrics, { chronicConditions: goal.chronicConditions })
+    : null;
   // suggestedMatch is non-null only for a medium-confidence unlinked run — the client can offer a
   // one-tap "was this your <title>?" confirm; ignoring it simply leaves the run free.
   return { run: rows[0], metrics, safety, suggestedMatch };

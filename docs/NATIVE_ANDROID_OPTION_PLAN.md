@@ -163,24 +163,27 @@ defects the emulator pass found and how each was fixed — is recorded in
 ### Remaining phases
 
 Phases 1–5 shipped on 2026-07-31 (project structure and branding; auth; races; account;
-registration). What is left, in the order it should be done — the first item is not optional and
-blocks everything else on a real device.
+registration), followed by a design-fidelity pass over the four screens that have mockups.
 
-#### Phase 0 (blocking) — deploy `/api/v1` to production
+`/api/v1` is deployed to production as of 2026-07-31 and verified: `config` and `races` return real
+data, `me` is correctly unauthenticated without a token, and an unknown filter answers 422 rather
+than 500. A production-wired internal APK exists and reads production's own feature flags. That
+unblocks everything below.
 
-Nothing native can be tested off the emulator until this lands. Production currently answers 404 for
-every `/api/v1/*` route, so the internal APK reaches `zidrun.com` over TLS and fails on every
-screen. Needs: `20260731000000_mobile_api_v1_sessions` applied to the production database, the new
-routes deployed, and a post-deploy check that the website and the Capacitor app still behave
-identically (they share the auth helpers these routes call).
-
-Also outstanding from phase 2–5 before those can be called done, not just working:
+Still outstanding from phases 2–5 before those can be called done, not just working:
 
 - OpenAPI documentation for the shipped endpoints — `NATIVE-003` names it and the contract is
   currently pinned only by `scripts/test-mobile-api.ts`.
 - Account switching. Only single-account sign-in exists; `NATIVE-004` requires switching.
 - A physical-device pass: TalkBack, large-text, small screens, and the real photo picker.
 - An independent security review of the token/PKCE design before it guards production sessions.
+- A signed-in pass against production. Nobody has yet signed into the production APK, so the whole
+  authenticated half — refresh rotation, registration, uploads — is verified only against a local
+  backend and a seeded database.
+- Two open design questions the mockups do not settle: whether there is a fifth "Home" tab
+  (`04-races-page.png` and `01-races-overview.png` show one, `05-account-page.png` and
+  `02-race-details.png` do not, and no Home screen is designed), and whether the "Open ticket"
+  action on the Account hub implies a ticket/bib screen that does not exist.
 
 #### Phase 6 — notifications (step 6)
 
@@ -243,10 +246,47 @@ deliberate and should not be "fixed" without thinking:
 - **Its own application ID.** It installs alongside the production Capacitor app
   (`dz.racedz.app`) and the emulator debug build rather than replacing either.
 
-**The internal APK is only useful once `/api/v1/*` is deployed.** Until then production answers 404
-for every one of those routes and the app shows a generic failure on each screen. Verified on
-2026-07-31: the build reaches `https://zidrun.com` over TLS and gets 404, which is the expected
-result of the backend not being deployed, not a client fault.
+`/api/v1/*` went live on production on 2026-07-31, so the internal APK is now usable end to end.
+(Before that it reached `https://zidrun.com` over TLS and got 404 on every screen — a backend gap,
+not a client fault.)
+
+### APK versioning — required
+
+**Every APK handed to anyone gets a new version. No exceptions, and no reusing a number that has
+already left this machine.**
+
+Two builds sharing a version cannot be told apart. Android also refuses to install over an equal or
+lower `versionCode`, so a tester silently keeps the old build and reports bugs against code that is
+no longer current — which wastes far more time than the bump costs. This already happened once here:
+two different native builds were handed over as "v0.2" and "v0.3" while both declared `0.2.0`
+internally.
+
+Before each build, raise **both** fields in `native-android/app/build.gradle.kts`:
+
+- `versionCode` — a plain increasing integer. This is the one Android enforces.
+- `versionName` — the human version, e.g. `0.4.0`. The APK filename is derived from it.
+
+Then build with the helper, which reads the version back **out of the finished APK** rather than
+taking it on trust, so the filename can never disagree with the manifest:
+
+```bash
+cd native-android
+./release-apk.sh            # production build → ~/Downloads/zidrun-native-internal-v<version>.apk
+./release-apk.sh debug      # emulator build   → ~/Downloads/zidrun-native-debug-v<version>.apk
+```
+
+It refuses to overwrite an existing file, so forgetting the bump fails loudly instead of quietly
+producing a second, different "v0.4".
+
+Native APKs version independently of the Capacitor app's `zidrun-prod-debug-v<X.Y>.apk` series —
+they are different applications with different application IDs, and a shared numbering would imply
+a relationship that does not exist.
+
+| Version | Date | What changed |
+|---|---|---|
+| `0.5.0` | 2026-07-31 | Runs UI aligned with the mockups (footprint ring, guided/free choice, audio cues, run detail charts); Coach tab and coach onboarding |
+| `0.4.0` | 2026-07-31 | Design-fidelity pass over Races, Race detail, Account, and Auth; first build against the deployed production API |
+| `0.2.0` | 2026-07-31 | First production-wired build (shipped twice, as "v0.2" and "v0.3" — the mistake this section exists to prevent) |
 
 ## Backend changes required
 
@@ -346,6 +386,59 @@ Running is the strongest reason to choose native, so define this before a large 
 
 All sync operations must be retry-safe under airplane mode, process death, clock skew, duplicate taps,
 expired sessions, and partial network failure.
+
+#### Settled contract (drafted 2026-07-31, not yet implemented)
+
+**Blocked on one product decision — see "Open question" below.**
+
+`RunnerRun` already carries the run's substance (distance, duration, pace, route, effort, validity).
+Sync needs three columns it does not have:
+
+| Column | Purpose |
+|---|---|
+| `clientId String?` | Client-generated UUID, unique per `(userId, clientId)`. Both the idempotency key and the stable identity of a run created offline, so a phone that never saw the 201 can retry without creating a second run. |
+| `revision Int @default(1)` | Bumped on every server write. The client sends the revision its edit was based on; a mismatch is a conflict, never a silent overwrite. |
+| `deletedAt DateTime?` | Tombstone. A delta sync must be able to tell a client that a run it holds was deleted elsewhere — without this, deleting on one device leaves it resurrected on another. |
+
+Plus an index on `(userId, updatedAt)` for the delta cursor.
+
+Endpoints:
+
+- `GET /api/v1/runs?updatedSince=<iso>&limit=` — delta sync. Returns creates, updates, **and**
+  tombstones since the cursor, ordered by `updatedAt`. The cursor is the server's `updatedAt`, never
+  the device clock, so phone clock skew cannot skip records.
+- `POST /api/v1/runs` — create. `clientId` required; a repeat replays the original rather than
+  creating a second run.
+- `PATCH /api/v1/runs/:id` — update, with `baseRevision` as a precondition. If the server is ahead,
+  answer 409 **with the current server record** so the client can reconcile rather than guess.
+- `DELETE /api/v1/runs/:id` — soft delete, writing the tombstone.
+
+Route payloads are bounded at the API, not just in the client: an hour of 1 Hz GPS is ~3,600 points,
+and nothing stops a buggy client from posting far more. The route is capped by point count and by
+encoded size, and a run that exceeds it is rejected with a typed error rather than truncated —
+silently dropping half a runner's route is worse than refusing it.
+
+Every write reuses the existing server-side rules (workout matching, `detectNonFootActivity`
+validity classification, pace derivation) rather than reimplementing them for mobile.
+
+#### Open question — does recording a run require a coaching goal?
+
+Today it does. Every run-creation path on the website goes through `createRunnerRun()`
+(`src/lib/coach/service.ts`), which throws `ACTIVE_GOAL_REQUIRED` when the runner has no active
+coaching goal. That is a Coach-era constraint, not a data-model one: `RunnerRun.goalId` is nullable
+and its relation optional, so the schema already permits a goal-less run.
+
+This has to be answered before `POST /api/v1/runs` is written, because the native app presents Runs
+as a top-level tab beside Coach — implying it works without a Coach subscription. The two options:
+
+1. **Keep the rule.** The native Runs tab requires an active goal and says so. No shared code
+   changes, but recording is effectively gated behind Coach.
+2. **Relax `createRunnerRun` to accept a goal-less run.** Matches what the tab implies and what the
+   schema already allows, but it is a change to a helper the website shares, so it needs its own
+   regression pass.
+
+Writing a separate mobile-only creation path is explicitly *not* an option: it would fork the
+business rules this plan requires stay server-authoritative and identical across clients.
 
 ### 4. Uploads and private media
 

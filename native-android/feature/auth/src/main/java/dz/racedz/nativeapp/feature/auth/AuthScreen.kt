@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,6 +57,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
+import dz.racedz.nativeapp.core.design.ZidRunStepIndicator
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 
@@ -176,18 +178,28 @@ private fun AuthHero(step: AuthStep, showBack: Boolean, onBack: () -> Unit) {
                     AuthStep.SignIn -> stringResource(R.string.auth_welcome_subtitle)
                     AuthStep.Mfa -> stringResource(R.string.auth_mfa_body)
                     AuthStep.CreateAccount -> stringResource(R.string.auth_step_of, 1, 2)
-                    AuthStep.VerifyEmail -> ""
+                    AuthStep.VerifyEmail -> stringResource(R.string.auth_step_of, 2, 2)
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = ZidRunDarkColors.textMuted,
                 textAlign = TextAlign.Center,
             )
+            if (step == AuthStep.CreateAccount || step == AuthStep.VerifyEmail) {
+                ZidRunStepIndicator(
+                    currentStep = if (step == AuthStep.CreateAccount) 1 else 2,
+                    totalSteps = 2,
+                    modifier = Modifier.padding(horizontal = ZidRunDimens.spaceXxl),
+                )
+            }
         }
     }
 }
 
+/** Password reset is an email flow that already exists on the website; the app links to it. */
+private const val FORGOT_PASSWORD_PATH = "/forgot-password"
+
 @Composable
-private fun SignInForm(
+private fun ColumnScope.SignInForm(
     state: AuthUiState,
     viewModel: AuthViewModel,
     onSignedIn: () -> Unit,
@@ -215,6 +227,18 @@ private fun SignInForm(
         enabled = !state.submitting,
         showPasswordLabel = stringResource(R.string.common_show_password),
         hidePasswordLabel = stringResource(R.string.common_hide_password),
+    )
+
+    Text(
+        text = stringResource(R.string.auth_forgot_password),
+        style = MaterialTheme.typography.labelLarge,
+        color = colors.primary,
+        textAlign = TextAlign.End,
+        modifier = Modifier
+            .align(Alignment.End)
+            .heightIn(min = ZidRunDimens.minTouchTarget)
+            .clickable { onOpenBrowserSignIn(viewModel.webUrl(FORGOT_PASSWORD_PATH)) }
+            .padding(vertical = ZidRunDimens.spaceMd),
     )
 
     ZidRunButton(

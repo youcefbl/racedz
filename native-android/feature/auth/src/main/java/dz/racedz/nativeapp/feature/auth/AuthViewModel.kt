@@ -200,6 +200,9 @@ class AuthViewModel(
     // ---- system-browser sign-in -----------------------------------------------------------------
 
     /** Returns the URL to open in a Custom Tab, remembering the verifier for the callback. */
+    /** Absolute URL for a website page the app links out to (currently only password reset). */
+    fun webUrl(path: String): String = repository.buildWebUrl(path)
+
     fun startBrowserSignIn(): String {
         val challenge = PkceChallenge.generate()
         pendingChallenge = challenge

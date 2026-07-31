@@ -74,10 +74,17 @@ fun ZidRunButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+    /** Overrides the brand green — used by the featured card, whose near-black hero needs a
+     *  brighter fill to read as the primary action. Defaults to [ZidRunColors.primary]. */
+    containerColor: Color? = null,
+    contentColor: Color? = null,
 ) {
     val colors = ZidRunTheme.colors
     val interactive = enabled && !loading
-    val background = if (interactive) colors.primary else colors.primary.copy(alpha = 0.4f)
+    val fill = containerColor ?: colors.primary
+    val onFill = contentColor ?: colors.onPrimary
+    val background = if (interactive) fill else fill.copy(alpha = 0.4f)
 
     Box(
         modifier = modifier
@@ -95,21 +102,25 @@ fun ZidRunButton(
             CircularProgressIndicator(
                 modifier = Modifier.size(22.dp),
                 strokeWidth = 2.dp,
-                color = colors.onPrimary,
+                color = onFill,
             )
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 if (leadingIcon != null) {
                     // Decorative: the label right beside it is the button's accessible name.
-                    Icon(leadingIcon, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(20.dp))
+                    Icon(leadingIcon, contentDescription = null, tint = onFill, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(ZidRunDimens.spaceSm))
                 }
                 Text(
                     text = text,
                     style = MaterialTheme.typography.titleMedium,
-                    color = colors.onPrimary,
+                    color = onFill,
                     textAlign = TextAlign.Center,
                 )
+                if (trailingIcon != null) {
+                    Spacer(Modifier.width(ZidRunDimens.spaceSm))
+                    Icon(trailingIcon, contentDescription = null, tint = onFill, modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
