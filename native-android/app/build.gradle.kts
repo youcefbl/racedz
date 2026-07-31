@@ -88,6 +88,9 @@ dependencies {
     implementation(project(":feature:account"))
     implementation(project(":feature:registration"))
     implementation(project(":feature:runs"))
+    // Coil is configured app-wide (User-Agent for OSM tiles), so the app module needs it directly.
+    implementation(libs.coil.compose)
+    implementation(libs.okhttp)
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

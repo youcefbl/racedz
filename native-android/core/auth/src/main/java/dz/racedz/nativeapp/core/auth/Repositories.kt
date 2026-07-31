@@ -11,6 +11,8 @@ import dz.racedz.nativeapp.core.network.ProfileRequest
 import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
+import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.RunDetailDto
 import dz.racedz.nativeapp.core.network.RunDto
 import dz.racedz.nativeapp.core.network.UpdateRunRequest
 import dz.racedz.nativeapp.core.network.UserDto
@@ -147,7 +149,10 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
         is ApiResult.Failure -> result
     }
 
-    suspend fun detail(id: String): ApiResult<RunDto> = client.call { api.run(id) }
+    suspend fun detail(id: String): ApiResult<RunDetailDto> = client.call { api.run(id) }
+
+    /** Achievements, computed server-side from records and race finishes. */
+    suspend fun badges(): ApiResult<BadgesDto> = client.call { api.badges() }
 
     /**
      * Saves a recorded run. [clientId] is generated once per recording and reused on every retry —

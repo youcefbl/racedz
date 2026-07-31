@@ -64,7 +64,10 @@ interface ZidRunApi {
 
     /** The only endpoint that returns route points. */
     @GET("api/v1/runs/{id}")
-    suspend fun run(@Path("id") id: String): Response<ApiEnvelope<RunDto>>
+    suspend fun run(@Path("id") id: String): Response<ApiEnvelope<RunDetailDto>>
+
+    @GET("api/v1/me/badges")
+    suspend fun badges(): Response<ApiEnvelope<BadgesDto>>
 
     @POST("api/v1/runs")
     suspend fun createRun(@Body body: CreateRunRequest): Response<ApiEnvelope<RunDto>>

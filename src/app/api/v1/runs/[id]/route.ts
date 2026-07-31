@@ -3,6 +3,7 @@ import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { requireOwnedRun, runSelect, runUpdateSchema, toRunDto } from "@/lib/api/v1/runs";
+import { computeSplits, elevationSeries, paceSeries } from "@/lib/coach/run-stats";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,18 @@ export const GET = withApi(async (request, context: Context) => {
   const run = await requireOwnedRun(viewer.id, id);
   if (run.deletedAt) throw new ApiError("NOT_FOUND", "This run was not found.");
 
-  return apiOk(request, toRunDto(run, run.route ?? null));
+  // Splits and the two series come from the same helpers the website's run detail uses, and are
+  // covered by test:run-stats. Deriving them on the phone instead duplicated tested code and got it
+  // wrong: the first native version charged each kilometre for the segment that overshot its
+  // boundary rather than interpolating the crossing, so every split drifted.
+  const points = (run.route ?? null) as Parameters<typeof computeSplits>[0];
+
+  return apiOk(request, {
+    ...toRunDto(run, run.route ?? null),
+    splits: computeSplits(points),
+    paceSeries: paceSeries(points),
+    elevationSeries: elevationSeries(points),
+  });
 });
 
 /**

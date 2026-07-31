@@ -54,8 +54,7 @@ import dz.racedz.nativeapp.core.design.ZidRunSectionHeader
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.core.design.currentLocale
-import dz.racedz.nativeapp.core.network.RunDto
-import dz.racedz.nativeapp.core.network.displayRoute
+import dz.racedz.nativeapp.core.network.RunSplitDto
 
 /**
  * Run details (05-run-details.png): the route, the headline numbers, per-kilometre splits, and an
@@ -124,9 +123,8 @@ fun RunDetailScreen(
                     color = colors.textMuted,
                 )
 
-                RouteShape(
-                    route = run.displayRoute,
-                    strokeWidth = 3.dp,
+                RunMap(
+                    route = run.route,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1.5f)
@@ -158,7 +156,7 @@ fun RunDetailScreen(
                     }
                 }
 
-                val splits = state.splits
+                val splits = run.splits
                 if (splits.isNotEmpty()) {
                     ZidRunSectionHeader(title = stringResource(R.string.runs_splits))
                     ZidRunCard {
@@ -181,13 +179,13 @@ fun RunDetailScreen(
                             // against each other rather than against an arbitrary maximum.
                             val fastest = splits.minOf { it.paceSecondsPerKm }.coerceAtLeast(1)
                             splits.forEach { split ->
-                                SplitRow(split = split, fastestPace = fastest)
+                                SplitRow(split = split, fastestPace = fastest, locale = locale)
                             }
                         }
                     }
                 }
 
-                val elevations = state.elevationProfile
+                val elevations = run.elevationSeries
                 if (elevations.size > 1) {
                     ZidRunSectionHeader(title = stringResource(R.string.runs_elevation))
                     ZidRunCard {
@@ -202,7 +200,30 @@ fun RunDetailScreen(
                                 )
                             }
                             LineChart(
-                                values = elevations,
+                                values = elevations.map { it.value },
+                                color = colors.primary,
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                            )
+                        }
+                    }
+                }
+
+                val paces = run.paceSeries
+                if (paces.size > 1) {
+                    ZidRunSectionHeader(title = stringResource(R.string.runs_pace_chart))
+                    ZidRunCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                            Text(
+                                text = "${stringResource(R.string.runs_avg)} ${ZidRunFormat.pace(run.averagePaceSecondsPerKm)}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.textStrong,
+                            )
+                            // Pace is inverted: a lower seconds-per-km is a faster kilometre, so the
+                            // chart is flipped to put "faster" at the top where a runner expects it.
+                            LineChart(
+                                values = paces.map { it.value },
+                                color = colors.accent,
+                                invert = true,
                                 modifier = Modifier.fillMaxWidth().height(120.dp),
                             )
                         }
@@ -233,7 +254,7 @@ private fun StatDivider() {
 }
 
 @Composable
-private fun SplitRow(split: RunSplit, fastestPace: Int) {
+private fun SplitRow(split: RunSplitDto, fastestPace: Int, locale: java.util.Locale) {
     val colors = ZidRunTheme.colors
     // Proportional to how close this split is to the fastest one; floored so even the slowest
     // kilometre still reads as a bar rather than a sliver.
@@ -244,11 +265,14 @@ private fun SplitRow(split: RunSplit, fastestPace: Int) {
         modifier = Modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
-                contentDescription = "${split.label} ${ZidRunFormat.pace(split.paceSecondsPerKm)}"
+                contentDescription = "${split.index} ${ZidRunFormat.pace(split.paceSecondsPerKm)}"
             },
     ) {
         Text(
-            text = split.label,
+            // Whole kilometres by index; the final partial split is labelled by its real distance
+            // so "5.35" is not mistaken for a sixth full kilometre.
+            text = if (split.meters >= 995) split.index.toString()
+                else String.format(locale, "%.2f", (split.index - 1) + split.meters / 1000.0),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.text,
             modifier = Modifier.width(40.dp),
@@ -277,8 +301,12 @@ private fun SplitRow(split: RunSplit, fastestPace: Int) {
 
 /** A filled line chart. Used for the elevation profile; decorative, with the numbers stated above. */
 @Composable
-private fun LineChart(values: List<Double>, modifier: Modifier = Modifier) {
-    val colors = ZidRunTheme.colors
+private fun LineChart(
+    values: List<Double>,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    invert: Boolean = false,
+) {
     Canvas(modifier = modifier.clearAndSetSemantics { }) {
         if (values.size < 2) return@Canvas
         val min = values.min()
@@ -286,10 +314,11 @@ private fun LineChart(values: List<Double>, modifier: Modifier = Modifier) {
         val span = (max - min).takeIf { it > 0.5 } ?: 1.0
         val stepX = size.width / (values.size - 1)
 
-        fun point(index: Int): Offset = Offset(
-            index * stepX,
-            (size.height - ((values[index] - min) / span * size.height)).toFloat(),
-        )
+        fun point(index: Int): Offset {
+            val normalised = (values[index] - min) / span
+            val fromTop = if (invert) normalised else 1.0 - normalised
+            return Offset(index * stepX, (fromTop * size.height).toFloat())
+        }
 
         val line = Path().apply {
             moveTo(point(0).x, point(0).y)
@@ -302,10 +331,10 @@ private fun LineChart(values: List<Double>, modifier: Modifier = Modifier) {
             close()
         }
 
-        drawPath(fill, color = colors.primary.copy(alpha = 0.15f))
+        drawPath(fill, color = color.copy(alpha = 0.15f))
         drawPath(
             path = line,
-            color = colors.primary,
+            color = color,
             style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }

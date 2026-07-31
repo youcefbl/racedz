@@ -367,6 +367,74 @@ data class RunDto(
     val routePreview: List<RoutePointDto>? = null,
 )
 
+/** One kilometre of a run, as computed by the server's run-stats helpers. */
+@Serializable
+data class RunSplitDto(
+    val index: Int = 0,
+    val meters: Double = 0.0,
+    val seconds: Int = 0,
+    val paceSecondsPerKm: Int = 0,
+    val elevationGainM: Int = 0,
+    val fastest: Boolean = false,
+    val slowest: Boolean = false,
+)
+
+/** A point on the pace or elevation profile: a value at a distance along the run. */
+@Serializable
+data class SeriesPointDto(val distanceKm: Double = 0.0, val value: Double = 0.0)
+
+/**
+ * A run plus the derived metrics the detail screen shows. Splits and both series are computed
+ * server-side so the phone and the website cannot disagree about the same run.
+ */
+@Serializable
+data class RunDetailDto(
+    val id: String = "",
+    val clientId: String? = null,
+    val revision: Int = 1,
+    val deleted: Boolean = false,
+    val startedAt: String = "",
+    val distanceKm: Double = 0.0,
+    val durationSeconds: Int = 0,
+    val movingTimeSeconds: Int? = null,
+    val averagePaceSecondsPerKm: Int = 0,
+    val elevationGainM: Int? = null,
+    val averageHeartRate: Int? = null,
+    val avgCadence: Int? = null,
+    val calories: Int? = null,
+    val perceivedEffort: Int = 5,
+    val title: String? = null,
+    val notes: String? = null,
+    val isPublic: Boolean = false,
+    val source: String = "GPS",
+    val validity: String = "VALID",
+    val createdAt: String = "",
+    val updatedAt: String = "",
+    val route: List<RoutePointDto>? = null,
+    val splits: List<RunSplitDto> = emptyList(),
+    val paceSeries: List<SeriesPointDto> = emptyList(),
+    val elevationSeries: List<SeriesPointDto> = emptyList(),
+)
+
+/** One achievement, earned or still in progress. */
+@Serializable
+data class BadgeDto(
+    val id: String = "",
+    val category: String = "VOLUME",
+    val current: Double = 0.0,
+    val target: Double = 0.0,
+    val earned: Boolean = false,
+)
+
+@Serializable
+data class BadgesDto(
+    val badges: List<BadgeDto> = emptyList(),
+    val earnedCount: Int = 0,
+    val longestStreakWeeks: Int = 0,
+    val totalRuns: Int = 0,
+    val totalDistanceKm: Double = 0.0,
+)
+
 /** The best route available on this DTO: the full track if it was fetched, otherwise the preview. */
 val RunDto.displayRoute: List<RoutePointDto>?
     get() = route ?: routePreview
