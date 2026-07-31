@@ -163,24 +163,27 @@ defects the emulator pass found and how each was fixed — is recorded in
 ### Remaining phases
 
 Phases 1–5 shipped on 2026-07-31 (project structure and branding; auth; races; account;
-registration). What is left, in the order it should be done — the first item is not optional and
-blocks everything else on a real device.
+registration), followed by a design-fidelity pass over the four screens that have mockups.
 
-#### Phase 0 (blocking) — deploy `/api/v1` to production
+`/api/v1` is deployed to production as of 2026-07-31 and verified: `config` and `races` return real
+data, `me` is correctly unauthenticated without a token, and an unknown filter answers 422 rather
+than 500. A production-wired internal APK exists and reads production's own feature flags. That
+unblocks everything below.
 
-Nothing native can be tested off the emulator until this lands. Production currently answers 404 for
-every `/api/v1/*` route, so the internal APK reaches `zidrun.com` over TLS and fails on every
-screen. Needs: `20260731000000_mobile_api_v1_sessions` applied to the production database, the new
-routes deployed, and a post-deploy check that the website and the Capacitor app still behave
-identically (they share the auth helpers these routes call).
-
-Also outstanding from phase 2–5 before those can be called done, not just working:
+Still outstanding from phases 2–5 before those can be called done, not just working:
 
 - OpenAPI documentation for the shipped endpoints — `NATIVE-003` names it and the contract is
   currently pinned only by `scripts/test-mobile-api.ts`.
 - Account switching. Only single-account sign-in exists; `NATIVE-004` requires switching.
 - A physical-device pass: TalkBack, large-text, small screens, and the real photo picker.
 - An independent security review of the token/PKCE design before it guards production sessions.
+- A signed-in pass against production. Nobody has yet signed into the production APK, so the whole
+  authenticated half — refresh rotation, registration, uploads — is verified only against a local
+  backend and a seeded database.
+- Two open design questions the mockups do not settle: whether there is a fifth "Home" tab
+  (`04-races-page.png` and `01-races-overview.png` show one, `05-account-page.png` and
+  `02-race-details.png` do not, and no Home screen is designed), and whether the "Open ticket"
+  action on the Account hub implies a ticket/bib screen that does not exist.
 
 #### Phase 6 — notifications (step 6)
 
