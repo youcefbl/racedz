@@ -392,4 +392,6 @@
     <string name="onboarding_skip">Skip for now</string>
     <string name="onboarding_needed_title">Complete your profile</string>
     <string name="onboarding_needed_body">Race organisers need a few details before you can enter.</string>
+    <string name="coach_setup_birth_year_hint">Between %1$d and %2$d</string>
+    <string name="coach_setup_birth_year_error">Enter a four-digit year in that range.</string>
 </resources>

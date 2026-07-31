@@ -47,7 +47,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
+import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunCard
+import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
@@ -72,6 +74,9 @@ import dz.racedz.nativeapp.core.network.RunSplitDto
 fun RunDetailScreen(
     viewModel: RunDetailViewModel,
     onBack: () -> Unit,
+    /** Opens the coach with this run selected. Null when the runner has no coaching. */
+    onAnalyse: ((String) -> Unit)? = null,
+    onExportGpx: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -271,6 +276,28 @@ fun RunDetailScreen(
                         DetailMetric(
                             label = stringResource(R.string.runs_effort),
                             value = "${run.perceivedEffort}/10",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+                ) {
+                    // Export is offered only when there is a track to export; a GPX with no points
+                    // is a file that fails to import everywhere it is taken.
+                    if ((run.route?.size ?: 0) >= 2) {
+                        ZidRunOutlinedButton(
+                            text = stringResource(R.string.runs_export_gpx),
+                            onClick = { onExportGpx(run.id) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    onAnalyse?.let { analyse ->
+                        ZidRunButton(
+                            text = stringResource(R.string.runs_analyze),
+                            onClick = { analyse(run.id) },
                             modifier = Modifier.weight(1f),
                         )
                     }

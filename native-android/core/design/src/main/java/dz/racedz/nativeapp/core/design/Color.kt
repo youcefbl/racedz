@@ -75,32 +75,39 @@ val ZidRunLightColors = ZidRunColors(
     onHeroAccent = Color(0xFF0A1A05),
 )
 
+// Deliberately diverges from the web's dark palette. Ported 1:1, its slate blues read as "blue app"
+// on an OLED phone held at arm's length outdoors — the web's are seen on a bright desk monitor where
+// the same hue reads as neutral. These are near-neutral charcoals with only a trace of warmth, so
+// the brand green is the sole saturated thing on screen and carries the energy by itself. Deeper
+// blacks also cost less battery on OLED, which matters during a run.
 val ZidRunDarkColors = ZidRunColors(
-    background = Color(0xFF080D18),
-    foreground = Color(0xFFF8FAFC),
-    surface = Color(0xFF101827),
-    surfaceSoft = Color(0xFF0B1220),
-    surfaceMuted = Color(0xFF182234),
-    surfaceStrong = Color(0xFF020617),
-    textStrong = Color(0xFFF8FAFC),
-    text = Color(0xFFD1D5DB),
-    textMuted = Color(0xFF9CA3AF),
-    border = Color(0xFF263244),
-    borderStrong = Color(0xFF334155),
+    background = Color(0xFF0A0A0B),
+    foreground = Color(0xFFFAFAFA),
+    surface = Color(0xFF151517),
+    surfaceSoft = Color(0xFF101012),
+    surfaceMuted = Color(0xFF1F1F22),
+    surfaceStrong = Color(0xFF000000),
+    textStrong = Color(0xFFFAFAFA),
+    text = Color(0xFFD4D4D6),
+    textMuted = Color(0xFF9B9BA1),
+    border = Color(0xFF2A2A2E),
+    borderStrong = Color(0xFF3D3D42),
     primary = Color(0xFF4ADE80),
-    onPrimary = Color(0xFF052E16),
+    onPrimary = Color(0xFF04240F),
     primaryStrong = Color(0xFF22C55E),
-    primarySoft = Color(0xFF052E16),
+    // Tinted rather than near-black, so a "soft" surface actually reads as green-tinted against the
+    // new near-neutral background instead of disappearing into it.
+    primarySoft = Color(0xFF0E2A18),
     accent = Color(0xFFFB923C),
     onAccent = Color(0xFF431407),
     accentStrong = Color(0xFFF47A20),
-    accentSoft = Color(0xFF431407),
+    accentSoft = Color(0xFF2E1508),
     success = Color(0xFF22C55E),
-    successSoft = Color(0xFF052E16),
+    successSoft = Color(0xFF0E2A18),
     danger = Color(0xFFF87171),
-    dangerSoft = Color(0xFF450A0A),
+    dangerSoft = Color(0xFF2E0F0F),
     info = Color(0xFF60A5FA),
-    infoSoft = Color(0xFF172554),
+    infoSoft = Color(0xFF10203A),
     focus = Color(0xFFFB923C),
     heroAccent = Color(0xFFA3E635),
     onHeroAccent = Color(0xFF0A1A05),

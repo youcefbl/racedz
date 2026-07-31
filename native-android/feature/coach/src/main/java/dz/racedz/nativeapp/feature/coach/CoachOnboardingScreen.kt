@@ -105,7 +105,11 @@ fun CoachOnboardingScreen(
             )
 
             Section(stringResource(R.string.coach_setup_goal)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                    // Without this, a wrapped second row of chips sits flush against the first.
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                ) {
                     GOAL_TYPES.forEach { type ->
                         ZidRunChoiceChip(
                             label = goalTypeLabel(type),
@@ -131,7 +135,11 @@ fun CoachOnboardingScreen(
             }
 
             Section(stringResource(R.string.coach_setup_about_you)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                    // Without this, a wrapped second row of chips sits flush against the first.
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                ) {
                     EXPERIENCE.forEach { level ->
                         ZidRunChoiceChip(
                             label = experienceLabel(level),
@@ -147,9 +155,19 @@ fun CoachOnboardingScreen(
                     keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
                 )
 
-                // Only asked when the account does not already have them.
+                // Only asked when the account still lacks it — user onboarding asks the same
+                // question, and asking twice makes the app look like it was not paying attention.
                 if (state.gaps.needsSex) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                    Text(
+                        stringResource(R.string.onboarding_gender),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = colors.textStrong,
+                    )
+                    FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                    // Without this, a wrapped second row of chips sits flush against the first.
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                ) {
                         listOf("MALE", "FEMALE").forEach { value ->
                             ZidRunChoiceChip(
                                 label = if (value == "MALE") {
@@ -164,10 +182,22 @@ fun CoachOnboardingScreen(
                     }
                 }
                 if (state.gaps.needsBirthDate) {
+                    val currentYear = java.time.LocalDate.now().year
+                    val yearValue = birthYear.toIntOrNull()
+                    // A plausible range rather than a free integer: the coach uses age to set
+                    // intensity, so a typo'd year quietly skews the whole plan.
+                    val yearOk = birthYear.isEmpty() ||
+                        (birthYear.length == 4 && yearValue != null && yearValue in (currentYear - 100)..(currentYear - 10))
                     ZidRunTextField(
                         value = birthYear,
                         onValueChange = { birthYear = it.filter(Char::isDigit).take(4) },
                         label = stringResource(R.string.coach_setup_birth_year),
+                        supportingText = stringResource(
+                            R.string.coach_setup_birth_year_hint,
+                            currentYear - 100,
+                            currentYear - 10,
+                        ),
+                        errorText = if (yearOk) null else stringResource(R.string.coach_setup_birth_year_error),
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
                     )
                 }
@@ -179,7 +209,12 @@ fun CoachOnboardingScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textMuted,
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                // Seven chips do not fit one row on a phone; wrapping beats a row clipped at "Thu".
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                    // Without this, a wrapped second row of chips sits flush against the first.
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                ) {
                     WEEKDAYS.forEach { day ->
                         ZidRunChoiceChip(
                             label = weekdayLabel(day),

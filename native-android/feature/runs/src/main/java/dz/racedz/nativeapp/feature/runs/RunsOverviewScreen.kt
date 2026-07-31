@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Schedule
@@ -45,6 +46,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunBrandBar
@@ -87,6 +92,18 @@ fun RunsOverviewScreen(
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
 
+    // The view model is scoped to the shell and survives navigating away, so after saving a run the
+    // overview kept showing the list it fetched at startup — with an older run as "latest". Reload
+    // whenever this screen comes back to the foreground.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.load()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Box(modifier = modifier.fillMaxSize().background(colors.background).padding(contentPadding)) {
         when {
             state.loading -> ZidRunLoading(label = stringResource(R.string.common_loading))
@@ -108,7 +125,7 @@ fun RunsOverviewScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = ZidRunDimens.spaceLg),
-                verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
+                verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
             ) {
                 ZidRunBrandBar(
                     actionIcon = Icons.Filled.BarChart,
@@ -191,16 +208,30 @@ fun RunsOverviewScreen(
                         ZidRunSectionHeader(title = stringResource(R.string.runs_latest))
                         Spacer(Modifier.weight(1f))
                         val historyLabel = stringResource(R.string.runs_cd_history)
-                        Text(
-                            text = stringResource(R.string.runs_view_history),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colors.primary,
+                        // A labelled, chip-sized target. The icon in the brand bar alone was not
+                        // discoverable — a tester looking for their run list did not find it.
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                                .background(colors.primarySoft)
                                 .clickable(role = Role.Button, onClick = onOpenHistory)
-                                .padding(horizontal = ZidRunDimens.spaceSm, vertical = ZidRunDimens.spaceXs)
+                                .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm)
                                 .semantics { contentDescription = historyLabel },
-                        )
+                        ) {
+                            Text(
+                                text = stringResource(R.string.runs_view_history),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = colors.primary,
+                            )
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = colors.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
                     }
                     LatestRunCard(run = latest, onClick = { onOpenRun(latest.id) })
 

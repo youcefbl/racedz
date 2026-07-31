@@ -373,4 +373,6 @@
     <string name="onboarding_skip">Plus tard</string>
     <string name="onboarding_needed_title">Complétez votre profil</string>
     <string name="onboarding_needed_body">Les organisateurs ont besoin de quelques informations avant votre inscription.</string>
+    <string name="coach_setup_birth_year_hint">Entre %1$d et %2$d</string>
+    <string name="coach_setup_birth_year_error">Entrez une année à quatre chiffres dans cette plage.</string>
 </resources>

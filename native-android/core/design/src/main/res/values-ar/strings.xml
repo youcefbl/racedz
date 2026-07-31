@@ -374,4 +374,6 @@
     <string name="onboarding_skip">من بعد</string>
     <string name="onboarding_needed_title">كمّل الملف تاعك</string>
     <string name="onboarding_needed_body">المنظمين يحتاجو شوية معلومات قبل ما تسجّل.</string>
+    <string name="coach_setup_birth_year_hint">بين %1$d و %2$d</string>
+    <string name="coach_setup_birth_year_error">دخّل عام من 4 أرقام في هذا المجال.</string>
 </resources>

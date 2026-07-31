@@ -1,6 +1,6 @@
 import { apiError, apiOk, ApiError, withApi, readJsonBody } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
-import { createCoachGoal, getCoachProfileGaps } from "@/lib/coach/service";
+import { createCoachGoal, ensureCurrentWeekPlan, getCoachProfileGaps } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { getPrisma } from "@/lib/db";
@@ -46,7 +46,21 @@ export const POST = withApi(async (request) => {
 
   try {
     const goal = await createCoachGoal(viewer.id, await readJsonBody(request));
-    return apiOk(request, goal, { status: 201 });
+
+    // createCoachGoal() stores the goal but does not build a plan — on the website a nightly job
+    // (coach/reminders.ts) calls this. Without it the app finishes onboarding and lands on an empty
+    // "No plan yet" dashboard, which reads as the setup having silently failed. Generate the first
+    // week here so completing onboarding produces something.
+    //
+    // Best-effort: the goal is saved either way, and a plan that fails to generate now will be
+    // picked up by the same nightly job. Failing the whole request would throw away the answers the
+    // runner just gave.
+    const plan = await ensureCurrentWeekPlan(viewer.id).catch((error) => {
+      console.error("[api/v1][coach-goal] first-week plan generation failed:", error);
+      return { created: false };
+    });
+
+    return apiOk(request, { goal, planCreated: plan.created }, { status: 201 });
   } catch (error) {
     if (error instanceof CoachError) {
       const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : "VALIDATION_FAILED";

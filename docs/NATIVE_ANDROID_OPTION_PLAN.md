@@ -300,6 +300,7 @@ a relationship that does not exist.
 
 | Version | Date | What changed |
 |---|---|---|
+| `0.7.0` | 2026-07-31 | Fixes from the first outdoor device test: plan generation after coach onboarding, stale "latest run", near-neutral dark palette, GPX export, gated Analyze action, onboarding layout |
 | `0.6.0` | 2026-07-31 | Durable run outbox (a finished run survives the app being killed), two-stage onboarding gated server-side, Coach conversation and sleep/recovery. First build intended for a real outdoor GPS test |
 | `0.5.0` | 2026-07-31 | Runs UI aligned with the mockups (footprint ring, guided/free choice, audio cues, run detail charts); Coach tab and coach onboarding |
 | `0.4.0` | 2026-07-31 | Design-fidelity pass over Races, Race detail, Account, and Auth; first build against the deployed production API |

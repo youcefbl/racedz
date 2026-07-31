@@ -77,6 +77,20 @@ fun ZidRunApp(
     val appearance = remember { AppearanceController(context, systemInDarkTheme) }
     val authState by container.sessionManager.state.collectAsStateWithLifecycle()
 
+    // Whether to offer "Analyze run" on a run. Coaching is paid, so the action is hidden rather
+    // than shown and then refused — offering something that answers "subscribe first" is worse than
+    // not offering it. Read once per signed-in session; a tier change mid-session is rare enough
+    // that a relaunch picking it up is acceptable.
+    var coachEnabled by remember { mutableStateOf(false) }
+    LaunchedEffect(authState) {
+        coachEnabled = if (authState is AuthState.SignedIn) {
+            (container.coachRepository.overview() as? ApiResult.Success)?.value
+                ?.entitlement?.tier?.let { it != "NONE" } ?: false
+        } else {
+            false
+        }
+    }
+
     // A race link that arrives while the splash is still up cannot be navigated to yet: the splash
     // finishes by popping itself with popUpTo(inclusive = true), which would take the race
     // destination with it. Park the slug and open it once the splash has handed over.
@@ -332,7 +346,20 @@ fun ZidRunApp(
                     key = "run-$runId",
                     factory = SimpleViewModelFactory { RunDetailViewModel(container.runsRepository, runId) },
                 )
-                RunDetailScreen(viewModel = detailViewModel, onBack = { navController.popBackStack() })
+                RunDetailScreen(
+                    viewModel = detailViewModel,
+                    onBack = { navController.popBackStack() },
+                    // Coaching is a paid feature; the action is only offered to a runner who has it,
+                    // rather than shown and then refused.
+                    onAnalyse = if (coachEnabled) {
+                        { navController.navigate(RootDestinations.COACH_CHAT) }
+                    } else {
+                        null
+                    },
+                    onExportGpx = { id ->
+                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/api/v1/runs/$id/gpx"))
+                    },
+                )
             }
 
             composable(
