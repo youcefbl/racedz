@@ -25,6 +25,9 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "IDEMPOTENCY_KEY_REUSED"
+  // The caller must finish onboarding before this action is possible. Distinct from
+  // VALIDATION_FAILED so the app can route to onboarding rather than highlight fields.
+  | "PROFILE_INCOMPLETE"
   | "RATE_LIMITED"
   | "UNAVAILABLE"
   | "INTERNAL";
@@ -46,6 +49,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   IDEMPOTENCY_KEY_REUSED: 409,
+  PROFILE_INCOMPLETE: 428,
   RATE_LIMITED: 429,
   UNAVAILABLE: 503,
   INTERNAL: 500

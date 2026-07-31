@@ -214,6 +214,8 @@ export type MeDto = {
   dateOfBirth: string | null;
   wilaya: string | null;
   city: string | null;
+  /** True when the profile carries every field a race registration requires. */
+  profileComplete: boolean;
   emailVerified: boolean;
   mfaEnabled: boolean;
   preferences: { language: string | null; theme: string | null; profilePrivate: boolean };
@@ -249,6 +251,16 @@ export function toMeDto(user: {
     gender: user.gender,
     // Date-only field; the time component is meaningless and would leak the row's creation clock.
     dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().slice(0, 10) : null,
+    /**
+     * Whether the profile carries everything a race registration needs.
+     *
+     * Computed here rather than in the app so one definition governs both: the client uses it to
+     * decide whether to show onboarding, and the registration endpoint enforces the same fields.
+     * A client-side guess would drift the moment the registration schema changes.
+     */
+    profileComplete: Boolean(
+      user.phone && user.gender && user.dateOfBirth && user.wilaya && user.city
+    ),
     wilaya: user.wilaya,
     city: user.city,
     emailVerified: Boolean(user.emailVerifiedAt),

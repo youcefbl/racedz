@@ -543,3 +543,20 @@ fun ZidRunSearchField(
         ),
     )
 }
+
+/** A low-emphasis action — "Skip for now" and similar, where the primary path is elsewhere. */
+@Composable
+fun ZidRunTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = ZidRunTheme.colors
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = ZidRunDimens.minTouchTarget)
+            .clip(RoundedCornerShape(ZidRunDimens.cornerMd))
+            .clickable(onClick = onClick)
+            .padding(ZidRunDimens.spaceMd),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = MaterialTheme.typography.titleSmall, color = colors.textMuted, textAlign = TextAlign.Center)
+    }
+}

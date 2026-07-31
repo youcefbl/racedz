@@ -51,6 +51,8 @@ enum class ApiErrorCode {
     NotFound,
     Conflict,
     IdempotencyKeyReused,
+    /** Onboarding is incomplete; the caller should be sent to fill it in, not shown field errors. */
+    ProfileIncomplete,
     RateLimited,
     Unavailable,
     Internal,
@@ -78,7 +80,8 @@ enum class ApiErrorCode {
             "FORBIDDEN" -> Forbidden
             "NOT_FOUND" -> NotFound
             "CONFLICT" -> Conflict
-            "IDEMPOTENCY_KEY_REUSED" -> IdempotencyKeyReused
+        "PROFILE_INCOMPLETE" -> ProfileIncomplete
+        "IDEMPOTENCY_KEY_REUSED" -> IdempotencyKeyReused
             "RATE_LIMITED" -> RateLimited
             "UNAVAILABLE" -> Unavailable
             "INTERNAL" -> Internal

@@ -320,6 +320,30 @@ async function main() {
       const fifth = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
       accessToken = tokensOf(fifth).accessToken;
 
+      // Registering now requires a complete profile — the fields organisers ask for. Assert the
+      // gate first, then satisfy it, so the rest of this section exercises registration itself.
+      const beforeProfile = await api(`/api/v1/races/${openRace.id}/registrations`, {
+        method: "POST",
+        token: accessToken,
+        body: { raceCategoryId: openRace.categories[0].id }
+      });
+      check(
+        "registering without a complete profile is refused with a typed, actionable code",
+        beforeProfile.status === 428 && errorCode(beforeProfile) === "PROFILE_INCOMPLETE",
+        { status: beforeProfile.status, code: errorCode(beforeProfile) }
+      );
+
+      const filled = await api("/api/v1/me", {
+        method: "PATCH",
+        token: accessToken,
+        body: { phone: "0555123456", gender: "MALE", dateOfBirth: "1995-05-12", wilaya: "Alger", city: "Algiers" }
+      });
+      check(
+        "completing the profile flips the server-computed profileComplete flag",
+        (filled.body.data as { profileComplete: boolean })?.profileComplete === true,
+        filled.body
+      );
+
       const registrationBody = {
         firstName: "Mobile",
         lastName: "Tester",

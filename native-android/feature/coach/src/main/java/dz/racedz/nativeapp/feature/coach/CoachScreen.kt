@@ -133,7 +133,23 @@ fun CoachScreen(
                         )
                     }
 
-                    overview.goal?.let { goal ->
+                    val goal = overview.goal
+                    if (goal == null) {
+                        // Subscribed but no goal: coaching genuinely cannot work yet — there is no
+                        // plan to show and nothing for the coach to reason about. Onboarding is the
+                        // only useful thing on this screen, so it is the only thing offered.
+                        ZidRunStatusView(
+                            icon = Icons.Filled.TrackChanges,
+                            title = stringResource(R.string.coach_setup_title),
+                            body = stringResource(R.string.coach_setup_intro),
+                            actionLabel = stringResource(R.string.coach_setup_submit),
+                            onAction = onSetUpCoach,
+                        )
+                        Spacer(Modifier.height(ZidRunDimens.spaceXxl))
+                        return@Column
+                    }
+
+                    run {
                         ZidRunCard {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(

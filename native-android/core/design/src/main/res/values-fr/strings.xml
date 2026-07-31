@@ -364,4 +364,13 @@
     <string name="coach_sleep_empty_body">Enregistrez une nuit et votre coach tiendra compte de la récupération.</string>
     <string name="coach_sleep_saved">Enregistré</string>
     <string name="coach_sleep_history">Nuits récentes</string>
+    <string name="onboarding_title">Parlez-nous de vous</string>
+    <string name="onboarding_intro">Les organisateurs demandent ces informations. Remplissez-les une fois et s’inscrire ne sera plus qu’un choix de distance.</string>
+    <string name="onboarding_birth_date">Date de naissance</string>
+    <string name="onboarding_birth_hint">AAAA-MM-JJ</string>
+    <string name="onboarding_gender">Genre</string>
+    <string name="onboarding_save">Enregistrer et continuer</string>
+    <string name="onboarding_skip">Plus tard</string>
+    <string name="onboarding_needed_title">Complétez votre profil</string>
+    <string name="onboarding_needed_body">Les organisateurs ont besoin de quelques informations avant votre inscription.</string>
 </resources>

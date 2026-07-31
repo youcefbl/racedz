@@ -36,6 +36,18 @@ export const POST = withApi(async (request, context: Context) => {
   });
   if (!race) throw new ApiError("NOT_FOUND", "This race is not available.");
 
+  // The registration form sends these fields, but a runner who skipped onboarding has an empty
+  // profile to prefill them from — so the request arrives incomplete and fails on a generic
+  // validation error that says nothing about why. Answering with a typed PROFILE_INCOMPLETE lets
+  // the app send them to onboarding instead of showing five red fields.
+  const profile = await getPrisma().user.findUnique({
+    where: { id: viewer.id },
+    select: { phone: true, gender: true, dateOfBirth: true, wilaya: true, city: true },
+  });
+  if (!profile?.phone || !profile.gender || !profile.dateOfBirth || !profile.wilaya || !profile.city) {
+    throw new ApiError("PROFILE_INCOMPLETE", "Complete your profile before registering for a race.");
+  }
+
   const body = (await readJsonBody(request)) as Record<string, unknown>;
   const endpoint = "POST /api/v1/races/:id/registrations";
   const idempotencyKey = readIdempotencyKey(request);

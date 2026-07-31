@@ -19,6 +19,7 @@ object RootDestinations {
     const val RUN_START = "runs/start"
     const val RUN_RECORDING = "runs/recording"
     const val RUN_SUMMARY = "runs/summary"
+    const val ONBOARDING = "onboarding"
     const val COACH_SETUP = "coach/setup"
     const val COACH_PLAN = "coach/plan"
     const val COACH_CHAT = "coach/chat"

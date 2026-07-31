@@ -38,6 +38,11 @@ data class RegistrationUiState(
     val city: String = "",
     val emergencyName: String = "",
     val emergencyPhone: String = "",
+    /**
+     * Set when the server refused because the profile is incomplete. The screen sends the runner to
+     * onboarding rather than showing errors on fields they have no way to fill from here.
+     */
+    val needsOnboarding: Boolean = false,
     val clubName: String = "",
     val acceptedTerms: Boolean = false,
     val loading: Boolean = true,
@@ -180,7 +185,13 @@ class RegistrationViewModel(
                             RegistrationStep.Payment
                         },
                     )
-                    is ApiResult.Failure -> current.copy(submitting = false, error = result.error)
+                    is ApiResult.Failure -> current.copy(
+                        submitting = false,
+                        error = result.error,
+                        // Not a field problem: the profile is missing data this form prefills from,
+                        // so the runner is sent to onboarding rather than left staring at the form.
+                        needsOnboarding = result.error.code == ApiErrorCode.ProfileIncomplete,
+                    )
                 }
             }
         }

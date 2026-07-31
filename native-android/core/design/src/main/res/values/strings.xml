@@ -383,4 +383,13 @@
     <string name="coach_sleep_empty_body">Log a night and your coach can factor recovery into your plan.</string>
     <string name="coach_sleep_saved">Saved</string>
     <string name="coach_sleep_history">Recent nights</string>
+    <string name="onboarding_title">Tell us about you</string>
+    <string name="onboarding_intro">Race organisers ask for these. Fill them in once and entering a race is just picking a distance.</string>
+    <string name="onboarding_birth_date">Date of birth</string>
+    <string name="onboarding_birth_hint">YYYY-MM-DD</string>
+    <string name="onboarding_gender">Gender</string>
+    <string name="onboarding_save">Save and continue</string>
+    <string name="onboarding_skip">Skip for now</string>
+    <string name="onboarding_needed_title">Complete your profile</string>
+    <string name="onboarding_needed_body">Race organisers need a few details before you can enter.</string>
 </resources>

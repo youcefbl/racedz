@@ -365,4 +365,13 @@
     <string name="coach_sleep_empty_body">سجّل ليلة والمدرب يحسب الاسترجاع في البرنامج.</string>
     <string name="coach_sleep_saved">تسجّل</string>
     <string name="coach_sleep_history">الليالي الأخيرة</string>
+    <string name="onboarding_title">قوللنا عليك</string>
+    <string name="onboarding_intro">منظمي السباقات يطلبو هاذ المعلومات. عمّرها مرة وحدة وتسجيلك في السباق يولّي غير اختيار المسافة.</string>
+    <string name="onboarding_birth_date">تاريخ الميلاد</string>
+    <string name="onboarding_birth_hint">سنة-شهر-يوم</string>
+    <string name="onboarding_gender">الجنس</string>
+    <string name="onboarding_save">سجّل وكمّل</string>
+    <string name="onboarding_skip">من بعد</string>
+    <string name="onboarding_needed_title">كمّل الملف تاعك</string>
+    <string name="onboarding_needed_body">المنظمين يحتاجو شوية معلومات قبل ما تسجّل.</string>
 </resources>

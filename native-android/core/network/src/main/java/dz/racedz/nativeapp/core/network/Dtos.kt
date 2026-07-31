@@ -56,6 +56,8 @@ data class UserDto(
     val mfaEnabled: Boolean = false,
     val preferences: UserPreferencesDto = UserPreferencesDto(),
     val season: SeasonDto = SeasonDto(),
+    /** Server-computed: true when the profile carries every field a race registration needs. */
+    val profileComplete: Boolean = false,
 )
 
 @Serializable

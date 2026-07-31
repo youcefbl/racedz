@@ -36,6 +36,7 @@ import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
 import dz.racedz.nativeapp.feature.coach.CoachOnboardingScreen
+import dz.racedz.nativeapp.feature.account.UserOnboardingScreen
 import dz.racedz.nativeapp.feature.coach.ConversationScreen
 import dz.racedz.nativeapp.feature.coach.ConversationViewModel
 import dz.racedz.nativeapp.feature.coach.PlanWeekScreen
@@ -165,7 +166,11 @@ fun ZidRunApp(
                 AuthScreen(
                     viewModel = authViewModel,
                     onSignedIn = {
-                        navController.navigate(RootDestinations.SHELL) {
+                        // Always routed through onboarding; the screen forwards straight to the
+                        // shell when the profile is already complete. Deciding there rather than
+                        // here means one place reads the server's own `profileComplete` instead of
+                        // this navigation guessing from a cached session.
+                        navController.navigate(RootDestinations.ONBOARDING) {
                             popUpTo(RootDestinations.AUTH) { inclusive = true }
                         }
                     },
@@ -231,6 +236,16 @@ fun ZidRunApp(
                     // Minimising leaves the recording running in the service; the Runs tab shows a
                     // banner to come back.
                     onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.ONBOARDING) {
+                UserOnboardingScreen(
+                    viewModel = rememberAccountViewModel(container, appearance),
+                    // Both paths land in the shell: skipping only delays the ask, since the server
+                    // enforces the same fields when a registration is attempted.
+                    onDone = { navController.navigate(RootDestinations.SHELL) { popUpTo(0) { inclusive = true } } },
+                    onSkip = { navController.navigate(RootDestinations.SHELL) { popUpTo(0) { inclusive = true } } },
                 )
             }
 
@@ -345,6 +360,7 @@ fun ZidRunApp(
                     },
                 )
                 RegistrationScreen(
+                    onCompleteProfile = { navController.navigate(RootDestinations.ONBOARDING) },
                     viewModel = registrationViewModel,
                     onBack = { navController.popBackStack() },
                     onDone = {

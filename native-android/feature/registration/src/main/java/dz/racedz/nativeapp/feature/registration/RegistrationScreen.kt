@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,10 +72,17 @@ import dz.racedz.nativeapp.core.design.currentLocale
 fun RegistrationScreen(
     viewModel: RegistrationViewModel,
     onBack: () -> Unit,
+    /** Invoked when the server says the profile is not complete enough to register. */
+    onCompleteProfile: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // The server refused for a reason this form cannot fix. Send them to onboarding immediately.
+    LaunchedEffect(state.needsOnboarding) {
+        if (state.needsOnboarding) onCompleteProfile()
+    }
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
     val context = LocalContext.current
