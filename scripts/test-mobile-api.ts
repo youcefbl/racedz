@@ -380,19 +380,35 @@ async function main() {
       const created201 = concurrent.filter((response) => response.status === 201);
       const rejected = concurrent.filter((response) => response.status !== 201);
       const rowsAfterRace = await prisma.raceRegistration.count({ where: { userId: { in: createdUserIds } } });
-      check(
-        "exactly one of two concurrent same-key requests wins",
-        created201.length === 1,
-        concurrent.map((r) => ({ status: r.status, code: errorCode(r) }))
-      );
+
+      // Two outcomes are both correct, depending on how the requests interleave: the loser arrives
+      // while the winner is mid-flight and is told CONFLICT, or it arrives after the winner
+      // finished and gets the stored 201 back as a replay. Asserting one specific split would make
+      // this test fail on timing rather than on behaviour, so assert the invariant instead — one
+      // registration, one identity, and any second success flagged as a replay.
       check(
         "the race leaves exactly one registration in the database",
         rowsAfterRace === 1,
         rowsAfterRace
       );
       check(
-        "the losing concurrent request is told so rather than silently duplicating",
-        rejected.every((r) => r.status === 409),
+        "at least one concurrent request succeeds",
+        created201.length >= 1,
+        concurrent.map((r) => ({ status: r.status, code: errorCode(r) }))
+      );
+      check(
+        "every success refers to the same registration",
+        new Set(created201.map((r) => (r.body.data as { id: string }).id)).size === 1,
+        created201.map((r) => (r.body.data as { id: string }).id)
+      );
+      check(
+        "any success beyond the first is marked as a replay",
+        created201.filter((r) => r.headers.get("idempotent-replay") !== "true").length === 1,
+        created201.map((r) => r.headers.get("idempotent-replay"))
+      );
+      check(
+        "a loser that arrived mid-flight is told so rather than silently duplicating",
+        rejected.every((r) => r.status === 409 && errorCode(r) === "CONFLICT"),
         rejected.map((r) => ({ status: r.status, code: errorCode(r) }))
       );
       // Distinguishes the reservation from the (userId, raceCategoryId) unique constraint, which
@@ -420,6 +436,19 @@ async function main() {
         "a genuine duplicate registration is a 409",
         duplicate.status === 409 && errorCode(duplicate) === "CONFLICT",
         duplicate.body
+      );
+
+      // The reservation must SURVIVE a successful mutation. Deleting it — which the error path used
+      // to do for any failure, including one raised after the transaction had already committed —
+      // is what turns a retry into a spurious "you are already registered".
+      const reservation = await prisma.mobileIdempotencyRecord.findFirst({
+        where: { userId: { in: createdUserIds }, key: raceKey },
+        select: { responseCode: true }
+      });
+      check(
+        "a completed registration leaves its reservation stored, not released",
+        reservation?.responseCode === 201,
+        reservation
       );
 
       const registrationId = (created.body.data as { id: string }).id;

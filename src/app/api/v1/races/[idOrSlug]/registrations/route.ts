@@ -63,9 +63,15 @@ export const POST = withApi(async (request, context: Context) => {
 
   // Reserved BEFORE the mutation so the unique constraint serializes concurrent retries. Validation
   // runs first so a malformed body cannot burn the key.
+  let owner: string | null = null;
+  // Taken before the mutation so the reconciliation below can tell a row this request wrote from
+  // one that already existed.
+  const claimedAt = new Date();
+
   if (idempotencyKey) {
     const claim = await claimIdempotent(request, viewer.id, endpoint, idempotencyKey, idempotencyBody);
     if (claim.outcome === "replay") return claim.response;
+    owner = claim.owner;
   }
 
   try {
@@ -81,24 +87,87 @@ export const POST = withApi(async (request, context: Context) => {
       raceCategory: registration.raceCategory
     });
 
-    if (idempotencyKey) {
-      await completeIdempotent(viewer.id, endpoint, idempotencyKey, 201, dto);
+    if (idempotencyKey && owner) {
+      await completeIdempotent(viewer.id, endpoint, idempotencyKey, owner, 201, dto);
     }
 
     return apiOk(request, dto, { status: 201 });
   } catch (error) {
-    // The registration transaction either commits fully or rolls back, so a failure here left
-    // nothing behind and the user may retry with the same key.
-    if (idempotencyKey) {
-      await releaseIdempotent(viewer.id, endpoint, idempotencyKey);
-    }
-
     if (error instanceof RegistrationError) {
+      // Every RegistrationError is raised either before any write or from a transaction that rolled
+      // back, so nothing was committed and the key is free to be retried.
+      if (idempotencyKey && owner) {
+        await releaseIdempotent(viewer.id, endpoint, idempotencyKey, owner);
+      }
+
       // RegistrationError already carries the right status and a user-facing message from the
       // shared domain layer; map it onto this facade's envelope without rewording it.
       const code = error.status === 409 ? "CONFLICT" : error.status === 404 ? "NOT_FOUND" : error.status === 422 ? "VALIDATION_FAILED" : "BAD_REQUEST";
       throw new ApiError(code, error.message);
     }
+
+    // Any other failure may have happened AFTER the registration committed —
+    // createRaceRegistrationForUser() sends notifications once the transaction is done, and that
+    // work can throw. Releasing the reservation here would be the worst outcome: the runner is
+    // registered, but their retry would find the reservation gone, re-run, and collide with their
+    // own row, so a successful registration would report "you are already registered".
+    //
+    // So reconcile against the database instead of guessing. Only a registration created since this
+    // reservation was taken counts as ours — an older one belongs to a different attempt and must
+    // still surface as a duplicate.
+    if (idempotencyKey && owner) {
+      const committed = await findRegistrationCreatedSince(viewer.id, race.id, claimedAt);
+
+      if (committed) {
+        const dto = toRegistrationDto(committed);
+        await completeIdempotent(viewer.id, endpoint, idempotencyKey, owner, 201, dto);
+        console.error(
+          `[api/v1][registration] post-commit failure for registration ${committed.id}; the registration stands`,
+          error
+        );
+        return apiOk(request, dto, { status: 201 });
+      }
+
+      await releaseIdempotent(viewer.id, endpoint, idempotencyKey, owner);
+    }
+
     throw error;
   }
 });
+
+/**
+ * The caller's registration for this race created at or after [since], if any.
+ *
+ * The time bound is what distinguishes "the row this request just wrote" from "a row an earlier
+ * attempt wrote"; without it a genuine duplicate would be reported as a fresh success.
+ */
+async function findRegistrationCreatedSince(userId: string, raceEventId: string, since: Date) {
+  return getPrisma().raceRegistration.findFirst({
+    where: { userId, raceEventId, createdAt: { gte: since } },
+    select: {
+      id: true,
+      status: true,
+      paymentStatus: true,
+      paymentMethod: true,
+      paymentProofUrl: true,
+      bibNumber: true,
+      createdAt: true,
+      raceEvent: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          startDate: true,
+          wilaya: true,
+          city: true,
+          baridiMobNumber: true,
+          ccpAccount: true,
+          ccpKey: true,
+          paymentNote: true
+        }
+      },
+      raceCategory: { select: { id: true, name: true, distanceKm: true, priceDzd: true } }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+}

@@ -1368,7 +1368,11 @@ model MobileSession {
   /// `User.securityStampAt` when this device authenticated. Compared on every refresh so a password
   /// reset, MFA change, block, or role change invalidates the 60-day refresh token as well — the
   /// stamp carried inside the access token only covers its own 15-minute window.
-  securityStamp    DateTime  @default(now())
+  ///
+  /// Deliberately has NO default: a default would let any future insert that forgets this field
+  /// mint a session that looks freshly authenticated, silently re-opening the bypass this column
+  /// exists to close.
+  securityStamp    DateTime
   appVersion       String?
   /// Coarse, user-recognizable device label (e.g. "Pixel 8"). Never an advertising/hardware ID.
   deviceName       String?
@@ -1417,6 +1421,10 @@ model MobileIdempotencyRecord {
   key          String
   /// SHA-256 of the request body — a same-key/different-body retry is a client bug, not a retry.
   requestHash  String
+  /// Identifies the attempt currently holding this reservation. Completing or releasing requires a
+  /// matching owner, so a stalled request that finishes after its lease was taken over cannot
+  /// overwrite the newer attempt's result.
+  owner        String
   /// Null while the mutation is still running. The row is inserted BEFORE the mutation so the
   /// unique constraint below serializes concurrent retries; a second caller that loses the insert
   /// either replays the finished result or is told the first attempt is still in flight.

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import type { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/db";
@@ -37,8 +37,12 @@ export function readIdempotencyKey(request: Request): string | null {
 }
 
 export type IdempotencyClaim =
-  /** This caller owns the mutation and must call `complete()` (or `release()`) afterwards. */
-  | { outcome: "claimed" }
+  /**
+   * This caller owns the mutation. `owner` must be passed back to [completeIdempotent] or
+   * [releaseIdempotent]; a stalled attempt whose lease was taken over will find its owner no longer
+   * matches and will leave the newer attempt's result alone.
+   */
+  | { outcome: "claimed"; owner: string }
   /** A previous attempt finished; its response is replayed verbatim. */
   | { outcome: "replay"; response: NextResponse };
 
@@ -62,12 +66,13 @@ export async function claimIdempotent(
 ): Promise<IdempotencyClaim> {
   const prisma = getPrisma();
   const requestHash = hashBody(body);
+  const owner = randomUUID();
 
   try {
     await prisma.mobileIdempotencyRecord.create({
-      data: { userId, endpoint, key, requestHash, responseCode: null, responseBody: Prisma.DbNull }
+      data: { userId, endpoint, key, requestHash, owner, responseCode: null, responseBody: Prisma.DbNull }
     });
-    return { outcome: "claimed" };
+    return { outcome: "claimed", owner };
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
       throw error;
@@ -77,7 +82,7 @@ export async function claimIdempotent(
   // Lost the insert: someone else got here first.
   const existing = await prisma.mobileIdempotencyRecord.findUnique({
     where: { userId_endpoint_key: { userId, endpoint, key } },
-    select: { id: true, requestHash: true, responseCode: true, responseBody: true, createdAt: true }
+    select: { id: true, requestHash: true, responseCode: true, responseBody: true, createdAt: true, owner: true }
   });
 
   if (!existing) {
@@ -94,11 +99,14 @@ export async function claimIdempotent(
     // Still in flight — unless the owner died and left the reservation behind, in which case take
     // it over so a crashed request cannot permanently block this key.
     if (Date.now() - existing.createdAt.getTime() > STALE_RESERVATION_MS) {
+      // Claiming the lease means taking the owner too, and the update is conditional on the owner
+      // we saw — so exactly one of several simultaneous takeover attempts wins, and the abandoned
+      // request can no longer write to this row.
       const takenOver = await prisma.mobileIdempotencyRecord.updateMany({
-        where: { id: existing.id, responseCode: null },
-        data: { createdAt: new Date() }
+        where: { id: existing.id, responseCode: null, owner: existing.owner },
+        data: { createdAt: new Date(), owner }
       });
-      if (takenOver.count === 1) return { outcome: "claimed" };
+      if (takenOver.count === 1) return { outcome: "claimed", owner };
     }
 
     throw new ApiError("CONFLICT", "This request is already being processed. Please try again in a moment.");
@@ -113,16 +121,22 @@ export async function claimIdempotent(
   };
 }
 
-/** Store the result of a successful mutation so a retry with the same key replays it. */
+/**
+ * Store the result of a successful mutation so a retry with the same key replays it.
+ *
+ * Scoped to [owner]: an attempt that stalled past its lease and finished late finds the row now
+ * belongs to whoever took over, and writes nothing rather than clobbering the newer result.
+ */
 export async function completeIdempotent(
   userId: string,
   endpoint: string,
   key: string,
+  owner: string,
   responseCode: number,
   responseBody: unknown
 ): Promise<void> {
   await getPrisma().mobileIdempotencyRecord.updateMany({
-    where: { userId, endpoint, key },
+    where: { userId, endpoint, key, owner },
     data: { responseCode, responseBody: responseBody as Prisma.InputJsonValue }
   });
 }
@@ -130,12 +144,21 @@ export async function completeIdempotent(
 /**
  * Drop a reservation whose mutation failed, so the user can retry with the same key.
  *
- * Only for failures that left nothing behind. A mutation that partially applied must NOT be
- * released — the reservation is the only thing stopping a retry from applying it again.
+ * Only for failures that provably left nothing behind. A mutation that already committed must NOT
+ * be released: the reservation is the only thing that lets a retry replay the original success
+ * instead of colliding with the row that was written.
+ *
+ * Scoped to [owner] for the same reason as [completeIdempotent], and to `responseCode: null` so a
+ * finished result is never deleted.
  */
-export async function releaseIdempotent(userId: string, endpoint: string, key: string): Promise<void> {
+export async function releaseIdempotent(
+  userId: string,
+  endpoint: string,
+  key: string,
+  owner: string
+): Promise<void> {
   await getPrisma().mobileIdempotencyRecord.deleteMany({
-    where: { userId, endpoint, key, responseCode: null }
+    where: { userId, endpoint, key, owner, responseCode: null }
   });
 }
 
