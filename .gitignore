@@ -30,7 +30,12 @@ docs/runs-issues
 /coursealgerie_export
 
 # AI / editor tooling (local, not project source)
-.agents/
+.agents/*
+!.agents/
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/zidrun-app-review/
+!.agents/skills/zidrun-app-review/**
 .codex/
 .impeccable/
 .claude/skills/
