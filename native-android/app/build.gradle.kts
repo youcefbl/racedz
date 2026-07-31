@@ -14,8 +14,12 @@ android {
         applicationId = "dz.racedz.nativeapp"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-native-phase5"
+        // Bumped for EVERY APK handed to a tester — see "APK versioning" in
+        // docs/NATIVE_ANDROID_OPTION_PLAN.md. versionCode must increase or Android refuses the
+        // install as a downgrade; versionName is what the filename is derived from, so the two can
+        // never disagree. Do not reuse a number that has already left this machine.
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     buildTypes {

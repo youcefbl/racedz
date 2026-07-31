@@ -246,10 +246,46 @@ deliberate and should not be "fixed" without thinking:
 - **Its own application ID.** It installs alongside the production Capacitor app
   (`dz.racedz.app`) and the emulator debug build rather than replacing either.
 
-**The internal APK is only useful once `/api/v1/*` is deployed.** Until then production answers 404
-for every one of those routes and the app shows a generic failure on each screen. Verified on
-2026-07-31: the build reaches `https://zidrun.com` over TLS and gets 404, which is the expected
-result of the backend not being deployed, not a client fault.
+`/api/v1/*` went live on production on 2026-07-31, so the internal APK is now usable end to end.
+(Before that it reached `https://zidrun.com` over TLS and got 404 on every screen — a backend gap,
+not a client fault.)
+
+### APK versioning — required
+
+**Every APK handed to anyone gets a new version. No exceptions, and no reusing a number that has
+already left this machine.**
+
+Two builds sharing a version cannot be told apart. Android also refuses to install over an equal or
+lower `versionCode`, so a tester silently keeps the old build and reports bugs against code that is
+no longer current — which wastes far more time than the bump costs. This already happened once here:
+two different native builds were handed over as "v0.2" and "v0.3" while both declared `0.2.0`
+internally.
+
+Before each build, raise **both** fields in `native-android/app/build.gradle.kts`:
+
+- `versionCode` — a plain increasing integer. This is the one Android enforces.
+- `versionName` — the human version, e.g. `0.4.0`. The APK filename is derived from it.
+
+Then build with the helper, which reads the version back **out of the finished APK** rather than
+taking it on trust, so the filename can never disagree with the manifest:
+
+```bash
+cd native-android
+./release-apk.sh            # production build → ~/Downloads/zidrun-native-internal-v<version>.apk
+./release-apk.sh debug      # emulator build   → ~/Downloads/zidrun-native-debug-v<version>.apk
+```
+
+It refuses to overwrite an existing file, so forgetting the bump fails loudly instead of quietly
+producing a second, different "v0.4".
+
+Native APKs version independently of the Capacitor app's `zidrun-prod-debug-v<X.Y>.apk` series —
+they are different applications with different application IDs, and a shared numbering would imply
+a relationship that does not exist.
+
+| Version | Date | What changed |
+|---|---|---|
+| `0.4.0` | 2026-07-31 | Design-fidelity pass over Races, Race detail, Account, and Auth; first build against the deployed production API |
+| `0.2.0` | 2026-07-31 | First production-wired build (shipped twice, as "v0.2" and "v0.3" — the mistake this section exists to prevent) |
 
 ## Backend changes required
 
