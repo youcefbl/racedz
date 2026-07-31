@@ -305,3 +305,94 @@ data class SentDto(val sent: Boolean = true)
 
 @Serializable
 data class SubmittedDto(val submitted: Boolean = true)
+
+// ---- runs -------------------------------------------------------------------------------------
+
+/**
+ * One point of a recorded route, in the website's own shape (runRoutePointSchema) rather than a
+ * mobile-specific one — the shared create helper parses routes with that schema, so any key it does
+ * not know is silently dropped on upload.
+ *
+ * [ele] is metres above sea level. [t] is a timestamp in MILLISECONDS, not seconds. Both are
+ * optional: a manual entry has no track, and an imported GPX may carry neither.
+ */
+@Serializable
+data class RoutePointDto(
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val ele: Double? = null,
+    val t: Long? = null,
+)
+
+/**
+ * A run as the sync contract returns it (docs/NATIVE_ANDROID_OPTION_PLAN.md §3).
+ *
+ * A tombstone arrives with `deleted = true` and nothing but its identity — the client's only job is
+ * to drop it locally, so every other field defaults rather than being non-null.
+ */
+@Serializable
+data class RunDto(
+    val id: String = "",
+    val clientId: String? = null,
+    val revision: Int = 1,
+    val deleted: Boolean = false,
+    val startedAt: String = "",
+    val distanceKm: Double = 0.0,
+    val durationSeconds: Int = 0,
+    val movingTimeSeconds: Int? = null,
+    val averagePaceSecondsPerKm: Int = 0,
+    val elevationGainM: Int? = null,
+    val averageHeartRate: Int? = null,
+    val avgCadence: Int? = null,
+    val calories: Int? = null,
+    val perceivedEffort: Int = 5,
+    val fatigueLevel: Int = 0,
+    val painLevel: Int = 0,
+    val title: String? = null,
+    val notes: String? = null,
+    val isPublic: Boolean = false,
+    val source: String = "GPS",
+    val validity: String = "VALID",
+    val validityReason: String? = null,
+    val goalId: String? = null,
+    val workoutId: String? = null,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+    /** Present only on the single-run endpoint; lists omit it because a route dwarfs the row. */
+    val route: List<RoutePointDto>? = null,
+    /**
+     * A thinned version of the route (64 points) that list rows carry instead of the full track, so
+     * a row can still show the run's recognisable shape without downloading 50 complete routes.
+     */
+    val routePreview: List<RoutePointDto>? = null,
+)
+
+/** The best route available on this DTO: the full track if it was fetched, otherwise the preview. */
+val RunDto.displayRoute: List<RoutePointDto>?
+    get() = route ?: routePreview
+
+@Serializable
+data class CreateRunRequest(
+    val clientId: String,
+    val startedAt: String,
+    val distanceKm: Double,
+    val durationSeconds: Int,
+    val perceivedEffort: Int,
+    val movingTimeSeconds: Int? = null,
+    val elevationGainM: Int? = null,
+    val route: List<RoutePointDto>? = null,
+    val title: String? = null,
+    val notes: String? = null,
+    val isPublic: Boolean? = null,
+    val source: String? = null,
+)
+
+/** Only runner-typed fields; every measurement is server-owned. */
+@Serializable
+data class UpdateRunRequest(
+    val baseRevision: Int,
+    val title: String? = null,
+    val notes: String? = null,
+    val isPublic: Boolean? = null,
+    val perceivedEffort: Int? = null,
+)

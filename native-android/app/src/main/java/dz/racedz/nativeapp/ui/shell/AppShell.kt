@@ -57,6 +57,8 @@ import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.feature.account.AccountScreen
 import dz.racedz.nativeapp.feature.races.RacesScreen
 import dz.racedz.nativeapp.feature.races.RacesViewModel
+import dz.racedz.nativeapp.feature.runs.RunsOverviewScreen
+import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.navigation.ShellTab
 import dz.racedz.nativeapp.rememberAccountViewModel
 
@@ -85,6 +87,8 @@ fun AppShell(
     container: AppContainer,
     appearance: AppearanceController,
     onOpenRace: (String) -> Unit,
+    onOpenRunHistory: () -> Unit,
+    onOpenRun: (String) -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -114,7 +118,23 @@ fun AppShell(
                     contentPadding = innerPadding,
                 )
             }
-            composable(ShellTab.Runs.route) { RunsPlaceholder(innerPadding) }
+            composable(ShellTab.Runs.route) {
+                val runsViewModel: RunsViewModel = viewModel(
+                    factory = SimpleViewModelFactory { RunsViewModel(container.runsRepository) }
+                )
+                RunsOverviewScreen(
+                    viewModel = runsViewModel,
+                    onOpenHistory = onOpenRunHistory,
+                    onOpenRun = onOpenRun,
+                    // Recording, manual entry and GPX import are the remaining half of phase 7
+                    // (foreground location service, Room outbox). Until they exist the actions open
+                    // the history rather than a dead end.
+                    onRecordRun = onOpenRunHistory,
+                    onLogManually = onOpenRunHistory,
+                    onImportGpx = onOpenRunHistory,
+                    contentPadding = innerPadding,
+                )
+            }
             composable(ShellTab.Coach.route) { CoachPlaceholder(innerPadding) }
             composable(ShellTab.Account.route) {
                 AccountScreen(

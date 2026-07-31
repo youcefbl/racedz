@@ -29,6 +29,10 @@ import dz.racedz.nativeapp.feature.auth.AuthScreen
 import dz.racedz.nativeapp.feature.auth.AuthViewModel
 import dz.racedz.nativeapp.feature.races.RaceDetailScreen
 import dz.racedz.nativeapp.feature.races.RaceDetailViewModel
+import dz.racedz.nativeapp.feature.runs.RunDetailScreen
+import dz.racedz.nativeapp.feature.runs.RunDetailViewModel
+import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
+import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
 import dz.racedz.nativeapp.locale.LocaleManager
@@ -168,6 +172,8 @@ fun ZidRunApp(
                     container = container,
                     appearance = appearance,
                     onOpenRace = { navController.navigate(RootDestinations.raceDetail(it)) },
+                    onOpenRunHistory = { navController.navigate(RootDestinations.RUN_HISTORY) },
+                    onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
@@ -175,6 +181,29 @@ fun ZidRunApp(
                         navController.navigate(RootDestinations.AUTH) { popUpTo(0) { inclusive = true } }
                     },
                 )
+            }
+
+            composable(RootDestinations.RUN_HISTORY) {
+                val runsViewModel: RunsViewModel = viewModel(
+                    factory = SimpleViewModelFactory { RunsViewModel(container.runsRepository) }
+                )
+                RunHistoryScreen(
+                    viewModel = runsViewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
+                )
+            }
+
+            composable(
+                route = RootDestinations.RUN_DETAIL,
+                arguments = listOf(navArgument("runId") { type = NavType.StringType }),
+            ) { entry ->
+                val runId = entry.arguments?.getString("runId").orEmpty()
+                val detailViewModel: RunDetailViewModel = viewModel(
+                    key = "run-$runId",
+                    factory = SimpleViewModelFactory { RunDetailViewModel(container.runsRepository, runId) },
+                )
+                RunDetailScreen(viewModel = detailViewModel, onBack = { navController.popBackStack() })
             }
 
             composable(

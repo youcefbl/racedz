@@ -87,6 +87,7 @@ dependencies {
     implementation(project(":feature:races"))
     implementation(project(":feature:account"))
     implementation(project(":feature:registration"))
+    implementation(project(":feature:runs"))
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

@@ -3,6 +3,7 @@ package dz.racedz.nativeapp.core.auth
 import dz.racedz.nativeapp.core.network.ApiClient
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.CreateRegistrationRequest
+import dz.racedz.nativeapp.core.network.CreateRunRequest
 import dz.racedz.nativeapp.core.network.DeletionRequestBody
 import dz.racedz.nativeapp.core.network.DeviceSessionDto
 import dz.racedz.nativeapp.core.network.PreferencesRequest
@@ -10,6 +11,8 @@ import dz.racedz.nativeapp.core.network.ProfileRequest
 import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
+import dz.racedz.nativeapp.core.network.RunDto
+import dz.racedz.nativeapp.core.network.UpdateRunRequest
 import dz.racedz.nativeapp.core.network.UserDto
 import dz.racedz.nativeapp.core.network.UserPreferencesDto
 import dz.racedz.nativeapp.core.network.ZidRunApi
@@ -125,4 +128,39 @@ class RegistrationRepository(
     }
 
     fun newIdempotencyKey(): String = UUID.randomUUID().toString()
+}
+
+/**
+ * Recorded runs.
+ *
+ * Reads follow the sync contract's delta shape even though nothing is cached on disk yet: the list
+ * is fetched fresh, and the tombstones the server sends are filtered out here. When the Room outbox
+ * lands (phase 7's offline half) this is the seam it plugs into — the screens already speak in
+ * whole runs and never see a cursor.
+ */
+class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) {
+
+    suspend fun list(): ApiResult<List<RunDto>> = when (val result = client.call { api.runs(limit = PAGE_SIZE) }) {
+        // A first page (no cursor) never contains tombstones, but filtering here means a future
+        // cached/delta read cannot accidentally show a deleted run.
+        is ApiResult.Success -> ApiResult.Success(result.value.filterNot { it.deleted })
+        is ApiResult.Failure -> result
+    }
+
+    suspend fun detail(id: String): ApiResult<RunDto> = client.call { api.run(id) }
+
+    /**
+     * Saves a recorded run. [clientId] is generated once per recording and reused on every retry —
+     * that is what makes a lost response safe, so callers must NOT mint a new one to retry.
+     */
+    suspend fun create(request: CreateRunRequest): ApiResult<RunDto> = client.call { api.createRun(request) }
+
+    suspend fun update(id: String, request: UpdateRunRequest): ApiResult<RunDto> =
+        client.call { api.updateRun(id, request) }
+
+    suspend fun delete(id: String): ApiResult<RunDto> = client.call { api.deleteRun(id) }
+
+    companion object {
+        const val PAGE_SIZE = 50
+    }
 }

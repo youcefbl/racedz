@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
@@ -305,5 +307,53 @@ fun ZidRunStepIndicator(
             }
             if (step == totalSteps) Spacer(Modifier.weight(1f))
         }
+    }
+}
+
+/**
+ * Back bar for a pushed screen: a back button, a title, and an optional trailing slot.
+ *
+ * Insets itself for the status bar because these screens draw edge to edge — without it the title
+ * renders behind the clock.
+ */
+@Composable
+fun ZidRunTopBar(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val colors = ZidRunTheme.colors
+    val backLabel = androidx.compose.ui.res.stringResource(R.string.common_back)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(ZidRunDimens.spaceSm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(ZidRunDimens.minTouchTarget)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClick = onBack)
+                .semantics { contentDescription = backLabel },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                // AutoMirrored so the arrow points the correct way in Arabic.
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = colors.textStrong,
+            )
+        }
+        Spacer(Modifier.width(ZidRunDimens.spaceSm))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = colors.textStrong,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
+        trailing?.invoke()
     }
 }

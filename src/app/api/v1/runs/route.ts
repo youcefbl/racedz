@@ -5,6 +5,7 @@ import { requireMobileUser } from "@/lib/api/v1/guard";
 import {
   MAX_RUN_BODY_BYTES,
   MAX_RUNS_PAGE,
+  downsampleRoute,
   parseUpdatedSince,
   runCreateSchema,
   runSelect,
@@ -42,7 +43,8 @@ export const GET = withApi(async (request) => {
       userId: viewer.id,
       ...(updatedSince ? { updatedAt: { gt: updatedSince } } : { deletedAt: null }),
     },
-    select: runSelect,
+    // The full route is read only so it can be thinned to a preview below; it never leaves in full.
+    select: { ...runSelect, route: true },
     orderBy: { updatedAt: "asc" },
     take: limit + 1,
   });
@@ -51,7 +53,7 @@ export const GET = withApi(async (request) => {
   const page = hasMore ? runs.slice(0, limit) : runs;
   const cursor = page.at(-1)?.updatedAt ?? updatedSince;
 
-  return apiOk(request, page.map((run) => toRunDto(run)), {
+  return apiOk(request, page.map((run) => toRunDto(run, undefined, downsampleRoute(run.route))), {
     meta: {
       limit,
       hasMore,

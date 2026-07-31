@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { getPrisma } from "@/lib/db";
+import { runRoutePointSchema } from "@/lib/coach/schemas";
 import { ApiError } from "@/lib/api/v1/http";
 
 // Shared pieces of the mobile runs sync contract (docs/NATIVE_ANDROID_OPTION_PLAN.md §3).
@@ -37,12 +38,42 @@ export const MAX_RUN_BODY_BYTES = 512 * 1024;
 /** Delta pages are bounded because each run can carry a full route. */
 export const MAX_RUNS_PAGE = 50;
 
-const routePointSchema = z.object({
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-  elevation: z.number().optional().nullable(),
-  timestamp: z.number().int().optional().nullable(),
-});
+/**
+ * Points kept in a list row's route preview.
+ *
+ * List rows show the route's *shape* — it is how a runner recognises "that's my river loop" — but
+ * the full track is far too large to send 50 of. 64 points is enough for a recognisable thumbnail
+ * at roughly 1.7 KB per run, and it is the same number the website settled on for the same reason
+ * (ROUTE_PREVIEW_POINTS in src/lib/coach/service.ts).
+ */
+export const ROUTE_PREVIEW_POINTS = 64;
+
+/**
+ * Evenly-spaced subsample that always keeps the first and last point, so the thumbnail's start and
+ * end markers land where the run actually started and ended.
+ */
+export function downsampleRoute(route: unknown, max = ROUTE_PREVIEW_POINTS): unknown[] | null {
+  if (!Array.isArray(route) || route.length === 0) return null;
+  if (route.length <= max) return route;
+
+  const step = Math.ceil(route.length / max);
+  const out: unknown[] = [];
+  for (let i = 0; i < route.length; i += step) out.push(route[i]);
+  const last = route[route.length - 1];
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
+/**
+ * Deliberately re-exports the website's own route-point shape rather than defining a mobile one.
+ *
+ * The first draft here invented `{elevation, timestamp}`; because the shared create helper parses
+ * routes with runRoutePointSchema, both keys were silently stripped and every uploaded run lost its
+ * timing. A single shape means a client cannot post something the server quietly discards.
+ *
+ * `ele` is metres. `t` is a timestamp in MILLISECONDS (see run-stats.ts, which divides by 1000).
+ */
+const routePointSchema = runRoutePointSchema;
 
 export const runCreateSchema = z.object({
   /** Required for mobile: it is what makes a retry safe. */
@@ -125,7 +156,7 @@ type RunRow = {
  * run is returned as an id and a deletion marker and nothing else — the client only needs to know
  * to drop it, and a deleted run's GPS should stop being handed out.
  */
-export function toRunDto(run: RunRow, route?: unknown) {
+export function toRunDto(run: RunRow, route?: unknown, routePreview?: unknown) {
   if (run.deletedAt) {
     return {
       id: run.id as string,
@@ -165,6 +196,7 @@ export function toRunDto(run: RunRow, route?: unknown) {
     createdAt: (run.createdAt as Date).toISOString(),
     updatedAt: (run.updatedAt as Date).toISOString(),
     ...(route === undefined ? {} : { route }),
+    ...(routePreview === undefined ? {} : { routePreview }),
   };
 }
 

@@ -3,6 +3,7 @@ package dz.racedz.nativeapp.core.network
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Multipart
@@ -48,6 +49,31 @@ interface ZidRunApi {
     /** Redeems the PKCE authorization code delivered over the zidrun://auth/callback deep link. */
     @POST("api/v1/auth/token")
     suspend fun exchangePkceCode(@Body body: PkceTokenRequest): Response<ApiEnvelope<AuthSessionDto>>
+
+    // ---- runs ---------------------------------------------------------------------------------
+
+    /**
+     * Delta sync. Without [updatedSince] this is a plain first page; with it, the response also
+     * carries tombstones for runs deleted elsewhere.
+     */
+    @GET("api/v1/runs")
+    suspend fun runs(
+        @Query("updatedSince") updatedSince: String? = null,
+        @Query("limit") limit: Int? = null,
+    ): Response<ApiEnvelope<List<RunDto>>>
+
+    /** The only endpoint that returns route points. */
+    @GET("api/v1/runs/{id}")
+    suspend fun run(@Path("id") id: String): Response<ApiEnvelope<RunDto>>
+
+    @POST("api/v1/runs")
+    suspend fun createRun(@Body body: CreateRunRequest): Response<ApiEnvelope<RunDto>>
+
+    @PATCH("api/v1/runs/{id}")
+    suspend fun updateRun(@Path("id") id: String, @Body body: UpdateRunRequest): Response<ApiEnvelope<RunDto>>
+
+    @DELETE("api/v1/runs/{id}")
+    suspend fun deleteRun(@Path("id") id: String): Response<ApiEnvelope<RunDto>>
 
     // ---- me -----------------------------------------------------------------------------------
 
