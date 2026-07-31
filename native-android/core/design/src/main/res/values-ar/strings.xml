@@ -58,6 +58,9 @@
     <string name="races_search_hint">قلّب على سباق، مدينة، ولا منظّم</string>
     <string name="races_featured">سباق مميّز</string>
     <string name="races_view_race">شوف السباق</string>
+    <string name="races_view_all">شوف الكل</string>
+    <string name="races_filter_all_algeria">الجزائر</string>
+    <string name="races_cd_filter_wilaya">صفّي حسب الولاية</string>
     <string name="races_coming_up">الجاي قريب</string>
     <string name="races_empty_title">ما لقينا حتى سباق</string>
     <string name="races_empty_body">جرّب بحث آخر ولا امسح الفلاتر.</string>
@@ -67,6 +70,16 @@
     <string name="races_loading_more">قاع نحمّلو سباقات أخرى…</string>
     <string name="races_cd_search">قلّب على السباقات</string>
 
+    <string name="race_status_open">التسجيل مفتوح</string>
+    <string name="race_status_closed">التسجيل مسدود</string>
+    <string name="race_status_full">السباق كامل</string>
+    <string name="race_status_not_open">التسجيل مازال ما تحلّش</string>
+    <string name="race_what_to_know">واش لازم تعرف</string>
+    <string name="race_stat_distance">المسافة</string>
+    <string name="race_stat_elevation">الارتفاع</string>
+    <string name="race_stat_elevation_value">%1$d م</string>
+    <string name="race_stat_start">الانطلاق</string>
+    <string name="race_cutoff_value">الوقت الأقصى %1$dس %2$02dد</string>
     <string name="race_about">على هاذ السباق</string>
     <string name="race_distances">المسافات</string>
     <string name="race_rules">القوانين</string>
@@ -137,6 +150,7 @@
     <string name="account_stat_races">سباقات</string>
     <string name="account_stat_km">كم</string>
     <string name="account_stat_runs">جريات</string>
+    <string name="account_view_registration">شوف التسجيل</string>
     <string name="account_my_registrations">التسجيلات ديالي</string>
     <string name="account_profile_preferences">البروفايل والتفضيلات</string>
     <string name="account_privacy_data">الخصوصية والبيانات</string>

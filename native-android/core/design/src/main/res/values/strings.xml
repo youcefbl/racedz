@@ -68,6 +68,9 @@
     <string name="races_search_hint">Search races, cities, organizers</string>
     <string name="races_featured">Featured race</string>
     <string name="races_view_race">View race</string>
+    <string name="races_view_all">View all</string>
+    <string name="races_filter_all_algeria">Algeria</string>
+    <string name="races_cd_filter_wilaya">Filter by wilaya</string>
     <string name="races_coming_up">Coming up</string>
     <string name="races_empty_title">No races found</string>
     <string name="races_empty_body">Try a different search or clear your filters.</string>
@@ -78,6 +81,16 @@
     <string name="races_cd_search">Search races</string>
 
     <!-- race detail -->
+    <string name="race_status_open">Registration open</string>
+    <string name="race_status_closed">Registration closed</string>
+    <string name="race_status_full">Race full</string>
+    <string name="race_status_not_open">Registration not open yet</string>
+    <string name="race_what_to_know">What to know</string>
+    <string name="race_stat_distance">Distance</string>
+    <string name="race_stat_elevation">Elevation</string>
+    <string name="race_stat_elevation_value">%1$d m</string>
+    <string name="race_stat_start">Start</string>
+    <string name="race_cutoff_value">Cutoff %1$dh %2$02dm</string>
     <string name="race_about">About this race</string>
     <string name="race_distances">Distances</string>
     <string name="race_rules">Rules</string>
@@ -151,6 +164,7 @@
     <string name="account_stat_races">races</string>
     <string name="account_stat_km">km</string>
     <string name="account_stat_runs">runs</string>
+    <string name="account_view_registration">View registration</string>
     <string name="account_my_registrations">My registrations</string>
     <string name="account_profile_preferences">Profile &amp; preferences</string>
     <string name="account_privacy_data">Privacy &amp; data</string>

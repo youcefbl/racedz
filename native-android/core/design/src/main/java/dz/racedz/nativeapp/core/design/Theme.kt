@@ -28,6 +28,18 @@ object ZidRunTheme {
 
     val mode: ZidRunThemeMode
         @Composable get() = LocalZidRunThemeMode.current
+
+    /**
+     * The wordmark variant that reads on the current theme's background. Kept here so no screen has
+     * to decide which of the three brand files to draw — picking the wrong one is how a logo ends
+     * up invisible in dark mode.
+     */
+    val wordmarkRes: Int
+        @Composable get() = when (LocalZidRunThemeMode.current) {
+            ZidRunThemeMode.Light -> R.drawable.ic_zidrun_wordmark_light
+            ZidRunThemeMode.Dark -> R.drawable.ic_zidrun_wordmark_dark
+            ZidRunThemeMode.Race -> R.drawable.ic_zidrun_wordmark_race
+        }
 }
 
 private fun materialColorScheme(colors: ZidRunColors, mode: ZidRunThemeMode) = if (mode.isDarkBase) {

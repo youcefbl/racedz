@@ -18,10 +18,24 @@ import java.util.Locale
 object ZidRunFormat {
 
     private val dateFormat = DateTimeFormatter.ofPattern("d MMM yyyy")
+
+    /**
+     * "02 NOV 2026" — the compact, upper-case form the race mockups use for every date shown beside
+     * a calendar icon. Upper-casing is locale-aware, and Arabic simply has no case, so it is a
+     * no-op there rather than a mangling.
+     */
+    private val compactDateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy")
     private val dateTimeFormat = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
 
     fun date(iso: String, locale: Locale): String = runCatching {
         Instant.parse(iso).atZone(ZoneId.systemDefault()).format(dateFormat.withLocale(locale))
+    }.getOrDefault("")
+
+    fun dateCompact(iso: String, locale: Locale): String = runCatching {
+        Instant.parse(iso)
+            .atZone(ZoneId.systemDefault())
+            .format(compactDateFormat.withLocale(locale))
+            .uppercase(locale)
     }.getOrDefault("")
 
     fun dateTime(iso: String, locale: Locale): String = runCatching {
@@ -37,6 +51,13 @@ object ZidRunFormat {
         val rounded = if (km % 1.0 == 0.0) km.toInt().toString() else String.format(locale, "%.1f", km)
         return "${rounded}K"
     }
+
+    /**
+     * "10.0 km" — the long form the race-detail stats strip uses, as distinct from the "10K" chip
+     * form above. Always one decimal, because the strip aligns three values side by side and a bare
+     * "10" next to "420" reads as a different unit.
+     */
+    fun kilometres(km: Double, locale: Locale): String = String.format(locale, "%.1f km", km)
 }
 
 /** The locale currently in effect for the composition. */

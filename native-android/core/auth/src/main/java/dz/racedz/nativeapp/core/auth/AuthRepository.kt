@@ -73,6 +73,17 @@ class AuthRepository(
      * Builds the URL to open in a Custom Tab. Keep the returned [PkceChallenge] until the redirect
      * comes back — the verifier in it is the only thing that can redeem the resulting code.
      */
+    /**
+     * Absolute URL for a page on the ZidRun website, e.g. the email-based password reset. Built from
+     * the same configured base as the API so a debug build points at the developer's machine and a
+     * production build at zidrun.com — never a hard-coded host.
+     */
+    fun buildWebUrl(path: String): String =
+        Uri.parse(NetworkFactory.baseUrl).buildUpon()
+            .appendEncodedPath(path.trimStart('/'))
+            .build()
+            .toString()
+
     fun buildAuthorizeUrl(challenge: PkceChallenge): String =
         Uri.parse(NetworkFactory.baseUrl).buildUpon()
             .appendEncodedPath("api/v1/auth/authorize")

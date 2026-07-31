@@ -8,12 +8,34 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import dz.racedz.nativeapp.core.design.ZidRunDimens
+import dz.racedz.nativeapp.core.design.ZidRunDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -136,40 +158,65 @@ private fun ShellBottomBar(navController: NavHostController) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    NavigationBar(
-        containerColor = ZidRunTheme.colors.surface,
-        contentColor = ZidRunTheme.colors.text,
-    ) {
-        shellTabs.forEach { spec ->
-            val selected = currentRoute == spec.tab.route
-            NavigationBarItem(
-                selected = selected,
-                onClick = {
-                    navController.navigate(spec.tab.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                icon = {
+    val colors = ZidRunTheme.colors
+
+    Column {
+        ZidRunDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colors.surface)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .selectableGroup(),
+            verticalAlignment = Alignment.Top,
+        ) {
+            shellTabs.forEach { spec ->
+                val selected = currentRoute == spec.tab.route
+                val tint = if (selected) colors.primary else colors.textMuted
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = ZidRunDimens.minTouchTarget)
+                        .selectable(
+                            selected = selected,
+                            role = Role.Tab,
+                            onClick = {
+                                navController.navigate(spec.tab.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                        )
+                        .padding(top = ZidRunDimens.spaceSm),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     // contentDescription intentionally null: the visible label below already
                     // gives this item's accessible name, so TalkBack would otherwise announce it twice.
-                    Icon(
-                        imageVector = spec.icon,
-                        contentDescription = null,
+                    Icon(spec.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(spec.labelRes),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tint,
+                        maxLines = 1,
                     )
-                },
-                label = { Text(stringResource(spec.labelRes)) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = ZidRunTheme.colors.primary,
-                    selectedTextColor = ZidRunTheme.colors.primary,
-                    unselectedIconColor = ZidRunTheme.colors.textMuted,
-                    unselectedTextColor = ZidRunTheme.colors.textMuted,
-                    indicatorColor = ZidRunTheme.colors.primarySoft,
-                ),
-            )
+                    Spacer(Modifier.height(4.dp))
+                    // The mockups mark the active tab with a short underline rather than M3's
+                    // default pill. Always laid out — transparent when unselected — so selecting a
+                    // tab does not shift the row's height.
+                    Box(
+                        modifier = Modifier
+                            .width(24.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (selected) colors.primary else Color.Transparent),
+                    )
+                    Spacer(Modifier.height(ZidRunDimens.spaceXs))
+                }
+            }
         }
     }
 }

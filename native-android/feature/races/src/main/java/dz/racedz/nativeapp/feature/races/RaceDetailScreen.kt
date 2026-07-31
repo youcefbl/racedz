@@ -21,7 +21,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import dz.racedz.nativeapp.core.network.RaceCategoryDto
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -136,6 +152,14 @@ private fun RaceDetailContent(
     // 220dp hole above the title — collapse the banner and let the content start at the top.
     var imageFailed by remember(race.id) { mutableStateOf(false) }
 
+    // Defaults to the shortest distance, which is the one most entrants pick. rememberSaveable so
+    // the choice survives rotation and process death rather than silently resetting.
+    var selectedCategoryId by rememberSaveable(race.id) {
+        mutableStateOf(race.categories.minByOrNull { it.distanceKm }?.id)
+    }
+    val selectedCategory = race.categories.firstOrNull { it.id == selectedCategoryId }
+        ?: race.categories.firstOrNull()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -180,54 +204,74 @@ private fun RaceDetailContent(
             verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-                ZidRunSectionTitle(race.title)
-                DetailLine(Icons.Filled.CalendarMonth, ZidRunFormat.date(race.startDate, locale))
-                DetailLine(Icons.Filled.LocationOn, listOfNotNull(race.city, race.wilaya).joinToString(", "))
                 Text(
-                    text = stringResource(R.string.race_organizer, race.organizerName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.textMuted,
+                    text = race.title,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = colors.textStrong,
+                    modifier = Modifier.semantics { heading() },
+                )
+                RegistrationStatusPill(status = race.registrationStatus)
+                DetailLine(Icons.Filled.CalendarMonth, ZidRunFormat.dateCompact(race.startDate, locale))
+                DetailLine(Icons.Filled.LocationOn, listOfNotNull(race.city, race.wilaya).joinToString(", "))
+                DetailLine(Icons.Filled.Groups, race.organizerName)
+            }
+
+            ZidRunDivider()
+
+            // Distance selector. The mockup makes the distances a segmented control rather than a
+            // list, so the stats below can describe the chosen one — a race with a 10K and a 21K has
+            // a different elevation and start time for each.
+            if (race.categories.isNotEmpty()) {
+                DistanceSelector(
+                    categories = race.categories,
+                    selectedId = selectedCategory?.id,
+                    onSelect = { selectedCategoryId = it },
                 )
             }
 
-            RegistrationCallToAction(
-                race = race,
-                isSignedIn = isSignedIn,
-                onRegister = { onRegister(race.id, race.title) },
-                onViewRegistration = onViewRegistration,
-                onSignIn = onSignIn,
-            )
-
-            if (race.categories.isNotEmpty()) {
-                Section(title = stringResource(R.string.race_distances)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-                        race.categories.forEach { category ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ZidRunPill(text = ZidRunFormat.distance(category.distanceKm, locale))
-                                Spacer(Modifier.width(ZidRunDimens.spaceMd))
-                                Text(
-                                    text = category.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = colors.text,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = category.priceDzd?.takeIf { it > 0 }
-                                        ?.let { stringResource(R.string.race_price_from, ZidRunFormat.money(it, locale)) }
-                                        ?: stringResource(R.string.race_free),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = colors.textStrong,
-                                )
-                            }
-                            ZidRunDivider()
-                        }
-                    }
-                }
+            if (race.description.isNotBlank()) {
+                Text(race.description, style = MaterialTheme.typography.bodyLarge, color = colors.text)
             }
 
-            if (race.description.isNotBlank()) {
-                Section(title = stringResource(R.string.race_about)) {
-                    Text(race.description, style = MaterialTheme.typography.bodyLarge, color = colors.text)
+            selectedCategory?.let { category ->
+                CategoryStats(category = category, locale = locale)
+
+                val price = category.priceDzd?.takeIf { it > 0 }
+                    ?.let { stringResource(R.string.race_price_from, ZidRunFormat.money(it, locale)) }
+                    ?: stringResource(R.string.race_free)
+                Text(
+                    text = price,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.textStrong,
+                )
+            }
+
+            // "What to know": the practical facts, each only shown when the organizer supplied it.
+            val whatToKnow = buildList {
+                selectedCategory?.cutoffTimeMin?.let {
+                    add(Icons.Filled.Schedule to stringResource(R.string.race_cutoff_value, it / 60, it % 60))
+                }
+                race.conditions?.takeIf { it.isNotBlank() }?.let { add(Icons.Filled.WaterDrop to it) }
+            }
+            if (whatToKnow.isNotEmpty()) {
+                Section(title = stringResource(R.string.race_what_to_know)) {
+                    ZidRunCard(contentPadding = PaddingValues(0.dp)) {
+                        Column {
+                            whatToKnow.forEachIndexed { index, (icon, text) ->
+                                if (index > 0) ZidRunDivider()
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(ZidRunDimens.spaceMd),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(ZidRunDimens.spaceMd))
+                                    Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.text)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -282,7 +326,136 @@ private fun RaceDetailContent(
                 }
             }
 
+            RegistrationCallToAction(
+                race = race,
+                isSignedIn = isSignedIn,
+                onRegister = { onRegister(race.id, race.title) },
+                onViewRegistration = onViewRegistration,
+                onSignIn = onSignIn,
+            )
+
             Spacer(Modifier.height(ZidRunDimens.spaceXxl))
+        }
+    }
+}
+
+/**
+ * "● Registration open" — the mockup's status pill, with a filled dot ahead of the label.
+ * Colour follows the meaning: open is success, closed/full is muted, everything else is neutral.
+ */
+@Composable
+private fun RegistrationStatusPill(status: String) {
+    val colors = ZidRunTheme.colors
+    val (labelRes, tint) = when (status) {
+        "OPEN" -> R.string.race_status_open to colors.success
+        "CLOSED" -> R.string.race_status_closed to colors.textMuted
+        "FULL" -> R.string.race_status_full to colors.danger
+        else -> R.string.race_status_not_open to colors.textMuted
+    }
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+            .background(tint.copy(alpha = 0.12f))
+            .padding(horizontal = ZidRunDimens.spaceMd, vertical = 6.dp)
+            .semantics(mergeDescendants = true) { },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(8.dp).clip(RoundedCornerShape(ZidRunDimens.cornerPill)).background(tint))
+        Spacer(Modifier.width(ZidRunDimens.spaceSm))
+        Text(stringResource(labelRes), style = MaterialTheme.typography.labelLarge, color = tint)
+    }
+}
+
+/**
+ * Segmented distance selector. Laid out as equal-width segments in a bordered track, matching the
+ * mockup; the selected segment is tinted with the accent so it reads as a choice, not a label.
+ */
+@Composable
+private fun DistanceSelector(
+    categories: List<RaceCategoryDto>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+) {
+    val colors = ZidRunTheme.colors
+    val locale = currentLocale()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerMd))
+            .border(1.dp, colors.border, RoundedCornerShape(ZidRunDimens.cornerMd))
+            .selectableGroup(),
+    ) {
+        categories.forEach { category ->
+            val selected = category.id == selectedId
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = ZidRunDimens.minTouchTarget)
+                    .background(if (selected) colors.accentSoft else colors.surface)
+                    .selectable(
+                        selected = selected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(category.id) },
+                    )
+                    .then(
+                        if (selected) {
+                            Modifier.border(1.5.dp, colors.accent, RoundedCornerShape(ZidRunDimens.cornerMd))
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .padding(vertical = ZidRunDimens.spaceMd),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = ZidRunFormat.distance(category.distanceKm, locale),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (selected) colors.accent else colors.textStrong,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The distance / elevation / start strip. Only the facts the organizer actually supplied are shown —
+ * an empty "— m" cell would look like missing data rather than data the race does not publish.
+ */
+@Composable
+private fun CategoryStats(category: RaceCategoryDto, locale: java.util.Locale) {
+    val colors = ZidRunTheme.colors
+    val cells = buildList {
+        add(Triple(Icons.Filled.Straighten, ZidRunFormat.kilometres(category.distanceKm, locale), R.string.race_stat_distance))
+        category.elevationGainM?.let {
+            add(Triple(Icons.Filled.Terrain, stringResource(R.string.race_stat_elevation_value, it), R.string.race_stat_elevation))
+        }
+        category.startTime?.takeIf { it.isNotBlank() }?.let {
+            add(Triple(Icons.Filled.Schedule, it, R.string.race_stat_start))
+        }
+    }
+
+    ZidRunCard {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            cells.forEachIndexed { index, (icon, value, labelRes) ->
+                if (index > 0) {
+                    Box(Modifier.width(1.dp).fillMaxHeight().background(colors.border))
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = ZidRunDimens.spaceSm)
+                        .semantics(mergeDescendants = true) { },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                ) {
+                    Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                    Text(value, style = MaterialTheme.typography.titleLarge, color = colors.textStrong)
+                    Text(stringResource(labelRes), style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
+                }
+            }
         }
     }
 }

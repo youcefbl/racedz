@@ -34,6 +34,14 @@ data class ZidRunColors(
     val info: Color,
     val infoSoft: Color,
     val focus: Color,
+    /**
+     * Accent used on the near-black hero surfaces (`surfaceStrong`): the featured race card and the
+     * auth header. Those surfaces are dark in EVERY theme, so this cannot follow `primary` — the
+     * light theme's forest green is unreadable on black. The mockups use a bright lime there.
+     */
+    val heroAccent: Color,
+    /** Text/icon colour on top of [heroAccent], e.g. the featured card's "View race" button label. */
+    val onHeroAccent: Color,
 )
 
 val ZidRunLightColors = ZidRunColors(
@@ -63,6 +71,8 @@ val ZidRunLightColors = ZidRunColors(
     info = Color(0xFF2563EB),
     infoSoft = Color(0xFFEFF6FF),
     focus = Color(0xFFF47A20),
+    heroAccent = Color(0xFFA3E635),
+    onHeroAccent = Color(0xFF0A1A05),
 )
 
 val ZidRunDarkColors = ZidRunColors(
@@ -92,6 +102,8 @@ val ZidRunDarkColors = ZidRunColors(
     info = Color(0xFF60A5FA),
     infoSoft = Color(0xFF172554),
     focus = Color(0xFFFB923C),
+    heroAccent = Color(0xFFA3E635),
+    onHeroAccent = Color(0xFF0A1A05),
 )
 
 val ZidRunRaceColors = ZidRunColors(
@@ -121,4 +133,7 @@ val ZidRunRaceColors = ZidRunColors(
     info = Color(0xFF9B5CFF),
     infoSoft = Color(0xFF211039),
     focus = Color(0xFF39FF14),
+    // The race theme's whole point is the neon accent, so the hero follows it rather than the lime.
+    heroAccent = Color(0xFF39FF14),
+    onHeroAccent = Color(0xFF0A1A05),
 )
