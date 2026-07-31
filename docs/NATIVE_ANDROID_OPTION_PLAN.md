@@ -386,6 +386,59 @@ Running is the strongest reason to choose native, so define this before a large 
 All sync operations must be retry-safe under airplane mode, process death, clock skew, duplicate taps,
 expired sessions, and partial network failure.
 
+#### Settled contract (drafted 2026-07-31, not yet implemented)
+
+**Blocked on one product decision — see "Open question" below.**
+
+`RunnerRun` already carries the run's substance (distance, duration, pace, route, effort, validity).
+Sync needs three columns it does not have:
+
+| Column | Purpose |
+|---|---|
+| `clientId String?` | Client-generated UUID, unique per `(userId, clientId)`. Both the idempotency key and the stable identity of a run created offline, so a phone that never saw the 201 can retry without creating a second run. |
+| `revision Int @default(1)` | Bumped on every server write. The client sends the revision its edit was based on; a mismatch is a conflict, never a silent overwrite. |
+| `deletedAt DateTime?` | Tombstone. A delta sync must be able to tell a client that a run it holds was deleted elsewhere — without this, deleting on one device leaves it resurrected on another. |
+
+Plus an index on `(userId, updatedAt)` for the delta cursor.
+
+Endpoints:
+
+- `GET /api/v1/runs?updatedSince=<iso>&limit=` — delta sync. Returns creates, updates, **and**
+  tombstones since the cursor, ordered by `updatedAt`. The cursor is the server's `updatedAt`, never
+  the device clock, so phone clock skew cannot skip records.
+- `POST /api/v1/runs` — create. `clientId` required; a repeat replays the original rather than
+  creating a second run.
+- `PATCH /api/v1/runs/:id` — update, with `baseRevision` as a precondition. If the server is ahead,
+  answer 409 **with the current server record** so the client can reconcile rather than guess.
+- `DELETE /api/v1/runs/:id` — soft delete, writing the tombstone.
+
+Route payloads are bounded at the API, not just in the client: an hour of 1 Hz GPS is ~3,600 points,
+and nothing stops a buggy client from posting far more. The route is capped by point count and by
+encoded size, and a run that exceeds it is rejected with a typed error rather than truncated —
+silently dropping half a runner's route is worse than refusing it.
+
+Every write reuses the existing server-side rules (workout matching, `detectNonFootActivity`
+validity classification, pace derivation) rather than reimplementing them for mobile.
+
+#### Open question — does recording a run require a coaching goal?
+
+Today it does. Every run-creation path on the website goes through `createRunnerRun()`
+(`src/lib/coach/service.ts`), which throws `ACTIVE_GOAL_REQUIRED` when the runner has no active
+coaching goal. That is a Coach-era constraint, not a data-model one: `RunnerRun.goalId` is nullable
+and its relation optional, so the schema already permits a goal-less run.
+
+This has to be answered before `POST /api/v1/runs` is written, because the native app presents Runs
+as a top-level tab beside Coach — implying it works without a Coach subscription. The two options:
+
+1. **Keep the rule.** The native Runs tab requires an active goal and says so. No shared code
+   changes, but recording is effectively gated behind Coach.
+2. **Relax `createRunnerRun` to accept a goal-less run.** Matches what the tab implies and what the
+   schema already allows, but it is a change to a helper the website shares, so it needs its own
+   regression pass.
+
+Writing a separate mobile-only creation path is explicitly *not* an option: it would fork the
+business rules this plan requires stay server-authoritative and identical across clients.
+
 ### 4. Uploads and private media
 
 Replace any assumption that the native app can read public static paths for private files with:
