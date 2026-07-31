@@ -29,6 +29,30 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
+
+        // Physical-device test build wired to production (https://zidrun.com), for internal
+        // evaluation only.
+        //
+        // Signed with the DEBUG keystore on purpose: docs/NATIVE_ANDROID_OPTION_PLAN.md forbids
+        // copying the production keystore into this project, and this artifact must never be
+        // mistakable for something publishable. It is therefore not upgradeable to a real release
+        // and cannot be uploaded to Play.
+        //
+        // `isDebuggable = false` matters: this build talks to real user data, and a debuggable
+        // process can be attached to over adb and have its memory and its EncryptedSharedPreferences
+        // read. Its own application ID keeps it from colliding with the production Capacitor app
+        // (dz.racedz.app) or the emulator debug build.
+        create("internal") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".internal"
+            versionNameSuffix = "-internal"
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            isMinifyEnabled = false
+            // The library modules do not declare this build type; fall back to their release
+            // variant, which is what carries the production API_BASE_URL.
+            matchingFallbacks += "release"
+        }
     }
 
     compileOptions {

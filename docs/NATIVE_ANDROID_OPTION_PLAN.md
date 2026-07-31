@@ -160,11 +160,33 @@ backend commit. A feature is not “parity complete” because its happy path wo
 defects the emulator pass found and how each was fixed — is recorded in
 [`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md) under "Current evidence", not duplicated here.
 
-Running the app against a local backend: `npm run dev` (the app's debug build points at
-`http://10.0.2.2:3003`, the emulator's alias for the host loopback) and
-`./gradlew :app:installDebug` from `native-android/`. The debug build installs as
-`dz.racedz.nativeapp.debug`, so it coexists with both the release evaluation build and the
-production Capacitor app.
+### Build variants
+
+| Variant | Application ID | API base URL | Signing | Purpose |
+|---|---|---|---|---|
+| `debug` | `dz.racedz.nativeapp.debug` | `http://10.0.2.2:3003/` | debug key | Emulator against `npm run dev` |
+| `internal` | `dz.racedz.nativeapp.internal` | `https://zidrun.com/` | debug key | Physical-device testing against production |
+| `release` | `dz.racedz.nativeapp` | `https://zidrun.com/` | unsigned | Placeholder; needs a real keystore before it means anything |
+
+Running against a local backend: `npm run dev`, then `./gradlew :app:installDebug`. Only the `debug`
+variant permits cleartext, and only to `10.0.2.2` — the override lives in `app/src/debug/res/xml/`,
+so no build that can reach production is able to fall back to plaintext.
+
+`./gradlew :app:assembleInternal` produces the physical-device test APK. Three things about it are
+deliberate and should not be "fixed" without thinking:
+
+- **It is signed with the debug keystore.** This plan forbids copying the production keystore into
+  the project, and the artifact must not be mistakable for something publishable — it cannot be
+  uploaded to Play and cannot be upgraded to a real release.
+- **`isDebuggable = false`.** It talks to real user data. A debuggable process can be attached to
+  over adb and have its memory and its `EncryptedSharedPreferences` read.
+- **Its own application ID.** It installs alongside the production Capacitor app
+  (`dz.racedz.app`) and the emulator debug build rather than replacing either.
+
+**The internal APK is only useful once `/api/v1/*` is deployed.** Until then production answers 404
+for every one of those routes and the app shows a generic failure on each screen. Verified on
+2026-07-31: the build reaches `https://zidrun.com` over TLS and gets 404, which is the expected
+result of the backend not being deployed, not a client fault.
 
 ## Backend changes required
 
