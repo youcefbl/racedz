@@ -7,6 +7,15 @@ audit-TODO, or progress files.
 
 - Do not commit `.env` files or uploaded user files.
 
+## Mandatory app-review skill
+
+For any review, audit, comparison, acceptance, or strict UI/UX evaluation of ZidRun app work, load
+`.agents/skills/zidrun-app-review/SKILL.md` completely before reviewing. It is the repository-specific
+review authority for screenshot/design fidelity, ZidRun logo and font/color tokens, light/dark/race
+themes, English/French/Algerian-Darija Arabic and RTL, Capacitor/native flow parity, accessibility,
+privacy, and performance. Pair it with the existing `impeccable` skill for frontend visual critique
+and browser inspection. Reviews are evidence-based and do not implement fixes unless requested.
+
 ---
 
 ## Project Overview
@@ -606,6 +615,7 @@ Auth.js v5 uses `AUTH_SECRET` and `AUTH_URL`. Legacy `NEXTAUTH_SECRET` and `NEXT
 10. `src/lib/validations.ts` – input schemas.
 11. `src/lib/organizer.ts`, `src/lib/admin.ts`, `src/lib/registrations.ts` – domain logic.
 12. `src/lib/storage.ts` – upload boundary.
+13. `.agents/skills/zidrun-app-review/SKILL.md` – mandatory for app/UI/UX reviews and client-parity checks.
 
 ---
 

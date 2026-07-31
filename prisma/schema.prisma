@@ -47,6 +47,8 @@ model User {
   emailVerificationTokens     EmailVerificationToken[]
   passwordResetTokens         PasswordResetToken[]
   nativeAuthTokens            NativeAuthToken[]
+  mobileSessions              MobileSession[]
+  mobileAuthCodes             MobileAuthCode[]
   registrations               RaceRegistration[]
   raceEditHistory             RaceEditHistory[]
   adminAuditLogs              AdminAuditLog[]
@@ -323,7 +325,7 @@ model ClientErrorLog {
   id        String   @id @default(cuid())
   userId    String? // best-effort from the auth session; null for anonymous/logged-out
   message   String
-  stack     String? @db.Text
+  stack     String?  @db.Text
   digest    String? // Next.js error.digest, when the throw happened in a server component
   route     String // path the error boundary was mounted on, e.g. "/account/runs"
   boundary  String? // which boundary caught it, e.g. "RunRecorder" — null for the route-level one
@@ -573,10 +575,10 @@ model RunnerGoal {
 }
 
 model RunnerRun {
-  id                      String          @id @default(cuid())
+  id                      String              @id @default(cuid())
   userId                  String
   goalId                  String?
-  workoutId               String?         @unique
+  workoutId               String?             @unique
   // How this run got linked to its workout (Phase 1.3), and how sure that link is (0–1).
   // EXPLICIT/RUNNER_CONFIRMED = 1; AUTO carries the matcher's score. Null when the run is free.
   workoutMatchSource      WorkoutMatchSource?
@@ -592,21 +594,21 @@ model RunnerRun {
   calories                Int?
   route                   Json?
   weather                 Json?
-  isPublic                Boolean         @default(false)
+  isPublic                Boolean             @default(false)
   perceivedEffort         Int
-  fatigueLevel            Int             @default(0)
-  painLevel               Int             @default(0)
+  fatigueLevel            Int                 @default(0)
+  painLevel               Int                 @default(0)
   title                   String?
   symptoms                String?
   notes                   String?
   photos                  Json?
-  source                  RunnerRunSource @default(MANUAL)
+  source                  RunnerRunSource     @default(MANUAL)
   // Set once at save time for GPS runs (see RunValidity); MANUAL/IMPORTED entries are never
   // auto-classified, so a data-entry typo doesn't get flagged the way a real car drive would.
-  validity                RunValidity     @default(VALID)
+  validity                RunValidity         @default(VALID)
   validityReason          String?
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal         RunnerGoal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
@@ -640,29 +642,29 @@ model TrainingPlan {
 }
 
 model TrainingWorkout {
-  id                String           @id @default(cuid())
-  trainingPlanId    String
-  scheduledFor      DateTime
-  workoutType       CoachWorkoutType
-  title             String
-  targetDistanceKm  Float?
-  targetDurationMin Int?
+  id                     String                 @id @default(cuid())
+  trainingPlanId         String
+  scheduledFor           DateTime
+  workoutType            CoachWorkoutType
+  title                  String
+  targetDistanceKm       Float?
+  targetDurationMin      Int?
   // Numeric pace target in seconds per km, derived by the adaptive planner from the runner's own
   // recent average pace. Null when there is no trustworthy reference pace to derive it from.
   targetPaceSecondsPerKm Int?
-  intensity         String
-  instructions      String
-  status            WorkoutStatus    @default(PLANNED)
+  intensity              String
+  instructions           String
+  status                 WorkoutStatus          @default(PLANNED)
   // Outcome metadata (Phase 1 — plan adherence). `status` stays authoritative; these describe it.
-  completedAt          DateTime? // when a linked run closed this workout as COMPLETED
-  completionType       WorkoutCompletionType? // how it was done (AS_PLANNED / PARTIAL / …)
-  completionConfidence Float? // 0–1; how sure the link is (1 = explicit runner link, lower = auto-matched)
-  skippedAt            DateTime? // when it was closed as SKIPPED (runner action or auto-close)
-  skipReason           WorkoutSkipReason? // why it was missed, when known
-  rescheduledFor       DateTime? // new local date if the runner moved it
-  runnerNote           String? // optional free-text the runner attached to the outcome
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  completedAt            DateTime? // when a linked run closed this workout as COMPLETED
+  completionType         WorkoutCompletionType? // how it was done (AS_PLANNED / PARTIAL / …)
+  completionConfidence   Float? // 0–1; how sure the link is (1 = explicit runner link, lower = auto-matched)
+  skippedAt              DateTime? // when it was closed as SKIPPED (runner action or auto-close)
+  skipReason             WorkoutSkipReason? // why it was missed, when known
+  rescheduledFor         DateTime? // new local date if the runner moved it
+  runnerNote             String? // optional free-text the runner attached to the outcome
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
   trainingPlan TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
   completedRun RunnerRun?
@@ -678,13 +680,13 @@ model TrainingWorkout {
 /// the health-data privacy/consent/retention policy exists — see the Phase 0 blocker in
 /// EXECUTION_PLAN.md. `WRITABLE_MEMORY_KINDS` in src/lib/coach/memory.ts is the enforcement point.
 model CoachMemory {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   userId String
   /// Null when the fact holds across goals (e.g. "prefers running before work"); set when it is only
   /// true for one goal, so retiring a goal does not contaminate the next one.
   goalId String?
 
-  kind CoachMemoryKind
+  kind  CoachMemoryKind
   /// Stable slug identifying what the fact is about, so a newer value can supersede an older one
   /// (e.g. kind=SCHEDULE key=preferred_time). Not runner-visible.
   key   String
@@ -785,25 +787,25 @@ model SleepLog {
 }
 
 model CoachInteraction {
-  id            String                 @id @default(cuid())
-  userId        String
-  goalId        String?
-  runId         String?
-  type          CoachInteractionType
-  status        CoachInteractionStatus @default(PENDING)
-  userMessage   String?
-  response      Json?
-  safety        Json
+  id             String                 @id @default(cuid())
+  userId         String
+  goalId         String?
+  runId          String?
+  type           CoachInteractionType
+  status         CoachInteractionStatus @default(PENDING)
+  userMessage    String?
+  response       Json?
+  safety         Json
   // For HUMAN_NOTE interactions: the admin/coach who wrote the note (null for AI-generated ones).
-  authorId      String?
-  model         String?
-  promptVersion String
+  authorId       String?
+  model          String?
+  promptVersion  String
   contextVersion String? // shape-version of the assembled coach context (see COACH_CONTEXT_VERSION)
   contextHash    String? // sha256 (16 hex) of the exact context payload sent, for reproducibility — no content stored
-  errorCode     String?
-  acceptedAt    DateTime?
-  createdAt     DateTime               @default(now())
-  completedAt   DateTime?
+  errorCode      String?
+  acceptedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  completedAt    DateTime?
 
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal      RunnerGoal?  @relation(fields: [goalId], references: [id], onDelete: SetNull)
@@ -1341,4 +1343,95 @@ model NutritionEntry {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, loggedFor])
+}
+
+// ---------------------------------------------------------------------------
+// Native mobile client (/api/v1) — device sessions and PKCE authorization codes.
+// These belong to the additive versioned mobile facade described in
+// docs/NATIVE_ANDROID_OPTION_PLAN.md. The website and the Capacitor app keep using
+// the Auth.js cookie session; nothing below changes their behavior.
+// ---------------------------------------------------------------------------
+
+/// One signed-in device. The app holds a rotating refresh token (only its SHA-256 hash is
+/// stored here) and swaps it for short-lived access JWTs. Rotation is per-row: refreshing
+/// revokes the current row and creates its successor inside the same `familyId`. Presenting
+/// an already-rotated token is refresh-token reuse — the whole family is revoked (see
+/// src/lib/api/v1/tokens.ts), which logs out a device whose token was stolen and replayed.
+model MobileSession {
+  id               String    @id @default(cuid())
+  userId           String
+  /// Groups every rotation of one device's login, so reuse detection can revoke them together.
+  familyId         String
+  /// SHA-256 of the refresh token. The token itself is never stored, logged, or returned twice.
+  refreshTokenHash String    @unique
+  platform         String    @default("android")
+  /// `User.securityStampAt` when this device authenticated. Compared on every refresh so a password
+  /// reset, MFA change, block, or role change invalidates the 60-day refresh token as well — the
+  /// stamp carried inside the access token only covers its own 15-minute window.
+  ///
+  /// Deliberately has NO default: a default would let any future insert that forgets this field
+  /// mint a session that looks freshly authenticated, silently re-opening the bypass this column
+  /// exists to close.
+  securityStamp    DateTime
+  appVersion       String?
+  /// Coarse, user-recognizable device label (e.g. "Pixel 8"). Never an advertising/hardware ID.
+  deviceName       String?
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  /// Why the row stopped being usable: ROTATED | LOGOUT | LOGOUT_ALL | REUSE_DETECTED | EXPIRED.
+  revokedReason    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+/// Single-use OAuth 2.0 authorization code for the system-browser + PKCE sign-in. The app opens
+/// /api/v1/auth/authorize in a Custom Tab, the user completes the ordinary web login (credentials,
+/// Google, and MFA all included), and the code comes back over the zidrun:// deep link. The code is
+/// worthless without the matching PKCE verifier, so an app that hijacks the deep link cannot use it.
+model MobileAuthCode {
+  id            String    @id @default(cuid())
+  userId        String
+  /// SHA-256 of the code. Same reasoning as MobileSession.refreshTokenHash.
+  codeHash      String    @unique
+  /// S256 code challenge supplied by the app when it opened the browser.
+  codeChallenge String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+}
+
+/// Replay guard for non-idempotent mobile mutations (race registration today). The app sends an
+/// `Idempotency-Key` header; a retry after a dropped response replays the stored result instead of
+/// creating a second registration. Scoped per user + endpoint so keys cannot collide across users.
+model MobileIdempotencyRecord {
+  id           String   @id @default(cuid())
+  userId       String
+  endpoint     String
+  key          String
+  /// SHA-256 of the request body — a same-key/different-body retry is a client bug, not a retry.
+  requestHash  String
+  /// Identifies the attempt currently holding this reservation. Completing or releasing requires a
+  /// matching owner, so a stalled request that finishes after its lease was taken over cannot
+  /// overwrite the newer attempt's result.
+  owner        String
+  /// Null while the mutation is still running. The row is inserted BEFORE the mutation so the
+  /// unique constraint below serializes concurrent retries; a second caller that loses the insert
+  /// either replays the finished result or is told the first attempt is still in flight.
+  responseCode Int?
+  responseBody Json?
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, endpoint, key])
+  @@index([createdAt])
 }

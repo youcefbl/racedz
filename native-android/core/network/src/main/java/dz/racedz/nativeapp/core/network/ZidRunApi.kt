@@ -1,0 +1,108 @@
+package dz.racedz.nativeapp.core.network
+
+import okhttp3.MultipartBody
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.PATCH
+import retrofit2.http.POST
+import retrofit2.http.Part
+import retrofit2.http.Path
+import retrofit2.http.Query
+
+/**
+ * The complete surface the native app is allowed to call. Everything returns the shared
+ * [ApiEnvelope] and a raw [Response] so [ApiClient] can read the status, the typed error body, and
+ * the request id uniformly — Retrofit's own exception for a non-2xx would throw all of that away.
+ *
+ * There is intentionally no endpoint here for anything the app does not have a screen for. Adding
+ * a call is a deliberate act, not something a generated client does on your behalf.
+ */
+interface ZidRunApi {
+
+    @GET("api/v1/config")
+    suspend fun config(): Response<ApiEnvelope<AppConfigDto>>
+
+    // ---- auth ---------------------------------------------------------------------------------
+
+    @POST("api/v1/auth/login")
+    suspend fun login(@Body body: LoginRequest): Response<ApiEnvelope<AuthSessionDto>>
+
+    @POST("api/v1/auth/register")
+    suspend fun register(@Body body: RegisterRequest): Response<ApiEnvelope<RegisterAccountResultDto>>
+
+    @POST("api/v1/auth/refresh")
+    suspend fun refresh(@Body body: RefreshRequest): Response<ApiEnvelope<RefreshResponseDto>>
+
+    @POST("api/v1/auth/logout")
+    suspend fun logout(@Body body: LogoutRequest): Response<ApiEnvelope<SignedOutDto>>
+
+    @POST("api/v1/auth/logout-all")
+    suspend fun logoutAll(): Response<ApiEnvelope<SignedOutDto>>
+
+    @POST("api/v1/auth/resend-verification")
+    suspend fun resendVerification(@Body body: ResendVerificationRequest): Response<ApiEnvelope<SentDto>>
+
+    /** Redeems the PKCE authorization code delivered over the zidrun://auth/callback deep link. */
+    @POST("api/v1/auth/token")
+    suspend fun exchangePkceCode(@Body body: PkceTokenRequest): Response<ApiEnvelope<AuthSessionDto>>
+
+    // ---- me -----------------------------------------------------------------------------------
+
+    @GET("api/v1/me")
+    suspend fun me(): Response<ApiEnvelope<UserDto>>
+
+    @PATCH("api/v1/me")
+    suspend fun updateProfile(@Body body: ProfileRequest): Response<ApiEnvelope<UserDto>>
+
+    @PATCH("api/v1/me/preferences")
+    suspend fun updatePreferences(@Body body: PreferencesRequest): Response<ApiEnvelope<UserPreferencesDto>>
+
+    @GET("api/v1/me/registrations")
+    suspend fun myRegistrations(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+    ): Response<ApiEnvelope<List<RegistrationDto>>>
+
+    @GET("api/v1/me/sessions")
+    suspend fun mySessions(): Response<ApiEnvelope<List<DeviceSessionDto>>>
+
+    @POST("api/v1/me/deletion-request")
+    suspend fun requestAccountDeletion(@Body body: DeletionRequestBody): Response<ApiEnvelope<SubmittedDto>>
+
+    // ---- races --------------------------------------------------------------------------------
+
+    @GET("api/v1/races")
+    suspend fun races(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("q") query: String? = null,
+        @Query("wilaya") wilaya: String? = null,
+        @Query("type") type: String? = null,
+        @Query("distance") distance: Double? = null,
+    ): Response<ApiEnvelope<List<RaceSummaryDto>>>
+
+    @GET("api/v1/races/{idOrSlug}")
+    suspend fun race(@Path("idOrSlug") idOrSlug: String): Response<ApiEnvelope<RaceDetailDto>>
+
+    // ---- registration -------------------------------------------------------------------------
+
+    @POST("api/v1/races/{idOrSlug}/registrations")
+    suspend fun createRegistration(
+        @Path("idOrSlug") idOrSlug: String,
+        // Client-generated per logical registration attempt, so a retry after a dropped response
+        // replays the first result instead of registering twice.
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body body: CreateRegistrationRequest,
+    ): Response<ApiEnvelope<RegistrationDto>>
+
+    @Multipart
+    @POST("api/v1/registrations/{id}/payment-proof")
+    suspend fun uploadPaymentProof(
+        @Path("id") registrationId: String,
+        @Part("paymentMethod") paymentMethod: okhttp3.RequestBody,
+        @Part file: MultipartBody.Part,
+    ): Response<ApiEnvelope<RegistrationDto>>
+}

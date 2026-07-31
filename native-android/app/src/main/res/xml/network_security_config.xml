@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is refused outright. Every build that can reach production uses this file; the
+  debug variant overrides it (app/src/debug/res/xml/) purely to reach the developer's machine.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

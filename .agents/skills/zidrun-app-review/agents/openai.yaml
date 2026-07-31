@@ -1,0 +1,4 @@
+interface:
+  display_name: "ZidRun App Review"
+  short_description: "Strict ZidRun UI, UX, parity, and performance review"
+  default_prompt: "Use $zidrun-app-review to review this ZidRun app change against the screenshots, Capacitor parity, themes, locales, and performance bar."

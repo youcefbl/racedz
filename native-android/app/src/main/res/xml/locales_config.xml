@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ per-app language picker. Matches src/lib/i18n.ts LOCALES exactly: en/fr/ar, where
+     "ar" carries Algerian Darija phrasing (see i18n-translation-boundary), not a separate locale. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="fr" />
+    <locale android:name="ar" />
+</locale-config>

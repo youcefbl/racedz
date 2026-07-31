@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  All user-visible copy for the shared UI and the feature screens lives here rather than being
+  split per module, so translation parity is checkable in one place (mirrors how the web keeps its
+  three dictionaries side by side). Arabic carries Algerian Darija phrasing, matching src/lib/i18n.ts.
+-->
+<resources>
+
+    <!-- common -->
+    <string name="common_retry">Try again</string>
+    <string name="common_loading">Loading…</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_save">Save</string>
+    <string name="common_continue">Continue</string>
+    <string name="common_back">Back</string>
+    <string name="common_close">Close</string>
+    <string name="common_search">Search</string>
+    <string name="common_offline_title">You are offline</string>
+    <string name="common_offline_body">Check your connection and try again.</string>
+    <string name="common_error_title">Something went wrong</string>
+    <string name="common_show_password">Show password</string>
+    <string name="common_hide_password">Hide password</string>
+    <string name="common_session_expired">Your session has expired. Please sign in again.</string>
+
+    <!-- auth: sign in -->
+    <string name="auth_welcome_back">Welcome back</string>
+    <string name="auth_welcome_subtitle">Your next race is waiting.</string>
+    <string name="auth_email_label">Email address</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_or">or</string>
+    <string name="auth_continue_with_google">Continue with Google</string>
+    <string name="auth_new_here">New to ZidRun?</string>
+    <string name="auth_create_account_link">Create account</string>
+    <string name="auth_signed_out_expired">You were signed out because your session expired.</string>
+    <string name="auth_signed_out_security">You were signed out for security. Please sign in again.</string>
+    <string name="auth_signed_out_blocked">This account is blocked. Contact support if you think this is a mistake.</string>
+    <string name="auth_browser_opening">Opening your browser…</string>
+
+    <!-- auth: create account -->
+    <string name="auth_create_title">Create your account</string>
+    <string name="auth_step_of">Step %1$d of %2$d</string>
+    <string name="auth_full_name_label">Full name</string>
+    <string name="auth_password_hint">Use 8+ characters</string>
+    <string name="auth_accept_terms">I agree to the Terms and Privacy Policy</string>
+    <string name="auth_profile_next_title">Optional profile setup next</string>
+    <string name="auth_profile_next_body">You can add a photo and preferences after creating your account.</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_have_account">Already have an account?</string>
+    <string name="auth_privacy_footnote">Your activity stays private by default.</string>
+
+    <!-- auth: verify email -->
+    <string name="auth_verify_title">Check your email</string>
+    <string name="auth_verify_body">We sent an activation link to %1$s. Open it to activate your account, then sign in.</string>
+    <string name="auth_resend_email">Resend the email</string>
+    <string name="auth_resend_sent">If that address needs activating, we have sent a new link.</string>
+    <string name="auth_back_to_sign_in">Back to sign in</string>
+
+    <!-- auth: MFA -->
+    <string name="auth_mfa_title">Two-step verification</string>
+    <string name="auth_mfa_body">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</string>
+    <string name="auth_mfa_code_label">Authentication code</string>
+    <string name="auth_mfa_verify">Verify</string>
+
+    <!-- races -->
+    <string name="races_title">Races</string>
+    <string name="races_search_hint">Search races, cities, organizers</string>
+    <string name="races_featured">Featured race</string>
+    <string name="races_view_race">View race</string>
+    <string name="races_coming_up">Coming up</string>
+    <string name="races_empty_title">No races found</string>
+    <string name="races_empty_body">Try a different search or clear your filters.</string>
+    <string name="races_clear_filters">Clear filters</string>
+    <string name="races_all_wilayas">All of Algeria</string>
+    <string name="races_filter_wilaya">Wilaya</string>
+    <string name="races_loading_more">Loading more races…</string>
+    <string name="races_cd_search">Search races</string>
+
+    <!-- race detail -->
+    <string name="race_about">About this race</string>
+    <string name="race_distances">Distances</string>
+    <string name="race_rules">Rules</string>
+    <string name="race_required_documents">What to bring</string>
+    <string name="race_conditions">Conditions</string>
+    <string name="race_announcements">Announcements</string>
+    <string name="race_organizer">Organised by %1$s</string>
+    <string name="race_register">Register</string>
+    <string name="race_registration_closed">Registration closed</string>
+    <string name="race_registration_not_open">Registration not open yet</string>
+    <string name="race_registration_full">This race is full</string>
+    <string name="race_already_registered">You are registered</string>
+    <string name="race_view_registration">View my registration</string>
+    <string name="race_places_left">%1$d places left</string>
+    <string name="race_free">Free</string>
+    <string name="race_price_from">From %1$s DZD</string>
+    <string name="race_not_found_title">Race not available</string>
+    <string name="race_not_found_body">This race may have been removed or is no longer published.</string>
+    <string name="race_sign_in_to_register">Sign in to register</string>
+
+    <!-- registration -->
+    <string name="registration_title">Register for %1$s</string>
+    <string name="registration_step_distance">Choose your distance</string>
+    <string name="registration_step_details">Your details</string>
+    <string name="registration_step_confirm">Confirm</string>
+    <string name="registration_first_name">First name</string>
+    <string name="registration_last_name">Last name</string>
+    <string name="registration_phone">Phone number</string>
+    <string name="registration_dob">Date of birth (YYYY-MM-DD)</string>
+    <string name="registration_gender">Gender</string>
+    <string name="registration_gender_male">Male</string>
+    <string name="registration_gender_female">Female</string>
+    <string name="registration_gender_other">Other</string>
+    <string name="registration_wilaya">Wilaya</string>
+    <string name="registration_city">City</string>
+    <string name="registration_emergency_name">Emergency contact name</string>
+    <string name="registration_emergency_phone">Emergency contact phone</string>
+    <string name="registration_club">Club (optional)</string>
+    <string name="registration_shirt">T-shirt size (optional)</string>
+    <string name="registration_accept">I accept the race rules</string>
+    <string name="registration_submit">Confirm registration</string>
+    <string name="registration_success_title">You are registered</string>
+    <string name="registration_success_body">Your place is held. Pay and upload your proof so the organizer can confirm it.</string>
+    <string name="registration_already">You are already registered for this distance.</string>
+
+    <!-- payment -->
+    <string name="payment_title">Payment</string>
+    <string name="payment_amount">Amount: %1$s DZD</string>
+    <string name="payment_method">How did you pay?</string>
+    <string name="payment_method_baridimob">BaridiMob</string>
+    <string name="payment_method_ccp">CCP</string>
+    <string name="payment_method_transfer">Bank transfer</string>
+    <string name="payment_method_cash">Cash</string>
+    <string name="payment_method_other">Other</string>
+    <string name="payment_baridimob_number">BaridiMob: %1$s</string>
+    <string name="payment_ccp_account">CCP: %1$s</string>
+    <string name="payment_ccp_key">Key: %1$s</string>
+    <string name="payment_choose_proof">Choose a screenshot</string>
+    <string name="payment_upload_proof">Upload proof of payment</string>
+    <string name="payment_proof_uploaded">Proof received. The organizer will review it.</string>
+    <string name="payment_proof_private">Only you and the race organizer can see this image.</string>
+    <string name="payment_status_pending">Awaiting payment</string>
+    <string name="payment_status_review">Under review</string>
+    <string name="payment_status_paid">Paid</string>
+    <string name="payment_status_not_required">No payment needed</string>
+
+    <!-- account -->
+    <string name="account_title">Account</string>
+    <string name="account_settings">Settings</string>
+    <string name="account_your_season">Your season</string>
+    <string name="account_stat_races">races</string>
+    <string name="account_stat_km">km</string>
+    <string name="account_stat_runs">runs</string>
+    <string name="account_my_registrations">My registrations</string>
+    <string name="account_profile_preferences">Profile &amp; preferences</string>
+    <string name="account_privacy_data">Privacy &amp; data</string>
+    <string name="account_support">Support</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_sign_out_confirm">Sign out of ZidRun on this device?</string>
+    <string name="account_signed_in_as">Signed in as %1$s</string>
+
+    <!-- profile and preferences -->
+    <string name="profile_title">Profile &amp; preferences</string>
+    <string name="profile_personal">Personal details</string>
+    <string name="profile_appearance">Appearance</string>
+    <string name="profile_language">Language</string>
+    <string name="profile_theme">Theme</string>
+    <string name="profile_theme_light">Light</string>
+    <string name="profile_theme_dark">Dark</string>
+    <string name="profile_theme_race">Race</string>
+    <string name="profile_language_en">English</string>
+    <string name="profile_language_fr">Français</string>
+    <string name="profile_language_ar">الدارجة</string>
+    <string name="profile_saved">Saved</string>
+
+    <!-- privacy and data -->
+    <string name="privacy_title">Privacy &amp; data</string>
+    <string name="privacy_private_profile">Private profile</string>
+    <string name="privacy_private_profile_body">Hide your activity from leaderboards and other runners.</string>
+    <string name="privacy_devices">Signed-in devices</string>
+    <string name="privacy_device_current">This device</string>
+    <string name="privacy_sign_out_all">Sign out everywhere</string>
+    <string name="privacy_sign_out_all_body">Signs out every device, including this one.</string>
+    <string name="privacy_delete_account">Request account deletion</string>
+    <string name="privacy_delete_account_body">We review deletion requests because races you have already entered involve an organizer. You stay signed in while we handle it.</string>
+    <string name="privacy_delete_confirm">Send deletion request</string>
+    <string name="privacy_delete_sent">Your request was sent. We will reply in Support.</string>
+    <string name="privacy_last_used">Last used %1$s</string>
+
+    <!-- registrations list -->
+    <string name="registrations_title">My registrations</string>
+    <string name="registrations_empty_title">No registrations yet</string>
+    <string name="registrations_empty_body">When you enter a race it will appear here with its payment status.</string>
+    <string name="registration_status_pending">Pending</string>
+    <string name="registration_status_confirmed">Confirmed</string>
+    <string name="registration_status_cancelled">Cancelled</string>
+    <string name="registration_status_rejected">Not accepted</string>
+    <string name="registration_status_waiting">Waiting list</string>
+
+    <!-- content descriptions -->
+    <string name="cd_zidrun_wordmark">ZidRun</string>
+    <string name="cd_race_image">Race photo</string>
+    <string name="cd_avatar">Your profile photo</string>
+    <string name="cd_open_settings">Open settings</string>
+
+</resources>

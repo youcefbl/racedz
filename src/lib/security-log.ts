@@ -20,7 +20,15 @@ export type SecurityEventType =
   | "admin_account_deleted"
   | "rate_limit_blocked"
   | "private_file_denied"
-  | "cross_site_request_blocked";
+  | "cross_site_request_blocked"
+  // Native mobile client (/api/v1). Refresh reuse and a PKCE verifier mismatch are the two
+  // signals that a device token or an authorization code was intercepted, so they are the ones
+  // worth alerting on.
+  | "mobile_refresh_reuse_detected"
+  | "mobile_pkce_verifier_mismatch"
+  | "mobile_logout_all"
+  | "data_export_generated"
+  | "account_deletion_requested";
 
 const REDACTED = "[redacted]";
 
