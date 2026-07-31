@@ -40,6 +40,23 @@ object GpsQuality {
      * The upper distance bound rejects teleports (a fix that jumps 200 m is a bad fix, not a sprint);
      * the lower bound rejects the metre-scale jitter of a stationary phone.
      */
+    /**
+     * Treat a reported speed of exactly zero as "no speed reported".
+     *
+     * OFF in production. The Android emulator's `geo fix` and NMEA injection both report
+     * `hasSpeed() == true` with `speed == 0.0` on every fix, so the speed branch below rejects every
+     * segment and no simulated run accumulates a metre — which makes the emulator useless for
+     * testing the recording pipeline end to end.
+     *
+     * This is NOT enabled for real builds, and the production rule is deliberately left alone. The
+     * rule exists because a stationary phone's position jitters 1-3 m between fixes at 1 Hz, which
+     * *implies* 1-3 m/s and would sail past any displacement-based floor; only the GPS's own Doppler
+     * velocity distinguishes drift from running. Relaxing that on a real device would let a runner
+     * waiting at a crossing accumulate distance. Setting this from a debug build buys emulator
+     * testability without touching what ships.
+     */
+    var trustDisplacementWhenSpeedIsZero: Boolean = false
+
     fun shouldCountSegment(
         distanceM: Double,
         elapsedSeconds: Double,
@@ -49,8 +66,12 @@ object GpsQuality {
         if (!distanceM.isFinite() || distanceM < 1.0 || distanceM > 60.0) return false
         if (!elapsedSeconds.isFinite() || elapsedSeconds <= 0.0) return false
 
-        if (reportedSpeedMps != null && reportedSpeedMps.isFinite()) {
-            return reportedSpeedMps >= MIN_MOVING_SPEED_MPS
+        val speedIsUsable = reportedSpeedMps != null &&
+            reportedSpeedMps.isFinite() &&
+            !(trustDisplacementWhenSpeedIsZero && reportedSpeedMps == 0f)
+
+        if (speedIsUsable) {
+            return reportedSpeedMps!! >= MIN_MOVING_SPEED_MPS
         }
 
         return recordingAgeSeconds >= SPEEDLESS_STARTUP_SETTLE_SECONDS

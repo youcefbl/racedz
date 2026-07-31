@@ -119,3 +119,77 @@ class GpsQualityTest {
         assertEquals(1000.0, metres, 5.0)
     }
 }
+
+/**
+ * The emulator escape hatch must not change what ships. These run it both ways over the same input
+ * so a future edit cannot quietly enable displacement-trust in production.
+ */
+class GpsQualityEmulatorFlagTest {
+
+    @org.junit.After
+    fun reset() {
+        GpsQuality.trustDisplacementWhenSpeedIsZero = false
+    }
+
+    @Test
+    fun `production rejects a zero-speed fix even when the position moved`() {
+        GpsQuality.trustDisplacementWhenSpeedIsZero = false
+
+        // Exactly what `adb emu geo fix` produces: real displacement, speed reported as 0.
+        assertFalse(
+            GpsQuality.shouldCountSegment(
+                distanceM = 3.3,
+                elapsedSeconds = 1.0,
+                reportedSpeedMps = 0f,
+                recordingAgeSeconds = 60.0,
+            )
+        )
+    }
+
+    @Test
+    fun `the debug flag lets an emulator fix through once the settle window has passed`() {
+        GpsQuality.trustDisplacementWhenSpeedIsZero = true
+
+        assertTrue(
+            GpsQuality.shouldCountSegment(
+                distanceM = 3.3,
+                elapsedSeconds = 1.0,
+                reportedSpeedMps = 0f,
+                recordingAgeSeconds = 60.0,
+            )
+        )
+        // Still respects the startup settle window, so an acquisition wobble is not counted.
+        assertFalse(
+            GpsQuality.shouldCountSegment(
+                distanceM = 3.3,
+                elapsedSeconds = 1.0,
+                reportedSpeedMps = 0f,
+                recordingAgeSeconds = 5.0,
+            )
+        )
+    }
+
+    @Test
+    fun `the flag never affects a fix that reports a real speed`() {
+        GpsQuality.trustDisplacementWhenSpeedIsZero = true
+
+        // A genuinely stationary phone reporting 0.1 m/s is still rejected: the flag only reroutes
+        // an exactly-zero reading, it does not lower the floor.
+        assertFalse(
+            GpsQuality.shouldCountSegment(
+                distanceM = 2.0,
+                elapsedSeconds = 1.0,
+                reportedSpeedMps = 0.1f,
+                recordingAgeSeconds = 60.0,
+            )
+        )
+        assertTrue(
+            GpsQuality.shouldCountSegment(
+                distanceM = 3.3,
+                elapsedSeconds = 1.0,
+                reportedSpeedMps = 3.3f,
+                recordingAgeSeconds = 60.0,
+            )
+        )
+    }
+}

@@ -4,6 +4,7 @@ import android.content.Context
 import dz.racedz.nativeapp.core.auth.AccountRepository
 import dz.racedz.nativeapp.core.auth.AuthRepository
 import dz.racedz.nativeapp.core.auth.CoachRepository
+import dz.racedz.nativeapp.feature.runs.record.GpsQuality
 import dz.racedz.nativeapp.feature.runs.record.RunOutbox
 import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.core.auth.RacesRepository
@@ -58,6 +59,13 @@ class AppContainer(context: Context, appVersion: String) {
      * runner presses Save.
      */
     val runOutbox = RunOutbox(context).also { RunRecorder.attachOutbox(it) }
+
+    init {
+        // Debug builds only. The emulator reports speed = 0 on every injected fix, which the
+        // production rule correctly rejects; without this, `adb emu geo fix` can never exercise the
+        // recording pipeline. Release and internal builds keep the real rule — see GpsQuality.
+        GpsQuality.trustDisplacementWhenSpeedIsZero = BuildConfig.DEBUG
+    }
     val accountRepository = AccountRepository(api, apiClient, sessionManager)
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
 }
