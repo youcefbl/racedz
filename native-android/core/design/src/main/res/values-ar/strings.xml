@@ -272,4 +272,19 @@
     <string name="runs_notes_label">كيفاش كانت؟</string>
     <string name="runs_effort_label">المجهود: %1$d / 10</string>
     <string name="runs_discard_confirm">عاود اضغط باش تمسح</string>
+    <string name="runs_mode_free">حرّة</string>
+    <string name="runs_mode_guided">موجّهة</string>
+    <string name="runs_audio_cues">التنبيهات الصوتية</string>
+    <string name="runs_guided_unavailable">الخطوات الموجّهة ما راهيش متوفرة — تتسجّل كسورتي حرّة.</string>
+    <string name="runs_step_warmup">تسخين</string>
+    <string name="runs_step_work">مجهود</string>
+    <string name="runs_step_recovery">استرجاع</string>
+    <string name="runs_step_cooldown">تهدئة</string>
+    <string name="runs_step_steady">ثابت</string>
+    <string name="runs_step_minutes">%1$d د</string>
+    <string name="runs_step_metres">%1$d م</string>
+    <string name="runs_cue_started">بدا التسجيل</string>
+    <string name="runs_cue_km">كيلومتر %1$d. الإيقاع %2$s</string>
+    <string name="runs_cue_step">%1$s. %2$s</string>
+    <string name="runs_cue_done">سالات الحصة. هدّي ملّي تحب.</string>
 </resources>

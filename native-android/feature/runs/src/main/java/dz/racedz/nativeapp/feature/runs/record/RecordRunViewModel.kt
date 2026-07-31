@@ -58,6 +58,8 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
             when (val result = repository.create(request)) {
                 is ApiResult.Success -> {
                     RunRecorder.reset()
+                    // Otherwise the next free run would inherit this session's steps.
+                    GuidedSessionController.clear()
                     _state.update { it.copy(saving = false, error = null) }
                     onSaved(result.value.id)
                 }

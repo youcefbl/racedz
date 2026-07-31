@@ -37,6 +37,7 @@ import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
 import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
+import dz.racedz.nativeapp.feature.runs.record.StartRunViewModel
 import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
 import dz.racedz.nativeapp.locale.LocaleManager
@@ -190,7 +191,11 @@ fun ZidRunApp(
             }
 
             composable(RootDestinations.RUN_START) {
+                val startViewModel: StartRunViewModel = viewModel(
+                    factory = SimpleViewModelFactory { StartRunViewModel(container.runsRepository) }
+                )
                 StartRunScreen(
+                    viewModel = startViewModel,
                     onBack = { navController.popBackStack() },
                     onStarted = {
                         // Replaces itself in the back stack: once recording has begun, "back" should

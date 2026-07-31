@@ -66,6 +66,9 @@ interface ZidRunApi {
     @GET("api/v1/runs/{id}")
     suspend fun run(@Path("id") id: String): Response<ApiEnvelope<RunDetailDto>>
 
+    @GET("api/v1/runs/guided")
+    suspend fun guidedSession(): Response<ApiEnvelope<GuidedSessionDto>>
+
     @GET("api/v1/me/badges")
     suspend fun badges(): Response<ApiEnvelope<BadgesDto>>
 

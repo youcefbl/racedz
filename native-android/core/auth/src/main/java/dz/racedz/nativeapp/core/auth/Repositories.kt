@@ -12,6 +12,7 @@ import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
 import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.GuidedSessionDto
 import dz.racedz.nativeapp.core.network.RunDetailDto
 import dz.racedz.nativeapp.core.network.RunDto
 import dz.racedz.nativeapp.core.network.UpdateRunRequest
@@ -150,6 +151,9 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
     }
 
     suspend fun detail(id: String): ApiResult<RunDetailDto> = client.call { api.run(id) }
+
+    /** Today's guided session: warm-up, work, cool-down, built server-side. */
+    suspend fun guidedSession(): ApiResult<GuidedSessionDto> = client.call { api.guidedSession() }
 
     /** Achievements, computed server-side from records and race finishes. */
     suspend fun badges(): ApiResult<BadgesDto> = client.call { api.badges() }

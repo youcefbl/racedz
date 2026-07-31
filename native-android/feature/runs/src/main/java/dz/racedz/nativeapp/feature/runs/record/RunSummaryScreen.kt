@@ -201,6 +201,7 @@ fun RunSummaryScreen(
                     // Two taps: the run is not saved yet, so discarding here destroys it outright.
                     if (confirmDiscard) {
                         RunRecorder.reset()
+                        GuidedSessionController.clear()
                         onDiscarded()
                     } else {
                         confirmDiscard = true

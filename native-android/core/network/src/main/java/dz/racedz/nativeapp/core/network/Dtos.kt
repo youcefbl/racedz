@@ -416,6 +416,29 @@ data class RunDetailDto(
     val elevationSeries: List<SeriesPointDto> = emptyList(),
 )
 
+/** One step of a guided session: warm up, work, recover, steady, or cool down. */
+@Serializable
+data class GuidedStepDto(
+    val index: Int = 0,
+    val total: Int = 1,
+    val role: String = "STEADY",
+    val intensity: String = "EASY",
+    /** Exactly one of [seconds] / [meters] is set — whichever this step counts down. */
+    val seconds: Int? = null,
+    val meters: Int? = null,
+    val repCurrent: Int? = null,
+    val repTotal: Int? = null,
+)
+
+@Serializable
+data class GuidedSessionDto(
+    val workoutId: String? = null,
+    val title: String? = null,
+    /** False when this is the generic session rather than one the runner's plan prescribed. */
+    val fromPlan: Boolean = false,
+    val steps: List<GuidedStepDto> = emptyList(),
+)
+
 /** One achievement, earned or still in progress. */
 @Serializable
 data class BadgeDto(

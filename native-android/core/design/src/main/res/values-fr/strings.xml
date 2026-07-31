@@ -271,4 +271,19 @@
     <string name="runs_notes_label">Comment c’était ?</string>
     <string name="runs_effort_label">Effort : %1$d / 10</string>
     <string name="runs_discard_confirm">Appuyez encore pour supprimer</string>
+    <string name="runs_mode_free">Libre</string>
+    <string name="runs_mode_guided">Guidée</string>
+    <string name="runs_audio_cues">Cues audio</string>
+    <string name="runs_guided_unavailable">Les étapes guidées sont indisponibles — la sortie sera enregistrée comme libre.</string>
+    <string name="runs_step_warmup">Échauffement</string>
+    <string name="runs_step_work">Effort</string>
+    <string name="runs_step_recovery">Récupération</string>
+    <string name="runs_step_cooldown">Retour au calme</string>
+    <string name="runs_step_steady">Régulier</string>
+    <string name="runs_step_minutes">%1$d min</string>
+    <string name="runs_step_metres">%1$d m</string>
+    <string name="runs_cue_started">Enregistrement démarré</string>
+    <string name="runs_cue_km">Kilomètre %1$d. Allure %2$s</string>
+    <string name="runs_cue_step">%1$s. %2$s</string>
+    <string name="runs_cue_done">Séance terminée. Retour au calme quand vous voulez.</string>
 </resources>

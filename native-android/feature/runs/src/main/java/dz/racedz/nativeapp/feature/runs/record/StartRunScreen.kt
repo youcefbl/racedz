@@ -4,10 +4,19 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,20 +32,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -54,7 +69,11 @@ import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+
+/** Footprints in the ring around the hold target. */
+private const val FOOTPRINT_COUNT = 24
 
 /** How long the runner must hold before recording starts. */
 private const val HOLD_TO_BEGIN_MS = 1_200L
@@ -71,13 +90,16 @@ private const val HOLD_TO_BEGIN_MS = 1_200L
  */
 @Composable
 fun StartRunScreen(
+    viewModel: StartRunViewModel,
     onBack: () -> Unit,
     onStarted: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val session by viewModel.state.collectAsStateWithLifecycle()
     var permissionDenied by remember { mutableStateOf(false) }
-    var pendingStart by remember { mutableStateOf(false) }
+    var mode by rememberSaveable { mutableStateOf(RunMode.Free) }
+    var audioCues by rememberSaveable { mutableStateOf(true) }
 
     // Notifications are requested alongside location: the foreground service needs a visible
     // notification, and without the permission the runner sees no indication that GPS is on.
@@ -92,11 +114,10 @@ fun StartRunScreen(
         val precise = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (precise) {
             permissionDenied = false
-            beginRecording(context, onStarted)
+            beginRecording(context, mode, audioCues, session.session, onStarted)
         } else {
             permissionDenied = true
         }
-        pendingStart = false
     }
 
     Column(
@@ -134,13 +155,67 @@ fun StartRunScreen(
                 )
             }
 
-            Spacer(Modifier.height(ZidRunDimens.spaceLg))
+            // Free or guided. A guided run counts through warm-up, work, and cool-down and speaks
+            // each change; a free run just records.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                    .background(ZidRunDarkColors.surface),
+            ) {
+                ModeTab(
+                    label = stringResource(R.string.runs_mode_free),
+                    selected = mode == RunMode.Free,
+                    onClick = { mode = RunMode.Free },
+                    modifier = Modifier.weight(1f),
+                )
+                ModeTab(
+                    label = stringResource(R.string.runs_mode_guided),
+                    selected = mode == RunMode.Guided,
+                    onClick = { mode = RunMode.Guided },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            if (mode == RunMode.Guided) {
+                GuidedPlanCard(session = session)
+            }
+
+            // Cues are the reason to look at the phone less, so they default on.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                    .background(ZidRunDarkColors.surface)
+                    .clickable(role = Role.Switch) { audioCues = !audioCues }
+                    .padding(ZidRunDimens.spaceMd)
+                    .semantics(mergeDescendants = true) { },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (audioCues) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                    contentDescription = null,
+                    tint = if (audioCues) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
+                )
+                Spacer(Modifier.width(ZidRunDimens.spaceMd))
+                Text(
+                    text = stringResource(R.string.runs_audio_cues),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = ZidRunDarkColors.textStrong,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = audioCues,
+                    onCheckedChange = { audioCues = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ZidRunDarkColors.onPrimary,
+                        checkedTrackColor = ZidRunDarkColors.primary,
+                    ),
+                )
+            }
 
             HoldToBegin(
-                onTriggered = {
-                    pendingStart = true
-                    launcher.launch(permissions)
-                },
+                onTriggered = { launcher.launch(permissions) },
             )
 
             if (permissionDenied) {
@@ -160,10 +235,77 @@ fun StartRunScreen(
     }
 }
 
-private fun beginRecording(context: android.content.Context, onStarted: () -> Unit) {
+private fun beginRecording(
+    context: android.content.Context,
+    mode: RunMode,
+    audioCues: Boolean,
+    session: dz.racedz.nativeapp.core.network.GuidedSessionDto?,
+    onStarted: () -> Unit,
+) {
     RunRecorder.start()
+    // A guided run with no session (offline when the screen opened) records as a free one rather
+    // than refusing to start — the run matters more than the guidance.
+    GuidedSessionController.start(if (mode == RunMode.Guided) session else null)
+    RunSettings.audioCuesEnabled = audioCues
     RunTrackingService.start(context)
     onStarted()
+}
+
+@Composable
+private fun ModeTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(if (selected) ZidRunDarkColors.primary else Color.Transparent)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .padding(vertical = ZidRunDimens.spaceMd),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (selected) ZidRunDarkColors.onPrimary else ZidRunDarkColors.textMuted,
+        )
+    }
+}
+
+/** What the guided session will ask for, so the runner knows before they commit to it. */
+@Composable
+private fun GuidedPlanCard(session: StartRunUiState) {
+    val steps = session.session?.steps.orEmpty()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(ZidRunDarkColors.surface)
+            .padding(ZidRunDimens.spaceMd),
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        Text(
+            text = session.session?.title ?: stringResource(R.string.runs_mode_guided),
+            style = MaterialTheme.typography.titleSmall,
+            color = ZidRunDarkColors.textStrong,
+        )
+        when {
+            session.loading -> Text(
+                stringResource(R.string.common_loading),
+                style = MaterialTheme.typography.bodySmall,
+                color = ZidRunDarkColors.textMuted,
+            )
+            steps.isEmpty() -> Text(
+                stringResource(R.string.runs_guided_unavailable),
+                style = MaterialTheme.typography.bodySmall,
+                color = ZidRunDarkColors.textMuted,
+            )
+            else -> steps.take(4).forEach { step ->
+                Text(
+                    text = "${stepRoleLabel(step.role)} · ${stepTargetLabel(step)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ZidRunDarkColors.textMuted,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -230,9 +372,46 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 onClick(label = startLabel) { onTriggered(); true }
             },
     ) {
+        // Footprints stepping round the ring, one lighting up at a time — the mockup's motif, and a
+        // cue that the screen is alive while the runner waits for GPS.
+        val transition = rememberInfiniteTransition(label = "footsteps")
+        val phase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = FOOTPRINT_COUNT.toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2600, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "phase",
+        )
+
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val centre = Offset(size.width / 2, size.height / 2)
+            // Outside the progress arc, as in the mockup — drawn at the same radius the arc got
+            // buried under it.
+            val footRadius = size.minDimension / 2 - 5.dp.toPx()
+            repeat(FOOTPRINT_COUNT) { i ->
+                val angle = (i.toFloat() / FOOTPRINT_COUNT) * 2 * Math.PI - Math.PI / 2
+                val x = centre.x + (footRadius * kotlin.math.cos(angle)).toFloat()
+                val y = centre.y + (footRadius * kotlin.math.sin(angle)).toFloat()
+                // Distance from the travelling head, wrapped, so the trail fades behind it.
+                val delta = ((i - phase + FOOTPRINT_COUNT) % FOOTPRINT_COUNT)
+                val alpha = (1f - delta / 5f).coerceIn(0.12f, 1f)
+                // Left/right stagger, so it reads as steps rather than dots on a circle.
+                val offset = if (i % 2 == 0) 3.dp.toPx() else -3.dp.toPx()
+                drawCircle(
+                    color = ZidRunDarkColors.primary.copy(alpha = alpha),
+                    radius = 3.5.dp.toPx(),
+                    center = Offset(
+                        x + (offset * kotlin.math.cos(angle + Math.PI / 2)).toFloat(),
+                        y + (offset * kotlin.math.sin(angle + Math.PI / 2)).toFloat(),
+                    ),
+                )
+            }
+
             val strokePx = 8.dp.toPx()
-            val inset = strokePx / 2
+            // Inset past the footprint ring so the two do not overlap.
+            val inset = strokePx / 2 + 18.dp.toPx()
             val arcSize = androidx.compose.ui.geometry.Size(size.width - strokePx, size.height - strokePx)
             drawArc(
                 color = ZidRunDarkColors.border,

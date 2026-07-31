@@ -35,6 +35,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +59,28 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.feature.runs.RunMap
+
+/** Built outside composition so the LaunchedEffects above can speak without a Composable context. */
+private fun kmCue(context: android.content.Context, km: Int, pace: String): String =
+    context.getString(R.string.runs_cue_km, km, pace)
+
+private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.core.network.GuidedStepDto): String {
+    val role = when (step.role) {
+        "WARMUP" -> R.string.runs_step_warmup
+        "WORK" -> R.string.runs_step_work
+        "RECOVERY" -> R.string.runs_step_recovery
+        "COOLDOWN" -> R.string.runs_step_cooldown
+        else -> R.string.runs_step_steady
+    }
+    val seconds = step.seconds
+    val meters = step.meters
+    val target = when {
+        seconds != null -> context.getString(R.string.runs_step_minutes, seconds / 60)
+        meters != null -> context.getString(R.string.runs_step_metres, meters)
+        else -> ""
+    }
+    return context.getString(R.string.runs_cue_step, context.getString(role), target)
+}
 
 /**
  * The during-run screen (03-during-run.png).
@@ -81,6 +105,32 @@ fun RecordingScreen(
     val locale = currentLocale()
 
     var confirmFinish by remember { mutableStateOf(false) }
+    val guided by GuidedSessionController.state.collectAsStateWithLifecycle()
+
+    // One engine for the life of the screen, shut down on leave so it does not hold audio focus
+    // after the run.
+    val voice = remember(RunSettings.audioCuesEnabled) {
+        if (RunSettings.audioCuesEnabled) RunVoice(context, locale) else null
+    }
+    DisposableEffect(voice) { onDispose { voice?.release() } }
+
+    // Kilometre splits are announced as they land. Keyed on the count so a recomposition cannot
+    // repeat the last one.
+    val splitCount = state.splits.size
+    LaunchedEffect(splitCount) {
+        val split = state.splits.lastOrNull() ?: return@LaunchedEffect
+        voice?.say(kmCue(context, split.km, ZidRunFormat.pace(split.paceSecondsPerKm)))
+    }
+
+    // Guided steps advance off the same numbers shown on screen, and each change is spoken once.
+    LaunchedEffect(state.elapsedSeconds, state.distanceMeters) {
+        val entered = GuidedSessionController.advanceIfDue(state.elapsedSeconds, state.distanceMeters)
+        if (entered != null) {
+            voice?.say(stepCue(context, entered))
+        } else if (guided.isComplete && guided.session != null) {
+            voice?.say(context.getString(R.string.runs_cue_done))
+        }
+    }
 
     // Back leaves the screen, not the run. Recording continues in the service.
     BackHandler(enabled = state.status != RecordingStatus.Finished) { onMinimize() }
@@ -135,6 +185,24 @@ fun RecordingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StatusHeader(state = state)
+
+        // The guided step in progress, with how much of it is left.
+        guided.currentStep?.let { step ->
+            Spacer(Modifier.height(ZidRunDimens.spaceSm))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stepRoleLabel(step.role) +
+                        (step.repTotal?.let { " ${step.repCurrent}/$it" } ?: ""),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ZidRunDarkColors.primary,
+                )
+                Text(
+                    text = stepTargetLabel(step),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ZidRunDarkColors.textMuted,
+                )
+            }
+        }
 
         Spacer(Modifier.height(ZidRunDimens.spaceLg))
 
