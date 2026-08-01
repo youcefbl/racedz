@@ -58,8 +58,18 @@ class ApiClientTest {
         assertEquals(false, success.meta?.hasMore)
     }
 
+    /**
+     * The exact envelope the server sends — field messages nested under `details.fields`, copied
+     * from a real `POST /api/v1/runs` rejection rather than paraphrased.
+     *
+     * This test previously asserted a *flat* `details` map, which no endpoint has ever produced. It
+     * passed, and in doing so hid the fact that every real validation envelope failed to parse: the
+     * client fell back to a status-derived code and a generic "Something went wrong", so no server
+     * message and no field error ever reached a screen. A fixture that does not match the wire is
+     * worse than no fixture.
+     */
     @Test
-    fun `typed error body keeps its code, message, and field details`() = runBlocking {
+    fun `typed error body keeps its code, message, and nested field details`() = runBlocking {
         server.enqueue(
             MockResponse()
                 .setResponseCode(422)
@@ -67,7 +77,7 @@ class ApiClientTest {
                 .setHeader("X-Request-Id", "req-123")
                 .setBody(
                     """{"error":{"code":"VALIDATION_FAILED","message":"Check the highlighted fields.",
-                       "details":{"email":"Enter a valid email address."}}}"""
+                       "details":{"fields":{"distanceKm":"Number must be greater than 0"}}}}"""
                 )
         )
 
@@ -77,8 +87,25 @@ class ApiClientTest {
         val failure = result as ApiResult.Failure
         assertEquals(ApiErrorCode.ValidationFailed, failure.error.code)
         assertEquals("Check the highlighted fields.", failure.error.message)
-        assertEquals("Enter a valid email address.", failure.error.fieldErrors["email"])
+        assertEquals("Number must be greater than 0", failure.error.fieldErrors["distanceKm"])
         assertEquals("req-123", failure.error.requestId)
+    }
+
+    /** An error with no details at all is still typed, and does not fall back to the generic text. */
+    @Test
+    fun `typed error body without details keeps the server message`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(409)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"error":{"code":"CONFLICT","message":"You are already registered."}}""")
+        )
+
+        val (api, client) = api()
+        val failure = client.call { api.races() } as ApiResult.Failure
+        assertEquals(ApiErrorCode.Conflict, failure.error.code)
+        assertEquals("You are already registered.", failure.error.message)
+        assertTrue(failure.error.fieldErrors.isEmpty())
     }
 
     @Test

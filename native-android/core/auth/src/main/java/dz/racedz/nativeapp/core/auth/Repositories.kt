@@ -269,6 +269,14 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
     suspend fun onboardingState(): ApiResult<CoachOnboardingStateDto> = client.call { api.coachOnboardingState() }
 
     /** Creates the goal, which is what unlocks plan generation. */
+    /**
+     * Edits the active goal. Distinct from [createGoal] on purpose: creating a goal supersedes the
+     * active plan, editing one does not, and the difference is exactly what an "Edit goal" button
+     * has to promise.
+     */
+    suspend fun updateGoal(request: CreateCoachGoalRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
+        client.call { api.updateCoachGoal(request) }
+
     suspend fun createGoal(request: CreateCoachGoalRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
         client.call { api.createCoachGoal(request) }
 }

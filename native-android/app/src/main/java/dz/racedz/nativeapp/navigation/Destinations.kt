@@ -24,7 +24,8 @@ object RootDestinations {
     const val RUN_RECORDING = "runs/recording"
     const val RUN_SUMMARY = "runs/summary"
     const val ONBOARDING = "onboarding"
-    const val COACH_SETUP = "coach/setup"
+    /** `edit=true` reuses the same five steps prefilled, against the update endpoint. */
+    const val COACH_SETUP = "coach/setup?edit={edit}"
     const val COACH_PLAN = "coach/plan"
     /**
      * `runId` focuses the conversation on one run, which is what "Analyze run" means. Optional: the
@@ -32,6 +33,8 @@ object RootDestinations {
      */
     const val COACH_CHAT = "coach/chat?runId={runId}"
     const val COACH_SLEEP = "coach/sleep"
+
+    fun coachSetup(editing: Boolean = false) = if (editing) "coach/setup?edit=true" else "coach/setup"
 
     fun coachChat(runId: String? = null) =
         if (runId.isNullOrBlank()) "coach/chat" else "coach/chat?runId=$runId"

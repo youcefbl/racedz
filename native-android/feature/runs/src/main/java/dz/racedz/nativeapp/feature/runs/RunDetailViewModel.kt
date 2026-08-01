@@ -7,6 +7,7 @@ import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.RunDetailDto
+import dz.racedz.nativeapp.core.network.UpdateRunRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,9 @@ data class RunDetailUiState(
     val run: RunDetailDto? = null,
     val loading: Boolean = true,
     val error: ApiCallException? = null,
+    /** A privacy change or a delete is in flight; both controls wait for it. */
+    val mutating: Boolean = false,
+    val actionError: String? = null,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
 }
@@ -49,6 +53,54 @@ class RunDetailViewModel(
             when (val result = repository.detail(runId)) {
                 is ApiResult.Success -> _state.update { it.copy(run = result.value, loading = false, error = null) }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
+            }
+        }
+    }
+
+    /**
+     * Publishes or unpublishes the run.
+     *
+     * `baseRevision` is the revision this screen is looking at, so an edit made from another device
+     * in the meantime is refused rather than silently overwritten — and unpublishing in particular
+     * must not be lost, because it is the control a runner reaches for when a route is out in public
+     * that should not be.
+     */
+    fun setPublic(isPublic: Boolean) {
+        val current = _state.value.run ?: return
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, actionError = null) }
+        viewModelScope.launch {
+            val result = repository.update(
+                runId,
+                UpdateRunRequest(baseRevision = current.revision, isPublic = isPublic),
+            )
+            when (result) {
+                // The server's row wins, not the value that was asked for: it carries the new
+                // revision the next edit has to quote.
+                is ApiResult.Success -> {
+                    _state.update { it.copy(mutating = false) }
+                    load()
+                }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(mutating = false, actionError = result.error.message)
+                }
+            }
+        }
+    }
+
+    /** Deletes the run. [onDeleted] runs only after the server has actually accepted it. */
+    fun delete(onDeleted: () -> Unit) {
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, actionError = null) }
+        viewModelScope.launch {
+            when (val result = repository.delete(runId)) {
+                is ApiResult.Success -> {
+                    _state.update { it.copy(mutating = false) }
+                    onDeleted()
+                }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(mutating = false, actionError = result.error.message)
+                }
             }
         }
     }

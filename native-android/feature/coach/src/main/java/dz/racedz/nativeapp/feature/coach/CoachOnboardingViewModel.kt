@@ -43,11 +43,19 @@ class CoachOnboardingViewModel(private val repository: CoachRepository) : ViewMo
         }
     }
 
-    fun submit(request: CreateCoachGoalRequest, onCreated: () -> Unit) {
+    /**
+     * Saves the form.
+     *
+     * [editing] picks between two genuinely different server behaviours: creating a goal supersedes
+     * the active plan, editing one leaves it in place. Sending the same body down the wrong path
+     * would silently throw away the week the runner is in.
+     */
+    fun submit(request: CreateCoachGoalRequest, editing: Boolean = false, onCreated: () -> Unit) {
         if (_state.value.submitting) return
         _state.update { it.copy(submitting = true, error = null) }
         viewModelScope.launch {
-            when (val result = repository.createGoal(request)) {
+            val call = if (editing) repository.updateGoal(request) else repository.createGoal(request)
+            when (val result = call) {
                 is ApiResult.Success -> {
                     _state.update { it.copy(submitting = false, error = null) }
                     onCreated()

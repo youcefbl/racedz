@@ -102,7 +102,8 @@ fun AppShell(
     onRecordRun: (String?) -> Unit,
     onResumeRecording: () -> Unit,
     onOpenSubscribe: () -> Unit,
-    onOpenCoachSetup: () -> Unit,
+    /** [editing] distinguishes first-time setup from editing an existing goal. */
+    onOpenCoachSetup: (Boolean) -> Unit,
     onOpenCoachPlan: () -> Unit,
     onOpenCoachChat: () -> Unit,
     onOpenCoachSleep: () -> Unit,
@@ -162,7 +163,8 @@ fun AppShell(
                     // out rather than shipping a second, divergent version of it.
                     onOpenSubscribe = onOpenSubscribe,
                     onLogRun = onRecordRun,
-                    onSetUpCoach = onOpenCoachSetup,
+                    onSetUpCoach = { onOpenCoachSetup(false) },
+                    onEditGoal = { onOpenCoachSetup(true) },
                     onViewPlan = onOpenCoachPlan,
                     onAskCoach = onOpenCoachChat,
                     onOpenSleep = onOpenCoachSleep,

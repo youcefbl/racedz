@@ -64,6 +64,13 @@ import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.RunSplitDto
+import dz.racedz.nativeapp.core.design.ZidRunDivider
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import dz.racedz.nativeapp.core.design.ZidRunTextButton
+import dz.racedz.nativeapp.core.design.ZidRunInlineError
+import androidx.compose.material3.Switch
 
 /**
  * Run details (05-run-details.png): the route, the headline numbers, per-kilometre splits, and an
@@ -81,9 +88,12 @@ fun RunDetailScreen(
     /** Opens the coach with this run selected. Null when the runner has no coaching. */
     onAnalyse: ((String) -> Unit)? = null,
     onExportGpx: (String) -> Unit = {},
+    /** Called after the server has accepted the delete, so the list never shows a ghost row. */
+    onDeleted: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var confirmingDelete by remember { mutableStateOf(false) }
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
 
@@ -338,6 +348,80 @@ fun RunDetailScreen(
                             onClick = { analyse(run.id) },
                             modifier = Modifier.weight(1f),
                         )
+                    }
+                }
+
+                state.actionError?.let { ZidRunInlineError(it) }
+
+                /*
+                 * Privacy and deletion.
+                 *
+                 * Both were missing, and both are controls over data the runner already owns: a run
+                 * records where they were, and until this existed the only way to unpublish one — or
+                 * remove a route recorded by mistake — was the website. The repository has exposed
+                 * `update` and `delete` the whole time; this is the surface over them.
+                 */
+                ZidRunCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    stringResource(R.string.runs_visibility_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = colors.textStrong,
+                                )
+                                Text(
+                                    stringResource(
+                                        if (run.isPublic) R.string.runs_visibility_public_body
+                                        else R.string.runs_visibility_private_body
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colors.textMuted,
+                                )
+                            }
+                            Spacer(Modifier.width(ZidRunDimens.spaceMd))
+                            Switch(
+                                checked = run.isPublic,
+                                onCheckedChange = { viewModel.setPublic(it) },
+                                enabled = !state.mutating,
+                            )
+                        }
+
+                        ZidRunDivider()
+
+                        if (confirmingDelete) {
+                            Text(
+                                stringResource(R.string.runs_delete_confirm_body),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.textMuted,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+                                ZidRunOutlinedButton(
+                                    text = stringResource(R.string.common_cancel),
+                                    onClick = { confirmingDelete = false },
+                                    enabled = !state.mutating,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                ZidRunButton(
+                                    text = stringResource(R.string.runs_delete_confirm),
+                                    onClick = { viewModel.delete(onDeleted) },
+                                    enabled = !state.mutating,
+                                    loading = state.mutating,
+                                    containerColor = colors.danger,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        } else {
+                            // Deliberately a second tap away. Deleting a run is not recoverable from
+                            // the app, and it sits directly under a switch people do tap.
+                            ZidRunTextButton(
+                                text = stringResource(R.string.runs_delete),
+                                onClick = { confirmingDelete = true },
+                            )
+                        }
                     }
                 }
 

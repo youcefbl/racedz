@@ -465,6 +465,81 @@ async function runWorkoutActionCases() {
  * endpoint's mapping, and paying for a generation to check a field name would make the suite too
  * expensive to run often. `test:coach-live` is where real generation is exercised.
  */
+/**
+ * Editing a goal must not throw away the plan.
+ *
+ * Creating a goal supersedes the active plan by design; editing one does not. The whole value of an
+ * edit is that a runner can change their coach's language, move a target date, or add an injury
+ * without losing the week they are in — so this asserts the plan id survives, not merely that the
+ * request returned 200.
+ */
+async function runGoalEditCase() {
+  console.log("\nEditing a goal — changes the answers, keeps the plan\n");
+  const runner = await makeRunner("edit", { birthYear: THIS_YEAR - 34, gender: "FEMALE" });
+  const base = {
+    goalType: "TEN_K",
+    targetDate: inDays(60),
+    experienceLevel: "BEGINNER" as const,
+    currentWeeklyDistanceKm: 10,
+    availableTrainingDays: [1, 3, 5],
+    preferredLocale: "en",
+  };
+  await api("/coach/goals", { method: "POST", token: runner.token, body: base });
+
+  const before = await prisma.trainingPlan.findFirst({
+    where: { userId: runner.id, status: "ACTIVE" },
+    select: { id: true },
+  });
+  check("a plan exists before the edit", Boolean(before), before);
+
+  // The form prefills from here, so it has to carry the answers, not just a flag.
+  const state = await api("/coach/goals", { token: runner.token });
+  check("the goal endpoint returns the answers for prefill", state.body?.data?.goal?.goalType === "TEN_K", state.body?.data?.goal);
+  check(
+    "including availability and health context",
+    Array.isArray(state.body?.data?.goal?.availableTrainingDays) && state.body?.data?.goal?.availableTrainingDays.length === 3,
+    state.body?.data?.goal?.availableTrainingDays,
+  );
+
+  const edited = await api("/coach/goals", {
+    method: "PATCH",
+    token: runner.token,
+    body: { ...base, preferredLocale: "ar", availableTrainingDays: [2, 4, 6], injuryHistory: "Left calf, 2024" },
+  });
+  check("the goal can be edited", edited.status === 200, { status: edited.status, body: edited.body });
+
+  const goal = await prisma.runnerGoal.findFirst({
+    where: { userId: runner.id, status: "ACTIVE" },
+    select: { preferredLocale: true, availableTrainingDays: true, injuryHistory: true },
+  });
+  check("the coach language changed", goal?.preferredLocale === "ar", goal?.preferredLocale);
+  check("availability changed", JSON.stringify(goal?.availableTrainingDays) === "[2,4,6]", goal?.availableTrainingDays);
+  check("the health context changed", goal?.injuryHistory === "Left calf, 2024", goal?.injuryHistory);
+
+  const after = await prisma.trainingPlan.findFirst({
+    where: { userId: runner.id, status: "ACTIVE" },
+    select: { id: true },
+  });
+  check("the active plan survived the edit", after?.id === before?.id, { before: before?.id, after: after?.id });
+
+  // Only one goal stays active — an edit must not leave a second one behind.
+  const activeGoals = await prisma.runnerGoal.count({ where: { userId: runner.id, status: "ACTIVE" } });
+  check("there is still exactly one active goal", activeGoals === 1, activeGoals);
+
+  // And the edit is refused when the body is not a valid goal.
+  const bad = await api("/coach/goals", {
+    method: "PATCH",
+    token: runner.token,
+    body: { ...base, availableTrainingDays: [1] },
+  });
+  check("an invalid edit is refused", bad.status === 422 || bad.status === 400, bad.status);
+
+  // A runner with no goal has nothing to edit, and is told so rather than 500ing.
+  const noGoal = await makeRunner("edit-none", { birthYear: THIS_YEAR - 29, gender: "MALE" });
+  const missing = await api("/coach/goals", { method: "PATCH", token: noGoal.token, body: base });
+  check("editing with no active goal is a 404", missing.status === 404, missing.status);
+}
+
 async function runReplyShapeCase() {
   console.log("\nReply shape — caution must survive the trip to the phone\n");
   const runner = await makeRunner("reply", { birthYear: THIS_YEAR - 40, gender: "MALE" });
@@ -558,6 +633,7 @@ async function main() {
     await runBoundaryCases();
     await runLocaleCase();
     await runWorkoutActionCases();
+    await runGoalEditCase();
     await runReplyShapeCase();
     await runEntitlementCase();
   } finally {

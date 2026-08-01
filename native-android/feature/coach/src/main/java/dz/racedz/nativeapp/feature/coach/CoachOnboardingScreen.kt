@@ -95,6 +95,8 @@ fun CoachOnboardingScreen(
     onBack: () -> Unit,
     onCreated: () -> Unit,
     modifier: Modifier = Modifier,
+    /** True when the runner came from "Edit goal" rather than from first-time setup. */
+    editing: Boolean = false,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
@@ -137,6 +139,44 @@ fun CoachOnboardingScreen(
     var consent by rememberSaveable { mutableStateOf(false) }
     var coachLocale by rememberSaveable { mutableStateOf(appLocale.language.take(2).let { if (it in COACH_LOCALES) it else "en" }) }
 
+    /*
+     * Prefill, exactly once, when the goal arrives.
+     *
+     * Keyed on the goal id so it does not fight the runner's typing on every recomposition, and
+     * guarded so a slow response cannot overwrite an answer they have already changed.
+     */
+    var prefilled by rememberSaveable { mutableStateOf(false) }
+    val existing = state.gaps.goal
+    LaunchedEffect(existing?.id) {
+        if (!editing || existing == null || prefilled) return@LaunchedEffect
+        goalType = existing.goalType
+        customGoal = existing.customGoal.orEmpty()
+        weeks = weeksUntil(existing.targetDate)
+        targetDistanceKm = existing.targetDistanceKm?.let { trimNumber(it) }.orEmpty()
+        targetTime = existing.targetTimeSeconds?.let(::formatTargetTime).orEmpty()
+        experience = existing.experienceLevel
+        weeklyKm = trimNumber(existing.currentWeeklyDistanceKm)
+        yearsRunning = existing.yearsRunning?.toString().orEmpty()
+        peakWeeklyKm = existing.peakWeeklyDistanceKm?.let { trimNumber(it) }.orEmpty()
+        longestRecentKm = existing.longestRecentRunKm?.let { trimNumber(it) }.orEmpty()
+        recentResult = existing.recentRaceResult.orEmpty()
+        restingHeartRate = existing.restingHeartRate?.toString().orEmpty()
+        weightKg = existing.weightKg?.let { trimNumber(it) }.orEmpty()
+        heightCm = existing.heightCm?.toString().orEmpty()
+        days = existing.availableTrainingDays.toSet().ifEmpty { days }
+        longRunDay = existing.preferredLongRunDay
+        constraints = existing.constraints.orEmpty()
+        injuryNotes = existing.injuryNotes.orEmpty()
+        injuryHistory = existing.injuryHistory.orEmpty()
+        conditions = existing.chronicConditions.toSet()
+        healthNotes = existing.healthNotes.orEmpty()
+        coachLocale = existing.preferredLocale
+        // Editing does not re-ask for consent: it was given when the goal was created, and asking
+        // again every time a date changes turns a meaningful agreement into a nuisance click.
+        consent = true
+        prefilled = true
+    }
+
     val currentYear = LocalDate.now().year
     val birthYearValue = birthYear.toIntOrNull()
     val birthYearOk = birthYear.isEmpty() ||
@@ -166,7 +206,7 @@ fun CoachOnboardingScreen(
             .imePadding(),
     ) {
         ZidRunTopBar(
-            title = stringResource(R.string.coach_setup_title),
+            title = stringResource(if (editing) R.string.coach_goal_edit_title else R.string.coach_setup_title),
             // Back walks the wizard backwards before it leaves it, which is what the chevron means
             // once there is a step 2 on screen.
             onBack = { if (step > 1) step -= 1 else onBack() },
@@ -561,7 +601,7 @@ fun CoachOnboardingScreen(
                     )
                 } else {
                     ZidRunButton(
-                        text = stringResource(R.string.coach_setup_submit),
+                        text = stringResource(if (editing) R.string.common_save else R.string.coach_setup_submit),
                         onClick = {
                             viewModel.submit(
                                 CreateCoachGoalRequest(
@@ -592,6 +632,7 @@ fun CoachOnboardingScreen(
                                     healthNotes = healthNotes.trim().takeIf { it.isNotEmpty() },
                                     preferredLocale = coachLocale,
                                 ),
+                                editing = editing,
                                 onCreated = onCreated,
                             )
                         },
@@ -744,3 +785,23 @@ private fun weekdayLabel(day: Int): String = stringResource(
         else -> R.string.day_sat
     }
 )
+
+
+/** Whole weeks from today to [isoDate], floored at 1 — the form counts forward, the goal stores a date. */
+private fun weeksUntil(isoDate: String): String {
+    val target = runCatching { java.time.Instant.parse(isoDate).atZone(ZoneOffset.UTC).toLocalDate() }.getOrNull()
+        ?: return "8"
+    val weeks = java.time.temporal.ChronoUnit.WEEKS.between(LocalDate.now(), target)
+    return weeks.coerceAtLeast(1L).toString()
+}
+
+/** "12.0" reads as a typo in a field the runner has to edit; "12" is what they entered. */
+private fun trimNumber(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
+
+private fun formatTargetTime(seconds: Int): String {
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    val secs = seconds % 60
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, secs) else "%d:%02d".format(minutes, secs)
+}

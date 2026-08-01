@@ -20,7 +20,22 @@ data class ApiEnvelope<T>(
 data class ApiErrorBody(
     val code: String = "INTERNAL",
     val message: String = "",
-    val details: Map<String, String> = emptyMap(),
+    val details: ApiErrorDetails = ApiErrorDetails(),
+)
+
+/**
+ * The server nests per-field messages under `details.fields`, not directly under `details`.
+ *
+ * This was modelled as a flat `Map<String, String>` and every error envelope carrying field detail
+ * therefore failed to deserialize — which the client swallowed, falling back to a status-derived
+ * code and a generic "Something went wrong. Please try again." So *no* server validation message
+ * and *no* field error had ever reached the app: a run with no distance, a rejected profile field,
+ * a bad coach goal all said the same unhelpful thing, and the `fieldErrors` the forms highlight
+ * from was permanently empty.
+ */
+@Serializable
+data class ApiErrorDetails(
+    val fields: Map<String, String> = emptyMap(),
 )
 
 @Serializable

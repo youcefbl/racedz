@@ -264,6 +264,12 @@
     <string name="runs_private">Private</string>
     <string name="runs_public">Shared</string>
     <string name="runs_export_gpx">Export GPX</string>
+    <string name="runs_visibility_title">Visibility</string>
+    <string name="runs_visibility_public_body">Anyone who can see your profile can see this run.</string>
+    <string name="runs_visibility_private_body">Only you can see this run.</string>
+    <string name="runs_delete">Delete this run</string>
+    <string name="runs_delete_confirm">Delete</string>
+    <string name="runs_delete_confirm_body">This removes the run and its route for good. It cannot be undone from the app.</string>
     <string name="runs_analyze">Analyze run</string>
     <string name="runs_detail_title">Run</string>
     <string name="runs_title">Runs</string>
@@ -294,6 +300,7 @@
     <string name="runs_finish">Finish</string>
     <string name="runs_discard">Discard</string>
     <string name="runs_save">Save run</string>
+    <string name="runs_nothing_to_save">This recording has no distance, so there is nothing to save. Discard it and start again.</string>
     <string name="runs_auto_paused">Paused — that looked faster than running. Resume when you are back on foot.</string>
     <string name="runs_gps_weak">Weak GPS</string>
     <string name="runs_stat_calories">Calories</string>
@@ -314,6 +321,8 @@
     <string name="runs_title_label">Title</string>
     <string name="runs_notes_label">How did it feel?</string>
     <string name="runs_effort_label">Effort: %1$d / 10</string>
+    <string name="runs_effort_easy">Very easy</string>
+    <string name="runs_effort_max">All out</string>
     <string name="runs_discard_confirm">Tap again to discard</string>
     <string name="runs_mode_free">Free run</string>
     <string name="runs_mode_guided">Guided</string>
@@ -366,6 +375,8 @@
     <string name="coach_goal_trail">Trail</string>
     <string name="coach_goal_fitness">General fitness</string>
     <string name="coach_goal_other">Something else</string>
+    <string name="coach_goal_edit_title">Update your goal</string>
+    <string name="coach_goal_edit">Edit goal</string>
     <string name="common_optional">Optional</string>
     <string name="coach_setup_step_of">Step %1$d of %2$d</string>
     <string name="coach_setup_step1_title">Your goal</string>

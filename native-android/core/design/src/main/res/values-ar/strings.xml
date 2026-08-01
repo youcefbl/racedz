@@ -249,6 +249,12 @@
     <string name="runs_private">خاصة</string>
     <string name="runs_public">مشتركة</string>
     <string name="runs_export_gpx">صدّر GPX</string>
+    <string name="runs_visibility_title">الظهور</string>
+    <string name="runs_visibility_public_body">كل واحد يشوف البروفايل تاعك يقدر يشوف هاذ الجري.</string>
+    <string name="runs_visibility_private_body">غير انت تشوف هاذ الجري.</string>
+    <string name="runs_delete">امسح هاذ الجري</string>
+    <string name="runs_delete_confirm">امسح</string>
+    <string name="runs_delete_confirm_body">هاذي تمسح الجري والمسار تاعو للأبد. ما تقدرش ترجّعها من التطبيق.</string>
     <string name="runs_analyze">حلّل</string>
     <string name="runs_detail_title">سورتي</string>
     <string name="runs_title">الجري</string>
@@ -279,6 +285,7 @@
     <string name="runs_finish">سالي</string>
     <string name="runs_discard">امسح</string>
     <string name="runs_save">سجّل</string>
+    <string name="runs_nothing_to_save">هاذ التسجيل ما فيه حتى مسافة، ما كاين والو باش يتسجّل. امسحو وعاود من الجديد.</string>
     <string name="runs_auto_paused">وقّفنا — هذي بزاف بالنسبة للجري. كمّل ملّي ترجع تجري.</string>
     <string name="runs_gps_weak">GPS ضعيف</string>
     <string name="runs_stat_calories">السعرات</string>
@@ -299,6 +306,8 @@
     <string name="runs_title_label">العنوان</string>
     <string name="runs_notes_label">كيفاش كانت؟</string>
     <string name="runs_effort_label">المجهود: %1$d / 10</string>
+    <string name="runs_effort_easy">ساهل بزاف</string>
+    <string name="runs_effort_max">بأقصى جهد</string>
     <string name="runs_discard_confirm">عاود اضغط باش تمسح</string>
     <string name="runs_mode_free">حرّة</string>
     <string name="runs_mode_guided">موجّهة</string>
@@ -351,6 +360,8 @@
     <string name="coach_goal_trail">ترايل</string>
     <string name="coach_goal_fitness">لياقة عامة</string>
     <string name="coach_goal_other">حاجة أخرى</string>
+    <string name="coach_goal_edit_title">بدّل الهدف تاعك</string>
+    <string name="coach_goal_edit">بدّل</string>
     <string name="common_optional">اختياري</string>
     <string name="coach_setup_step_of">الخطوة %1$d من %2$d</string>
     <string name="coach_setup_step1_title">الهدف تاعك</string>

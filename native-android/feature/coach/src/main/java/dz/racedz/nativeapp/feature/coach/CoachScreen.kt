@@ -57,6 +57,7 @@ import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
+import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.CoachWorkoutDto
@@ -77,6 +78,8 @@ fun CoachScreen(
     /** Carries the planned session's id so the saved run links back to it. */
     onLogRun: (String?) -> Unit,
     onSetUpCoach: () -> Unit,
+    /** Reopens the five steps prefilled, against the update endpoint. */
+    onEditGoal: () -> Unit,
     onViewPlan: () -> Unit,
     onAskCoach: () -> Unit,
     onOpenSleep: () -> Unit,
@@ -187,6 +190,13 @@ fun CoachScreen(
                                         color = colors.textStrong,
                                     )
                                 }
+                                // The way back into every answer the coach reasons from, including
+                                // the language it replies in.
+                                ZidRunTextButton(
+                                    text = stringResource(R.string.coach_goal_edit),
+                                    onClick = onEditGoal,
+                                    fillWidth = false,
+                                )
                             }
                         }
                     }

@@ -106,7 +106,7 @@ class ApiClient(
             ApiCallException(
                 code = error?.code?.let(ApiErrorCode::fromWire) ?: statusToCode(response.code()),
                 message = error?.message?.takeIf { it.isNotBlank() } ?: defaultMessage(response.code()),
-                fieldErrors = error?.details.orEmpty(),
+                fieldErrors = error?.details?.fields.orEmpty(),
                 requestId = requestId,
             )
         )

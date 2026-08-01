@@ -224,7 +224,7 @@ fun ZidRunApp(
                     onOpenSubscribe = {
                         onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/coach/subscribe"))
                     },
-                    onOpenCoachSetup = { navController.navigate(RootDestinations.COACH_SETUP) },
+                    onOpenCoachSetup = { editing -> navController.navigate(RootDestinations.coachSetup(editing)) },
                     onOpenCoachPlan = { navController.navigate(RootDestinations.COACH_PLAN) },
                     onOpenCoachChat = { navController.navigate(RootDestinations.coachChat()) },
                     onOpenCoachSleep = { navController.navigate(RootDestinations.COACH_SLEEP) },
@@ -314,12 +314,18 @@ fun ZidRunApp(
                 )
             }
 
-            composable(RootDestinations.COACH_SETUP) {
+            composable(
+                route = RootDestinations.COACH_SETUP,
+                arguments = listOf(
+                    navArgument("edit") { nullable = true; defaultValue = null; type = NavType.StringType }
+                ),
+            ) { entry ->
                 val onboardingViewModel: CoachOnboardingViewModel = viewModel(
                     factory = SimpleViewModelFactory { CoachOnboardingViewModel(container.coachRepository) }
                 )
                 CoachOnboardingScreen(
                     viewModel = onboardingViewModel,
+                    editing = entry.arguments?.getString("edit") == "true",
                     onBack = { navController.popBackStack() },
                     // Back to the Coach tab, which now has a plan to show.
                     onCreated = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
@@ -376,6 +382,9 @@ fun ZidRunApp(
                     onExportGpx = { id ->
                         onOpenBrowserSignIn(container.authRepository.buildWebUrl("/api/v1/runs/$id/gpx"))
                     },
+                    // Back to the list, which reloads on resume — the deleted run is gone from the
+                    // server, so returning to its detail screen would show a 404.
+                    onDeleted = { navController.popBackStack() },
                 )
             }
 

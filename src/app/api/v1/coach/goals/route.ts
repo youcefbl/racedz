@@ -1,6 +1,6 @@
 import { apiError, apiOk, ApiError, withApi, readJsonBody } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
-import { createCoachGoal, ensureCurrentWeekPlan, getCoachProfileGaps } from "@/lib/coach/service";
+import { createCoachGoal, ensureCurrentWeekPlan, getCoachProfileGaps, updateCoachGoal } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { getPrisma } from "@/lib/db";
@@ -21,13 +21,67 @@ export const GET = withApi(async (request) => {
 
   const [gaps, active] = await Promise.all([
     getCoachProfileGaps(viewer.id),
+    // The whole editable answer set, not just whether one exists: editing a goal means showing the
+    // runner what they said last time, and a form that opens blank is a form that quietly discards
+    // the health context and availability they already gave.
     getPrisma().runnerGoal.findFirst({
       where: { userId: viewer.id, status: "ACTIVE" },
-      select: { id: true },
+      select: {
+        id: true, goalType: true, customGoal: true, targetDate: true, targetDistanceKm: true,
+        targetTimeSeconds: true, experienceLevel: true, currentWeeklyDistanceKm: true,
+        yearsRunning: true, peakWeeklyDistanceKm: true, longestRecentRunKm: true, recentRaceResult: true,
+        restingHeartRate: true, weightKg: true, heightCm: true, availableTrainingDays: true,
+        preferredLongRunDay: true, constraints: true, injuryNotes: true, injuryHistory: true,
+        chronicConditions: true, healthNotes: true, preferredLocale: true,
+      },
     }),
   ]);
 
-  return apiOk(request, { needsSex: gaps.sex, needsBirthDate: gaps.birthDate, hasActiveGoal: Boolean(active) });
+  return apiOk(request, {
+    needsSex: gaps.sex,
+    needsBirthDate: gaps.birthDate,
+    hasActiveGoal: Boolean(active),
+    goal: active && {
+      ...active,
+      targetDate: active.targetDate.toISOString(),
+    },
+  });
+});
+
+/**
+ * Edits the active goal in place.
+ *
+ * `updateCoachGoal` deliberately does *not* supersede the training plan the way creating a new goal
+ * does — which is the whole point of having an edit at all. Changing the coach's language, moving a
+ * target date, or adding an injury should adjust what comes next, not throw away the week the runner
+ * is in the middle of.
+ */
+export const PATCH = withApi(async (request) => {
+  const viewer = await requireMobileUser(request);
+
+  const limited = enforceRateLimit(rateLimitKey("v1-coach-goal-update", viewer.id), 20, 10 * 60_000);
+  if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many changes. Try again shortly."));
+
+  const active = await getPrisma().runnerGoal.findFirst({
+    where: { userId: viewer.id, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!active) throw new ApiError("NOT_FOUND", "There is no active goal to edit.");
+
+  try {
+    const goal = await updateCoachGoal(viewer.id, active.id, await readJsonBody(request));
+    return apiOk(request, { goal });
+  } catch (error) {
+    if (error instanceof CoachError) {
+      throw new ApiError(error.status === 404 ? "NOT_FOUND" : "VALIDATION_FAILED", error.message);
+    }
+    if (error instanceof Error && error.name === "ZodError") {
+      // Field names would be safe to log, but the values here are injury and health history.
+      console.warn("[api/v1][coach-goal] update rejected");
+      throw new ApiError("VALIDATION_FAILED", "Check the highlighted fields.");
+    }
+    throw error;
+  }
 });
 
 /**

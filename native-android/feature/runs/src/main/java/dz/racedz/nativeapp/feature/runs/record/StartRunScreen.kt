@@ -71,6 +71,19 @@ import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.feature.runs.R as RunsR
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.Canvas
+import kotlin.math.sin
+import kotlin.math.PI
 
 /** How long the runner must hold before recording starts. */
 private const val HOLD_TO_BEGIN_MS = 700L
@@ -327,56 +340,101 @@ private fun ReadyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 }
 
 /**
- * The hold target. Fills a ring while held and fires at the end; letting go early cancels.
+ * The hold target. Sweeps a ring while held and fires at the end; letting go early winds it back.
+ *
+ * Two things here are deliberate and easy to "fix" wrongly.
+ *
+ * **The hold is timed from frames, not from an animation.** Compose animations honour the system's
+ * `MotionDurationScale`, so on a device with animations turned off `animateTo` finishes instantly —
+ * and a press-and-hold that completes on contact is not a press-and-hold. `withFrameMillis` gives
+ * the same per-frame smoothness while keeping the duration real. Reduced motion removes the
+ * decoration (the idle breath, the wind-back) and leaves the interaction intact.
+ *
+ * **The label sits in its own clear space.** The exported artwork is a narrow foot, and text laid
+ * across the whole 240dp control ran straight through the stroke — "Hold" over the foot, "to begin"
+ * overflowing both edges. It is width-limited to the ring's inner circle and backed by a scrim, so
+ * it reads at any font scale without needing the artwork redrawn.
  */
 @Composable
 private fun HoldToBegin(onTriggered: () -> Unit) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var holding by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0f) }
-    // Respect Android's system animation scale. The hold still works, but the visual state jumps
-    // directly to its current value when the runner has asked for reduced motion.
+    var progress by remember { mutableFloatStateOf(0f) }
+
+    // Respect Android's animation scale for the decorative parts only.
     val animationsEnabled = remember(context) {
-        Settings.Global.getFloat(
-            context.contentResolver,
-            Settings.Global.ANIMATOR_DURATION_SCALE,
-            1f,
-        ) > 0f
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
     }
-    val animated by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(durationMillis = 90, easing = LinearEasing),
-        label = "hold",
+
+    // A slow breath while idle, so the control reads as waiting for you rather than as a picture.
+    // Driven from frames like the hold itself, for the same reason: it must not be at the mercy of
+    // the animation-duration scale, and it costs nothing to keep the two on one clock.
+    var idleScale by remember { mutableFloatStateOf(1f) }
+    LaunchedEffect(holding, animationsEnabled) {
+        if (holding || !animationsEnabled) {
+            idleScale = 1f
+            return@LaunchedEffect
+        }
+        val start = withFrameMillis { it }
+        while (true) {
+            withFrameMillis { now ->
+                val phase = ((now - start) % BREATH_MS) / BREATH_MS.toFloat()
+                idleScale = 1f + BREATH_DEPTH * sin(phase * 2f * PI.toFloat())
+            }
+        }
+    }
+
+    // Pressing sinks the control slightly and it grows back as the hold completes — the shape of
+    // the gesture, rather than a second independent effect.
+    val holdScale by animateFloatAsState(
+        targetValue = if (holding) 0.97f + progress * 0.05f else 1f,
+        animationSpec = tween(durationMillis = 120, easing = LinearEasing),
+        label = "holdScale",
     )
-    val visibleProgress = if (animationsEnabled) animated else progress
+    val appliedScale = if (!animationsEnabled) 1f else if (holding) holdScale else idleScale
+
     val holdLabel = stringResource(R.string.runs_hold_to_begin)
     val startLabel = stringResource(R.string.runs_start_run)
 
     LaunchedEffect(holding) {
         if (!holding) {
-            progress = 0f
+            // Wind back rather than snap: an aborted hold should look like it was let go, not like
+            // it never happened.
+            if (!animationsEnabled || progress == 0f) {
+                progress = 0f
+                return@LaunchedEffect
+            }
+            val from = progress
+            val start = withFrameMillis { it }
+            while (progress > 0f) {
+                withFrameMillis { now ->
+                    val t = (now - start).toFloat() / RELEASE_MS
+                    progress = (from * (1f - t)).coerceAtLeast(0f)
+                }
+            }
             return@LaunchedEffect
         }
-        val step = 50L
-        var elapsed = 0L
-        while (elapsed < HOLD_TO_BEGIN_MS && holding) {
-            delay(step)
-            elapsed += step
-            progress = (elapsed.toFloat() / HOLD_TO_BEGIN_MS).coerceAtMost(1f)
+
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        val start = withFrameMillis { it }
+        while (progress < 1f) {
+            withFrameMillis { now ->
+                progress = ((now - start).toFloat() / HOLD_TO_BEGIN_MS).coerceAtMost(1f)
+            }
         }
-        if (holding) {
-            // Keep the complete state visible for a short beat. This is the moment where the
-            // whole footprint circle and the orange light finish together before navigation.
-            progress = 1f
-            delay(110L)
-            if (holding) onTriggered()
-        }
+        // A distinct confirming tap, then a short beat so the completed ring is actually seen
+        // before the screen changes under it.
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        delay(110L)
+        onTriggered()
     }
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(240.dp)
+            .graphicsLayer { scaleX = appliedScale; scaleY = appliedScale }
             .clip(CircleShape)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -397,35 +455,46 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             },
     ) {
         // These layers are exported from the approved ready/progress/complete mockups. Keeping
-        // them as images preserves the intended foot shape and footprint rhythm on small screens;
-        // progress is communicated by opacity, not by a second hand-drawn approximation.
+        // them as images preserves the intended foot shape and footprint rhythm on small screens.
         Image(
             painter = painterResource(RunsR.drawable.zidrun_run_orange_glow),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(10.dp)
-                .alpha(0.28f + visibleProgress * 0.72f),
+            modifier = Modifier.fillMaxSize().padding(10.dp).alpha(0.28f + progress * 0.72f),
         )
         Image(
             painter = painterResource(RunsR.drawable.zidrun_run_footprints_ring),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(2.dp)
-                .alpha(0.72f),
+            modifier = Modifier.fillMaxSize().padding(2.dp).alpha(0.72f),
         )
         Image(
             painter = painterResource(RunsR.drawable.zidrun_run_footprints_ring_active),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(2.dp)
-                .alpha(visibleProgress),
+            modifier = Modifier.fillMaxSize().padding(2.dp).alpha(progress),
         )
+
+        // A sweep on top of the crossfade. Opacity alone says "something is happening"; a hand
+        // going round says how much longer to hold, which is the only question at this moment.
+        val sweepColor = ZidRunDarkColors.primary
+        // Inset to sit on the footprint circle rather than on the edge of the control's box: the
+        // exported artwork carries its own margin, so a flush arc reads as an unrelated second ring.
+        Canvas(modifier = Modifier.fillMaxSize().padding(SWEEP_INSET)) {
+            if (progress <= 0f) return@Canvas
+            val stroke = 5.dp.toPx()
+            val inset = stroke / 2
+            drawArc(
+                color = sweepColor,
+                startAngle = -90f,
+                sweepAngle = 360f * progress,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = Size(size.width - stroke, size.height - stroke),
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+        }
+
         Image(
             painter = painterResource(RunsR.drawable.zidrun_run_foot),
             contentDescription = null,
@@ -434,19 +503,45 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 .height(198.dp)
                 .width(99.dp)
                 .align(Alignment.Center)
-                .alpha(0.94f + visibleProgress * 0.06f),
+                .alpha(0.94f + progress * 0.06f),
         )
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = stringResource(R.string.runs_hold),
-                style = MaterialTheme.typography.displaySmall,
-                color = ZidRunDarkColors.primary,
-            )
-            Text(
-                text = holdLabel,
-                style = MaterialTheme.typography.bodyLarge,
-                color = ZidRunDarkColors.textMuted,
-            )
+
+        // The label's own clear space: a scrim wide enough for the longest translation ("Maintenez
+        // / pour commencer") and no wider than the ring's inner circle.
+        Box(
+            modifier = Modifier
+                .widthIn(max = 136.dp)
+                .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                // Opaque enough to hold up against the glow at full brightness, which is exactly
+                // when the label matters most — a 60% scrim washed out at the end of the hold.
+                .background(ZidRunDarkColors.background.copy(alpha = 0.88f))
+                .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stringResource(R.string.runs_hold),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = ZidRunDarkColors.primary,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = holdLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ZidRunDarkColors.text,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
+
+/** Where the progress sweep sits, measured against the exported ring inside the 240dp control. */
+private val SWEEP_INSET = 26.dp
+
+/** How long an aborted hold takes to wind back to nothing. */
+private const val RELEASE_MS = 220f
+
+/** One full idle breath, and how far it travels. Slow and shallow enough to read as waiting. */
+private const val BREATH_MS = 3_400L
+private const val BREATH_DEPTH = 0.015f

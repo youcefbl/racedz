@@ -606,12 +606,42 @@ data class WorkoutActionRequest(
     val scheduledFor: String? = null,
 )
 
-/** What the coach onboarding still has to ask for. */
+/** What the coach onboarding still has to ask for, plus the answers already on file. */
 @Serializable
 data class CoachOnboardingStateDto(
     val needsSex: Boolean = false,
     val needsBirthDate: Boolean = false,
     val hasActiveGoal: Boolean = false,
+    /** The active goal's current answers, for prefilling an edit. Null when there is no goal. */
+    val goal: CoachGoalDetailDto? = null,
+)
+
+/** Every answer the goal form can change, as it currently stands on the server. */
+@Serializable
+data class CoachGoalDetailDto(
+    val id: String = "",
+    val goalType: String = "TEN_K",
+    val customGoal: String? = null,
+    val targetDate: String = "",
+    val targetDistanceKm: Double? = null,
+    val targetTimeSeconds: Int? = null,
+    val experienceLevel: String = "BEGINNER",
+    val currentWeeklyDistanceKm: Double = 0.0,
+    val yearsRunning: Int? = null,
+    val peakWeeklyDistanceKm: Double? = null,
+    val longestRecentRunKm: Double? = null,
+    val recentRaceResult: String? = null,
+    val restingHeartRate: Int? = null,
+    val weightKg: Double? = null,
+    val heightCm: Int? = null,
+    val availableTrainingDays: List<Int> = emptyList(),
+    val preferredLongRunDay: Int? = null,
+    val constraints: String? = null,
+    val injuryNotes: String? = null,
+    val injuryHistory: String? = null,
+    val chronicConditions: List<String> = emptyList(),
+    val healthNotes: String? = null,
+    val preferredLocale: String = "en",
 )
 
 /**

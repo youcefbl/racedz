@@ -40,6 +40,7 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
+import dz.racedz.nativeapp.core.design.ZidRunEffortSlider
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
@@ -139,43 +140,29 @@ fun RunSummaryScreen(
                 enabled = !saveState.saving,
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-                Text(
-                    text = stringResource(R.string.runs_effort_label, effort),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.textStrong,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    (1..10).forEach { level ->
-                        val selected = level <= effort
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                // 44dp tall so each step is a real target even though it reads as a bar.
-                                .height(ZidRunDimens.minTouchTarget)
-                                .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
-                                .background(if (selected) colors.primary else colors.surfaceMuted)
-                                .semantics { contentDescription = "$level" },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = level.toString(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (selected) colors.onPrimary else colors.textMuted,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable { effort = level }
-                                    .padding(top = 12.dp),
-                            )
-                        }
-                    }
-                }
-            }
+            ZidRunEffortSlider(
+                value = effort,
+                onValueChange = { effort = it },
+                label = stringResource(R.string.runs_effort_label, effort),
+                enabled = !saveState.saving,
+            )
 
             saveState.error?.let { ZidRunInlineError(it) }
+
+            /*
+             * A run with no distance cannot be saved, and the server is right to refuse it — so say
+             * so here rather than letting the runner press Save into a rejection. This happens for
+             * real: a recording that never got a usable fix, or one stopped seconds after starting.
+             * Discard stays available, which is the only thing left to do with it.
+             */
+            val nothingToSave = state.distanceKm <= 0.0
+            if (nothingToSave) {
+                Text(
+                    text = stringResource(R.string.runs_nothing_to_save),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+            }
 
             ZidRunButton(
                 text = stringResource(R.string.runs_save),
@@ -188,7 +175,7 @@ fun RunSummaryScreen(
                     )
                 },
                 loading = saveState.saving,
-                enabled = !saveState.saving,
+                enabled = !nothingToSave && !saveState.saving,
             )
 
             ZidRunOutlinedButton(

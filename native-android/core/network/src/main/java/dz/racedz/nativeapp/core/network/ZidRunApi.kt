@@ -108,6 +108,10 @@ interface ZidRunApi {
     @POST("api/v1/coach/goals")
     suspend fun createCoachGoal(@Body body: CreateCoachGoalRequest): Response<ApiEnvelope<JsonObject>>
 
+    /** Edits the active goal in place, leaving the current training plan alone. */
+    @PATCH("api/v1/coach/goals")
+    suspend fun updateCoachGoal(@Body body: CreateCoachGoalRequest): Response<ApiEnvelope<JsonObject>>
+
     @GET("api/v1/runs/guided")
     suspend fun guidedSession(): Response<ApiEnvelope<GuidedSessionDto>>
 

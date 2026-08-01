@@ -56,6 +56,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+import kotlin.math.roundToInt
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Slider
 
 // Shared building blocks for every ZidRun screen. Screens compose these instead of hand-rolling
 // buttons and fields, so touch-target size, disabled/loading behavior, focus outlines, and the
@@ -573,11 +576,23 @@ fun ZidRunSearchField(
 
 /** A low-emphasis action — "Skip for now" and similar, where the primary path is elsewhere. */
 @Composable
-fun ZidRunTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ZidRunTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    /**
+     * Whether to take the whole row.
+     *
+     * True suits a stacked action under a form. Inside a Row beside other content it is a trap: the
+     * button eats the remaining width and collapses whatever it sits next to — which is exactly what
+     * happened to the goal card's "Goal / 10K" when this was added beside it.
+     */
+    fillWidth: Boolean = true,
+) {
     val colors = ZidRunTheme.colors
     Box(
         modifier = modifier
-            .fillMaxWidth()
+            .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .heightIn(min = ZidRunDimens.minTouchTarget)
             .clip(RoundedCornerShape(ZidRunDimens.cornerMd))
             .clickable(onClick = onClick)
@@ -587,3 +602,64 @@ fun ZidRunTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Mod
         Text(text, style = MaterialTheme.typography.titleSmall, color = colors.textMuted, textAlign = TextAlign.Center)
     }
 }
+
+/**
+ * A discrete 1–10 effort slider — the "how hard did that feel" control.
+ *
+ * A slider rather than ten tappable boxes, matching the website's `<input type="range">`: effort is
+ * a magnitude the runner adjusts by feel, and dragging expresses that better than aiming at a 26dp
+ * box. It also stops being a row of ten small targets, which at 320dp is what the boxes were.
+ *
+ * The floor is 1, not 0. The server's schema is `min(1).max(10)` on both the mobile and the website
+ * paths, so a 0 would be refused after the fact — and "no effort at all" is not a reading of a run
+ * that happened. The label states the value so the number is never inferred from the handle's
+ * position, and the whole control carries one accessible name with the slider's own value semantics.
+ */
+@Composable
+fun ZidRunEffortSlider(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val colors = ZidRunTheme.colors
+    Column(
+        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = label },
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+    ) {
+        Text(label, style = MaterialTheme.typography.titleSmall, color = colors.textStrong)
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt().coerceIn(EFFORT_MIN, EFFORT_MAX)) },
+            valueRange = EFFORT_MIN.toFloat()..EFFORT_MAX.toFloat(),
+            // One stop per whole number: 10 positions means 8 steps between the two endpoints.
+            steps = EFFORT_MAX - EFFORT_MIN - 1,
+            enabled = enabled,
+            colors = SliderDefaults.colors(
+                thumbColor = colors.primary,
+                activeTrackColor = colors.primary,
+                activeTickColor = colors.onPrimary,
+                inactiveTrackColor = colors.surfaceMuted,
+                inactiveTickColor = colors.border,
+            ),
+            modifier = Modifier.fillMaxWidth().heightIn(min = ZidRunDimens.minTouchTarget),
+        )
+        // The ends of the scale, so the number has a meaning without a legend elsewhere.
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                stringResource(R.string.runs_effort_easy),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textMuted,
+            )
+            Text(
+                stringResource(R.string.runs_effort_max),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textMuted,
+            )
+        }
+    }
+}
+
+private const val EFFORT_MIN = 1
+private const val EFFORT_MAX = 10
