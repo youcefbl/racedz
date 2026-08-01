@@ -38,6 +38,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 
 /**
  * Shared building blocks for the shapes that recur across the native mockups: the brand bar, the
@@ -193,15 +195,26 @@ fun ZidRunMenuRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color? = null,
+    /**
+     * Marks a row that hands off to the website in a browser tab rather than opening a screen.
+     *
+     * Worth saying out loud: the chevron promises "a screen inside this app", and a row that
+     * silently launches a browser instead is the kind of small dishonesty that makes people
+     * distrust the bigger promises. The trailing glyph changes and the accessible name says so.
+     */
+    opensExternally: Boolean = false,
 ) {
     val colors = ZidRunTheme.colors
     val badgeTint = tint ?: colors.primary
+    val externalHint = stringResource(R.string.common_opens_in_browser)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceMd)
-            .semantics(mergeDescendants = true) { },
+            .semantics(mergeDescendants = true) {
+                if (opensExternally) contentDescription = "$label, $externalHint"
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -221,8 +234,12 @@ fun ZidRunMenuRow(
             modifier = Modifier.weight(1f),
         )
         Icon(
-            // AutoMirrored so the chevron points left in Arabic.
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            imageVector = if (opensExternally) {
+                Icons.AutoMirrored.Filled.OpenInNew
+            } else {
+                // AutoMirrored so the chevron points left in Arabic.
+                Icons.AutoMirrored.Filled.KeyboardArrowRight
+            },
             contentDescription = null,
             tint = colors.textMuted,
         )

@@ -43,6 +43,13 @@ class RunTrackingService : Service(), LocationListener {
     private var scope: CoroutineScope? = null
     private var ticker: Job? = null
 
+    /** One-time setup, kept so the per-second ticker does not redo it 3,600 times an hour. */
+    private var channelReady = false
+    private var contentIntent: PendingIntent? = null
+
+    /** The last text actually posted, so an unchanged banner is not re-posted. */
+    private var lastNotificationText: String? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -96,7 +103,7 @@ class RunTrackingService : Service(), LocationListener {
                 RunRecorder.tick()
                 // Rate-limited inside the recorder; this only offers the opportunity.
                 RunRecorder.snapshot()
-                notificationManager().notify(NOTIFICATION_ID, buildNotification())
+                updateNotificationIfChanged()
                 delay(1_000)
             }
         }
@@ -135,39 +142,64 @@ class RunTrackingService : Service(), LocationListener {
 
     private fun notificationManager() = getSystemService(NotificationManager::class.java)
 
-    private fun buildNotification(): Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager().createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    getString(R.string.runs_notification_channel),
-                    // Low: this notification exists so the OS keeps us alive and the runner can see
-                    // recording is on. It should never buzz mid-run.
-                    NotificationManager.IMPORTANCE_LOW,
-                ).apply { setShowBadge(false) }
-            )
-        }
+    /**
+     * The channel, created once per service instance rather than once per second.
+     */
+    private fun ensureChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || channelReady) return
+        notificationManager().createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.runs_notification_channel),
+                // Low: this notification exists so the OS keeps us alive and the runner can see
+                // recording is on. It should never buzz mid-run.
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply { setShowBadge(false) }
+        )
+        channelReady = true
+    }
 
+    /** Built once. The launch target never changes for the life of the service. */
+    private fun launchIntent(): PendingIntent? = contentIntent ?: packageManager
+        .getLaunchIntentForPackage(packageName)
+        ?.let {
+            PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+        ?.also { contentIntent = it }
+
+    /**
+     * Re-posts the notification only when its visible text has actually changed.
+     *
+     * The ticker runs every second for the whole run — an hour is 3,600 iterations — and this used
+     * to rebuild the channel, mint a PendingIntent, and hand the notification manager a fresh
+     * Notification on every one of them. Almost all of that work produced an identical banner. The
+     * text is the distance to two decimals and the clock, so it genuinely changes about once a
+     * second while running, but not at all while paused or waiting for a first fix, and skipping
+     * those is free.
+     */
+    private fun updateNotificationIfChanged() {
+        val text = notificationText()
+        if (text == lastNotificationText) return
+        lastNotificationText = text
+        notificationManager().notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun notificationText(): String {
         val state = RunRecorder.state.value
         val distance = String.format("%.2f", state.distanceKm)
         val minutes = state.elapsedSeconds / 60
         val seconds = state.elapsedSeconds % 60
+        return getString(R.string.runs_notification_body, distance, String.format("%d:%02d", minutes, seconds))
+    }
 
-        val launch = packageManager.getLaunchIntentForPackage(packageName)?.let {
-            PendingIntent.getActivity(
-                this,
-                0,
-                it,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        }
+    private fun buildNotification(text: String = notificationText()): Notification {
+        ensureChannel()
+        val launch = launchIntent()
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(getString(R.string.runs_notification_title))
-            .setContentText(
-                getString(R.string.runs_notification_body, distance, String.format("%d:%02d", minutes, seconds))
-            )
+            .setContentText(text)
             .setOngoing(true)
             .setSilent(true)
             .setContentIntent(launch)

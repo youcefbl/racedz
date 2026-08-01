@@ -8,6 +8,8 @@
     <string name="common_continue">Continuer</string>
     <string name="common_back">Retour</string>
     <string name="common_close">Fermer</string>
+    <string name="common_opens_in_browser">s\'ouvre dans votre navigateur</string>
+    <string name="account_security">Sécurité &amp; connexion</string>
     <string name="common_search">Rechercher</string>
     <string name="common_offline_title">Vous êtes hors ligne</string>
     <string name="common_offline_body">Vérifiez votre connexion et réessayez.</string>

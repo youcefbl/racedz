@@ -231,6 +231,15 @@ fun ZidRunApp(
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
+                    // Support and security are web surfaces. A Custom Tab shares the system
+                    // browser's cookie jar, so a runner already signed in on the web lands straight
+                    // on the page rather than at a second login.
+                    onOpenSupport = {
+                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/support"))
+                    },
+                    onOpenSecurity = {
+                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/security"))
+                    },
                     onSignedOut = {
                         navController.navigate(RootDestinations.AUTH) { popUpTo(0) { inclusive = true } }
                     },

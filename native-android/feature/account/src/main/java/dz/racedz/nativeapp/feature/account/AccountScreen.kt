@@ -59,6 +59,7 @@ import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.resolveMediaUrl
+import androidx.compose.material.icons.filled.Lock
 
 /**
  * Account hub (05-account-page.png): identity header, season stats, the next upcoming registration,
@@ -74,6 +75,8 @@ fun AccountScreen(
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenSupport: () -> Unit,
+    /** Opens the website's security page, where MFA is managed. */
+    onOpenSecurity: () -> Unit,
     onSignedOut: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
@@ -285,10 +288,24 @@ fun AccountScreen(
                                 onClick = onOpenPrivacy,
                             )
                             ZidRunDivider()
+                            // Security lives on the website: enrolling MFA means showing a TOTP
+                            // secret and recovery codes, and the hardened web flow already does that
+                            // correctly. Reimplementing it natively to save a browser tab would be
+                            // rebuilding the most security-sensitive screen in the product for
+                            // convenience. Without this row a native-only runner had no way to turn
+                            // MFA on at all.
+                            ZidRunMenuRow(
+                                icon = Icons.Filled.Lock,
+                                label = stringResource(R.string.account_security),
+                                onClick = onOpenSecurity,
+                                opensExternally = true,
+                            )
+                            ZidRunDivider()
                             ZidRunMenuRow(
                                 icon = Icons.Filled.SupportAgent,
                                 label = stringResource(R.string.account_support),
                                 onClick = onOpenSupport,
+                                opensExternally = true,
                             )
                             ZidRunDivider()
                             ZidRunMenuRow(
@@ -300,8 +317,19 @@ fun AccountScreen(
                         }
                     }
 
+                    /*
+                     * Who you are signed in as, without putting the email on screen.
+                     *
+                     * The address is the account identifier and the thing a shoulder-surfer or a
+                     * screenshot most usefully takes; the display name answers the question the line
+                     * is actually there to answer ("am I in the right account?"). The full address
+                     * stays one deliberate tap away in Profile & preferences.
+                     */
                     Text(
-                        text = stringResource(R.string.account_signed_in_as, user.email),
+                        text = stringResource(
+                            R.string.account_signed_in_as,
+                            user.displayName.ifBlank { user.firstName.ifBlank { maskEmail(user.email) } },
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textMuted,
                         textAlign = TextAlign.Center,
@@ -325,3 +353,17 @@ private fun StatSeparator() {
     )
 }
 
+
+
+/**
+ * "yo•••@gmail.com" — enough to recognise the account, not enough to read out or screenshot.
+ *
+ * Only used when the account has no name to show at all; a name is always the better answer.
+ */
+internal fun maskEmail(email: String): String {
+    val at = email.indexOf('@')
+    if (at <= 0) return email
+    val name = email.take(at)
+    val visible = name.take(2)
+    return visible + "•".repeat((name.length - visible.length).coerceAtLeast(1)) + email.substring(at)
+}

@@ -9,6 +9,8 @@
     <string name="common_continue">كمّل</string>
     <string name="common_back">ارجع</string>
     <string name="common_close">سكّر</string>
+    <string name="common_opens_in_browser">يتحل في المتصفح</string>
+    <string name="account_security">الأمان وتسجيل الدخول</string>
     <string name="common_search">قلّب</string>
     <string name="common_offline_title">ما كاينش كونيكسيون</string>
     <string name="common_offline_body">شوف الكونيكسيون وعاود المحاولة.</string>

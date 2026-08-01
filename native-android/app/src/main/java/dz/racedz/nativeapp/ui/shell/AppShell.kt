@@ -110,6 +110,9 @@ fun AppShell(
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    /** Hands off to the website for support and for security/MFA, which have no native screens. */
+    onOpenSupport: () -> Unit,
+    onOpenSecurity: () -> Unit,
     onSignedOut: () -> Unit,
 ) {
     val navController = rememberNavController()
@@ -177,7 +180,8 @@ fun AppShell(
                     onOpenRegistrations = onOpenRegistrations,
                     onOpenProfile = onOpenProfile,
                     onOpenPrivacy = onOpenPrivacy,
-                    onOpenSupport = onOpenPrivacy,
+                    onOpenSupport = onOpenSupport,
+                    onOpenSecurity = onOpenSecurity,
                     onSignedOut = onSignedOut,
                     contentPadding = innerPadding,
                 )

@@ -14,6 +14,8 @@
     <string name="common_continue">Continue</string>
     <string name="common_back">Back</string>
     <string name="common_close">Close</string>
+    <string name="common_opens_in_browser">opens in your browser</string>
+    <string name="account_security">Security &amp; sign-in</string>
     <string name="common_search">Search</string>
     <string name="common_offline_title">You are offline</string>
     <string name="common_offline_body">Check your connection and try again.</string>
