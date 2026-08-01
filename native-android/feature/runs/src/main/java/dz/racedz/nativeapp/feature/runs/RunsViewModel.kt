@@ -10,7 +10,6 @@ import dz.racedz.nativeapp.core.network.RunDto
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.WeekFields
-import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,14 +59,60 @@ data class RunsUiState(
     /** The most recent run, which the overview leads with. */
     val latestRun: RunDto? get() = runs.maxByOrNull { it.startedAt }
 
-    /** This calendar week's totals, for the overview ring. Local week, matching the runner's own. */
+    /**
+     * This week's totals.
+     *
+     * The week is ISO (Monday-start) on purpose, not the device locale's. `WeekFields.of(locale)`
+     * starts the Arabic week on Saturday, so the very same runner on the very same day saw "1 run"
+     * in English and "0 runs" in Arabic — and disagreed with the website, which is Monday-based for
+     * every locale. A weekly total must not depend on the language the app is being read in.
+     */
     val weekDistanceKm: Double get() = thisWeek().sumOf { it.distanceKm }
     val weekRunCount: Int get() = thisWeek().size
     val weekDurationSeconds: Int get() = thisWeek().sumOf { it.durationSeconds }
 
+    /**
+     * Personal bests, mirroring the website's "Personal bests" card.
+     *
+     * Computed from [runs] rather than fetched: the list is now the caller's complete history (the
+     * repository follows the sync cursor to the end), so summing it here agrees with the server by
+     * construction and costs no extra request.
+     */
+    val totalDistanceKm: Double get() = runs.sumOf { it.distanceKm }
+    val longestRunKm: Double get() = runs.maxOfOrNull { it.distanceKm } ?: 0.0
+
+    /** Fastest average pace, ignoring runs the server could not derive a pace for. */
+    val bestPaceSecondsPerKm: Int?
+        get() = runs.mapNotNull { it.averagePaceSecondsPerKm.takeIf { pace -> pace > 0 } }.minOrNull()
+
+    /**
+     * Consecutive weeks ending with the current one that contain at least one run. A week the runner
+     * has not finished yet does not break the streak, so an empty current week counts from last week.
+     */
+    val streakWeeks: Int
+        get() {
+            if (runs.isEmpty()) return 0
+            val zone = ZoneId.systemDefault()
+            val weeks = runs.mapNotNull { run ->
+                runCatching { Instant.parse(run.startedAt).atZone(zone).toLocalDate() }
+                    .getOrNull()
+                    ?.with(WeekFields.ISO.dayOfWeek(), 1)
+            }.toSet()
+            if (weeks.isEmpty()) return 0
+            var cursor = Instant.now().atZone(zone).toLocalDate()
+                .with(WeekFields.ISO.dayOfWeek(), 1)
+            if (cursor !in weeks) cursor = cursor.minusWeeks(1)
+            var count = 0
+            while (cursor in weeks) {
+                count++
+                cursor = cursor.minusWeeks(1)
+            }
+            return count
+        }
+
     private fun thisWeek(): List<RunDto> {
         val zone = ZoneId.systemDefault()
-        val field = WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear()
+        val field = WeekFields.ISO.weekOfWeekBasedYear()
         val now = Instant.now().atZone(zone)
         return runs.filter { run ->
             val at = runCatching { Instant.parse(run.startedAt).atZone(zone) }.getOrNull() ?: return@filter false

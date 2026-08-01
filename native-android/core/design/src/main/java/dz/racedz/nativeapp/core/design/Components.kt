@@ -175,6 +175,11 @@ fun ZidRunTextField(
     errorText: String? = null,
     supportingText: String? = null,
     enabled: Boolean = true,
+    /**
+     * Free-text answers (injury history, health notes) run to a paragraph, and a one-line box makes
+     * the runner type into a keyhole. Everything else stays single-line so Enter still submits.
+     */
+    singleLine: Boolean = true,
     showPasswordLabel: String = "Show password",
     hidePasswordLabel: String = "Hide password",
 ) {
@@ -186,7 +191,8 @@ fun ZidRunTextField(
             value = value,
             onValueChange = onValueChange,
             label = { Text(label) },
-            singleLine = true,
+            singleLine = singleLine,
+            minLines = if (singleLine) 1 else 3,
             enabled = enabled,
             isError = errorText != null,
             leadingIcon = leadingIcon?.let {
@@ -377,11 +383,23 @@ fun ZidRunErrorView(
     onRetry: () -> Unit,
     offline: Boolean,
     modifier: Modifier = Modifier,
+    /**
+     * Replace [message] with the localized generic body.
+     *
+     * Defaults to [offline] for callers that predate this, but any error whose server message is a
+     * generic English fallback should pass true — otherwise an Arabic or French screen shows an
+     * English sentence in the middle of it.
+     */
+    useLocalizedBody: Boolean = offline,
 ) {
     ZidRunStatusView(
         icon = if (offline) Icons.Filled.CloudOff else Icons.Filled.ErrorOutline,
         title = title,
-        body = if (offline) stringResource(R.string.common_offline_body) else message,
+        body = if (useLocalizedBody) {
+            stringResource(if (offline) R.string.common_offline_body else R.string.common_error_body)
+        } else {
+            message
+        },
         actionLabel = retryLabel,
         onAction = onRetry,
         modifier = modifier,
@@ -395,9 +413,18 @@ fun ZidRunErrorView(
  * client and its message is an untranslated placeholder, so the localized string wins.
  */
 @Composable
-fun ZidRunInlineError(message: String, modifier: Modifier = Modifier, offline: Boolean = false) {
+fun ZidRunInlineError(
+    message: String,
+    modifier: Modifier = Modifier,
+    offline: Boolean = false,
+    useLocalizedBody: Boolean = offline,
+) {
     val colors = ZidRunTheme.colors
-    val text = if (offline) stringResource(R.string.common_offline_body) else message
+    val text = if (useLocalizedBody) {
+        stringResource(if (offline) R.string.common_offline_body else R.string.common_error_body)
+    } else {
+        message
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()

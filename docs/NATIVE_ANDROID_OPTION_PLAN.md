@@ -217,15 +217,23 @@ simulated run accumulates a metre. This needs a physical device, and it is the s
 outstanding test — GPS correctness and offline reliability carry 40% of the
 [decision gate](#decision-gate-native-or-capacitor) weighting.
 
-#### Phase 8 — coach (step 8) — **UI done, unverified**
+#### Phase 8 — coach (step 8) — **verified on an emulator against the Capacitor baseline**
 
-All five Coach mockups are built against `/api/v1/coach{,/goals,/plan,/interactions,/sleep}`, each
-reusing the website's own helpers so no AI behaviour lives in the mobile facade. Two-stage onboarding
-(profile, then goal) is enforced server-side.
+All five Coach mockups are built against `/api/v1/coach{,/goals,/plan,/interactions,/sleep,/workouts/:id}`,
+each reusing the website's own helpers so no AI behaviour lives in the mobile facade. Two-stage
+onboarding (profile, then goal) is enforced server-side.
 
-Not verified on a device, and three gaps remain: the plan's "Log this run" does not pass `workoutId`
-to the recorder, "Move"/"I can't today" are not built, and voice input and TTS playback of replies
-are not wired.
+Exercised end to end on 2026-08-01 against the frozen Capacitor Coach experience: onboarding is now
+the approved five steps (Goal / Background / Availability / Health & safety / Review, with explicit
+consent gating submission), "Log this run" carries `workoutId` through the outbox to the save,
+"Move" and "I can't today" call the same `skipWorkout`/`rescheduleWorkout` helpers the website does,
+and "Analyze run" opens a run-focused conversation instead of a general one. Nine defects were found
+and fixed in that pass — including the mobile facade dropping a reply's warning signals, a crash in
+the plan week, and a plan-window time-zone error. The full evidence, the eight-case profile matrix,
+and the remaining gaps (`COACHPAR-001`–`COACHPAR-006`) live in [`EXECUTION_PLAN.md`](../EXECUTION_PLAN.md).
+
+Still missing: voice input and TTS playback of replies, a Coach memory/privacy surface, and any way
+to edit a goal after it is created.
 
 #### Phase 9 — social and groups (step 9)
 

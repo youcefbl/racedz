@@ -30,6 +30,11 @@ data class PageMeta(
     val total: Int = 0,
     val totalPages: Int = 1,
     val hasMore: Boolean = false,
+    /**
+     * Delta-sync endpoints (runs) page by an opaque `updatedAt` cursor instead of a page number, and
+     * send the next one here. Null on the offset-paged endpoints, which use [page] instead.
+     */
+    val nextCursor: String? = null,
 )
 
 /**
@@ -101,6 +106,19 @@ class ApiCallException(
     val requestId: String? = null,
     cause: Throwable? = null,
 ) : Exception(message, cause) {
+
+    /**
+     * True when [message] is a generic fallback the UI should replace with a localized string.
+     *
+     * The server writes its messages in English. For a specific failure that is fine — a validation
+     * message names the field, and no client-side string could say it better. But "Something went
+     * wrong. Please try again." carries no information the app does not already have, and rendering
+     * it untranslated puts an English sentence in the middle of an Arabic screen.
+     */
+    val isGeneric: Boolean
+        get() = code == ApiErrorCode.Offline ||
+            code == ApiErrorCode.Internal ||
+            code == ApiErrorCode.Unavailable
 
     /** Whether retrying the identical request could plausibly succeed. */
     val isRetryable: Boolean

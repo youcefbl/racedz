@@ -90,6 +90,7 @@ fun RunHistoryScreen(
                 retryLabel = stringResource(R.string.common_retry),
                 onRetry = viewModel::load,
                 offline = state.isOffline,
+                useLocalizedBody = state.error?.isGeneric == true,
             )
 
             else -> LazyColumn(

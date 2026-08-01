@@ -2,6 +2,7 @@ package dz.racedz.nativeapp.core.network
 
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
@@ -151,7 +152,8 @@ class ApiClient(
  */
 internal class AuthHeaderInterceptor(private val tokenProvider: AuthTokenProvider) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
-        val builder: Request.Builder = chain.request().newBuilder()
+        val original = chain.request()
+        val builder: Request.Builder = original.newBuilder()
             .header("X-Request-Id", UUID.randomUUID().toString())
             .header("Accept", "application/json")
 
@@ -159,9 +161,32 @@ internal class AuthHeaderInterceptor(private val tokenProvider: AuthTokenProvide
             builder.header("Authorization", "Bearer $token")
         }
 
-        return chain.proceed(builder.build())
+        // A marker the app puts on calls whose server work happens inside the request. It is a local
+        // convention only, so it is removed before the request goes out rather than being sent to a
+        // server that has no idea what it means.
+        val slow = original.header(SLOW_CALL_HEADER) != null
+        if (slow) builder.removeHeader(SLOW_CALL_HEADER)
+
+        val request = builder.build()
+        return if (slow) {
+            chain.withReadTimeout(SLOW_CALL_READ_TIMEOUT_SECONDS_INT, TimeUnit.SECONDS).proceed(request)
+        } else {
+            chain.proceed(request)
+        }
     }
 }
+
+/**
+ * Marks a call whose response waits on real server-side work (today: coach generation).
+ *
+ * Aborting such a call client-side does not cancel the work — the server finishes it and, for the
+ * coach, still counts it against the runner's daily quota. So the timeout has to be sized for the
+ * work, not for the network.
+ */
+const val SLOW_CALL_HEADER: String = "X-ZidRun-Slow-Call"
+
+/** Long enough for a slow generation, short enough that a genuinely dead request still ends. */
+internal const val SLOW_CALL_READ_TIMEOUT_SECONDS_INT: Int = 120
 
 object NetworkFactory {
 

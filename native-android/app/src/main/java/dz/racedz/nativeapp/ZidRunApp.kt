@@ -217,7 +217,7 @@ fun ZidRunApp(
                     onOpenRace = { navController.navigate(RootDestinations.raceDetail(it)) },
                     onOpenRunHistory = { navController.navigate(RootDestinations.RUN_HISTORY) },
                     onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
-                    onRecordRun = { navController.navigate(RootDestinations.RUN_START) },
+                    onRecordRun = { workoutId -> navController.navigate(RootDestinations.runStart(workoutId)) },
                     onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
                     // Subscribing is a payment-proof upload flow that already exists on the website;
                     // the app opens it in a custom tab rather than shipping a second version of it.
@@ -226,7 +226,7 @@ fun ZidRunApp(
                     },
                     onOpenCoachSetup = { navController.navigate(RootDestinations.COACH_SETUP) },
                     onOpenCoachPlan = { navController.navigate(RootDestinations.COACH_PLAN) },
-                    onOpenCoachChat = { navController.navigate(RootDestinations.COACH_CHAT) },
+                    onOpenCoachChat = { navController.navigate(RootDestinations.coachChat()) },
                     onOpenCoachSleep = { navController.navigate(RootDestinations.COACH_SLEEP) },
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
@@ -237,12 +237,18 @@ fun ZidRunApp(
                 )
             }
 
-            composable(RootDestinations.RUN_START) {
+            composable(
+                route = RootDestinations.RUN_START,
+                arguments = listOf(
+                    navArgument("workoutId") { nullable = true; defaultValue = null; type = NavType.StringType }
+                ),
+            ) { entry ->
                 val startViewModel: StartRunViewModel = viewModel(
                     factory = SimpleViewModelFactory { StartRunViewModel(container.runsRepository) }
                 )
                 StartRunScreen(
                     viewModel = startViewModel,
+                    workoutId = entry.arguments?.getString("workoutId"),
                     onBack = { navController.popBackStack() },
                     onStarted = {
                         // Replaces itself in the back stack: once recording has begun, "back" should
@@ -274,9 +280,18 @@ fun ZidRunApp(
                 )
             }
 
-            composable(RootDestinations.COACH_CHAT) {
+            composable(
+                route = RootDestinations.COACH_CHAT,
+                arguments = listOf(
+                    navArgument("runId") { nullable = true; defaultValue = null; type = NavType.StringType }
+                ),
+            ) { entry ->
+                val runId = entry.arguments?.getString("runId")
                 val chatViewModel: ConversationViewModel = viewModel(
-                    factory = SimpleViewModelFactory { ConversationViewModel(container.coachRepository) }
+                    // Keyed by run so arriving from a different run's "Analyze" gets its own model
+                    // rather than reusing the previous run's focus.
+                    key = "coach-chat-${runId ?: "general"}",
+                    factory = SimpleViewModelFactory { ConversationViewModel(container.coachRepository, runId) },
                 )
                 ConversationScreen(viewModel = chatViewModel, onBack = { navController.popBackStack() })
             }
@@ -295,7 +310,7 @@ fun ZidRunApp(
                 PlanWeekScreen(
                     viewModel = planViewModel,
                     onBack = { navController.popBackStack() },
-                    onLogRun = { navController.navigate(RootDestinations.RUN_START) },
+                    onLogRun = { workoutId -> navController.navigate(RootDestinations.runStart(workoutId)) },
                 )
             }
 
@@ -352,7 +367,9 @@ fun ZidRunApp(
                     // Coaching is a paid feature; the action is only offered to a runner who has it,
                     // rather than shown and then refused.
                     onAnalyse = if (coachEnabled) {
-                        { navController.navigate(RootDestinations.COACH_CHAT) }
+                        // Carries the run, so the conversation is about *this* run rather than a
+                        // general chat the button's label did not promise.
+                        { navController.navigate(RootDestinations.coachChat(runId)) }
                     } else {
                         null
                     },

@@ -38,12 +38,30 @@ class CoachViewModel(private val repository: CoachRepository) : ViewModel() {
         load()
     }
 
-    fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+    fun load() = fetch(showSpinner = true)
+
+    /**
+     * Re-reads the overview without blanking the screen.
+     *
+     * Called when the tab comes back to the foreground, which is what makes finishing onboarding
+     * (or skipping a workout, or logging a run) show up. Without it the view model loaded once when
+     * the tab was first composed and never again — so a runner who completed setup came back to the
+     * very "Set up your coach" prompt they had just finished, and the only way out was to kill the
+     * app. A spinner would be its own bug here: the screen already has correct content, and
+     * replacing it with a loader on every resume makes the tab flicker.
+     */
+    fun refresh() = fetch(showSpinner = _state.value.overview == null)
+
+    private fun fetch(showSpinner: Boolean) {
+        if (showSpinner) _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             when (val result = repository.overview()) {
                 is ApiResult.Success -> _state.update { it.copy(overview = result.value, loading = false, error = null) }
-                is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
+                is ApiResult.Failure -> _state.update {
+                    // A refresh that fails leaves the last good overview on screen rather than
+                    // replacing a working dashboard with an error the runner did not ask for.
+                    if (it.overview != null) it.copy(loading = false) else it.copy(loading = false, error = result.error)
+                }
             }
         }
     }

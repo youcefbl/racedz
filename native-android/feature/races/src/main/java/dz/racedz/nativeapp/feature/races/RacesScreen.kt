@@ -149,6 +149,7 @@ fun RacesScreen(
                 retryLabel = stringResource(R.string.common_retry),
                 onRetry = viewModel::retry,
                 offline = state.isOffline,
+                useLocalizedBody = state.error?.isGeneric == true,
             )
 
             else -> LazyColumn(

@@ -23,6 +23,8 @@ data class RecordingState(
     val route: List<RoutePointDto> = emptyList(),
     /** Set when the recorder auto-paused because the movement stopped looking like running. */
     val autoPaused: Boolean = false,
+    /** The planned session this run is being logged for, or null for a free run. */
+    val workoutId: String? = null,
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
 
@@ -174,7 +176,12 @@ object RunRecorder {
      */
     val clientId: String get() = _state.value.clientId
 
-    fun start() {
+    /**
+     * @param workoutId the planned session this run is being logged for, when the runner arrived
+     *   from the coach's plan. It rides in the recording state so it survives the app being killed
+     *   mid-run: the outbox restores the request, and the request is where the link lives.
+     */
+    fun start(workoutId: String? = null) {
         route.clear()
         lastFix = null
         lastAcceptedTimeMs = 0
@@ -185,6 +192,7 @@ object RunRecorder {
             status = RecordingStatus.Acquiring,
             clientId = UUID.randomUUID().toString(),
             startedAtEpochMs = System.currentTimeMillis(),
+            workoutId = workoutId,
         )
     }
 
@@ -244,6 +252,7 @@ object RunRecorder {
             movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds,
             elevationGainM = (pending.request.elevationGainM ?: 0).toDouble(),
             route = route.toList(),
+            workoutId = pending.request.workoutId,
         )
     }
 
@@ -258,6 +267,7 @@ object RunRecorder {
         elevationGainM = elevationGainM.toInt().takeIf { it > 0 },
         route = route.takeIf { it.size >= 2 },
         source = "GPS",
+        workoutId = workoutId,
     )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */

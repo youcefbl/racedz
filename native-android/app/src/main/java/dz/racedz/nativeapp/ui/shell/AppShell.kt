@@ -41,6 +41,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -52,6 +54,7 @@ import androidx.navigation.compose.rememberNavController
 import dz.racedz.nativeapp.AppContainer
 import dz.racedz.nativeapp.AppearanceController
 import dz.racedz.nativeapp.R
+import dz.racedz.nativeapp.core.design.R as DesignR
 import dz.racedz.nativeapp.SimpleViewModelFactory
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.feature.account.AccountScreen
@@ -67,14 +70,18 @@ import dz.racedz.nativeapp.rememberAccountViewModel
 private data class ShellTabSpec(
     val tab: ShellTab,
     val labelRes: Int,
-    val icon: ImageVector,
+    val iconRes: Int,
+    /** The website gives Runs a stronger pill than the other three; this mirrors that. */
+    val primary: Boolean = false,
 )
 
 private val shellTabs = listOf(
-    ShellTabSpec(ShellTab.Races, R.string.nav_races, Icons.Filled.EmojiEvents),
-    ShellTabSpec(ShellTab.Runs, R.string.nav_runs, Icons.AutoMirrored.Filled.DirectionsRun),
-    ShellTabSpec(ShellTab.Coach, R.string.nav_coach, Icons.AutoMirrored.Filled.Assignment),
-    ShellTabSpec(ShellTab.Account, R.string.nav_account, Icons.Filled.Person),
+    ShellTabSpec(ShellTab.Races, R.string.nav_races, DesignR.drawable.ic_calendar_search),
+    // Runs is the primary tab on the website too: it keeps a tinted pill even when unselected and
+    // a solid one when active, because starting a run is the app's main verb.
+    ShellTabSpec(ShellTab.Runs, R.string.nav_runs, DesignR.drawable.ic_footprints, primary = true),
+    ShellTabSpec(ShellTab.Coach, R.string.nav_coach, DesignR.drawable.ic_sparkles),
+    ShellTabSpec(ShellTab.Account, R.string.nav_account, DesignR.drawable.ic_user_round),
 )
 
 /**
@@ -91,7 +98,8 @@ fun AppShell(
     onOpenRace: (String) -> Unit,
     onOpenRunHistory: () -> Unit,
     onOpenRun: (String) -> Unit,
-    onRecordRun: () -> Unit,
+    /** [workoutId] is the planned session being logged, or null for a free run from the Runs tab. */
+    onRecordRun: (String?) -> Unit,
     onResumeRecording: () -> Unit,
     onOpenSubscribe: () -> Unit,
     onOpenCoachSetup: () -> Unit,
@@ -136,7 +144,7 @@ fun AppShell(
                     onOpenHistory = onOpenRunHistory,
                     onResumeRecording = onResumeRecording,
                     onOpenRun = onOpenRun,
-                    onRecordRun = onRecordRun,
+                    onRecordRun = { onRecordRun(null) },
                     // Manual entry and GPX import are still to come; until then they open history
                     // rather than a dead end.
                     onLogManually = onOpenRunHistory,
@@ -206,7 +214,21 @@ private fun ShellBottomBar(navController: NavHostController) {
         ) {
             shellTabs.forEach { spec ->
                 val selected = currentRoute == spec.tab.route
-                val tint = if (selected) colors.primary else colors.textMuted
+                // Icon sits in a pill, matching .mobile-tab-icon on the website: tinted at 16% when
+                // the tab is active, and for the primary (Runs) tab a solid fill with a dark glyph.
+                val pillWidth = if (spec.primary) 58.dp else 52.dp
+                val pillHeight = if (spec.primary) 34.dp else 28.dp
+                val pillColor = when {
+                    selected && spec.primary -> colors.primary
+                    selected -> colors.primary.copy(alpha = 0.16f)
+                    spec.primary -> colors.primary.copy(alpha = 0.12f)
+                    else -> Color.Transparent
+                }
+                val iconTint = when {
+                    selected && spec.primary -> colors.surfaceStrong
+                    selected -> colors.primary
+                    else -> colors.textMuted
+                }
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -224,31 +246,33 @@ private fun ShellBottomBar(navController: NavHostController) {
                                 }
                             },
                         )
-                        .padding(top = ZidRunDimens.spaceSm),
+                        .padding(top = ZidRunDimens.spaceSm, bottom = ZidRunDimens.spaceXs),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // contentDescription intentionally null: the visible label below already
-                    // gives this item's accessible name, so TalkBack would otherwise announce it twice.
-                    Icon(spec.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .offset(y = if (spec.primary) (-4).dp else 0.dp)
+                            .size(width = pillWidth, height = pillHeight)
+                            .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                            .background(pillColor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        // contentDescription intentionally null: the visible label below already
+                        // gives this item's accessible name, so TalkBack would announce it twice.
+                        Icon(
+                            painterResource(spec.iconRes),
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(spec.labelRes),
                         style = MaterialTheme.typography.labelSmall,
-                        color = tint,
+                        color = if (selected) colors.primary else colors.textMuted,
                         maxLines = 1,
                     )
-                    Spacer(Modifier.height(4.dp))
-                    // The mockups mark the active tab with a short underline rather than M3's
-                    // default pill. Always laid out — transparent when unselected — so selecting a
-                    // tab does not shift the row's height.
-                    Box(
-                        modifier = Modifier
-                            .width(24.dp)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(if (selected) colors.primary else Color.Transparent),
-                    )
-                    Spacer(Modifier.height(ZidRunDimens.spaceXs))
                 }
             }
         }

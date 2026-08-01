@@ -2,11 +2,12 @@ package dz.racedz.nativeapp.feature.runs
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -63,7 +64,9 @@ fun RunMap(
         return
     }
 
-    BoxWithConstraints(modifier = modifier.background(colors.surfaceMuted)) {
+    // clipToBounds because the tiles below are laid out at their true grid size and deliberately
+    // overhang the map on every edge; without it the edge tiles would paint over the surrounding UI.
+    BoxWithConstraints(modifier = modifier.background(colors.surfaceMuted).clipToBounds()) {
         val density = LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
@@ -100,7 +103,13 @@ fun RunMap(
                     contentScale = ContentScale.FillBounds,
                     modifier = Modifier
                         .absoluteOffset(x = left, y = top)
-                        .size(tileDp)
+                        // requiredSize, not size: a tile is a fixed 256px cell of the tile grid, and
+                        // the offsets above are computed on that grid. `size` is only a *preferred*
+                        // size, so the parent's height constraint squashed every tile to the map's
+                        // own height — leaving an unpainted band where the next row should have
+                        // started, and scaling the tile artwork out of register with the route drawn
+                        // over it.
+                        .requiredSize(tileDp)
                         .clearAndSetSemantics { },
                 )
             }

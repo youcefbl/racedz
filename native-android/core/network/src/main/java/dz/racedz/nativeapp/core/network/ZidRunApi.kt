@@ -7,6 +7,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -75,8 +76,15 @@ interface ZidRunApi {
     @GET("api/v1/coach/interactions")
     suspend fun coachConversation(@Query("before") before: String? = null): Response<ApiEnvelope<CoachConversationDto>>
 
+    /**
+     * Marked slow so the auth interceptor widens this call's read timeout. The server generates the
+     * coach's reply *inside* this request (~12 s locally, longer under load), and the default 30 s
+     * read timeout would abort a reply the server still finishes and still charges a credit for.
+     * The marker header is stripped before the request leaves the device.
+     */
+    @Headers("$SLOW_CALL_HEADER: 1")
     @POST("api/v1/coach/interactions")
-    suspend fun askCoach(@Body body: AskCoachRequest): Response<ApiEnvelope<JsonObject>>
+    suspend fun askCoach(@Body body: AskCoachRequest): Response<ApiEnvelope<AskCoachResponseDto>>
 
     @GET("api/v1/coach/sleep")
     suspend fun sleepHistory(): Response<ApiEnvelope<SleepHistoryDto>>
@@ -86,6 +94,13 @@ interface ZidRunApi {
 
     @GET("api/v1/coach/plan")
     suspend fun coachPlanWeek(): Response<ApiEnvelope<CoachPlanWeekDto>>
+
+    /** "I can't today" / "Move" — the same three actions the website's plan panel offers. */
+    @PATCH("api/v1/coach/workouts/{id}")
+    suspend fun coachWorkoutAction(
+        @Path("id") id: String,
+        @Body body: WorkoutActionRequest,
+    ): Response<ApiEnvelope<JsonObject>>
 
     @GET("api/v1/coach/goals")
     suspend fun coachOnboardingState(): Response<ApiEnvelope<CoachOnboardingStateDto>>

@@ -21,7 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,7 +44,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
+import dz.racedz.nativeapp.core.design.ZidRunButton
+import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
+import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunLoading
@@ -51,6 +56,7 @@ import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.core.network.CoachMessageDto
+import dz.racedz.nativeapp.core.network.CoachReplyDto
 
 /**
  * The coach conversation (04-coach-conversation-v2.png).
@@ -90,6 +96,7 @@ fun ConversationScreen(
                 retryLabel = stringResource(R.string.common_retry),
                 onRetry = viewModel::load,
                 offline = state.isOffline,
+                useLocalizedBody = state.error?.isGeneric == true,
             )
 
             !state.hasCoaching -> ZidRunStatusView(
@@ -106,11 +113,48 @@ fun ConversationScreen(
                     // Newest at the bottom, as a conversation reads.
                     reverseLayout = true,
                 ) {
+                    // reverseLayout puts the first item at the bottom, so the question being
+                    // answered belongs at the head of the list.
+                    if (state.generating || state.sendError != null) {
+                        item(key = "pending") {
+                            PendingTurn(
+                                question = state.pendingQuestion,
+                                generating = state.generating,
+                                failed = state.sendError != null,
+                            )
+                        }
+                    }
+
                     items(state.conversation.messages, key = { it.id }) { message ->
                         MessageTurn(message)
                     }
 
-                    if (state.conversation.messages.isEmpty()) {
+                    // The run this screen was opened for, offered rather than auto-sent.
+                    if (state.canAnalyseRun(viewModel.runId)) {
+                        item(key = "analyse") {
+                            ZidRunCard {
+                                Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                                    Text(
+                                        stringResource(R.string.coach_analyse_run_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = colors.primary,
+                                    )
+                                    Text(
+                                        stringResource(R.string.coach_analyse_run_body),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colors.textMuted,
+                                    )
+                                    ZidRunButton(
+                                        text = stringResource(R.string.coach_analyse_run_action),
+                                        onClick = viewModel::analyseRun,
+                                        enabled = !state.generating,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (state.conversation.messages.isEmpty() && !state.generating) {
                         item(key = "empty") {
                             ZidRunStatusView(
                                 icon = Icons.Filled.Chat,
@@ -133,15 +177,18 @@ fun ConversationScreen(
                 ) {
                     ZidRunTextField(
                         value = draft,
-                        onValueChange = { draft = it.take(1200) },
+                        onValueChange = {
+                            draft = it.take(1200)
+                            viewModel.dismissSendError()
+                        },
                         label = stringResource(R.string.coach_chat_hint),
                         // Disabled while a reply is generating: a second question would spend
                         // another credit before the first is answered.
-                        enabled = !state.sending && !state.awaitingReply,
+                        enabled = !state.generating,
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(ZidRunDimens.spaceSm))
-                    if (state.sending || state.awaitingReply) {
+                    if (state.generating) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(28.dp),
                             strokeWidth = 2.dp,
@@ -172,26 +219,14 @@ fun ConversationScreen(
     }
 }
 
+/** The question the runner just asked, while the coach is still answering it. */
 @Composable
-private fun MessageTurn(message: CoachMessageDto) {
+private fun PendingTurn(question: String?, generating: Boolean, failed: Boolean) {
     val colors = ZidRunTheme.colors
-
     Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-        message.userMessage?.takeIf { it.isNotBlank() }?.let { text ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                        .background(colors.primary)
-                        .padding(ZidRunDimens.spaceMd),
-                ) {
-                    Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onPrimary)
-                }
-            }
-        }
-
-        when {
-            message.status == "PENDING" -> Row(
+        question?.takeIf { it.isNotBlank() }?.let { RunnerBubble(it) }
+        if (generating) {
+            Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
             ) {
@@ -202,49 +237,166 @@ private fun MessageTurn(message: CoachMessageDto) {
                     color = colors.textMuted,
                 )
             }
-
-            // BLOCKED is a deliberate refusal by the safety layer, not a fault. Saying "something
-            // went wrong" would invite the runner to rephrase and try again, which is the opposite
-            // of what a block is for.
-            message.status == "BLOCKED" -> SafetyNotice(stringResource(R.string.coach_chat_blocked))
-
-            message.status == "FAILED" -> SafetyNotice(stringResource(R.string.coach_chat_failed))
-
-            else -> message.response?.takeIf { it.isNotBlank() }?.let { text ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                        .background(colors.surface)
-                        .border(1.dp, colors.border, RoundedCornerShape(ZidRunDimens.cornerLg))
-                        .padding(ZidRunDimens.spaceMd),
-                ) {
-                    Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.text)
-                }
-            }
-        }
-
-        // Rendered as its own notice rather than folded into the reply, so a safety message cannot
-        // be mistaken for ordinary advice.
-        if (message.safety != null && message.status == "COMPLETED") {
-            SafetyNotice(stringResource(R.string.coach_chat_safety))
+        } else if (failed) {
+            Text(
+                stringResource(R.string.coach_chat_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.danger,
+            )
         }
     }
 }
 
 @Composable
-private fun SafetyNotice(text: String) {
+private fun RunnerBubble(text: String) {
     val colors = ZidRunTheme.colors
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                .background(colors.primary)
+                .padding(ZidRunDimens.spaceMd),
+        ) {
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onPrimary)
+        }
+    }
+}
+
+@Composable
+private fun MessageTurn(message: CoachMessageDto) {
+    val colors = ZidRunTheme.colors
+
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+        // The context chip the design flow puts first on a post-run response, so the reply is
+        // visibly about one run rather than about training in the abstract.
+        if (message.type == "POST_RUN" && message.runId != null) {
+            Text(
+                stringResource(R.string.coach_analyse_run_chip),
+                style = MaterialTheme.typography.labelMedium,
+                color = ZidRunTheme.colors.primary,
+            )
+        }
+        message.userMessage?.takeIf { it.isNotBlank() }?.let { RunnerBubble(it) }
+
+        when (message.status) {
+            // BLOCKED is a deliberate refusal by the safety layer, not a fault. Saying "something
+            // went wrong" would invite the runner to rephrase and try again, which is the opposite
+            // of what a block is for.
+            "BLOCKED" -> Notice(stringResource(R.string.coach_chat_blocked))
+
+            "FAILED" -> Notice(stringResource(R.string.coach_chat_failed))
+
+            else -> message.response?.let { reply -> CoachReplyCard(reply) }
+        }
+
+        // The deterministic safety verdict, rendered as its own notice rather than folded into the
+        // reply. Only when it says something: every reply carries a verdict, and the vast majority
+        // are CLEAR, so announcing those would train the runner to ignore the one that isn't.
+        if (message.status == "COMPLETED" && message.safety?.isNotable == true) {
+            Notice(stringResource(R.string.coach_chat_safety), warning = true)
+        }
+    }
+}
+
+/**
+ * One coach reply.
+ *
+ * The order mirrors the website's: the professional-assessment banner first when the reply raises
+ * it, then the summary, the read on progress, what went well, and finally what to be careful about.
+ * Warnings and the banner are the reason this is a structured card rather than a paragraph — they
+ * used to be dropped entirely on the way to the phone.
+ */
+@Composable
+private fun CoachReplyCard(reply: CoachReplyDto) {
+    val colors = ZidRunTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(colors.surface)
+            .border(1.dp, colors.border, RoundedCornerShape(ZidRunDimens.cornerLg))
+            .padding(ZidRunDimens.spaceMd),
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        if (reply.requiresProfessionalAdvice) {
+            Notice(stringResource(R.string.coach_chat_professional), warning = true)
+        }
+
+        if (reply.summary.isNotBlank()) {
+            Text(reply.summary, style = MaterialTheme.typography.bodyMedium, color = colors.text)
+        }
+        reply.progressAssessment?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)
+        }
+
+        reply.positiveSignals.forEach { SignalRow(it, Icons.Filled.CheckCircle, colors.success) }
+        // Never colour alone: the icon and the position after the positives both carry the meaning,
+        // so the distinction survives for a runner who cannot separate green from orange.
+        reply.warningSignals.forEach { SignalRow(it, Icons.Filled.Warning, colors.accent) }
+
+        if (reply.recoveryAdvice.isNotEmpty()) {
+            ZidRunDivider()
+            Text(
+                stringResource(R.string.coach_chat_recovery),
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.primary,
+            )
+            reply.recoveryAdvice.forEach {
+                Text("• $it", style = MaterialTheme.typography.bodySmall, color = colors.text)
+            }
+        }
+
+        // What the coach did NOT have. Shown so a hedged answer reads as missing data rather than
+        // as the coach being vague — this is the visible half of the anti-hallucination contract.
+        if (reply.dataGaps.isNotEmpty()) {
+            ZidRunDivider()
+            Text(
+                stringResource(R.string.coach_chat_data_gaps),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textMuted,
+            )
+            reply.dataGaps.forEach {
+                Text("• $it", style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
+            }
+        }
+
+        reply.followUpQuestion?.takeIf { it.isNotBlank() }?.let {
+            ZidRunDivider()
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.primary)
+        }
+    }
+}
+
+@Composable
+private fun SignalRow(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = ZidRunTheme.colors.text)
+    }
+}
+
+@Composable
+private fun Notice(text: String, warning: Boolean = false) {
+    val colors = ZidRunTheme.colors
+    val tint = if (warning) colors.accent else colors.info
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(colors.infoSoft)
+            .background(if (warning) colors.accentSoft else colors.infoSoft)
             .padding(ZidRunDimens.spaceMd),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
-        Icon(Icons.Filled.Info, contentDescription = null, tint = colors.info, modifier = Modifier.size(18.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = colors.info)
+        Icon(
+            if (warning) Icons.Filled.Warning else Icons.Filled.Info,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(text, style = MaterialTheme.typography.bodySmall, color = tint)
     }
 }

@@ -472,22 +472,60 @@ data class CoachOverviewDto(
 )
 
 /**
+ * A coach reply, with the parts that carry caution kept separate.
+ *
+ * These are not decorations on the summary. [warningSignals] and [requiresProfessionalAdvice] are
+ * the reply's safety content, and an earlier version of this DTO was a bare `String` holding only
+ * the summary — so the app silently dropped them while the website showed them for the same reply.
+ */
+@Serializable
+data class CoachReplyDto(
+    val summary: String = "",
+    val progressAssessment: String? = null,
+    val positiveSignals: List<String> = emptyList(),
+    val warningSignals: List<String> = emptyList(),
+    val recoveryAdvice: List<String> = emptyList(),
+    val requiresProfessionalAdvice: Boolean = false,
+    /** What the coach did not have. Shown so uncertainty reads as missing data, not as an opinion. */
+    val dataGaps: List<String> = emptyList(),
+    val followUpQuestion: String? = null,
+)
+
+/** The deterministic safety verdict, evaluated server-side before and around the reply. */
+@Serializable
+data class CoachSafetyDto(
+    val level: String = "CLEAR",
+    val requiresProfessionalAdvice: Boolean = false,
+) {
+    /** CLEAR is the ordinary case; announcing it on every reply would drain the notice of meaning. */
+    val isNotable: Boolean get() = level != "CLEAR" || requiresProfessionalAdvice
+}
+
+/**
  * One turn of the coach conversation.
  *
- * [status] is PENDING, COMPLETED, BLOCKED, or FAILED — generation is asynchronous, so a message can
- * legitimately arrive with no response yet. [safety] is kept separate from the reply text because
- * the web renders safety notices deliberately and flattening one into prose would strip a guardrail.
+ * [status] is COMPLETED, BLOCKED, or FAILED. It is deliberately not PENDING: the transcript only
+ * ever returns settled rows, so an in-flight question is local state on the screen, not a row here.
  */
 @Serializable
 data class CoachMessageDto(
     val id: String = "",
     val type: String = "CHAT",
-    val status: String = "PENDING",
+    val status: String = "COMPLETED",
     val runId: String? = null,
     val userMessage: String? = null,
-    val response: String? = null,
-    val safety: kotlinx.serialization.json.JsonElement? = null,
+    val response: CoachReplyDto? = null,
+    val safety: CoachSafetyDto? = null,
     val createdAt: String = "",
+)
+
+/** What POST /coach/interactions answers with once the reply has been generated. */
+@Serializable
+data class AskCoachResponseDto(
+    val id: String = "",
+    val status: String = "COMPLETED",
+    val response: CoachReplyDto? = null,
+    val safety: CoachSafetyDto? = null,
 )
 
 @Serializable
@@ -538,13 +576,34 @@ data class CoachPlanWorkoutDto(
     val targetDistanceKm: Double? = null,
     val targetDurationMin: Int? = null,
     val scheduledFor: String = "",
+    /** Set on a SKIPPED session when the runner said why. */
+    val skipReason: String? = null,
+    val runnerNote: String? = null,
 )
 
 @Serializable
 data class CoachPlanWeekDto(
     val hasPlan: Boolean = false,
     val weekStart: String? = null,
+    /** When the plan begins — so a week with nothing in it can say why. */
+    val planStartsOn: String? = null,
+    /** Last day a workout may be moved to. The day picker is built from this, not from a guess. */
+    val planEndsOn: String? = null,
     val workouts: List<CoachPlanWorkoutDto> = emptyList(),
+)
+
+/**
+ * One runner action on a planned workout.
+ *
+ * `skip` is "I can't today" — the reason is optional, because being asked to justify a missed
+ * session before you may skip it is exactly the pressure the design flow says not to apply.
+ */
+@Serializable
+data class WorkoutActionRequest(
+    val action: String,
+    val reason: String? = null,
+    val note: String? = null,
+    val scheduledFor: String? = null,
 )
 
 /** What the coach onboarding still has to ask for. */
@@ -571,10 +630,31 @@ data class CreateCoachGoalRequest(
     val availableTrainingDays: List<Int>,
     val customGoal: String? = null,
     val targetDistanceKm: Double? = null,
+    val targetTimeSeconds: Int? = null,
     val sex: String? = null,
     val dateOfBirth: String? = null,
+    // Background — every one optional, and only ever sent when the runner actually typed it. A
+    // fabricated resting heart rate or weight would feed the plan as though it had been measured.
+    val yearsRunning: Int? = null,
+    val peakWeeklyDistanceKm: Double? = null,
+    val longestRecentRunKm: Double? = null,
+    val recentRaceResult: String? = null,
+    val restingHeartRate: Int? = null,
+    val weightKg: Double? = null,
+    val heightCm: Int? = null,
     val preferredLongRunDay: Int? = null,
+    val constraints: String? = null,
+    // Health and safety. These are what let the coach be conservative for the right reason, and are
+    // the most sensitive thing the app sends — collected behind explicit consent, never inferred.
     val injuryNotes: String? = null,
+    val injuryHistory: String? = null,
+    val chronicConditions: List<String>? = null,
+    val healthNotes: String? = null,
+    /**
+     * The language the coach answers and writes plans in. The server localises the plan and the
+     * reply from the *goal*, not from a request header — so leaving this at a hardcoded "en" gave an
+     * Arabic-speaking runner an English training plan with no way to change it.
+     */
     val preferredLocale: String = "en",
 )
 
@@ -638,6 +718,12 @@ data class CreateRunRequest(
     val notes: String? = null,
     val isPublic: Boolean? = null,
     val source: String? = null,
+    /**
+     * The planned session this run was logged for, carried from "Log this run" all the way through
+     * the save. Without it the server's matcher has to guess afterwards whether the run counted
+     * toward the plan, and the runner's adherence quietly depends on that guess.
+     */
+    val workoutId: String? = null,
 )
 
 /** Only runner-typed fields; every measurement is server-owned. */

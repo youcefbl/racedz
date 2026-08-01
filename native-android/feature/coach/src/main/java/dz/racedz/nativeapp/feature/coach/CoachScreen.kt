@@ -40,7 +40,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunBrandBar
@@ -72,7 +74,8 @@ import kotlin.math.min
 fun CoachScreen(
     viewModel: CoachViewModel,
     onOpenSubscribe: () -> Unit,
-    onLogRun: () -> Unit,
+    /** Carries the planned session's id so the saved run links back to it. */
+    onLogRun: (String?) -> Unit,
     onSetUpCoach: () -> Unit,
     onViewPlan: () -> Unit,
     onAskCoach: () -> Unit,
@@ -83,6 +86,14 @@ fun CoachScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
+
+    // The overview is a dashboard of things that change elsewhere — onboarding, the plan week, a
+    // saved run. Re-reading it whenever the tab returns to the foreground is what keeps it from
+    // showing a state the runner has already moved past.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
 
     Box(modifier = modifier.fillMaxSize().background(colors.background).padding(contentPadding)) {
         when {
@@ -98,6 +109,7 @@ fun CoachScreen(
                 retryLabel = stringResource(R.string.common_retry),
                 onRetry = viewModel::load,
                 offline = state.isOffline,
+                useLocalizedBody = state.error?.isGeneric == true,
             )
 
             else -> {
@@ -166,9 +178,11 @@ fun CoachScreen(
                                         color = colors.textMuted,
                                     )
                                     Text(
-                                        text = goal.customGoal
-                                            ?: goal.targetDistanceKm?.let { ZidRunFormat.distance(it, locale) }
-                                            ?: goal.goalType,
+                                        // A written goal wins; otherwise the goal type in words.
+                                        // Falling through to `goal.goalType` printed the raw enum
+                                        // ("TEN_K") on the runner's own dashboard.
+                                        text = goal.customGoal?.takeIf { it.isNotBlank() }
+                                            ?: goalTypeLabel(goal.goalType),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = colors.textStrong,
                                     )
@@ -193,16 +207,24 @@ fun CoachScreen(
                                         style = MaterialTheme.typography.titleSmall,
                                         color = colors.primary,
                                     )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // Stacked, not side by side. Sharing the row with a 64dp ring
+                                    // left the label about 50dp wide on a 320dp screen, and
+                                    // "Sessions completed" broke mid-word into "Sessi / ons /
+                                    // compl / eted".
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                                    ) {
                                         SessionsRing(
                                             completed = adherence.completedSessions,
                                             planned = adherence.plannedSessions,
                                         )
-                                        Spacer(Modifier.width(ZidRunDimens.spaceSm))
                                         Text(
                                             stringResource(R.string.coach_sessions_done),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colors.textMuted,
+                                            textAlign = TextAlign.Center,
                                         )
                                     }
                                 }
@@ -309,7 +331,7 @@ fun CoachScreen(
 }
 
 @Composable
-private fun TodayWorkoutCard(workout: CoachWorkoutDto, onLogRun: () -> Unit, locale: java.util.Locale) {
+private fun TodayWorkoutCard(workout: CoachWorkoutDto, onLogRun: (String?) -> Unit, locale: java.util.Locale) {
     val colors = ZidRunTheme.colors
     ZidRunCard {
         Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
@@ -364,9 +386,21 @@ private fun TodayWorkoutCard(workout: CoachWorkoutDto, onLogRun: () -> Unit, loc
                 }
             }
 
-            ZidRunButton(text = stringResource(R.string.coach_log_run), onClick = onLogRun)
+            ZidRunButton(text = stringResource(R.string.coach_log_run), onClick = { onLogRun(workout.id) })
         }
     }
+}
+
+/** The goal type in the runner's language. Kept in step with the onboarding chips. */
+@Composable
+internal fun goalTypeLabel(type: String): String = when (type) {
+    "FIVE_K" -> "5K"
+    "TEN_K" -> "10K"
+    "HALF_MARATHON" -> stringResource(R.string.coach_goal_half)
+    "MARATHON" -> stringResource(R.string.coach_goal_marathon)
+    "TRAIL" -> stringResource(R.string.coach_goal_trail)
+    "OTHER" -> stringResource(R.string.coach_goal_other)
+    else -> stringResource(R.string.coach_goal_fitness)
 }
 
 /** "5 km · 32 min", omitting whichever the plan did not specify. */

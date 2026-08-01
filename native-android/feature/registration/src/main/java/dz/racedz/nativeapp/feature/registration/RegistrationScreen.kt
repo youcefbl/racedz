@@ -140,6 +140,7 @@ fun RegistrationScreen(
                 retryLabel = stringResource(R.string.common_back),
                 onRetry = onBack,
                 offline = state.isOffline,
+                useLocalizedBody = state.error?.isGeneric == true,
                 modifier = Modifier.height(320.dp),
             )
 

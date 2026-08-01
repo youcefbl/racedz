@@ -3,6 +3,7 @@ import { requireMobileUser } from "@/lib/api/v1/guard";
 import { getPrisma } from "@/lib/db";
 import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { getPlanAdherence, getTodayGuidedWorkout } from "@/lib/coach/service";
+import { coachReplySummary } from "@/lib/api/v1/coach";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -94,8 +95,11 @@ export const GET = withApi(async (request) => {
           completionRate: adherence.completionRate,
         }
       : null,
+    // The stored reply is a structured object; the card wants one line of it. Handing the whole
+    // object through as `text` broke the client's contract (string) and errored the entire Coach
+    // tab for any runner who had ever asked a question.
     latestReview: reviews[0]
-      ? { text: reviews[0].response, createdAt: reviews[0].createdAt.toISOString() }
+      ? { text: coachReplySummary(reviews[0].response), createdAt: reviews[0].createdAt.toISOString() }
       : null,
   });
 });

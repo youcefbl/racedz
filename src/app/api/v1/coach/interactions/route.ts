@@ -3,6 +3,7 @@ import { requireMobileUser } from "@/lib/api/v1/guard";
 import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { createCoachInteraction, getConversationHistory } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
+import { coachReplyDto } from "@/lib/api/v1/coach";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +41,7 @@ export const GET = withApi(async (request) => {
       status: row.status,
       runId: row.runId,
       userMessage: row.userMessage,
-      // The coach's reply is a structured object server-side; the app shows its text and nothing
-      // else, so the shape can evolve without breaking older clients.
-      response: typeof row.response === "object" && row.response !== null
-        ? (row.response as { summary?: string; message?: string }).summary ??
-          (row.response as { message?: string }).message ??
-          null
-        : (row.response as string | null),
+      response: coachReplyDto(row.response),
       // Kept as its own field rather than folded into the reply text: the website renders safety
       // notices deliberately, and flattening one into chat prose would strip a guardrail.
       safety: row.safety ?? null,
@@ -62,8 +57,13 @@ export const GET = withApi(async (request) => {
  * memory-governance rules. This route adds no AI behaviour of its own — it could not, without
  * putting model output outside the governance the plan requires it stay inside.
  *
- * An interaction may come back PENDING: generation is asynchronous, and the client polls the GET
- * above rather than holding a request open across a phone falling asleep.
+ * Generation is synchronous — createCoachInteraction() awaits the provider and this request stays
+ * open for the whole reply (measured at ~12 s locally). The client must therefore size its read
+ * timeout for a real generation, not for an ordinary API call: timing out client-side does not
+ * cancel the work, so the runner would be charged a credit for an answer they never see.
+ *
+ * The finished reply is returned here in the same shape the GET uses, so the composer can show the
+ * answer immediately instead of refetching the whole transcript to find it.
  */
 export const POST = withApi(async (request) => {
   const viewer = await requireMobileUser(request);
@@ -73,7 +73,13 @@ export const POST = withApi(async (request) => {
 
   try {
     const result = await createCoachInteraction(viewer.id, await readJsonBody(request));
-    return apiOk(request, result, { status: 201 });
+    // `plan` is dropped on purpose: when the coach also produced a plan the client refetches
+    // /coach/plan, which is the one place the schedule is defined.
+    return apiOk(
+      request,
+      { id: result.id, status: result.status, response: coachReplyDto(result.response), safety: result.safety ?? null },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof CoachError) {
       const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : error.status === 429 ? "RATE_LIMITED" : "VALIDATION_FAILED";

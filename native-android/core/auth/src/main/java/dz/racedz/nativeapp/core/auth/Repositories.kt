@@ -13,6 +13,8 @@ import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
 import dz.racedz.nativeapp.core.network.BadgesDto
 import dz.racedz.nativeapp.core.network.AskCoachRequest
+import dz.racedz.nativeapp.core.network.AskCoachResponseDto
+import dz.racedz.nativeapp.core.network.WorkoutActionRequest
 import dz.racedz.nativeapp.core.network.CoachConversationDto
 import dz.racedz.nativeapp.core.network.CoachOnboardingStateDto
 import dz.racedz.nativeapp.core.network.LogSleepRequest
@@ -151,11 +153,43 @@ class RegistrationRepository(
  */
 class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) {
 
-    suspend fun list(): ApiResult<List<RunDto>> = when (val result = client.call { api.runs(limit = PAGE_SIZE) }) {
-        // A first page (no cursor) never contains tombstones, but filtering here means a future
-        // cached/delta read cannot accidentally show a deleted run.
-        is ApiResult.Success -> ApiResult.Success(result.value.filterNot { it.deleted })
-        is ApiResult.Failure -> result
+    /**
+     * Every run the caller has, not just the first page.
+     *
+     * The endpoint is a delta feed ordered by `updatedAt` ascending, so one un-cursored call returns
+     * the caller's *oldest* [PAGE_SIZE] runs — for anyone past that many, that silently hides the
+     * newest ones, including the run they just finished. So follow `nextCursor` until the server
+     * stops setting `hasMore`.
+     *
+     * Accumulating into a map keyed by id is what makes the tombstones correct across pages: a later
+     * page can carry the deletion of a run an earlier page already returned, and removing on
+     * `deleted` applies that in order instead of filtering each page in isolation.
+     */
+    suspend fun list(): ApiResult<List<RunDto>> {
+        val byId = LinkedHashMap<String, RunDto>()
+        var cursor: String? = null
+        var pages = 0
+        while (true) {
+            when (val result = client.call { api.runs(updatedSince = cursor, limit = PAGE_SIZE) }) {
+                is ApiResult.Failure ->
+                    // Keep whatever earlier pages already returned rather than throwing the whole
+                    // history away because page N of N failed.
+                    return if (byId.isEmpty()) result else ApiResult.Success(byId.values.toList())
+
+                is ApiResult.Success -> {
+                    result.value.forEach { run ->
+                        if (run.deleted) byId.remove(run.id) else byId[run.id] = run
+                    }
+                    pages++
+                    val meta = result.meta
+                    cursor = meta?.nextCursor
+                    // A missing cursor with hasMore would loop forever re-fetching page one.
+                    if (meta?.hasMore != true || cursor == null || pages >= MAX_PAGES) {
+                        return ApiResult.Success(byId.values.toList())
+                    }
+                }
+            }
+        }
     }
 
     suspend fun detail(id: String): ApiResult<RunDetailDto> = client.call { api.run(id) }
@@ -179,6 +213,12 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
 
     companion object {
         const val PAGE_SIZE = 50
+
+        /**
+         * Backstop so a server that keeps setting `hasMore` cannot spin this loop forever. At
+         * [PAGE_SIZE] a page this is far more history than the overview or list screens need.
+         */
+        const val MAX_PAGES = 40
     }
 }
 
@@ -196,11 +236,28 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
         client.call { api.coachConversation(before) }
 
     /**
-     * Sends a message. The reply is generated asynchronously, so a 201 means "accepted", not
-     * "answered" — the caller reloads the conversation to pick it up.
+     * Asks the coach, and waits for the answer.
+     *
+     * The server generates the reply inside this request, so a 201 means "answered" and carries the
+     * reply itself. The call is marked slow at the HTTP layer because the default read timeout is
+     * shorter than a real generation, and giving up early would not stop the server finishing the
+     * work or counting it against the runner's daily quota.
      */
-    suspend fun ask(request: AskCoachRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
+    suspend fun ask(request: AskCoachRequest): ApiResult<AskCoachResponseDto> =
         client.call { api.askCoach(request) }
+
+    /**
+     * Skips ("I can't today"), moves, or attaches a reason to a planned workout.
+     *
+     * The result is deliberately ignored beyond success/failure: the caller reloads the week, so
+     * what the plan says afterwards comes from the server rather than from a local guess about what
+     * the change did.
+     */
+    suspend fun workoutAction(workoutId: String, request: WorkoutActionRequest): ApiResult<Unit> =
+        when (val result = client.call { api.coachWorkoutAction(workoutId, request) }) {
+            is ApiResult.Success -> ApiResult.Success(Unit)
+            is ApiResult.Failure -> result
+        }
 
     suspend fun sleepHistory(): ApiResult<SleepHistoryDto> = client.call { api.sleepHistory() }
 

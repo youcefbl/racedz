@@ -46,7 +46,8 @@
     "icons:android": "node scripts/gen-android-icons.mjs",
     "splash:gen": "node scripts/gen-splash.mjs",
     "test:mobile-api": "tsx scripts/test-mobile-api.ts",
-    "check:native-i18n": "tsx scripts/check-native-i18n.ts"
+    "check:native-i18n": "tsx scripts/check-native-i18n.ts",
+    "test:coach-mobile": "tsx scripts/test-coach-mobile.ts"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",

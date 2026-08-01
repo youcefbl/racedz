@@ -60,7 +60,13 @@ object ZidRunFormat {
     fun kilometres(km: Double, locale: Locale): String = ltr(String.format(locale, "%.1f km", km))
 
     /** "5.72" — a bare two-decimal distance, for places that show the unit separately. */
-    fun decimal(value: Double, locale: Locale): String = String.format(locale, "%.2f", value)
+    /**
+     * [digits] defaults to the two places run distances are quoted in. The Runs overview passes 1,
+     * because the website's week hero rounds to a single place and the two clients should not
+     * disagree about the same number.
+     */
+    fun decimal(value: Double, locale: Locale, digits: Int = 2): String =
+        String.format(locale, "%.${digits}f", value)
 
     /**
      * "32:18", or "1:02:45" once a run passes the hour. Hours are only shown when there are any, so

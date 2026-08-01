@@ -53,6 +53,9 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 elevationGainM = recording.elevationGainM.toInt().takeIf { it > 0 },
                 route = recording.route.takeIf { it.size >= 2 },
                 source = "GPS",
+                // Carried from "Log this run" on the coach's plan. Dropping it here would be the
+                // silent half of the bug: the run saves fine, but never counts toward the session.
+                workoutId = recording.workoutId,
             )
 
             when (val result = repository.create(request)) {
