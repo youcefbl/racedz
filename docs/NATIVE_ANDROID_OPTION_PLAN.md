@@ -270,9 +270,22 @@ deliberate and should not be "fixed" without thinking:
 - **Its own application ID.** It installs alongside the production Capacitor app
   (`dz.racedz.app`) and the emulator debug build rather than replacing either.
 
-`/api/v1/*` went live on production on 2026-07-31, so the internal APK is now usable end to end.
-(Before that it reached `https://zidrun.com` over TLS and got 404 on every screen — a backend gap,
-not a client fault.)
+**The internal APK is only as usable as what is deployed.** The auth, races, account, registration
+and runs endpoints went live on production on 2026-07-31. The Coach endpoints did **not** all follow,
+and `main` has since moved further ahead. Probed against `https://zidrun.com` on 2026-08-01:
+
+| Endpoint | Production | Effect on the internal APK |
+|---|---|---|
+| `/api/v1/coach`, `/coach/plan`, `/coach/goals` (GET) | 401 — present | Overview and plan load |
+| `PATCH /api/v1/coach/goals` | **405** | Edit goal fails |
+| `/api/v1/coach/interactions` | **404** | Ask your coach fails |
+| `/api/v1/coach/sleep` | **404** | Sleep & recovery fails |
+| `/api/v1/coach/workouts/:id` | **404** | Move and "I can't today" fail |
+
+So an internal build is fine for Races, Account, registration and the whole run-recording flow — which
+is what the outdoor GPS testing needs — and **the Coach tab needs the server released first**. The
+client is not at fault in any of these; it is a deploy gap, and the fix is to ship `main`. Re-probe
+this table before handing over an APK rather than trusting this paragraph.
 
 ### APK versioning — required
 
@@ -308,6 +321,7 @@ a relationship that does not exist.
 
 | Version | Date | What changed |
 |---|---|---|
+| `0.8.0` | 2026-08-01 | Coach parity pass (structured coach replies with their warnings, five-step goal setup with consent, Move / "I can't today", workout handoff, run-focused Analyze, goal editing); Runs save-effort slider and start-run motion; run visibility + delete; Support and Security routing. **Needs the matching server release — see below.** |
 | `0.7.0` | 2026-07-31 | Fixes from the first outdoor device test: plan generation after coach onboarding, stale "latest run", near-neutral dark palette, GPX export, gated Analyze action, onboarding layout |
 | `0.6.0` | 2026-07-31 | Durable run outbox (a finished run survives the app being killed), two-stage onboarding gated server-side, Coach conversation and sleep/recovery. First build intended for a real outdoor GPS test |
 | `0.5.0` | 2026-07-31 | Runs UI aligned with the mockups (footprint ring, guided/free choice, audio cues, run detail charts); Coach tab and coach onboarding |

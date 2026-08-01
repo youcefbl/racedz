@@ -18,8 +18,8 @@ android {
         // docs/NATIVE_ANDROID_OPTION_PLAN.md. versionCode must increase or Android refuses the
         // install as a downgrade; versionName is what the filename is derived from, so the two can
         // never disagree. Do not reuse a number that has already left this machine.
-        versionCode = 7
-        versionName = "0.7.0"
+        versionCode = 8
+        versionName = "0.8.0"
     }
 
     buildTypes {
