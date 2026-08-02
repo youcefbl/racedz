@@ -35,9 +35,17 @@ import {
   type CoachResponse,
   type CreateCoachGoalInput
 } from "@/lib/coach/schemas";
-import { buildBlockedCoachResponse, enforceCoachSafety, evaluateCoachSafety, type EnforcedCoachResponse } from "@/lib/coach/safety";
+import {
+  buildBlockedCoachResponse,
+  containsUrgentSymptomText,
+  enforceCoachSafety,
+  evaluateCoachSafety,
+  urgentSymptomDecision,
+  type EnforcedCoachResponse
+} from "@/lib/coach/safety";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
+import { recordCoachHealthConsent, type CoachConsentClient } from "@/lib/coach/consent";
 import { getMemoryForContext, writeMemories } from "@/lib/coach/memory-store";
 import { getTipsForProfile } from "@/lib/coach/tips";
 import { buildOffTopicCoachResponse, evaluateTopicality } from "@/lib/coach/topicality";
@@ -121,7 +129,7 @@ type InteractionRow = {
   completedAt: Date | null;
 };
 
-export async function createCoachGoal(userId: string, rawInput: unknown) {
+export async function createCoachGoal(userId: string, rawInput: unknown, sourceClient: CoachConsentClient = "web") {
   const input = createCoachGoalSchema.parse(rawInput);
   const prisma = getPrisma();
 
@@ -188,6 +196,17 @@ export async function createCoachGoal(userId: string, rawInput: unknown) {
 
     return rows[0];
   });
+
+  // Persist the consent checkbox as an auditable, versioned grant (combined review U-02).
+  // Non-fatal and idempotent: the goal is already committed, and a failed consent write must not
+  // undo onboarding — it is logged so a persistent failure is visible rather than silent.
+  if (input.consent === true) {
+    try {
+      await recordCoachHealthConsent(userId, sourceClient);
+    } catch (consentError) {
+      console.error("[coach] failed to persist consent grant", consentError);
+    }
+  }
 
   await refreshCoachSnapshot(userId, goal);
   return goal;
@@ -264,7 +283,7 @@ export async function updateCoachGoalSettings(userId: string, goalId: string, ra
 // at onboarding, so they are intentionally not touched here. Reuses the create schema (sex/date of
 // birth are optional there and simply ignored). The metrics snapshot is refreshed since weight
 // feeds calorie estimates, and the next generated plan will use the new answers.
-export async function updateCoachGoal(userId: string, goalId: string, rawInput: unknown) {
+export async function updateCoachGoal(userId: string, goalId: string, rawInput: unknown, sourceClient: CoachConsentClient = "web") {
   const input = createCoachGoalSchema.parse(rawInput);
   const prisma = getPrisma();
   await requireOwnedGoal(userId, goalId);
@@ -299,6 +318,15 @@ export async function updateCoachGoal(userId: string, goalId: string, rawInput: 
     RETURNING *
   `;
   if (!rows[0]) throw new CoachError("Goal was not found.", 404, "GOAL_NOT_FOUND");
+
+  // Editing re-affirms consent under the current policy version (idempotent; see createCoachGoal).
+  if (input.consent === true) {
+    try {
+      await recordCoachHealthConsent(userId, sourceClient);
+    } catch (consentError) {
+      console.error("[coach] failed to persist consent grant", consentError);
+    }
+  }
 
   await refreshCoachSnapshot(userId, rows[0]);
   return rows[0];
@@ -1057,6 +1085,27 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     throw new CoachError("The selected run does not belong to the active goal.", 409, "RUN_GOAL_MISMATCH");
   }
 
+  // Urgent-symptom preflight on the LIVE message (safety review U-01). This must run before the
+  // topicality gate (red-flag phrases like "chest pain" are not in the running vocabulary, so they
+  // would otherwise be refused as off-topic) and before the entitlement gate (an over-quota runner
+  // reporting an acute symptom must still get the escalation response, not a quota error). BLOCKED
+  // rows are not counted against quota, and the persisted row is the content-level audit trail.
+  if (containsUrgentSymptomText(input.message)) {
+    const decision = urgentSymptomDecision();
+    const response = buildBlockedCoachResponse(decision, goal.preferredLocale);
+    const urgentId = randomUUID();
+    await prisma.$executeRaw`
+      INSERT INTO "CoachInteraction" (
+        "id", "userId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+      ) VALUES (
+        ${urgentId}, ${userId}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
+        CAST(${JSON.stringify(decision)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
+      )
+    `;
+    return { id: urgentId, status: "BLOCKED" as const, response, safety: decision, plan: null };
+  }
+
   // Off-topic chat is refused before spending the runner's quota or any AI call. Because it skips
   // the entitlement/quota gate, persist these BLOCKED rows only up to a small daily cap per user so
   // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
@@ -1095,10 +1144,13 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const consistency = assessConsistency(runs, goal.availableTrainingDays.length);
   const intensity = assessIntensityDistribution(runs);
   const safetyRun = selectedRun ?? runs[0] ?? null;
+  // The live message is appended to the scanned symptom text so sub-urgent signals it carries also
+  // reach the deterministic classifier (the acute red flags were already caught by the preflight).
+  const messageText = input.message ?? "";
   const safety = evaluateCoachSafety(
     safetyRun
-      ? { ...safetyRun, symptoms: `${safetyRun.symptoms ?? ""} ${goal.injuryNotes ?? ""}`.trim() || null }
-      : { painLevel: 0, fatigueLevel: 0, symptoms: goal.injuryNotes, notes: null },
+      ? { ...safetyRun, symptoms: `${safetyRun.symptoms ?? ""} ${goal.injuryNotes ?? ""} ${messageText}`.trim() || null }
+      : { painLevel: 0, fatigueLevel: 0, symptoms: `${goal.injuryNotes ?? ""} ${messageText}`.trim() || null, notes: null },
     metrics,
     { chronicConditions: goal.chronicConditions }
   );

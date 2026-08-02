@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import { CoachError } from "@/lib/coach/errors";
 import { coachErrorResponse } from "@/lib/coach/http";
 import { isTtsLocale, synthesizeSpeech } from "@/lib/coach/tts";
@@ -19,6 +20,18 @@ export async function GET(request: Request) {
   // still count against this limit even though they cost nothing to generate.
   const limited = enforceRateLimit(rateLimitKey("coach-tts", session.user.id), 90, 10 * 60_000);
   if (limited) return limited;
+
+  // This is a billed OpenAI call and was the only coach AI endpoint with no entitlement gate
+  // (combined review U-18). Guided cues are part of the trial experience, so — unlike voice
+  // transcription, which is SUBSCRIBED-only — TRIAL users keep access; only expired/never-
+  // entitled accounts are refused.
+  const entitlement = await resolveCoachEntitlement(session.user.id);
+  if (entitlement.tier === "NONE") {
+    return NextResponse.json(
+      { error: "A coach trial or subscription is required for voice cues.", code: "COACH_SUBSCRIPTION_REQUIRED" },
+      { status: 402 }
+    );
+  }
 
   try {
     const url = new URL(request.url);

@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { calculateAveragePaceSecondsPerKm, calculateCoachMetrics } from "../src/lib/coach/metrics";
 import { buildWeeklyPlanSkeleton } from "../src/lib/coach/planning";
-import { buildBlockedCoachResponse, enforceCoachSafety, evaluateCoachSafety } from "../src/lib/coach/safety";
+import {
+  buildBlockedCoachResponse,
+  containsUrgentSymptomText,
+  enforceCoachSafety,
+  evaluateCoachSafety,
+  urgentSymptomDecision
+} from "../src/lib/coach/safety";
 
 const now = new Date("2026-06-21T12:00:00.000Z");
 
@@ -77,3 +83,63 @@ assert.ok(safeResponse.upcomingWorkouts.every((workout) => /[؀-ۿ]/.test(workou
 assert.ok(safeResponse.upcomingWorkouts.every((workout) => /[؀-ۿ]/.test(workout.instructions)));
 
 console.log("Coach metrics, planning, and safety checks passed.");
+
+// ── Urgent-symptom preflight on live chat text (safety review U-01) ─────────────────────────────
+// Golden set: every urgent phrasing must trip the deterministic scan in all supported registers
+// (EN, FR, Arabic script, Latin-script darija), and ordinary training talk must never trip it.
+{
+  const urgent = [
+    // English
+    "I fainted and have chest pain",
+    "severe shortness of breath after my run",
+    "I think I passed out for a second",
+    "felt like heat stroke on today's run",
+    // French
+    "J'ai une douleur à la poitrine depuis ce matin",
+    "je me suis évanoui après la séance",
+    "grosse difficulté à respirer pendant le footing",
+    "j'ai fait un coup de chaleur hier",
+    // Arabic script (MSA + darija phrasing)
+    "عندي ألم في الصدر من البارح",
+    "وجع الصدر كي نجري",
+    "صدري يوجعني بزاف",
+    "جاتني إغماء بعد التمرين",
+    "صعوبة في التنفس كي نطلع الدروج",
+    "حسيت بضربة شمس اليوم",
+    // Latin-script darija (arabizi)
+    "3andi wja3 f sderi ki nejri",
+    "wje3 sdar mel bareh",
+    "ghmit ba3d el footing",
+    "ma nejemch netnefes mlih"
+  ];
+  for (const text of urgent) {
+    assert.ok(containsUrgentSymptomText(text), `urgent text must be flagged: ${text}`);
+  }
+
+  const benign = [
+    "What pace should I run my tempo tomorrow?",
+    "my legs are sore after the long run",
+    "je suis fatigué après la sortie longue",
+    "kayen barcha vent aujourd'hui, séance dure",
+    // Emotional/metaphorical phrasing must not trip the scan.
+    "قلبي فرحان بالنتيجة تاع اليوم",
+    "التمرين كان صعيب بصح كملتو",
+    "nheb nejri semi marathon f mars",
+    "sder route was hilly today", // place-name collision control for the arabizi patterns
+    "" // empty message (INITIAL_PLAN / POST_RUN have no message)
+  ];
+  for (const text of benign) {
+    assert.ok(!containsUrgentSymptomText(text), `benign text must NOT be flagged: ${text}`);
+  }
+  assert.ok(!containsUrgentSymptomText(null));
+  assert.ok(!containsUrgentSymptomText(undefined));
+
+  const decision = urgentSymptomDecision();
+  assert.equal(decision.level, "BLOCKED");
+  assert.equal(decision.requiresProfessionalAdvice, true);
+  // The reason string must be one the i18n table translates (safety.ts SAFETY_REASON_I18N).
+  const localized = buildBlockedCoachResponse(decision, "ar");
+  assert.ok(localized.warningSignals.every((signal) => /[؀-ۿ]/.test(signal)));
+
+  console.log("Urgent-symptom preflight golden set passed.");
+}

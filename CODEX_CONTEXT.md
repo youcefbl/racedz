@@ -48,7 +48,7 @@ Build ZidRun, a full-stack Next.js MVP for Algerian running events. The product 
 - Local PostgreSQL can run with `docker compose up -d postgres`.
 - `OrganizationInvitation` exists in `prisma/schema.prisma` and its migration. The current app code uses typed raw SQL for that table in `src/lib/organizer.ts` because local `prisma generate` was not refreshing the generated client during this session.
 - `RaceEditHistory` stores organizer race/category changes. History writes use raw SQL in `src/lib/organizer.ts`, and superadmin reads use raw SQL in `src/lib/admin.ts`.
-- AI coach server configuration uses `OPENAI_API_KEY`, optional `OPENAI_COACH_MODEL`, `COACH_DAILY_AI_LIMIT`, and `COACH_MONTHLY_AI_LIMIT`. Never expose the OpenAI key through a `NEXT_PUBLIC_` variable.
+- AI coach server configuration uses `OPENAI_API_KEY`, optional `OPENAI_COACH_MODEL`, and the quota variables read by `src/lib/coach/entitlement.ts`: `COACH_TRIAL_DAYS`, `COACH_TRIAL_DAILY_LIMIT`, `COACH_TRIAL_MONTHLY_LIMIT`, `COACH_SUBSCRIBED_DAILY_LIMIT`, `COACH_SUBSCRIBED_MONTHLY_LIMIT`. Never expose the OpenAI key through a `NEXT_PUBLIC_` variable.
 
 ## Priority Resolution
 

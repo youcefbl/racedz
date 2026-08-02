@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getPrisma } from "@/lib/db";
 import {
   MEMORY_STALE_AFTER_DAYS,
+  memorySlot,
   selectMemoryForContext,
   validateMemoryCandidates,
   type MemoryContextItem,
@@ -44,7 +45,18 @@ export async function writeMemories(
   candidates: MemoryWriteCandidate[],
   now = new Date()
 ): Promise<{ written: number; rejected: Array<{ kind: string; reason: string }> }> {
-  const { accepted, rejected } = validateMemoryCandidates(candidates, now);
+  // Dismissal suppression (combined review U-05): a slot the runner explicitly dismissed must not
+  // be re-created by a later extraction. The DISMISSED row is the tombstone; fetch the tombstoned
+  // slots for this user and let validation refuse matching candidates. (Previously the write path
+  // only superseded ACTIVE rows and then inserted unconditionally, so "forget this" did not stick.)
+  const dismissedRows = await getPrisma().$queryRaw<Array<{ kind: string; key: string }>>`
+    SELECT DISTINCT "kind"::text AS "kind", "key"
+    FROM "CoachMemory"
+    WHERE "userId" = ${userId} AND "status" = 'DISMISSED'
+  `;
+  const dismissedSlots = new Set(dismissedRows.map((row) => memorySlot(row.kind, row.key)));
+
+  const { accepted, rejected } = validateMemoryCandidates(candidates, now, dismissedSlots);
   if (accepted.length === 0) {
     return { written: 0, rejected: rejected.map((r) => ({ kind: r.candidate.kind, reason: r.reason })) };
   }

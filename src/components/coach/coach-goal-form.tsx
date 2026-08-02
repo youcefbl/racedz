@@ -81,9 +81,11 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
   const [chronicConditions, setChronicConditions] = useState<string[]>(goalToEdit?.chronicConditions ?? []);
   const [healthNotes, setHealthNotes] = useState(goalToEdit?.healthNotes ?? "");
 
-  // Step 5 — review. Consent is implicit when editing (already agreed at onboarding).
+  // Step 5 — review. Consent is never pre-checked (combined coach review U-02): every save —
+  // create or edit — requires an explicit tick, which the server persists as a versioned,
+  // auditable grant (idempotent per policy version, so re-affirming on edit adds no duplicate).
   const [preferredLocale, setPreferredLocale] = useState<CoachLocale>(goalToEdit?.preferredLocale ?? locale);
-  const [consent, setConsent] = useState(isEdit);
+  const [consent, setConsent] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -228,7 +230,8 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
             injuryHistory: injuryHistory.trim() || null,
             chronicConditions,
             healthNotes: healthNotes.trim() || null,
-            preferredLocale
+            preferredLocale,
+            consent
           })
         });
         await onCreated();
@@ -456,12 +459,10 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
                   <option value="ar">العربية</option>
                 </select>
               </Field>
-              {!isEdit ? (
-                <label className="flex items-start gap-3 rounded-md border border-gray-200 p-3 text-sm text-gray-700">
-                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 accent-brand-teal" />
-                  <span>{copy.consentLabel}</span>
-                </label>
-              ) : null}
+              <label className="flex items-start gap-3 rounded-md border border-gray-200 p-3 text-sm text-gray-700">
+                <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 size-4 accent-brand-teal" />
+                <span>{copy.consentLabel}</span>
+              </label>
             </StepShell>
           ) : null}
         </div>
@@ -485,7 +486,7 @@ export function CoachGoalForm({ locale, copy, onCreated, profileGaps, initialGoa
                   {copy.next}
                 </Button>
               ) : (
-                <Button type="button" size="lg" onClick={submit} disabled={pending || (!isEdit && !consent)}>
+                <Button type="button" size="lg" onClick={submit} disabled={pending || !consent}>
                   {pending ? copy.saving : isEdit ? copy.saveChanges : copy.saveGoal}
                 </Button>
               )}

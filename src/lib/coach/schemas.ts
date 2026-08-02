@@ -57,7 +57,11 @@ export const createCoachGoalSchema = z
         return unique.includes("NONE") ? [] : unique;
       }),
     healthNotes: z.string().trim().max(1000).nullable().optional(),
-    preferredLocale: coachLocaleSchema.default("en")
+    preferredLocale: coachLocaleSchema.default("en"),
+    // Health-data processing consent (combined review U-02). Optional at the schema level so the
+    // native client stays compatible (additive /api/v1 contract); when true, the service persists
+    // an auditable versioned grant. The web form requires it before submitting.
+    consent: z.boolean().optional()
   })
   .superRefine((input, context) => {
     const tomorrow = new Date();

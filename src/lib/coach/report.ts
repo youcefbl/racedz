@@ -44,6 +44,7 @@ export type CoachOpsReport = {
     inputTokens: number;
     outputTokens: number;
     estimatedCostUsd: number;
+    unpricedRequests: number;
   };
 };
 
@@ -91,11 +92,14 @@ export async function getCoachOpsReport(windowDays = 30, now: Date = new Date())
       SELECT "type"::text AS "type", "status"::text AS "status", COUNT(*) AS "total"
       FROM "CoachInteraction" WHERE "createdAt" >= ${since} GROUP BY "type", "status"
     `,
-    // AI provider requests + token/cost totals, over the window.
-    prisma.$queryRaw<Array<{ status: string; total: bigint; inputTokens: bigint; outputTokens: bigint; costMicro: bigint }>>`
+    // AI provider requests + token/cost totals, over the window. `unpriced` counts rows whose
+    // cost is NULL (model missing from the price table) — those are excluded from the SUM, so the
+    // cost figure is a floor and the unpriced count says how incomplete it is (review U-18).
+    prisma.$queryRaw<Array<{ status: string; total: bigint; inputTokens: bigint; outputTokens: bigint; costMicro: bigint; unpriced: bigint }>>`
       SELECT "status"::text AS "status", COUNT(*) AS "total",
         COALESCE(SUM("inputTokens"), 0) AS "inputTokens", COALESCE(SUM("outputTokens"), 0) AS "outputTokens",
-        COALESCE(SUM("estimatedCostMicroUsd"), 0) AS "costMicro"
+        COALESCE(SUM("estimatedCostMicroUsd"), 0) AS "costMicro",
+        COUNT(*) FILTER (WHERE "estimatedCostMicroUsd" IS NULL) AS "unpriced"
       FROM "AiUsageLog" WHERE "createdAt" >= ${since} GROUP BY "status"
     `
   ]);
@@ -160,6 +164,7 @@ export async function getCoachOpsReport(windowDays = 30, now: Date = new Date())
   let inputTokens = 0;
   let outputTokens = 0;
   let costMicro = 0;
+  let unpricedRequests = 0;
   for (const row of usageRows) {
     const t = num(row.total);
     requests += t;
@@ -167,6 +172,7 @@ export async function getCoachOpsReport(windowDays = 30, now: Date = new Date())
     inputTokens += num(row.inputTokens);
     outputTokens += num(row.outputTokens);
     costMicro += num(row.costMicro);
+    unpricedRequests += num(row.unpriced);
   }
 
   return {
@@ -197,7 +203,9 @@ export async function getCoachOpsReport(windowDays = 30, now: Date = new Date())
       requestFailureRate: rate(requestFailures, requests),
       inputTokens,
       outputTokens,
-      estimatedCostUsd: Math.round((costMicro / 1_000_000) * 100) / 100
+      estimatedCostUsd: Math.round((costMicro / 1_000_000) * 100) / 100,
+      // Requests with no cost estimate (unknown model) — the cost above excludes them entirely.
+      unpricedRequests
     }
   };
 }

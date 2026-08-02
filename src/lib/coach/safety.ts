@@ -31,11 +31,40 @@ type SafetyProfile = {
 const cautionConditions = new Set(["ASTHMA", "DIABETES", "HYPERTENSION", "THYROID", "ANEMIA", "OTHER"]);
 const clearanceConditions = new Set(["HEART_CONDITION"]);
 
+// Urgent red-flag symptom patterns, scanned over runner free text (run symptoms/notes, goal injury
+// notes, and the live chat message — see containsUrgentSymptomText). Kept deliberately narrow:
+// a false BLOCK erodes trust, and the taxonomy beyond clear cardio/heat emergencies is pending the
+// owner-reviewed safety wording (coach_review_fable_codex.md §7 Q3). EN + FR + Arabic script +
+// common Latin-script darija (arabizi) transliterations.
 const dangerPatterns = [
-  /chest pain|faint(?:ed|ing)?|difficulty breathing|severe shortness of breath/i,
-  /douleur (?:à la |de )?poitrine|évanoui|évanouissement|difficulté à respirer|essoufflement sévère/i,
-  /ألم الصدر|اغماء|إغماء|صعوبة في التنفس|ضيق تنفس شديد/i
+  /chest pain|faint(?:ed|ing)?|passed out|difficulty breathing|severe shortness of breath|heat ?stroke/i,
+  /douleur (?:à la |de |dans la )?poitrine|évanoui|évanouissement|difficulté à respirer|essoufflement sévère|coup de chaleur|perte de connaissance/i,
+  /(?:ألم|وجع|أوجاع)\s*(?:في|فى)?\s*(?:ال)?صدر|صدري\s*(?:يوجعني|يؤلمني)|اغماء|إغماء|أغمي|صعوبة في التنفس|ضيق تنفس شديد|ضربة شمس/,
+  // Arabizi / Latin-script darija. Each alternative pairs a pain/failure word with a body signal so
+  // ordinary training talk ("sder" as a route name, "nefs" as motivation) cannot trip it alone.
+  /(?:wja3|wje3|oja3|ouja3)\s*(?:f[iy]?\s*)?(?:s|ss)?(?:der|dar|adr)i?|\bgh?mit\b|\bghomit\b|ma\s*(?:nejem|njem|n9der|nekder|nakder)(?:ch|sh)?\s*(?:n[ae]tn[ae]f+[ae]s)/i
 ];
+
+/**
+ * Deterministic urgent-symptom scan for a single piece of runner-authored free text (the live chat
+ * message, a sleep note, a goal edit). Used as a preflight so acute red flags are blocked BEFORE
+ * topicality, entitlement, and any model call — a runner typing "I fainted and have chest pain"
+ * must get the escalation response even when off-topic by vocabulary or over quota.
+ */
+export function containsUrgentSymptomText(text: string | null | undefined): boolean {
+  const trimmed = text?.trim();
+  if (!trimmed) return false;
+  return dangerPatterns.some((pattern) => pattern.test(trimmed));
+}
+
+/** The blocked decision a positive urgent-text preflight produces; reuses the translated reason. */
+export function urgentSymptomDecision(): CoachSafetyDecision {
+  return {
+    level: "BLOCKED",
+    reasons: ["A reported symptom requires professional assessment."],
+    requiresProfessionalAdvice: true
+  };
+}
 
 export function evaluateCoachSafety(run: SafetyRun, metrics: CoachMetrics, profile?: SafetyProfile): CoachSafetyDecision {
   const text = `${run?.symptoms ?? ""} ${run?.notes ?? ""}`.trim();

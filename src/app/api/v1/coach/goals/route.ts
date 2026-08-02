@@ -69,7 +69,7 @@ export const PATCH = withApi(async (request) => {
   if (!active) throw new ApiError("NOT_FOUND", "There is no active goal to edit.");
 
   try {
-    const goal = await updateCoachGoal(viewer.id, active.id, await readJsonBody(request));
+    const goal = await updateCoachGoal(viewer.id, active.id, await readJsonBody(request), "native");
     return apiOk(request, { goal });
   } catch (error) {
     if (error instanceof CoachError) {
@@ -99,7 +99,7 @@ export const POST = withApi(async (request) => {
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many attempts. Try again shortly."));
 
   try {
-    const goal = await createCoachGoal(viewer.id, await readJsonBody(request));
+    const goal = await createCoachGoal(viewer.id, await readJsonBody(request), "native");
 
     // createCoachGoal() stores the goal but does not build a plan — on the website a nightly job
     // (coach/reminders.ts) calls this. Without it the app finishes onboarding and lands on an empty

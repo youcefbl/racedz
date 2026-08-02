@@ -1,6 +1,7 @@
 import {
   isWritableMemoryKind,
   selectMemoryForContext,
+  memorySlot,
   validateMemoryCandidates,
   MEMORY_CONTEXT_LIMIT,
   MEMORY_STALE_AFTER_DAYS,
@@ -227,6 +228,55 @@ function record(over: Partial<MemoryRecord> = {}): MemoryRecord {
     selected.every((item) => !("id" in item) && !("sourceInteractionId" in item)),
     JSON.stringify(Object.keys(selected[0] ?? {}))
   );
+}
+
+// ── Dismissal suppression (combined review U-05) ────────────────────────────────────────────────
+// A slot the runner explicitly dismissed must never be re-learned automatically, no matter the
+// source proposing it — only an explicit runner action may lift the suppression.
+{
+  const dismissed = new Set([memorySlot("SCHEDULE", "preferred_time")]);
+
+  const relearn = validateMemoryCandidates(
+    [{ kind: "SCHEDULE", key: "preferred_time", value: "mornings before work", source: "AI_INFERRED", confidence: 0.9 }],
+    NOW,
+    dismissed
+  );
+  check("dismissed slot blocks AI re-learning", relearn.accepted.length === 0 && relearn.rejected.length === 1);
+  check(
+    "suppression rejection names the runner's dismissal",
+    relearn.rejected[0]?.reason.includes("dismissed") === true,
+    relearn.rejected[0]?.reason
+  );
+
+  const systemRelearn = validateMemoryCandidates(
+    [{ kind: "SCHEDULE", key: "preferred_time", value: "mornings", source: "SYSTEM_DERIVED" }],
+    NOW,
+    dismissed
+  );
+  check("dismissed slot blocks even trusted sources", systemRelearn.accepted.length === 0);
+
+  const keyTrim = validateMemoryCandidates(
+    [{ kind: "SCHEDULE", key: "  preferred_time  ", value: "mornings", source: "AI_INFERRED", confidence: 0.8 }],
+    NOW,
+    dismissed
+  );
+  check("suppression matches after key trimming", keyTrim.accepted.length === 0);
+
+  const otherSlot = validateMemoryCandidates(
+    [
+      { kind: "SCHEDULE", key: "long_run_day", value: "saturday", source: "AI_INFERRED", confidence: 0.8 },
+      { kind: "TERRAIN", key: "preferred_time", value: "track access", source: "AI_INFERRED", confidence: 0.8 }
+    ],
+    NOW,
+    dismissed
+  );
+  check("other slots are unaffected (kind AND key must match)", otherSlot.accepted.length === 2);
+
+  const noSet = validateMemoryCandidates(
+    [{ kind: "SCHEDULE", key: "preferred_time", value: "mornings", source: "AI_INFERRED", confidence: 0.9 }],
+    NOW
+  );
+  check("omitted suppression set keeps legacy behavior", noSet.accepted.length === 1);
 }
 
 console.log(`coach memory: ${passed}/${passed + failures.length} checks passed`);

@@ -15,6 +15,7 @@ import {
   type PendingCoachRequestRow
 } from "@/lib/coach-admin";
 import { parsePagination } from "@/lib/pagination";
+import { COACH_TIER_LIMITS, COACH_TRIAL_DAYS } from "@/lib/coach/entitlement";
 import { COACH_CURRENCY, COACH_PLANS } from "@/lib/coach/plans";
 import { AdminShell, EmptyState, FilterBar, StatCard } from "../_components/admin-ui";
 import {
@@ -56,11 +57,15 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
         </summary>
         <div className="border-t border-gray-100 px-5 py-4 text-sm text-gray-600">
           <ul className="space-y-1.5">
+            {/* Derived from the entitlement code so this copy can never drift from the enforced
+                policy again (it previously claimed a 30-day trial against a 7-day default). */}
             <li>
-              <span className="font-bold text-gray-800">Free trial:</span> 30 days from signup — 3 requests/day, 30/month.
+              <span className="font-bold text-gray-800">Free trial:</span> {COACH_TRIAL_DAYS} days from signup —{" "}
+              {COACH_TIER_LIMITS.TRIAL.daily} requests/day, {COACH_TIER_LIMITS.TRIAL.monthly}/month.
             </li>
             <li>
-              <span className="font-bold text-gray-800">Paid:</span> 20 requests/day.
+              <span className="font-bold text-gray-800">Paid:</span> {COACH_TIER_LIMITS.SUBSCRIBED.daily} requests/day,{" "}
+              {COACH_TIER_LIMITS.SUBSCRIBED.monthly}/month.
             </li>
             <li>
               <span className="font-bold text-gray-800">Pricing:</span> {COACH_PLANS.MONTHLY.priceDa.toLocaleString()} {COACH_CURRENCY}/month, {COACH_PLANS.THREE_MONTH.priceDa.toLocaleString()} {COACH_CURRENCY} for 3 months, or {COACH_PLANS.YEARLY.priceDa.toLocaleString()} {COACH_CURRENCY}/year, activated manually after payment.

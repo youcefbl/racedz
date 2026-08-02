@@ -19,7 +19,8 @@ type CoachGenerationResult = {
     cachedInputTokens: number;
     outputTokens: number;
     reasoningTokens: number;
-    estimatedCostMicroUsd: number;
+    /// Null = unpriced model (no price-table entry) — stored as NULL, never as 0.
+    estimatedCostMicroUsd: number | null;
   };
 };
 
@@ -131,7 +132,7 @@ export type SleepParseUsage = {
   cachedInputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
-  estimatedCostMicroUsd: number;
+  estimatedCostMicroUsd: number | null;
 };
 
 /** The model the coach (and the sleep free-text parser) run on. Exposed for usage accounting. */
@@ -239,8 +240,11 @@ function buildInstructions() {
   ].join("\n");
 }
 
-function estimateCostMicroUsd(model: string, inputTokens: number, cachedInputTokens: number, outputTokens: number) {
-  if (!model.startsWith("gpt-5.4-mini")) return 0;
+// Micro-USD estimate, or NULL when the model has no entry in the price table (combined review
+// U-18). An unknown model — e.g. an OPENAI_COACH_MODEL override — must surface as "unpriced" on
+// the admin cost dashboard, never as zero cost, which reads as free and hides real spend.
+function estimateCostMicroUsd(model: string, inputTokens: number, cachedInputTokens: number, outputTokens: number): number | null {
+  if (!model.startsWith("gpt-5.4-mini")) return null;
 
   const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
   const usd = (uncachedInputTokens * 0.75 + cachedInputTokens * 0.075 + outputTokens * 4.5) / 1_000_000;

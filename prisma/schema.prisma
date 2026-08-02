@@ -65,6 +65,7 @@ model User {
   aiUsageLogs                 AiUsageLog[]
   coachSubscriptions          CoachSubscription[]
   coachSubscriptionRequests   CoachSubscriptionRequest[]
+  coachConsents               CoachConsent[]
   sleepLogs                   SleepLog[]
   supportThreads              SupportThread[]
   following                   Follow[]                   @relation("Following")
@@ -842,7 +843,9 @@ model AiUsageLog {
   cachedInputTokens     Int             @default(0)
   outputTokens          Int             @default(0)
   reasoningTokens       Int             @default(0)
-  estimatedCostMicroUsd Int             @default(0)
+  /// Micro-USD estimate for models with a known price. NULL means "unpriced" — the model has no
+  /// entry in the price table — which must never be reported as zero cost (combined review U-18).
+  estimatedCostMicroUsd Int?
   errorCode             String?
   errorMessage          String?
   createdAt             DateTime        @default(now())
@@ -901,6 +904,42 @@ model CoachSubscriptionRequest {
 
   @@index([userId, status])
   @@index([status, createdAt])
+}
+
+/// Auditable consent grants for the AI coach (combined coach review, U-02). Scaffolding ahead of
+/// the full SEC-002 health-data policy: each row records that a specific runner granted (or later
+/// withdrew) a specific processing purpose under a specific policy version, from which client.
+/// Append-mostly — a re-grant after withdrawal creates a new row rather than reviving the old one,
+/// so the trail stays reconstructable. Enforcement (refusing sensitive processing without an active
+/// grant) lands with the policy; today this makes the existing onboarding checkbox auditable.
+model CoachConsent {
+  id            String              @id @default(cuid())
+  userId        String
+  purpose       CoachConsentPurpose
+  policyVersion String
+  status        CoachConsentStatus  @default(GRANTED)
+  grantedAt     DateTime            @default(now())
+  withdrawnAt   DateTime?
+  /// Which surface captured the grant ("web" | "native"), for the audit trail.
+  sourceClient  String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, status])
+}
+
+enum CoachConsentPurpose {
+  /// Processing of health/body/free-text onboarding answers to personalise AI coaching,
+  /// including transmission to the AI provider. Further purposes (memory, voice, wearables)
+  /// are added alongside the SEC-002 policy, not before.
+  HEALTH_COACHING_AI
+}
+
+enum CoachConsentStatus {
+  GRANTED
+  WITHDRAWN
 }
 
 enum CoachSubscriptionPlan {

@@ -199,9 +199,18 @@ export type MemoryWriteRejection = { candidate: MemoryWriteCandidate; reason: st
  * text is length-bounded so a prompt-injected payload cannot be stored wholesale and replayed into
  * every future request.
  */
+/** The (kind, key) slot identity used for batch dedup and dismissal suppression. */
+export function memorySlot(kind: string, key: string): string {
+  return `${kind}:${key.trim()}`;
+}
+
 export function validateMemoryCandidates(
   candidates: MemoryWriteCandidate[],
-  now: Date
+  now: Date,
+  // Slots the runner has explicitly DISMISSED (memorySlot form). A dismissed fact must never be
+  // re-learned automatically — "forget this" has to survive the next extraction proposing the same
+  // thing. Only an explicit runner action may lift the suppression. (Combined review U-05.)
+  dismissedSlots: ReadonlySet<string> = new Set()
 ): { accepted: MemoryWriteCandidate[]; rejected: MemoryWriteRejection[] } {
   const accepted: MemoryWriteCandidate[] = [];
   const rejected: MemoryWriteRejection[] = [];
@@ -234,6 +243,10 @@ export function validateMemoryCandidates(
     }
     if (value.length === 0 || value.length > valueMaxForSource(candidate.source)) {
       reject("value is empty or too long");
+      continue;
+    }
+    if (dismissedSlots.has(memorySlot(candidate.kind, key))) {
+      reject("the runner dismissed this fact — it will not be re-learned automatically");
       continue;
     }
     if (candidate.expiresAt && candidate.expiresAt.getTime() <= now.getTime()) {
