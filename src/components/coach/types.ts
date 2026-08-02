@@ -136,6 +136,11 @@ export type CoachResponse = {
   upcomingWorkouts: CoachWorkout[];
   recoveryAdvice: string[];
   requiresProfessionalAdvice: boolean;
+  // Transparency fields (rendered since review U-11). Optional because interactions stored before
+  // the context-hardening prompt versions predate them.
+  usedSignals?: string[];
+  dataGaps?: string[];
+  followUpQuestion?: string | null;
 };
 
 export type CoachInteraction = {

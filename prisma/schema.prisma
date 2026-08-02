@@ -739,6 +739,10 @@ enum CoachMemoryKind {
   STRATEGY_FAILED
   REJECTED_SUGGESTION
   COACH_NOTE
+  /// Milestones the app derives from real runs (new PB, longest run) — SYSTEM_DERIVED only,
+  /// never model-proposed, so the coach knows about achievements without re-deriving them
+  /// (combined review U-25).
+  PERFORMANCE
   // Blocked pending the health-data policy line. See WRITABLE_MEMORY_KINDS.
   INJURY_STATUS
   RECOVERY_STATUS
@@ -803,6 +807,10 @@ model SleepLog {
 model CoachInteraction {
   id             String                 @id @default(cuid())
   userId         String
+  /// Client-generated idempotency key (combined review U-10). A retry after a timeout or double
+  /// tap re-sends the same key; the service returns the stored interaction instead of spending a
+  /// second provider call and quota charge. Null for requests from clients that don't send one.
+  clientRequestId String?
   goalId         String?
   runId          String?
   type           CoachInteractionType
@@ -826,6 +834,7 @@ model CoachInteraction {
   run       RunnerRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
   usageLogs AiUsageLog[]
 
+  @@unique([userId, clientRequestId])
   @@index([userId, createdAt])
   @@index([goalId, type, createdAt])
   @@index([runId])

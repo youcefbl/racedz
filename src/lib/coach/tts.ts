@@ -1,9 +1,10 @@
 import "server-only";
 
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
+import { getPrisma } from "@/lib/db";
 import { CoachError } from "@/lib/coach/errors";
 import type { CoachLocale } from "@/components/coach/types";
 
@@ -30,7 +31,12 @@ function cachePath(locale: CoachLocale, key: string): string {
   return path.join(process.cwd(), "public", "uploads", "tts-audio", locale, `${key}.mp3`);
 }
 
-export async function synthesizeSpeech(text: string, locale: CoachLocale): Promise<Buffer> {
+// Per-user daily ceiling on BILLED synth calls (cache misses only — cache hits stay free and
+// uncounted). Cue phrases come from a small template set, so a legitimate runner rarely misses the
+// cache this often; the cap bounds an account minting endless novel audio (review T0-R03).
+const TTS_SYNTH_DAILY_LIMIT = 60;
+
+export async function synthesizeSpeech(text: string, locale: CoachLocale, userId: string): Promise<Buffer> {
   const key = cacheKeyFor(locale, text);
   const file = cachePath(locale, key);
 
@@ -46,6 +52,20 @@ export async function synthesizeSpeech(text: string, locale: CoachLocale): Promi
   }
 
   const model = process.env.OPENAI_TTS_MODEL?.trim() || DEFAULT_TTS_MODEL;
+  const prisma = getPrisma();
+
+  // Cache misses are billed provider calls, so they are capped per user and logged in AiUsageLog
+  // like every other AI spend (they previously bypassed accounting entirely — T0-R03). TTS is
+  // priced per character, not per token, so the cost column stays NULL ("unpriced") and the row
+  // still surfaces in the unpriced counters.
+  const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT COUNT(*)::bigint AS count FROM "AiUsageLog"
+    WHERE "userId" = ${userId} AND "model" = ${model} AND "createdAt" >= NOW() - INTERVAL '24 hours'
+  `;
+  if (Number(count) >= TTS_SYNTH_DAILY_LIMIT) {
+    throw new CoachError("Daily voice-cue generation limit reached. Try again tomorrow.", 429, "TTS_QUOTA_EXCEEDED");
+  }
+
   const client = new OpenAI({ apiKey, timeout: 20_000, maxRetries: 1 });
 
   let buffer: Buffer;
@@ -57,8 +77,14 @@ export async function synthesizeSpeech(text: string, locale: CoachLocale): Promi
       response_format: "mp3"
     });
     buffer = Buffer.from(await response.arrayBuffer());
+    await prisma.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status") VALUES (${randomUUID()}, ${userId}, ${model}, 'SUCCEEDED')
+    `;
   } catch (error) {
     const code = error instanceof OpenAI.APIError ? `OPENAI_${error.status ?? "ERROR"}` : "OPENAI_TTS_FAILED";
+    await prisma.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status", "errorCode") VALUES (${randomUUID()}, ${userId}, ${model}, 'FAILED', ${code})
+    `;
     throw new CoachError("Could not generate voice audio.", 502, code);
   }
 

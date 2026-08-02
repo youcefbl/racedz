@@ -20,16 +20,26 @@ export const COACH_CONSENT_POLICY_VERSION = "coach-consent-2026-08-v1";
 
 export type CoachConsentClient = "web" | "native";
 
+// Raw-query surface shared by the Prisma client and an in-flight transaction client, so the grant
+// can be written atomically with the sensitive data it authorises (T0-R02).
+type RawDb = Pick<ReturnType<typeof getPrisma>, "$queryRaw" | "$executeRaw">;
+
 /**
  * Record (idempotently) that the runner granted health-data processing for AI coaching.
  *
  * Idempotent per (user, purpose, policyVersion): submitting the goal form again under the same
  * policy version affirms the existing grant rather than stacking duplicate rows. A grant after a
  * withdrawal, or under a new policy version, creates a fresh row so the trail stays append-only.
+ *
+ * Pass the surrounding transaction client as `db` when the grant must commit atomically with the
+ * health data it covers — a stored goal without its grant is exactly the state U-02 forbids.
  */
-export async function recordCoachHealthConsent(userId: string, sourceClient: CoachConsentClient): Promise<{ granted: boolean }> {
-  const prisma = getPrisma();
-  const existing = await prisma.$queryRaw<Array<{ id: string }>>`
+export async function recordCoachHealthConsent(
+  userId: string,
+  sourceClient: CoachConsentClient,
+  db: RawDb = getPrisma()
+): Promise<{ granted: boolean }> {
+  const existing = await db.$queryRaw<Array<{ id: string }>>`
     SELECT "id" FROM "CoachConsent"
     WHERE "userId" = ${userId} AND "purpose" = 'HEALTH_COACHING_AI'
       AND "policyVersion" = ${COACH_CONSENT_POLICY_VERSION} AND "status" = 'GRANTED'
@@ -37,18 +47,23 @@ export async function recordCoachHealthConsent(userId: string, sourceClient: Coa
   `;
   if (existing[0]) return { granted: false };
 
-  await prisma.$executeRaw`
+  await db.$executeRaw`
     INSERT INTO "CoachConsent" ("id", "userId", "purpose", "policyVersion", "status", "sourceClient", "updatedAt")
     VALUES (${randomUUID()}, ${userId}, 'HEALTH_COACHING_AI', ${COACH_CONSENT_POLICY_VERSION}, 'GRANTED', ${sourceClient}, NOW())
   `;
   return { granted: true };
 }
 
-/** The runner's active health-processing grant under the current policy version, if any. */
+/**
+ * The runner's active grant under the CURRENT policy version, if any. Filtering by version matters
+ * (T0-R04): a grant made under superseded wording must read as "re-consent required", never as an
+ * active grant for wording the runner has not seen.
+ */
 export async function getActiveCoachHealthConsent(userId: string): Promise<{ grantedAt: Date; policyVersion: string } | null> {
   const rows = await getPrisma().$queryRaw<Array<{ grantedAt: Date; policyVersion: string }>>`
     SELECT "grantedAt", "policyVersion" FROM "CoachConsent"
     WHERE "userId" = ${userId} AND "purpose" = 'HEALTH_COACHING_AI' AND "status" = 'GRANTED'
+      AND "policyVersion" = ${COACH_CONSENT_POLICY_VERSION}
     ORDER BY "grantedAt" DESC
     LIMIT 1
   `;

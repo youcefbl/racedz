@@ -94,7 +94,9 @@ export function CoachDashboard({
           try {
             const created = await coachRequest<{ data: { id: string } }>("/api/coach/interactions", {
               method: "POST",
-              body: JSON.stringify({ type, runId: options?.runId ?? null, message: options?.message ?? null })
+              // requestId (review U-10): one fresh key per ask makes a network retry or double
+              // tap idempotent server-side — one provider call, one quota charge.
+              body: JSON.stringify({ type, runId: options?.runId ?? null, message: options?.message ?? null, requestId: crypto.randomUUID() })
             });
             await refresh();
             if (type === "INITIAL_PLAN" || type === "WEEKLY_REVIEW") {

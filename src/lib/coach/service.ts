@@ -41,6 +41,7 @@ import {
   enforceCoachSafety,
   evaluateCoachSafety,
   urgentSymptomDecision,
+  type CoachSafetyDecision,
   type EnforcedCoachResponse
 } from "@/lib/coach/safety";
 import { CoachError } from "@/lib/coach/errors";
@@ -133,6 +134,13 @@ export async function createCoachGoal(userId: string, rawInput: unknown, sourceC
   const input = createCoachGoalSchema.parse(rawInput);
   const prisma = getPrisma();
 
+  // Consent is enforced server-side, not just by the form (T0-R02): a goal stores health/body
+  // answers, so a direct API caller may not create one without the explicit grant. The field stays
+  // optional in the zod schema only so the error is this clear 400 rather than a validation blob.
+  if (input.consent !== true) {
+    throw new CoachError("Health-data consent is required to create a coaching goal.", 400, "CONSENT_REQUIRED");
+  }
+
   if (input.raceEventId) {
     const race = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT "id" FROM "RaceEvent"
@@ -194,19 +202,12 @@ export async function createCoachGoal(userId: string, rawInput: unknown, sourceC
       `;
     }
 
+    // The grant commits atomically with the goal it authorises (T0-R02): if the consent row cannot
+    // be written, the health data is not stored either — never the reverse.
+    await recordCoachHealthConsent(userId, sourceClient, tx);
+
     return rows[0];
   });
-
-  // Persist the consent checkbox as an auditable, versioned grant (combined review U-02).
-  // Non-fatal and idempotent: the goal is already committed, and a failed consent write must not
-  // undo onboarding — it is logged so a persistent failure is visible rather than silent.
-  if (input.consent === true) {
-    try {
-      await recordCoachHealthConsent(userId, sourceClient);
-    } catch (consentError) {
-      console.error("[coach] failed to persist consent grant", consentError);
-    }
-  }
 
   await refreshCoachSnapshot(userId, goal);
   return goal;
@@ -286,10 +287,17 @@ export async function updateCoachGoalSettings(userId: string, goalId: string, ra
 export async function updateCoachGoal(userId: string, goalId: string, rawInput: unknown, sourceClient: CoachConsentClient = "web") {
   const input = createCoachGoalSchema.parse(rawInput);
   const prisma = getPrisma();
-  await requireOwnedGoal(userId, goalId);
+  const before = await requireOwnedGoal(userId, goalId);
+
+  // Same server-side enforcement as creation (T0-R02): an edit rewrites the stored health/body
+  // answers, so it re-affirms the grant (idempotent per policy version — no duplicate rows).
+  if (input.consent !== true) {
+    throw new CoachError("Health-data consent is required to update a coaching goal.", 400, "CONSENT_REQUIRED");
+  }
 
   const chronicConditions = input.chronicConditions ?? [];
-  const rows = await prisma.$queryRaw<GoalRow[]>`
+  const rows = await prisma.$transaction(async (tx) => {
+    const updated = await tx.$queryRaw<GoalRow[]>`
     UPDATE "RunnerGoal" SET
       "goalType" = ${input.goalType}::"CoachGoalType",
       "customGoal" = ${input.customGoal ?? null},
@@ -317,19 +325,44 @@ export async function updateCoachGoal(userId: string, goalId: string, rawInput: 
     WHERE "id" = ${goalId} AND "userId" = ${userId}
     RETURNING *
   `;
-  if (!rows[0]) throw new CoachError("Goal was not found.", 404, "GOAL_NOT_FOUND");
+    if (!updated[0]) throw new CoachError("Goal was not found.", 404, "GOAL_NOT_FOUND");
+    // Atomic with the edit it authorises — see createCoachGoal (T0-R02).
+    await recordCoachHealthConsent(userId, sourceClient, tx);
+    return updated;
+  });
+  const after = rows[0];
 
-  // Editing re-affirms consent under the current policy version (idempotent; see createCoachGoal).
-  if (input.consent === true) {
+  // Material goal edits invalidate the current week (combined review U-08): a plan built from the
+  // old answers must not stay actionable after the runner reports an injury, removes a training
+  // day, or changes the goal itself. Per the instant-activation lifecycle, the week is superseded
+  // and immediately rebuilt from the new answers — no stale workouts, no acceptance friction.
+  const sortedDays = (days: number[]) => [...days].sort((a, b) => a - b).join(",");
+  const materialChange =
+    before.goalType !== after.goalType ||
+    new Date(before.targetDate).getTime() !== new Date(after.targetDate).getTime() ||
+    before.experienceLevel !== after.experienceLevel ||
+    before.currentWeeklyDistanceKm !== after.currentWeeklyDistanceKm ||
+    (before.targetDistanceKm ?? null) !== (after.targetDistanceKm ?? null) ||
+    (before.preferredLongRunDay ?? null) !== (after.preferredLongRunDay ?? null) ||
+    sortedDays(before.availableTrainingDays) !== sortedDays(after.availableTrainingDays) ||
+    (before.injuryNotes ?? "") !== (after.injuryNotes ?? "") ||
+    [...before.chronicConditions].sort().join(",") !== [...after.chronicConditions].sort().join(",");
+  if (materialChange && after.status === "ACTIVE") {
+    await prisma.$executeRaw`
+      UPDATE "TrainingPlan" SET "status" = 'SUPERSEDED', "updatedAt" = NOW()
+      WHERE "goalId" = ${goalId} AND "status" IN ('ACTIVE', 'DRAFT')
+    `;
     try {
-      await recordCoachHealthConsent(userId, sourceClient);
-    } catch (consentError) {
-      console.error("[coach] failed to persist consent grant", consentError);
+      await ensureCurrentWeekPlan(userId);
+    } catch (planError) {
+      // Non-fatal: the edit is saved and the stale plan is retired either way; the nightly
+      // rollover cron will build the missing week if this immediate rebuild fails.
+      console.error("[coach] failed to rebuild plan after goal edit", planError);
     }
   }
 
-  await refreshCoachSnapshot(userId, rows[0]);
-  return rows[0];
+  await refreshCoachSnapshot(userId, after);
+  return after;
 }
 
 // Hard per-user daily cap on Whisper transcriptions. Unlike text chat (gated by the
@@ -555,6 +588,17 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
         "updatedAt" = NOW()
       WHERE "id" = ${linkedWorkoutId}
     `;
+  }
+
+  // Performance milestones (combined review U-25): if this run set a personal best, remember it as
+  // a SYSTEM_DERIVED fact so the coach congratulates and calibrates from it in later sessions
+  // instead of re-deriving (or missing) it. Non-fatal — a failed milestone write never fails a save.
+  if (validity === "VALID") {
+    try {
+      await recordPerformanceMilestones(userId, runId);
+    } catch (milestoneError) {
+      console.error("[coach] failed to record performance milestones", milestoneError);
+    }
   }
 
   // Both are goal-scoped: the snapshot summarises progress toward a goal, and the safety evaluation
@@ -1000,6 +1044,52 @@ export async function getAnalyzedRunsMap(userId: string, runIds: string[]): Prom
 // weight (for the live calorie estimate in the recorder).
 // Personal records & streaks are derived over the runner's ENTIRE history (not just the
 // recent page shown on the Runs screen), so the "best ever" claims stay true as the list scrolls.
+// mm:ss (or h:mm:ss) rendering for milestone facts; values are compact English + numbers, which
+// the model restates in the runner's language when it uses the fact.
+function formatSeconds(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  const mmss = `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : mmss;
+}
+
+// If the just-saved run holds any personal-record slot, persist PERFORMANCE memory facts for it.
+// Requires a small history first (a runner's first runs would otherwise "set" every record at
+// once, which reads as noise, not achievement). Same (kind, key) supersedes the previous best.
+const MILESTONE_MIN_RUNS = 5;
+
+async function recordPerformanceMilestones(userId: string, runId: string) {
+  const records = await getRunnerRecords(userId);
+  if (records.totalRuns < MILESTONE_MIN_RUNS) return;
+
+  const facts: Array<{ key: string; value: string }> = [];
+  if (records.longestRunId === runId) {
+    facts.push({ key: "pb_longest_run", value: `Longest run yet: ${records.longestRunKm.toFixed(1)} km` });
+  }
+  if (records.fastestPace?.atRunId === runId) {
+    facts.push({ key: "pb_best_pace", value: `Fastest pace yet: ${formatSeconds(records.fastestPace.seconds)}/km` });
+  }
+  if (records.best5k?.atRunId === runId) {
+    facts.push({ key: "pb_5k", value: `New best 5K: ${formatSeconds(records.best5k.seconds)}` });
+  }
+  if (records.best10k?.atRunId === runId) {
+    facts.push({ key: "pb_10k", value: `New best 10K: ${formatSeconds(records.best10k.seconds)}` });
+  }
+  if (facts.length === 0) return;
+
+  await writeMemories(
+    userId,
+    facts.map((fact) => ({
+      kind: "PERFORMANCE",
+      key: fact.key,
+      value: fact.value,
+      source: "SYSTEM_DERIVED" as const,
+      goalId: null
+    }))
+  );
+}
+
 export async function getRunnerRecords(userId: string): Promise<PersonalRecords> {
   const runs = await getPrisma().runnerRun.findMany({
     // SUSPECT/EXCLUDED (non-foot) activities never count toward personal bests or streaks.
@@ -1077,6 +1167,44 @@ export async function getRunsScreenData(userId: string, limit = 50) {
 export async function createCoachInteraction(userId: string, rawInput: unknown) {
   const input = coachInteractionInputSchema.parse(rawInput);
   const prisma = getPrisma();
+
+  // Idempotency (combined review U-10): a client that re-sends the same requestId — double tap,
+  // retry after a timeout, offline replay — gets the stored interaction back instead of a second
+  // provider call, quota charge, or duplicate history entry.
+  let interactionId: string = randomUUID();
+  if (input.requestId) {
+    const existing = await prisma.$queryRaw<Array<{ id: string; status: string; response: CoachResponse | null; safety: unknown }>>`
+      SELECT "id", "status"::text AS "status", "response", "safety"
+      FROM "CoachInteraction"
+      WHERE "userId" = ${userId} AND "clientRequestId" = ${input.requestId}
+      LIMIT 1
+    `;
+    const prior = existing[0];
+    if (prior) {
+      if (prior.status === "PENDING") {
+        // Still generating (the first request is in flight). The client should poll history
+        // rather than trigger a parallel generation for the same question.
+        throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+      }
+      if (prior.status !== "FAILED") {
+        // COMPLETED or BLOCKED: replay the stored result verbatim.
+        return {
+          id: prior.id,
+          status: prior.status as "COMPLETED" | "BLOCKED",
+          response: prior.response as EnforcedCoachResponse,
+          safety: prior.safety as CoachSafetyDecision,
+          plan: null
+        };
+      }
+      // FAILED: the retry reuses the row, so the runner sees one logical interaction. The failed
+      // provider attempt stays in AiUsageLog for the cost audit.
+      interactionId = prior.id;
+      await prisma.$executeRaw`
+        UPDATE "CoachInteraction" SET "status" = 'PENDING', "errorCode" = NULL, "completedAt" = NULL WHERE "id" = ${prior.id}
+      `;
+    }
+  }
+
   const goal = await getActiveGoal(userId);
   if (!goal) throw new CoachError("An active coaching goal is required.", 409, "ACTIVE_GOAL_REQUIRED");
 
@@ -1093,17 +1221,19 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   if (containsUrgentSymptomText(input.message)) {
     const decision = urgentSymptomDecision();
     const response = buildBlockedCoachResponse(decision, goal.preferredLocale);
-    const urgentId = randomUUID();
+    // ON CONFLICT ("id"): a retry of a previously FAILED request reuses its interaction row.
     await prisma.$executeRaw`
       INSERT INTO "CoachInteraction" (
-        "id", "userId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+        "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
       ) VALUES (
-        ${urgentId}, ${userId}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
         'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
         CAST(${JSON.stringify(decision)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
       )
+      ON CONFLICT ("id") DO UPDATE SET
+        "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
     `;
-    return { id: urgentId, status: "BLOCKED" as const, response, safety: decision, plan: null };
+    return { id: interactionId, status: "BLOCKED" as const, response, safety: decision, plan: null };
   }
 
   // Off-topic chat is refused before spending the runner's quota or any AI call. Because it skips
@@ -1121,17 +1251,18 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         AND "createdAt" >= NOW() - INTERVAL '1 day'
     `;
     if (Number(logged?.count ?? 0) < OFF_TOPIC_DAILY_LOG_CAP) {
-      const offTopicId = randomUUID();
       await prisma.$executeRaw`
         INSERT INTO "CoachInteraction" (
-          "id", "userId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+          "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
         ) VALUES (
-          ${offTopicId}, ${userId}, ${goal.id}, ${null}, 'CHAT'::"CoachInteractionType",
+          ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${null}, 'CHAT'::"CoachInteractionType",
           'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
           CAST(${JSON.stringify(offTopicSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
         )
+        ON CONFLICT ("id") DO UPDATE SET
+          "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
       `;
-      return { id: offTopicId, status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
+      return { id: interactionId, status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
     }
     // Over the daily log cap: still refuse gracefully, just don't write another row.
     return { id: randomUUID(), status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
@@ -1162,15 +1293,21 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const memory = await getMemoryForContext(userId, goal.id);
   const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence, consistency.status);
   const skeleton = adaptivePlan.workouts;
-  const interactionId = randomUUID();
 
+  // ON CONFLICT ("id"): a retried FAILED request reuses its row (reset to PENDING above). A
+  // concurrent duplicate with the same requestId instead trips the (userId, clientRequestId)
+  // unique constraint — that request errors, and its retry lands in the dedup path and gets the
+  // stored result. Either way: one interaction, one provider call, one quota charge.
   await prisma.$executeRaw`
     INSERT INTO "CoachInteraction" (
-      "id", "userId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion"
+      "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion"
     ) VALUES (
-      ${interactionId}, ${userId}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+      ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
       'PENDING', ${input.message ?? null}, CAST(${JSON.stringify(safety)} AS JSONB), ${COACH_PROMPT_VERSION}
     )
+    ON CONFLICT ("id") DO UPDATE SET
+      "status" = 'PENDING', "userMessage" = EXCLUDED."userMessage", "safety" = EXCLUDED."safety",
+      "promptVersion" = EXCLUDED."promptVersion", "errorCode" = NULL, "completedAt" = NULL
   `;
 
   if (safety.level === "BLOCKED") {
@@ -1198,11 +1335,13 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // forecast is only worth fetching where it changes advice — planning and open chat — so post-run
   // feedback (which already carries the run's own historical weather) skips the extra round-trip.
   const wantsForecast = input.type !== "POST_RUN";
-  const [targetRace, forecast, sleepEntries, nutrition] = await Promise.all([
+  const [targetRace, forecast, sleepEntries, nutrition, records] = await Promise.all([
     getTargetRace(goal.raceEventId),
     wantsForecast ? resolveForecast(runs, profileRows[0]?.wilaya ?? null) : Promise.resolve(null),
     getSleepEntries(userId, 14),
-    getNutritionCoachSummary(userId)
+    getNutritionCoachSummary(userId),
+    // All-time bests/streaks for the context's records block (review U-25).
+    getRunnerRecords(userId).catch(() => null)
   ]);
 
   // Recent exchanges (this runner only) so the coach can build on what was already asked and
@@ -1269,15 +1408,16 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     trainingPhase: adaptivePlan.phase,
     planAdaptations: adaptivePlan.adaptations,
     activePlan,
-    memory
+    memory,
+    records
   });
   const context = envelope.context;
 
   try {
-    const generated = await generateCoachResponse(context, interactionId);
+    const generated = await generateCoachResponse(context, interactionId, input.type);
     const response = enforceCoachSafety(generated.response, safety, skeleton, goal.preferredLocale);
     const plan = input.type === "INITIAL_PLAN" || input.type === "WEEKLY_REVIEW"
-      ? await saveDraftPlan(userId, goal.id, response)
+      ? await saveGeneratedPlan(userId, goal.id, response)
       : null;
 
     await prisma.$transaction(async (tx) => {
@@ -1546,7 +1686,12 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   return { created: true };
 }
 
-async function saveDraftPlan(userId: string, goalId: string, response: EnforcedCoachResponse) {
+// Persist the week generated during an INITIAL_PLAN / WEEKLY_REVIEW interaction. Activates
+// immediately (owner decision 2026-08-02, review U-08/U-09): the workouts are the deterministic
+// skeleton either way — safe by construction — so an acceptance step added friction without adding
+// safety, and it made web and native behave differently. Acceptance UX is reserved for future
+// material-change diffs; the runner adjusts via skip/move/regenerate instead.
+async function saveGeneratedPlan(userId: string, goalId: string, response: EnforcedCoachResponse) {
   if (response.upcomingWorkouts.length === 0) return null;
   const prisma = getPrisma();
   const dates = response.upcomingWorkouts.map((workout) => new Date(workout.scheduledFor));
@@ -1561,13 +1706,13 @@ async function saveDraftPlan(userId: string, goalId: string, response: EnforcedC
     const version = (versions[0]?.version ?? 0) + 1;
     await tx.$executeRaw`
       UPDATE "TrainingPlan" SET "status" = 'SUPERSEDED', "updatedAt" = NOW()
-      WHERE "goalId" = ${goalId} AND "status" = 'DRAFT'
+      WHERE "goalId" = ${goalId} AND "status" IN ('DRAFT', 'ACTIVE')
     `;
     await tx.$executeRaw`
       INSERT INTO "TrainingPlan" (
         "id", "userId", "goalId", "version", "startsOn", "endsOn", "status", "source", "summary", "updatedAt"
       ) VALUES (
-        ${planId}, ${userId}, ${goalId}, ${version}, ${startsOn}, ${endsOn}, 'DRAFT', 'AI_ASSISTED', ${response.summary}, NOW()
+        ${planId}, ${userId}, ${goalId}, ${version}, ${startsOn}, ${endsOn}, 'ACTIVE', 'AI_ASSISTED', ${response.summary}, NOW()
       )
     `;
     for (const workout of response.upcomingWorkouts) {
@@ -1583,7 +1728,7 @@ async function saveDraftPlan(userId: string, goalId: string, response: EnforcedC
         )
       `;
     }
-    return { id: planId, version, status: "DRAFT" as const, startsOn, endsOn, workouts: response.upcomingWorkouts };
+    return { id: planId, version, status: "ACTIVE" as const, startsOn, endsOn, workouts: response.upcomingWorkouts };
   });
 }
 

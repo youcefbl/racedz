@@ -172,7 +172,9 @@ export async function getCoachOpsReport(windowDays = 30, now: Date = new Date())
     inputTokens += num(row.inputTokens);
     outputTokens += num(row.outputTokens);
     costMicro += num(row.costMicro);
-    unpricedRequests += num(row.unpriced);
+    // Unpriced = a SUCCESSFUL call whose model has no price-table entry (T0-R06). Failed calls
+    // legitimately carry no cost and must not inflate this count.
+    if (row.status === "SUCCESS" || row.status === "SUCCEEDED") unpricedRequests += num(row.unpriced);
   }
 
   return {

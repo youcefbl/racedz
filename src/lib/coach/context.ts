@@ -5,6 +5,7 @@ import type { MemoryContextItem } from "@/lib/coach/memory";
 import type { ActivePlanContext } from "@/lib/coach/plan-context";
 import type { CoachMetrics, ConsistencyAssessment, IntensityDistribution, MetricRun } from "@/lib/coach/metrics";
 import { computeSplits } from "@/lib/coach/run-stats";
+import type { PersonalRecords } from "@/lib/coach/records";
 import type { CoachInteractionInput, CoachWorkout } from "@/lib/coach/schemas";
 import type { CoachSafetyDecision } from "@/lib/coach/safety";
 import type { ForecastConditions, RunWeather } from "@/lib/coach/weather";
@@ -109,6 +110,9 @@ export function buildRunnerCoachContext(input: {
   targetRun?: TargetRun | null;
   recentConversation?: ConversationTurn[];
   adherence?: PlanAdherence | null;
+  // All-time personal records & streaks (review U-25), so the coach knows the runner's bests and
+  // momentum without re-deriving them from the 10-run window.
+  records?: PersonalRecords | null;
   // The deterministic planner's current training phase and any load adjustments it made this week —
   // so the coach can name the phase ("you're in your base weeks") and explain why the week changed.
   trainingPhase?: string | null;
@@ -117,12 +121,11 @@ export function buildRunnerCoachContext(input: {
   // exactly which sessions were completed / missed / skipped, not just the aggregate adherence.
   activePlan?: ActivePlanContext | null;
 }) {
+  // Key order is deliberate (review U-20): stable sections first, volatile sections last, the live
+  // request at the very end. The serialized context is the provider prompt's tail, and prefix
+  // caching only pays for the bytes that repeat — putting the runner's message first invalidated
+  // the whole context on every turn. Reordering changes the serialized bytes, hence ctx-v2.
   const context = {
-    request: {
-      type: input.interaction.type,
-      runnerQuestion: input.interaction.message ?? null,
-      responseLocale: input.goal.preferredLocale
-    },
     runner: {
       sex: input.profile?.sex ?? null,
       age: input.profile?.age ?? null,
@@ -153,6 +156,18 @@ export function buildRunnerCoachContext(input: {
       chronicConditions: input.goal.chronicConditions,
       healthNotes: input.goal.healthNotes
     },
+    // Facts carry their source so the coach can use a runner-stated preference confidently while
+    // treating its own earlier inference as a guess to check rather than a fact to assert.
+    coachMemory: input.memory && input.memory.length > 0 ? input.memory : null,
+    // The actual race being trained for (course, terrain, where and when), when the goal links one,
+    // plus how many days remain — lets the coach tailor course prep instead of echoing the goal.
+    targetRace: input.targetRace ? describeTargetRace(input.targetRace) : null,
+    // The actual active plan, session by session (completed / skipped-with-reason / rescheduled + the
+    // real run), so the coach references what genuinely happened rather than a fresh generated week.
+    activePlan: input.activePlan ?? null,
+    fixedWeeklyPlanSkeleton: input.skeleton,
+    // All-time bests and streaks, so milestones inform coaching without re-derivation (U-25).
+    records: input.records ? describeRecords(input.records) : null,
     computedMetrics: input.metrics,
     // Whether the runner is keeping to their committed cadence, so the coach can nudge them back to
     // consistency when sessions are being skipped and acknowledge it when they're on track.
@@ -166,9 +181,6 @@ export function buildRunnerCoachContext(input: {
     // Recent fuel/hydration averages the runner logged, so the coach can advise on fueling around
     // long runs and race week. Null when nothing is logged.
     nutrition: input.nutrition ?? null,
-    // The actual race being trained for (course, terrain, where and when), when the goal links one,
-    // plus how many days remain — lets the coach tailor course prep instead of echoing the goal.
-    targetRace: input.targetRace ? describeTargetRace(input.targetRace) : null,
     // Current + today's forecast where the runner trains, so planning and chat can adapt to heat,
     // humidity and rain (move a hard session earlier, swap to easy, hydrate). Null for post-run.
     environment: input.forecast ? describeForecast(input.forecast) : null,
@@ -193,14 +205,13 @@ export function buildRunnerCoachContext(input: {
     // load (missed sessions, fatigue, pain). Lets the coach explain the "why" instead of guessing.
     trainingPhase: input.trainingPhase ?? null,
     planAdaptations: input.planAdaptations ?? [],
-    // The actual active plan, session by session (completed / skipped-with-reason / rescheduled + the
-    // real run), so the coach references what genuinely happened rather than a fresh generated week.
-    activePlan: input.activePlan ?? null,
     fixedSafetyDecision: input.safety,
-    fixedWeeklyPlanSkeleton: input.skeleton,
-    // Facts carry their source so the coach can use a runner-stated preference confidently while
-    // treating its own earlier inference as a guess to check rather than a fact to assert.
-    coachMemory: input.memory && input.memory.length > 0 ? input.memory : null
+    // Last on purpose: the live request is the most volatile section (see the ordering note above).
+    request: {
+      type: input.interaction.type,
+      runnerQuestion: input.interaction.message ?? null,
+      responseLocale: input.goal.preferredLocale
+    }
   };
 
   return compactIfNeeded(context);
@@ -208,7 +219,8 @@ export function buildRunnerCoachContext(input: {
 
 // Version of the context *shape* (not the prompt). Bump when the set/structure of context fields
 // changes, so a stored interaction can be traced to how its context was assembled.
-export const COACH_CONTEXT_VERSION = "ctx-v1-2026-07-18";
+// v2: cache-aware key order (stable→volatile, live request last) + all-time records block.
+export const COACH_CONTEXT_VERSION = "ctx-v2-2026-08-02";
 
 type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
 
@@ -258,7 +270,8 @@ function describeContextSections(input: CoachContextInput): Record<string, strin
     recentConversation: s((input.recentConversation?.length ?? 0) > 0, "no-prior-conversation"),
     consistency: s(Boolean(input.consistency), "insufficient-data"),
     intensity: s(Boolean(input.intensity), "insufficient-data"),
-    coachMemory: s((input.memory?.length ?? 0) > 0, "no-memory-stored")
+    coachMemory: s((input.memory?.length ?? 0) > 0, "no-memory-stored"),
+    records: s(Boolean(input.records && input.records.totalRuns > 0), "no-runs-logged")
   };
 }
 
@@ -337,6 +350,22 @@ function describeSleep(entries: Array<{ night: Date | string; durationMinutes: n
       night: new Date(entry.night).toISOString().slice(0, 10),
       hours: toHours(entry.durationMinutes)
     }))
+  };
+}
+
+// All-time bests and streaks, reduced to what the coach can actually use in a sentence. Times are
+// seconds (the model formats them); run ids/dates beyond the essentials are deliberately absent.
+function describeRecords(records: PersonalRecords) {
+  if (records.totalRuns === 0) return null;
+  return {
+    totalRuns: records.totalRuns,
+    totalDistanceKm: Math.round(records.totalDistanceKm * 10) / 10,
+    longestRunKm: records.longestRunKm,
+    bestPaceSecondsPerKm: records.fastestPace?.seconds ?? null,
+    best5kSeconds: records.best5k?.seconds ?? null,
+    best10kSeconds: records.best10k?.seconds ?? null,
+    currentStreakWeeks: records.currentStreakWeeks,
+    longestStreakWeeks: records.longestStreakWeeks
   };
 }
 

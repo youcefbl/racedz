@@ -1,10 +1,11 @@
 # ZidRun AI Coach — Combined Review (Fable × Codex)
 
 *Date: 2026-08-02 · merges `coach_review_fable.md` (Claude Fable 5) and `coach_review_codex.md`
-(Codex, rev `abee6f1`). This file is the **canonical merged assessment and roadmap**; the two
-source files remain the deep-dive references (Fable: architecture map, prompt rewrites, memory/
-context design, cost model, native-switch todo §9 · Codex: safety/consent analysis, test plan
-§15, analytics/eval harness §14, open product questions §18).*
+(Codex, rev `abee6f1`). This file is an evidence-based combined assessment, **not a progress,
+release-gate, priority, or roadmap tracker**. `EXECUTION_PLAN.md` remains the sole authority for
+those statuses. The two source files remain deep-dive references (Fable: architecture map, prompt
+rewrites, memory/context design, cost model, native-switch todo §9 · Codex: safety/consent
+analysis, test plan §15, analytics/eval harness §14, open product questions §18).*
 
 ## 0. Cross-verification
 
@@ -168,20 +169,22 @@ it is a selling point.**
 
 ---
 
-## 5. Merged roadmap
+## 5. Recommended sequencing (non-authoritative)
 
-*Supersedes Codex §16 and Fable §7/§9 as the single sequence. Native-first: the mobile client is
-switching from Capacitor to `native-android/` (owner decision 2026-08-02), so client work lands
-on native + additive `/api/v1`; Capacitor stays the rollback path (`NATIVE-007`).*
+*This synthesis does not supersede `EXECUTION_PLAN.md`; it only reconciles the two review
+recommendations. Native-first: the mobile client is switching from Capacitor to `native-android/`
+(owner decision 2026-08-02), so client work lands on native + additive `/api/v1`; Capacitor stays
+the rollback path (`NATIVE-007`).*
 
 > **Owner decisions (2026-08-02):** trial is **7 days** (admin copy was wrong, not the code) ·
 > plan lifecycle is **instant deterministic activation + easy adjust** on both clients
 > (acceptance reserved for material-change diffs) · consent is **scaffolded now** ahead of the
 > SEC-002 policy text · work starts with **Tier 0 in full**.
 
-### Tier 0 — governance blockers — ✅ implemented 2026-08-02
+### Tier 0 — governance blockers — branch implementation reviewed, changes requested
 
-- [x] **U-01 Safety preflight on current input** — `containsUrgentSymptomText()` +
+- **U-01 Safety preflight on current input — implemented for live interaction text; not a closed
+      release gate.** `containsUrgentSymptomText()` +
       `urgentSymptomDecision()` in `safety.ts`; scanned **before topicality and entitlement** in
       `createCoachInteraction` (a red-flag message previously could even be refused as
       *off-topic*, since "chest pain"/"faint" aren't in the topicality vocabulary); the live
@@ -190,46 +193,63 @@ on native + additive `/api/v1`; Capacitor stays the rollback path (`NATIVE-007`)
       stroke. Golden set (18 urgent, 9 benign incl. collision controls) in
       `scripts/test-coach.ts` — passing. *Remaining: owner-reviewed escalation copy + broader
       taxonomy (§7 Q3), sleep-note scanning.*
-- [x] **U-02 Auditable consent (scaffold)** — `CoachConsent` model + enums + migration
+- **U-02 Auditable consent (scaffold) — partial; findings `T0-R01`, `T0-R02`, and `T0-R04` remain.**
+      `CoachConsent` model + enums + migration
       `20260802120000_coach_consent_and_unpriced_cost`; `src/lib/coach/consent.ts`
       (`COACH_CONSENT_POLICY_VERSION = "coach-consent-2026-08-v1"`, idempotent grant per policy
-      version, withdrawal helper); grants persisted from goal create *and* edit with
-      `sourceClient` web/native; `consent` added (optional/additive) to `createCoachGoalSchema`;
+      version, withdrawal helper); the service can tag grants from goal create/edit as web/native,
+      but only web currently transmits consent (`T0-R01`); `consent` added (optional/additive) to `createCoachGoalSchema`;
       form checkbox **never pre-checked** and required on create and edit, and now actually sent
       in the payload (it previously wasn't transmitted at all). *Remaining: SEC-002 policy text,
       enforcement, withdrawal UI.*
-- [x] **U-05 Memory suppression** — `validateMemoryCandidates` takes a `dismissedSlots` set
+- **U-05 Memory suppression — partial; pure validation passes, but `T0-R05` remains.**
+      `validateMemoryCandidates` takes a `dismissedSlots` set
       (rejects any candidate whose `(kind,key)` the runner dismissed, all sources);
       `writeMemories` fetches DISMISSED tombstones per user; 6 new pure tests (42/42 passing).
       *Deliberately kept: `deleteAllMemory` stays a full erase pending §7 Q9 (suppression
       shells vs right-to-erase).*
-- [x] **U-18 Config truth** — `.env.example` + `CODEX_CONTEXT.md` now name the real quota vars;
+- **U-18 Config truth — partial; configuration copy is corrected, but `T0-R03` and `T0-R06`
+      remain.** `.env.example` + `CODEX_CONTEXT.md` now name the real quota vars;
       admin "Pricing & limits" derives from `COACH_TRIAL_DAYS`/`COACH_TIER_LIMITS` (was
       hardcoded "30 days"); `estimateCostMicroUsd` returns **null** for unknown models,
       `AiUsageLog.estimatedCostMicroUsd` made nullable (same migration), ops report gains
       `ai.unpricedRequests`; `/api/coach/tts` now entitlement-gated (TRIAL+SUBSCRIBED allowed,
       NONE → 402).
 
+> **Owner decision (2026-08-02): Capacitor is retired as a mobile target.** The native Android
+> app is the only mobile client going forward; `/api/v1` compatibility constraints now protect
+> the website and the native app, not the Capacitor wrapper. (Supersedes the "Capacitor remains
+> the rollback path" framing above; `EXECUTION_PLAN.md` `NATIVE-008` is where the switch decision
+> is formally recorded.)
+
 ### Tier 1 — trust cluster + native rails (parallel tracks)
 
-*Server track:*
-- [ ] **U-10 Idempotent interactions** — client `requestId`, unique `(userId, requestId)`,
-      return existing interaction on retry; status endpoint (full async lifecycle can follow —
-      U-27).
-- [ ] **U-08 + U-09 One plan lifecycle** — deterministic preview → explicit acceptance →
-      active, identical on web and native; material goal edits mark the plan stale / safety-
-      pause incompatible sessions with a visible diff; persist `acceptedAt`; label RULE_BASED
-      weeks accurately (U-26).
-- [ ] **U-11 Render the hidden fields** — "Based on" chips (`usedSignals`), "Missing"
-      (`dataGaps`), recovery actions, one-tap `followUpQuestion` reply — schema + translations
-      already exist; smallest highest-leverage UX change in the codebase.
-- [ ] **U-12 + U-21 Prompt bump `coach-v11`** — darija register rule; per-interaction-type
-      variants; de-templated POST_RUN warmth; goal-time feasibility rule (interim until U-06);
-      dedupe rules. (Full rewrites: Fable §6.)
-- [ ] **U-20 Cache-stable context** — [static instructions][semi-stable dossier][volatile]
-      layout, stable key order, token-based budget; ~25% AI cost off and prerequisite for any
-      model experiment.
-- [ ] **U-25 PERFORMANCE memory + records in context** (small migration + write on PB).
+*Server track — implementation evidence (2026-08-02, `feat/coach-tier0`; statuses are evidence,
+not release-gate closures):*
+- [x] **U-10 Idempotent interactions** — `clientRequestId` column + unique `(userId,
+      clientRequestId)` (migration `20260802130000`); `requestId` in
+      `coachInteractionInputSchema` (optional/additive); dedup lookup replays COMPLETED/BLOCKED,
+      409s in-flight PENDING, reuses FAILED rows for retries; all three insert sites conflict-
+      safe; web dashboard + runs-view send `crypto.randomUUID()` per ask. Status endpoint /
+      async lifecycle still open (U-27).
+- [x] **U-08 + U-09 One plan lifecycle (instant-activation variant per owner decision)** —
+      `saveGeneratedPlan` activates AI-interaction weeks immediately (supersedes DRAFT+ACTIVE);
+      web goal creation eagerly builds the first week like native; material goal edits
+      (goal/date/experience/volume/days/injuries/conditions) supersede the current plan and
+      rebuild it from the new answers. Still open: visible plan-diff UX, `acceptedAt`/labeling
+      (U-26).
+- [x] **U-11 Render the hidden fields** — recovery block, "Based on" chips, "Missing" chips,
+      and the follow-up question with an Answer button that focuses the composer
+      (`coach-conversation.tsx`); 5 new copy keys × en/fr/ar (parity green).
+- [x] **U-12 + U-21 Prompt `coach-v11-2026-08-02`** — shared core + per-type suffixes
+      (POST_RUN / INITIAL_PLAN / WEEKLY_REVIEW / CHAT), darija register rule, de-templated
+      POST_RUN warmth, goal-time feasibility rule, duplicate rules merged; per-type
+      `prompt_cache_key`.
+- [x] **U-20 Cache-stable context `ctx-v2-2026-08-02`** — stable→volatile key order with the
+      live request last. Token-based budget (vs 14k chars) still open.
+- [x] **U-25 PERFORMANCE memory + records** — enum + migration `20260802140000`;
+      SYSTEM_DERIVED PB facts written on run save (longest / best pace / 5K / 10K, after ≥5
+      runs); all-time records block added to the context.
 
 *Native track (from Fable §9 P0, unchanged):*
 - [ ] `/api/v1/coach/memory` + native memory/privacy screen (COACHPAR-002; carries U-05's new
@@ -346,3 +366,78 @@ upgrade before U-19/U-20 make its effect measurable.
 | Analytics events + eval harness | `coach_review_codex.md` §14 |
 | Training-engine layer design + invariants | `coach_review_codex.md` §10 |
 | Recommended runner journey | `coach_review_codex.md` §7 (adopted, with Fable's interview/Ramadan/macro-plan additions) |
+
+---
+
+## 9. Code review — `feat/coach-tier0`
+
+### Review boundary and verdict
+
+- **Base:** `main` at `abee6f1`.
+- **Committed implementation reviewed:** `a18e9b9` (`feat(coach): Tier 0 governance fixes`).
+- **Verdict:** **changes requested**. The safety preflight and pure memory checks are useful, but
+  the branch does not yet close the consent, memory-control, TTS, or cost-truth findings it marks
+  as implemented. No `SEC-*` or release gate should be closed from this branch review.
+- **Worktree boundary:** additional Tier 1 prompt, response-rendering, and idempotency work appeared
+  uncommitted while this review was running. It is not part of `a18e9b9` and is not counted as
+  completed evidence below.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `T0-R01` | **P1** | **Native consent is never transmitted.** `CoachOnboardingScreen.kt:139,174-176,539-639` gates the button locally, but `CreateCoachGoalRequest` in `Dtos.kt:655-689` has no `consent` property. The server only records a grant when `input.consent === true` (`service.ts:200-208,322-329`). | Native goal create/edit can store health answers without creating the new native consent audit row, while the branch report claims web/native grants are persisted. | Add consent to the native request contract; send it only after an explicit action; add API/DB contract tests proving one `sourceClient=native` grant and proving omitted/false consent cannot enter the sensitive path. |
+| `T0-R02` | **P1** | **Consent persistence is optional, non-atomic, and fail-open.** `createCoachGoalSchema` makes `consent` optional (`schemas.ts:61-64`). Goal health fields commit first; the grant is written afterward and any error is logged and swallowed (`service.ts:160-208`). The update path has the same split (`service.ts:291-329`). | A direct API caller or a transient DB failure can produce successfully stored/processed health data with no reconstructable consent grant—the exact state U-02 was meant to prevent. | Enforce the applicable consent or an explicitly non-sensitive mode server-side. Persist the goal/update and consent in one transaction, or fail without committing sensitive fields. Cover omitted, false, insert-failure, create, edit, web, and native cases with DB integration tests. |
+| `T0-R03` | **P1** | **The TTS cost/privacy boundary remains open.** The new route check rejects tier `NONE`, but `/api/coach/tts` still accepts arbitrary authenticated text up to 200 characters, applies no Coach daily/monthly usage budget, writes no `AiUsageLog`, and returns public immutable audio backed by `public/uploads/tts-audio` (`route.ts:19-52`; `tts.ts:10-67`). | A trial or paid account can generate large numbers of novel billed/public audio objects, and admin cost reporting cannot see them. U-18 is therefore not implemented in full. | Accept allowlisted cue IDs/templates rather than arbitrary prose; enforce per-user/provider budgets; record cache miss/provider usage; store/serve the cache under the approved privacy policy rather than general public uploads. |
+| `T0-R04` | **P2** | **The “active consent under the current policy” helper does not require the current policy.** `getActiveCoachHealthConsent()` filters purpose/status but not `COACH_CONSENT_POLICY_VERSION` (`consent.ts:47-55`). | A future enforcement call could treat a grant for superseded wording as current and skip required re-consent. | Filter by the current policy version or return an explicitly version-checked decision, with an old-version/re-consent test. |
+| `T0-R05` | **P2** | **Dismissal suppression has no database/concurrency invariant.** `writeMemories()` reads dismissed slots before starting its write transaction (`memory-store.ts:43-65`); a concurrent dismiss/extraction can pass the pre-check and insert a new active row. `deleteAllMemory()` still deletes tombstones (`memory-store.ts:196-199`). The added 42-check suite exercises only the pure validator, not the DB path. | “Forget this” can still be undone by a race, and “delete all” still permits later re-learning despite U-05 covering both dismissed and deleted facts. | Decide delete-all semantics, then enforce suppression transactionally with a database-backed invariant/locking strategy and concurrent dismiss/write integration tests. Do not mark U-05 closed until both promises are explicit and tested. |
+| `T0-R06` | **P2** | **Unknown-cost reporting remains misleading.** Failed `AiUsageLog` rows omit cost and are therefore counted as “unpriced” by `report.ts:95-103`, even for a known model. Meanwhile the primary admin Coach page still sums nullable costs to zero and shows no unpriced warning (`coach-admin.ts:77-100`; `admin/coach/page.tsx:77-88`). | The new count mixes provider failures with unknown pricing, while the main operator surface can still present a partial total as the full estimate. | Define unpriced as a successful request whose model lacks a price entry, expose the count/warning beside every displayed total, and test known-model failure, known-model success, and unknown-model success. |
+| `T0-R07` | **P2** | **Tier 0 verification does not exercise the new integration boundaries.** The safety and memory additions have pure tests, but there is no route/service test proving urgent text bypasses entitlement without a provider call, no consent migration/create/edit/withdraw test, no native consent contract test, and no TTS entitlement/accounting test. The escalation copy and broader free-text taxonomy remain explicitly unapproved. | Passing unit checks can coexist with the native consent failure and the fail-open transaction split above. | Add isolated database/API contract tests for the stated guarantees and retain the owner-reviewed multilingual safety-copy/taxonomy gate in `EXECUTION_PLAN.md`. |
+
+### Remediation of T0-R findings (2026-08-02, uncommitted at review time → next commit on `feat/coach-tier0`)
+
+Evidence of code changes responding to the findings above — subject to the same rule that no
+release gate closes without the tests the acceptance conditions name:
+
+- **T0-R01** — `CreateCoachGoalRequest` (Dtos.kt) gains `consent: Boolean`; the onboarding screen
+  transmits its existing consent tick and no longer auto-ticks it in edit mode (every save
+  re-affirms, matching web). *Kotlin compile/device verification not run in this session.*
+- **T0-R02** — consent is now enforced server-side: goal create **and** edit throw
+  `400 CONSENT_REQUIRED` without `consent: true`, and the grant is written inside the same
+  transaction as the goal insert/update (`recordCoachHealthConsent(userId, client, tx)`) — a
+  stored goal without its grant can no longer occur in either failure order.
+- **T0-R04** — `getActiveCoachHealthConsent` now filters by `COACH_CONSENT_POLICY_VERSION`; a
+  grant under superseded wording reads as "re-consent required".
+- **T0-R05** — the memory insert itself carries a `WHERE NOT EXISTS (… status='DISMISSED')`
+  guard, closing the check-then-write race. Delete-all semantics remain an open owner decision
+  (§7 Q9); DB-backed concurrency tests remain open (T0-R07).
+- **T0-R06** — "unpriced" now counts only SUCCEEDED rows with NULL cost in both the ops report
+  and `getCoachUsageSummary`; the admin cost card shows "(+N unpriced)" when the total is
+  incomplete.
+- **T0-R03 (partial)** — billed TTS synth calls (cache misses) are now capped per user per day
+  (60) and recorded in `AiUsageLog` (SUCCEEDED/FAILED; cost NULL = unpriced by design, since TTS
+  is character-priced). Still open: cue allowlisting and moving the audio cache out of public
+  uploads.
+- **T0-R07** — open: DB/API integration tests for these boundaries need a `DATABASE_URL`-enabled
+  environment; pure suites, eslint, tsc (coach scope), and both i18n parity gates pass.
+
+### Verification performed
+
+- `node --import tsx scripts/test-coach.ts` — passed, including the 18 urgent / 9 benign text set.
+- Coach context evaluation — passed.
+- Adaptive planner — 68/68 passed.
+- Coach memory — 42/42 passed.
+- Workout structure — passed.
+- Web i18n parity — 629 UI + 461 Coach keys across EN/FR/AR passed at the reviewed snapshot.
+- Native i18n parity — 472 keys across EN/FR/AR passed.
+- Targeted ESLint over the committed Tier 0 implementation files — passed.
+
+### Not accepted or not tested
+
+- No live OpenAI/TTS request, browser rendering capture, migration rehearsal, isolated DB integration,
+  emulator, signed-device, TalkBack, performance, or production test was run for this review.
+- The repository-referenced `impeccable` frontend review skill was unavailable. The five approved
+  Coach v2 images were inspected at original resolution, but the changed web consent UI was not
+  captured in a browser across themes/locales.
+- The concurrently changing uncommitted Tier 1 work requires its own stable-commit review; its
+  presence must not change the status of `a18e9b9` or any release gate.

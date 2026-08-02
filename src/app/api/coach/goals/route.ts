@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { coachErrorResponse, readCoachJson } from "@/lib/coach/http";
-import { createCoachGoal, getCoachGoals } from "@/lib/coach/service";
+import { createCoachGoal, ensureCurrentWeekPlan, getCoachGoals } from "@/lib/coach/service";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export async function GET() {
@@ -26,6 +26,15 @@ export async function POST(request: Request) {
 
   try {
     const goal = await createCoachGoal(session.user.id, await readCoachJson(request));
+    // Instant-plan lifecycle (review U-09, matching the native route): the runner leaves
+    // onboarding with this week's deterministic plan already active — free, no AI call — instead
+    // of an empty plan tab until they request an INITIAL_PLAN. Best-effort: goal creation
+    // succeeds even if the eager build fails (the nightly rollover covers it).
+    try {
+      await ensureCurrentWeekPlan(session.user.id);
+    } catch (planError) {
+      console.error("[coach] eager first-week plan failed", planError);
+    }
     return NextResponse.json({ data: goal }, { status: 201 });
   } catch (error) {
     return coachErrorResponse(error);

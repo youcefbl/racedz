@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, BrainCircuit, CheckCircle2, ChevronUp, Loader2, MessageSquareText, Mic, Send, ShieldAlert, Sparkles, Square, UserCog } from "lucide-react";
+import { AlertTriangle, BrainCircuit, CheckCircle2, ChevronUp, HeartPulse, Loader2, MessageSquareText, MessageCircleQuestion, Mic, Send, ShieldAlert, Sparkles, Square, UserCog } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -43,7 +43,15 @@ export function CoachConversation({
   );
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const thinking = pendingAction === "CHAT" || pendingAction === "POST_RUN";
+
+  // "Answer" on a coach follow-up question jumps the runner into the composer — the question is
+  // the coach's, so the box starts empty and focused rather than pre-filled (review U-11).
+  function answerFollowUp() {
+    composerRef.current?.focus();
+    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   // Merge the loaded older pages under the live window, de-duped by id (a just-asked interaction can
   // briefly exist in both). Failed AI requests are tracked for admins but not shown to the runner.
@@ -188,6 +196,7 @@ export function CoachConversation({
                   locale={locale}
                   copy={copy}
                   highlight={interaction.id === focusInteractionId}
+                  onAnswerFollowUp={answerFollowUp}
                 />
               ))}
             </div>
@@ -216,6 +225,7 @@ export function CoachConversation({
           <div className="flex items-end gap-3">
             <textarea
               id="coach-question"
+              ref={composerRef}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               maxLength={1200}
@@ -279,12 +289,14 @@ function InteractionMessage({
   interaction,
   locale,
   copy,
-  highlight = false
+  highlight = false,
+  onAnswerFollowUp
 }: {
   interaction: CoachInteraction;
   locale: CoachLocale;
   copy: CoachCopy;
   highlight?: boolean;
+  onAnswerFollowUp?: () => void;
 }) {
   const response = interaction.response;
   const failed = interaction.status === "FAILED";
@@ -337,6 +349,58 @@ function InteractionMessage({
           {(response.warningSignals ?? []).map((signal) => (
             <p key={signal} className="mt-3 flex gap-2 text-sm text-gray-700"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-brand-orange" aria-hidden="true" />{signal}</p>
           ))}
+
+          {/* Transparency fields the model has always produced but the UI silently discarded
+              (combined review U-11): recovery actions, the signals the advice rests on, what was
+              missing, and the coach's one optional follow-up question. */}
+          {(response.recoveryAdvice ?? []).length > 0 ? (
+            <div className="mt-4 rounded-md bg-teal-50/60 p-3">
+              <p className="flex items-center gap-2 text-xs font-bold text-teal-800">
+                <HeartPulse className="size-4" aria-hidden="true" />
+                {copy.recoveryTitle}
+              </p>
+              <ul className="mt-2 space-y-1.5 text-sm leading-6 text-gray-700">
+                {(response.recoveryAdvice ?? []).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {(response.usedSignals ?? []).length > 0 || (response.dataGaps ?? []).length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              {(response.usedSignals ?? []).length > 0 ? (
+                <>
+                  <span className="text-xs font-bold text-gray-500">{copy.basedOn}:</span>
+                  {(response.usedSignals ?? []).map((signal) => (
+                    <span key={signal} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">{signal}</span>
+                  ))}
+                </>
+              ) : null}
+              {(response.dataGaps ?? []).length > 0 ? (
+                <>
+                  <span className="ms-2 text-xs font-bold text-gray-500">{copy.missingInfo}:</span>
+                  {(response.dataGaps ?? []).map((gap) => (
+                    <span key={gap} className="rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs font-semibold text-gray-500">{gap}</span>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          {response.followUpQuestion ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-brand-teal/30 bg-teal-50/40 p-3">
+              <p className="flex gap-2 text-sm text-gray-800">
+                <MessageCircleQuestion className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+                <span><span className="font-bold">{copy.coachAsks}:</span> {response.followUpQuestion}</span>
+              </p>
+              {onAnswerFollowUp ? (
+                <Button type="button" variant="secondary" size="sm" onClick={onAnswerFollowUp}>
+                  {copy.answerFollowUp}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </article>

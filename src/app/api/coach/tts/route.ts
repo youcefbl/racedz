@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     if (text.length > MAX_TEXT_LENGTH) throw new CoachError("That cue is too long to speak.", 400, "TEXT_TOO_LONG");
     if (!isTtsLocale(locale)) throw new CoachError("Unsupported locale.", 400, "UNSUPPORTED_LOCALE");
 
-    const audio = await synthesizeSpeech(text, locale);
+    const audio = await synthesizeSpeech(text, locale, session.user.id);
     return new NextResponse(new Uint8Array(audio), {
       status: 200,
       headers: {

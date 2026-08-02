@@ -73,15 +73,23 @@ export async function writeMemories(
         WHERE "userId" = ${userId} AND "kind" = ${candidate.kind}::"CoachMemoryKind"
           AND "key" = ${candidate.key} AND "status" = 'ACTIVE'
       `;
+      // The dismissal guard is part of the INSERT itself (T0-R05): the pre-transaction slot check
+      // above filters the common case, but only this NOT EXISTS makes "forget this" hold against a
+      // dismissal that lands concurrently between the check and the write.
       await tx.$executeRaw`
         INSERT INTO "CoachMemory" (
           "id", "userId", "goalId", "kind", "key", "value", "source", "sourceInteractionId",
           "confidence", "status", "expiresAt", "updatedAt"
-        ) VALUES (
+        )
+        SELECT
           ${randomUUID()}, ${userId}, ${candidate.goalId ?? null}, ${candidate.kind}::"CoachMemoryKind",
           ${candidate.key}, ${candidate.value}, ${candidate.source}::"CoachMemorySource",
           ${candidate.sourceInteractionId ?? null}, ${candidate.confidence ?? null}, 'ACTIVE',
           ${candidate.expiresAt ?? null}, NOW()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "CoachMemory"
+          WHERE "userId" = ${userId} AND "kind" = ${candidate.kind}::"CoachMemoryKind"
+            AND "key" = ${candidate.key} AND "status" = 'DISMISSED'
         )
       `;
     }

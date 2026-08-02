@@ -77,7 +77,14 @@ export default async function AdminCoachPage({ searchParams }: AdminCoachPagePro
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Requests (30 days)" value={formatNumber(summary.requests30d)} icon={Activity} />
         <StatCard label="Requests (all time)" value={formatNumber(summary.totalRequests)} icon={Bot} />
-        <StatCard label="Estimated cost" value={formatUsd(summary.costMicroUsd)} icon={Coins} tone="orange" />
+        {/* The estimate excludes unpriced calls (unknown model, cost NULL) — say so rather than
+            presenting a partial total as complete (review T0-R06). */}
+        <StatCard
+          label={summary.unpricedRequests > 0 ? `Estimated cost (+${summary.unpricedRequests} unpriced)` : "Estimated cost"}
+          value={formatUsd(summary.costMicroUsd)}
+          icon={Coins}
+          tone="orange"
+        />
         <StatCard label="Tokens in / out" value={`${formatNumber(summary.inputTokens)} / ${formatNumber(summary.outputTokens)}`} icon={Sparkles} />
         <StatCard label="Active subscribers" value={formatNumber(summary.activeSubscribers)} icon={BadgeDollarSign} tone="orange" />
         <StatCard label="Coached runners" value={formatNumber(summary.coachedUsers)} icon={Users} />

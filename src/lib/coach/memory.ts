@@ -30,7 +30,10 @@ export const WRITABLE_MEMORY_KINDS = [
   "STRATEGY_WORKED",
   "STRATEGY_FAILED",
   "REJECTED_SUGGESTION",
-  "COACH_NOTE"
+  "COACH_NOTE",
+  // App-derived milestones (new PB, longest run) — SYSTEM_DERIVED writes from the run-save path
+  // only; deliberately absent from AI_PROPOSABLE_MEMORY_KINDS (review U-25).
+  "PERFORMANCE"
 ] as const satisfies readonly CoachMemoryKind[];
 
 export type WritableMemoryKind = (typeof WRITABLE_MEMORY_KINDS)[number];
@@ -100,10 +103,11 @@ const KIND_PRIORITY: Record<CoachMemoryKind, number> = {
   PREFERENCE: 5,
   COACHING_TONE: 6,
   TERRAIN: 7,
-  STRATEGY_WORKED: 8,
-  STRATEGY_FAILED: 9,
-  INJURY_STATUS: 10,
-  RECOVERY_STATUS: 11
+  PERFORMANCE: 8,
+  STRATEGY_WORKED: 9,
+  STRATEGY_FAILED: 10,
+  INJURY_STATUS: 11,
+  RECOVERY_STATUS: 12
 };
 
 const SOURCE_PRIORITY: Record<CoachMemorySource, number> = {

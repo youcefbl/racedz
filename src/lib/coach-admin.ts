@@ -30,6 +30,8 @@ export type CoachUsageSummary = {
   inputTokens: number;
   outputTokens: number;
   costMicroUsd: number;
+  /// Successful AI calls with no price-table entry — excluded from costMicroUsd (see T0-R06).
+  unpricedRequests: number;
   activeSubscribers: number;
   coachedUsers: number;
   failedRequests: number;
@@ -42,6 +44,7 @@ type SummaryQueryRow = {
   inputTokens: bigint | null;
   outputTokens: bigint | null;
   costMicroUsd: bigint | null;
+  unpricedRequests: bigint;
   activeSubscribers: bigint;
   coachedUsers: bigint;
   failedRequests: bigint;
@@ -82,6 +85,9 @@ export async function getCoachUsageSummary(): Promise<CoachUsageSummary> {
       (SELECT COALESCE(SUM("inputTokens"), 0) FROM "AiUsageLog") AS "inputTokens",
       (SELECT COALESCE(SUM("outputTokens"), 0) FROM "AiUsageLog") AS "outputTokens",
       (SELECT COALESCE(SUM("estimatedCostMicroUsd"), 0) FROM "AiUsageLog") AS "costMicroUsd",
+      -- Successful calls with no price-table entry (unknown model). Their cost is NULL, so the SUM
+      -- above silently excludes them — this count says how incomplete the total is (review T0-R06).
+      (SELECT COUNT(*) FROM "AiUsageLog" WHERE "status" = 'SUCCEEDED' AND "estimatedCostMicroUsd" IS NULL) AS "unpricedRequests",
       (SELECT COUNT(*) FROM "CoachSubscription" WHERE "status" = 'ACTIVE' AND "expiresAt" > NOW()) AS "activeSubscribers",
       (SELECT COUNT(DISTINCT "userId") FROM "CoachInteraction") AS "coachedUsers",
       (SELECT COUNT(*) FROM "AiUsageLog" WHERE "status" = 'FAILED') AS "failedRequests",
@@ -94,6 +100,7 @@ export async function getCoachUsageSummary(): Promise<CoachUsageSummary> {
     inputTokens: Number(row?.inputTokens ?? 0),
     outputTokens: Number(row?.outputTokens ?? 0),
     costMicroUsd: Number(row?.costMicroUsd ?? 0),
+    unpricedRequests: Number(row?.unpricedRequests ?? 0),
     activeSubscribers: Number(row?.activeSubscribers ?? 0),
     coachedUsers: Number(row?.coachedUsers ?? 0),
     failedRequests: Number(row?.failedRequests ?? 0),

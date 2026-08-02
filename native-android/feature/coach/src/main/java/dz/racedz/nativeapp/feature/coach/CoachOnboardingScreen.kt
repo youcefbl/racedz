@@ -171,9 +171,10 @@ fun CoachOnboardingScreen(
         conditions = existing.chronicConditions.toSet()
         healthNotes = existing.healthNotes.orEmpty()
         coachLocale = existing.preferredLocale
-        // Editing does not re-ask for consent: it was given when the goal was created, and asking
-        // again every time a date changes turns a meaningful agreement into a nuisance click.
-        consent = true
+        // Editing re-asks for consent (same as the website): an edit rewrites the stored health
+        // answers, so every save re-affirms the grant. The server records it idempotently per
+        // policy version, so re-ticking never stacks duplicate consent rows.
+        consent = false
         prefilled = true
     }
 
@@ -631,6 +632,7 @@ fun CoachOnboardingScreen(
                                     chronicConditions = conditions.takeIf { it.isNotEmpty() }?.toList(),
                                     healthNotes = healthNotes.trim().takeIf { it.isNotEmpty() },
                                     preferredLocale = coachLocale,
+                                    consent = consent,
                                 ),
                                 editing = editing,
                                 onCreated = onCreated,

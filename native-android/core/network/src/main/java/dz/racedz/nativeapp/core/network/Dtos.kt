@@ -686,6 +686,12 @@ data class CreateCoachGoalRequest(
      * Arabic-speaking runner an English training plan with no way to change it.
      */
     val preferredLocale: String = "en",
+    /**
+     * The explicit health-data consent tick from the review step. The server persists it as a
+     * versioned, auditable grant and refuses goal create/edit without it (CONSENT_REQUIRED) — the
+     * local button gate alone left native grants unrecorded (review finding T0-R01).
+     */
+    val consent: Boolean = false,
 )
 
 /** One step of a guided session: warm up, work, recover, steady, or cool down. */

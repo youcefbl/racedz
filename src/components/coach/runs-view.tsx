@@ -91,7 +91,8 @@ export function RunsView({
       try {
         const created = await coachRequest<{ data: { id: string } }>("/api/coach/interactions", {
           method: "POST",
-          body: JSON.stringify({ type: "POST_RUN", runId, message: null })
+          // requestId (review U-10): retries of the same analyze tap replay the stored answer.
+          body: JSON.stringify({ type: "POST_RUN", runId, message: null, requestId: crypto.randomUUID() })
         });
         setAnalyzedRuns((prev) => ({ ...prev, [runId]: created.data.id }));
         openAnalysis(created.data.id);
