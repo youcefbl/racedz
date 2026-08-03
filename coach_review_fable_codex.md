@@ -171,6 +171,12 @@ it is a selling point.**
 
 ## 5. Recommended sequencing (non-authoritative)
 
+> **HISTORICAL (frozen 2026-08-03, per `DD6-R06`).** This section — including its checklists and
+> the owner-decision quotes below — is a dated snapshot from when the sequencing was drafted. It
+> is no longer advanced or corrected. Durable owner decisions live in `PRODUCT.md` ("Product
+> decisions — AI coach and native app"); finding/gate status, evidence, and next priority live
+> only in `EXECUTION_PLAN.md`. Checkbox states below reflect the snapshot date, not current truth.
+
 *This synthesis does not supersede `EXECUTION_PLAN.md`; it only reconciles the two review
 recommendations. Native-first: the mobile client is switching from Capacitor to `native-android/`
 (owner decision 2026-08-02), so client work lands on native + additive `/api/v1`; Capacitor stays
@@ -736,3 +742,113 @@ queued next), T0-R07 DB integration suites, R05 durable repair, R06 process-deat
   excluded from this exact-commit review and left untouched.
 - The repository-required ZidRun app-review skill guided the review. The separately referenced
   `impeccable` skill was unavailable in this workspace.
+
+---
+
+## 13. Static code review — unreviewed commits after `fa191d4`
+
+### Review boundary and verdict
+
+- **Reviewed commit:** `dd64e00f7b4c7eeaad4213ea31a1b994ab78f1b8`
+  (`feat(coach): TTS cue allowlist + private cache; signed-in web handoff (NATPAR-002)`).
+- **Parent:** `fa191d417a4625fe8e55ad6435da5c767fac66e8`.
+- **Date:** 2026-08-03.
+- **Coverage:** this was the only commit reachable from the current `feat/coach-tier0` head after
+  the last reviewed commit. The exact committed parent diff, surrounding auth/TTS/native source,
+  Caddy/storage boundary, tracker/product references, native flow documents, and approved Account,
+  Run Details, and Coach Overview screenshots were inspected. Concurrent uncommitted native-network
+  and mobile-test work was excluded and left untouched.
+- **Method:** static code and document inspection only, at the user's request. No test, lint,
+  typecheck, build, migration, database, browser, emulator, device, provider, or production command
+  was run. Validation claims in the commit message were not re-run or independently accepted.
+- **Verdict:** **changes requested.** The cue allowlist is a meaningful restriction, the new cache
+  prefix is denied by Caddy, the mint endpoint authenticates the live mobile session, the token
+  claim remains atomic, and the intended native destinations are wired. The commit does not close
+  either advertised boundary: legacy arbitrary-text audio remains under a public prefix, TTS quota
+  reservation is still racy, and the browser handoff permits login CSRF through an unbound
+  state-changing GET.
+- **Release status:** this code-only review closes no release, security, privacy, cost, native-parity,
+  or `SEC-*` gate. `EXECUTION_PLAN.md` remains the only progress/status tracker.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `DD6-R01` | **P1** | **Moving the TTS cache leaves the old arbitrary-text cache publicly served.** The parent wrote every synthesized file under `public/uploads/tts-audio` (`fa191d4:src/lib/coach/tts.ts:16-17,31`), when the endpoint still accepted arbitrary text. This commit changes future writes to `tts-cache` (`tts.ts:16-18,31-33`) and denies only `/uploads/tts-cache/*` (`Caddyfile:12-16`). The persistent uploads volume is not migrated or purged, and `/uploads/tts-audio/*` still falls through to the general public, immutable file server (`Caddyfile:25-45`). | Previously generated speech—including any user-supplied prose—remains anonymously downloadable after this “private cache” deployment. The SHA-256 filename is not authorization: it is deterministically derived from `locale::text`, so the requester who supplied/knows the text can derive the URL. `T0-R03` is not closed. | Deny both legacy and current TTS prefixes before the general uploads handler, inventory and securely purge/quarantine the legacy volume, and verify through the public proxy and direct-origin boundary that neither prefix is anonymously readable. Record the migration/rollback evidence in the real release tracker before claiming closure. |
+| `DD6-R02` | **P1** | **The app-to-browser handoff is an unbound login-CSRF primitive.** The bearer endpoint mints a generic `NativeAuthToken` for only `viewer.id` (`web-handoff/route.ts:17-35`; `native-auth.ts:22-33`); the row carries no purpose, originating mobile-session id, destination, or browser challenge. Anyone holding the URL can make a browser `GET /auth/handoff`, which consumes the token and creates an ordinary cookie session as the token owner without showing or confirming the account (`auth/handoff/route.ts:14-35`; `native-auth.ts:82-116`). This is also authentication state mutation on GET, contrary to the repository's `SEC-005` “no state-changing GET” rule. | A malicious account can mint its own link and induce another runner to open it, silently replacing that browser's ZidRun identity with the attacker's for a normal web-session lifetime. The victim can then enter profile data, a payment proof, or security changes into an attacker-controlled account. Single use and five-minute expiry prevent replay; they do not prevent login CSRF/account confusion. | Use a dedicated, purpose-bound app→web credential tied to the live `MobileSession` and exact allowlisted destination; require an explicit account-confirmation/CSRF-protected POST before establishing the browser session (or an equivalent browser-bound challenge); re-check session revocation/security stamp at exchange; and log mint/consume outcomes without logging the secret. Accept only with adversarial cross-account, prefetch/link-scanner, reuse, expiry, destination, and revoked-session coverage. |
+| `DD6-R03` | **P1** | **The advertised 60-call TTS ceiling is still a check-then-call race.** Every cache miss reads a usage count (`tts.ts:62-68`), calls the billed provider (`:70-80`), and inserts usage only afterward (`:81-88`). There is no atomic quota reservation or per-cache-key single-flight/lock. The new allowlist still permits many distinct numeric split/rep/step phrases (`tts-allowlist.ts:44-78`), and the route admits up to 90 requests per ten-minute process window (`tts/route.ts:20-23`). | Parallel allowed requests can all observe the same sub-limit count and reach the provider, exceeding the daily ceiling; parallel misses for one uncached phrase can also buy the same audio multiple times. The allowlist reduces content abuse but does not make the cost cap enforceable. | Reserve quota atomically before the provider call and let only one worker own a cache key (for example a durable PENDING usage/cache claim with a uniqueness invariant). Reconcile success/failure without losing billed usage, and verify parallel distinct-cue and same-cue misses against the database before closing the cost boundary. |
+| `DD6-R04` | **P2** | **The authenticated TTS response is still explicitly shared-cacheable.** After session, entitlement, and allowlist checks, the route returns `Cache-Control: public, max-age=31536000, immutable` (`tts/route.ts:14-56`), while the new comments and review claim that the authenticated route is the only reader (`tts.ts:16-18`; this file `:283-289`). | A shared cache/CDN is permitted to reuse a cached response without re-running ZidRun's authentication/entitlement checks. The current Caddy configuration does not cache API responses, but the response contract itself contradicts the private-route boundary and can become an access bypass under a proxy/cache rule. | Either make the audio intentionally public and remove the entitlement/private-reader claim, or use a private cache policy and verify Cloudflare→Caddy→Next behavior, logout/account changes, and cache keys. Do not describe an authenticated-only route as public-cacheable. |
+| `DD6-R05` | **P2** | **The generic fallback does not preserve login/destination behavior for GPX export.** `webHandoffUrl()` opens the plain `next` URL whenever minting fails (`AuthRepository.kt:83-92`). That works for protected account pages because middleware redirects them to login, but the newly wired GPX destination is an API route (`ZidRunApp.kt:419-423`); `/api/coach/runs/[id]/gpx` answers unauthenticated requests with a JSON 401 rather than a login redirect. | If token mint/refresh fails and the system browser has no existing cookie, Export GPX opens a raw “Login is required” API response, not the promised login flow with the export destination retained. The approved Run Details action therefore has a broken recovery path. | Give API-backed exports a purpose-built fallback: fetch the existing v1 GPX endpoint with bearer auth and deliver it through Android's cache/share sheet, or route through a web page that can authenticate then resume the download. Surface offline/session-expired errors in native UI and keep one working retry action. |
+| `DD6-R06` | **P2** | **The commit again turns this evidence file into a progress/product tracker.** The header says the file is not a progress, priority, release, or roadmap authority (`coach_review_fable_codex.md:3-8`), yet this commit adds checked “closed in code” items for `T0-R03` and `NATPAR-002`, chooses the next work, and retains permanent MFA/Ramadan/delete-all decisions here (`:184-192,283-302`). Its exact diff does not update `PRODUCT.md` or `EXECUTION_PLAN.md`; those sources still describe `NATPAR-001/002` as open (`EXECUTION_PLAN.md:340-341`). | A second device or reviewer following repository instructions sees conflicting state, and the review itself overstates closure despite `DD6-R01`–`R05`. This repeats `FA1-R05` and the user's explicit instruction that this file must not track progress. | Put stable product decisions in `PRODUCT.md`; update finding/gate status, evidence, owner, and next priority only in `EXECUTION_PLAN.md`; keep this file as dated review evidence. Remove or clearly historicalize the operational checklists instead of advancing them here. |
+
+### Static status of the commit's advertised work
+
+| Claim | Static status at `dd64e00` |
+|---|---|
+| `T0-R03` cue restriction | **Implemented in code shape:** arbitrary prose is rejected before `synthesizeSpeech()`, and the regex families are bounded. Provider/runtime and complete generator-parity behavior were not executed. |
+| `T0-R03` private cache | **Open:** the new prefix is blocked, but the persistent legacy arbitrary-text prefix remains public (`DD6-R01`) and the authenticated response remains shared-cacheable (`DD6-R04`). |
+| `T0-R03` cost ceiling | **Open:** counting/logging exists, but quota and same-key cache ownership are not atomically reserved (`DD6-R03`). |
+| `NATPAR-002` happy-path handoff | **Partial:** the static route/client wiring can mint and consume a one-time token, but the exchange has a login-CSRF/state-changing-GET design flaw and no commit-level adversarial coverage (`DD6-R02`). |
+| Support, Security/MFA, and Coach Subscribe destinations | **Wired statically:** each now calls `openWebSignedIn()`. Custom Tab, cookie replacement, MFA, expiry, accessibility, locale, and device behavior were not run. |
+| Run GPX export | **Partial:** the happy path targets the cookie-authenticated owner-scoped web export; handoff failure opens raw API 401 instead of a resumable login/export path (`DD6-R05`). Browser download/share behavior was not verified. |
+| `FA1-R01`–`FA1-R04` | **Unchanged/open:** this commit does not touch stale interaction reclaim, the web locale settings path, native post-run Retry state, or cross-goal retry provenance. |
+| `FA1-R05` | **Still open/repeated:** `DD6-R06` adds more status and priority claims to this review file without reconciling the designated sources of truth. |
+
+### Static-review limitations for `dd64e00`
+
+- The approved Account Overview, Run Details, and Coach Overview screenshots were inspected at
+  original resolution. The commit changes destinations/session behavior rather than those rendered
+  layouts; no Custom Tab, error, download, or authentication-transition state was rendered.
+- No security test for the new handoff appears in the commit. Reuse, expiry, arbitrary-host,
+  cross-account/login-CSRF, prefetch, revocation, and cookie-lifecycle behavior remain unverified.
+- Caddy precedence, persistent-volume contents, shared caching, provider spend/accounting, and
+  Android URI/Custom Tab/download behavior were reasoned about from source only.
+- Theme, locale, Arabic RTL, keyboard/focus, large text, screen reader/TalkBack, reduced motion,
+  browser behavior, Compose compilation, and physical-device parity remain unverified.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+
+### 13.1 Remediation evidence for `DD6-R01`–`DD6-R06` (2026-08-03, Fable)
+
+Dated evidence only. Status, gates, and next priority live in `EXECUTION_PLAN.md`; owner decisions
+live in `PRODUCT.md` ("Product decisions — AI coach and native app").
+
+- **`DD6-R01`** — `Caddyfile` now denies `/uploads/tts-audio/*` ahead of the general uploads
+  handler, alongside the existing `tts-cache` deny; `scripts/purge-tts-audio-cache.ts` deletes the
+  legacy directory (idempotent — a missing directory is success). Public-proxy verification of both
+  prefixes remains a deploy-time check.
+- **`DD6-R02`** — `NativeAuthToken` gained `purpose` (`WEBVIEW_BRIDGE`|`WEB_HANDOFF`),
+  `destination`, and `mobileSessionFamilyId` (migration `20260803110000`, applied to the local DB).
+  The mint (`POST /api/v1/auth/web-handoff`) binds all three server-side and returns a token-only
+  URL. `GET /auth/handoff` is a pure peek (`peekWebHandoffToken`) rendering a masked-account +
+  destination confirmation page (`no-store`, `no-referrer`); the session is established only by the
+  same-origin POST (`Sec-Fetch-Site`/`Origin` checked), which re-verifies the minting
+  `MobileSession` is unrevoked/unexpired before `signIn("native-bridge", …, purpose:
+  "WEB_HANDOFF")`; `consumeNativeAuthToken` refuses a purpose mismatch. Mint/consume/reject are
+  logged via `logSecurityEvent` (`web_handoff_minted`/`_consumed`/`_rejected`) without the secret.
+  Adversarial coverage added to `test:mobile-api` (11 new checks, run against the local server +
+  DB): token-only mint; purpose/destination/session binding in the row; peek renders without the
+  full email and burns nothing across repeated GETs; cross-site POST refused with the token left
+  unconsumed; same-origin POST sets a real `authjs.session-token` cookie and lands on the bound
+  destination; replay refused; a `WEBVIEW_BRIDGE` token refused at the handoff door unconsumed; an
+  expired token refused; a revoked mobile session kills its outstanding link unconsumed. Suite:
+  81/81.
+- **`DD6-R03`** — quota reservation is atomic: per-user `pg_advisory_xact_lock` + count + `PENDING`
+  `AiUsageLog` insert in one transaction before the provider call (`AiRequestStatus` gained
+  `PENDING` in the same migration), resolved to `SUCCEEDED`/`FAILED` after; same-phrase concurrent
+  misses are single-flighted via an exclusive `.lock` file with 60s stale-lock reclaim; waiters
+  poll the cache and delete (refund) their reservation on a hit; `report.ts` counts `PENDING` as
+  in-flight, not failure. Parallel same-cue/distinct-cue DB verification remains open.
+- **`DD6-R04`** — the TTS route now answers `Cache-Control: private, max-age=31536000, immutable`.
+- **`DD6-R05`** — `webHandoffUrl()` mint-failure fallback is now
+  `buildWebUrl("/login") + "?callbackUrl=" + Uri.encode(next)`, so an API destination (GPX export)
+  recovers through login instead of a raw 401 JSON body. `:core:auth` compiles; full
+  `assembleDebug lintDebug` passed this session (exit 0, 0 lint errors, 8 modules).
+- **`DD6-R06`** — owner decisions moved to `PRODUCT.md`; `NATPAR-001` recorded closed-by-decision
+  and `NATPAR-002` corrected in `EXECUTION_PLAN.md` with a new dated evidence row; §5's checklists
+  and decision quotes are marked **HISTORICAL** (frozen 2026-08-03) rather than advanced.
+- **Validation this session:** `test:mobile-api` 81/81 · `test:coach-mobile` 150/150 ·
+  `test:coach` pure suites pass (planner 68/68, memory 42/42, context evals) · lint + web i18n
+  parity + native parity (489 keys en/fr/ar) clean · `tsc` clean apart from the two pre-existing
+  unrelated Capacitor/sentry items · native `assembleDebug lintDebug` exit 0.

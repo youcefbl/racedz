@@ -52,8 +52,10 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
-        // Content-addressed by (locale, text), so it's safe to cache forever.
-        "Cache-Control": "public, max-age=31536000, immutable"
+        // Content-addressed by (locale, text), so the BROWSER may cache it forever — but only
+        // privately (DD6-R04): `public` would let a shared/proxy cache serve the audio to clients
+        // that never passed the auth + entitlement checks above.
+        "Cache-Control": "private, max-age=31536000, immutable"
       }
     });
   } catch (error) {

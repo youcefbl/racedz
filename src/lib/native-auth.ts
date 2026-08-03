@@ -11,6 +11,13 @@ import type { UserRole } from "@/types/race";
 
 const TOKEN_TTL_MS = 1000 * 60 * 5; // 5 minutes — just long enough to round-trip.
 
+/**
+ * What a token may be exchanged for (DD6-R02). WEBVIEW_BRIDGE: web login → app WebView session.
+ * WEB_HANDOFF: app → signed-in system browser. Purposes never cross: a token minted for one door
+ * is refused at the other, so neither flow can be repurposed as a primitive for the other.
+ */
+export type NativeAuthPurpose = "WEBVIEW_BRIDGE" | "WEB_HANDOFF";
+
 export type NativeAuthUser = {
   id: string;
   email: string;
@@ -19,18 +26,46 @@ export type NativeAuthUser = {
   organizationIds: string[];
 };
 
-export async function createNativeAuthToken(userId: string): Promise<string> {
+export async function createNativeAuthToken(
+  userId: string,
+  options: { purpose?: NativeAuthPurpose; destination?: string | null; mobileSessionFamilyId?: string | null } = {}
+): Promise<string> {
   const token = randomBytes(32).toString("hex");
 
   await getPrisma().nativeAuthToken.create({
     data: {
       userId,
       token,
+      purpose: options.purpose ?? "WEBVIEW_BRIDGE",
+      destination: options.destination ?? null,
+      mobileSessionFamilyId: options.mobileSessionFamilyId ?? null,
       expiresAt: new Date(Date.now() + TOKEN_TTL_MS)
     }
   });
 
   return token;
+}
+
+/**
+ * Inspect a WEB_HANDOFF token WITHOUT consuming it — for the confirmation interstitial, which must
+ * be a pure read (no state change on GET; a prefetch or link scanner must burn nothing).
+ */
+export async function peekWebHandoffToken(token: string): Promise<{
+  email: string;
+  destination: string;
+  mobileSessionFamilyId: string | null;
+} | null> {
+  if (!token || token.length < 32) return null;
+  const row = await getPrisma().nativeAuthToken.findUnique({
+    where: { token },
+    include: { user: { select: { email: true } } }
+  });
+  if (!row || row.purpose !== "WEB_HANDOFF" || row.usedAt || row.expiresAt.getTime() < Date.now()) return null;
+  return {
+    email: row.user.email,
+    destination: row.destination ?? "/account",
+    mobileSessionFamilyId: row.mobileSessionFamilyId ?? null
+  };
 }
 
 // Find-or-create a user from a verified Google idToken payload (native sign-in), then
@@ -79,7 +114,7 @@ export async function upsertGoogleUserFromPayload(payload: TokenPayload): Promis
   return created.id;
 }
 
-export async function consumeNativeAuthToken(token: string): Promise<NativeAuthUser | null> {
+export async function consumeNativeAuthToken(token: string, purpose: NativeAuthPurpose = "WEBVIEW_BRIDGE"): Promise<NativeAuthUser | null> {
   if (!token || token.length < 32) return null;
 
   const prisma = getPrisma();
@@ -94,7 +129,7 @@ export async function consumeNativeAuthToken(token: string): Promise<NativeAuthU
     }
   });
 
-  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+  if (!row || row.purpose !== purpose || row.usedAt || row.expiresAt.getTime() < Date.now()) {
     return null;
   }
 

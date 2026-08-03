@@ -88,7 +88,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "native-bridge",
       name: "Native bridge",
       credentials: {
-        token: { label: "Token", type: "text" }
+        token: { label: "Token", type: "text" },
+        purpose: { label: "Purpose", type: "text" }
       },
       async authorize(credentials) {
         const token = typeof credentials?.token === "string" ? credentials.token : null;
@@ -97,7 +98,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        return consumeNativeAuthToken(token);
+        // Purposes never cross (DD6-R02): a WebView-bridge token cannot be exchanged for a
+        // browser session and vice versa. Anything other than the explicit handoff purpose is
+        // treated as the WebView bridge, the historical default.
+        const purpose = credentials?.purpose === "WEB_HANDOFF" ? "WEB_HANDOFF" : "WEBVIEW_BRIDGE";
+        return consumeNativeAuthToken(token, purpose);
       }
     }),
     ...(googleProviderEnabled

@@ -81,14 +81,15 @@ class AuthRepository(
      */
     /**
      * A web URL that lands SIGNED IN (NATPAR-002): mints a single-use handoff token and returns
-     * the absolute /auth/handoff link that signs the browser in and forwards to [next]. Falls back
-     * to the plain URL when the mint fails (offline, expired session) — the runner then meets the
-     * normal login with the destination preserved, which is exactly the old behavior.
+     * the absolute /auth/handoff link that confirms and signs the browser in, then forwards to
+     * [next]. When the mint fails (offline, expired session) the fallback is the LOGIN page with
+     * the destination preserved — not the destination itself, because some targets are not pages
+     * (a GPX API URL would render as raw 401 JSON in a signed-out browser).
      */
     suspend fun webHandoffUrl(next: String): String =
         when (val result = client.call { api.webHandoff(WebHandoffRequest(next = next)) }) {
             is ApiResult.Success -> buildWebUrl(result.value.path)
-            is ApiResult.Failure -> buildWebUrl(next)
+            is ApiResult.Failure -> buildWebUrl("/login") + "?callbackUrl=" + Uri.encode(next)
         }
 
     fun buildWebUrl(path: String): String =

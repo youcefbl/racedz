@@ -15,6 +15,14 @@ zidrun.com, www.zidrun.com {
 		respond 403
 	}
 
+	# Legacy TTS cache location (pre-allowlist). Files written here before the tts-cache move could
+	# contain ARBITRARY user text synthesized by the old endpoint, so the deny matters even more
+	# than for tts-cache; scripts/purge-tts-audio-cache.ts deletes the directory on deploy, and
+	# this block guarantees nothing lingering is ever public.
+	handle /uploads/tts-audio/* {
+		respond 403
+	}
+
 	# Race-registration payment proofs (BaridiMob/CCP screenshots) are the same class of
 	# financial PII as coach-payment above. Only the authenticated /api/registrations/[id]/proof
 	# route (owner, an admin, or an organizer member of the race's organization) may read them.

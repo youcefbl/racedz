@@ -730,9 +730,154 @@ async function main() {
       "an unsupported theme is rejected",
       (await api("/api/v1/me/preferences", { method: "PATCH", token: accessToken, body: { theme: "neon" } })).status === 422
     );
+
+    // ---- web handoff (DD6-R02) --------------------------------------------------------------------
+    // The app→browser handoff is a sign-in primitive, so the negatives matter more than the happy
+    // path: a link alone must never change auth state (GET is a pure peek), only a same-origin
+    // confirmation POST may consume, tokens must not cross purpose doors, and a revoked mobile
+    // session must kill its outstanding handoff links.
+    console.log("\nweb handoff");
+    actAsClient(`203.0.${RUN_OCTET}.71`);
+    const seventh = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const handoffAccess = tokensOf(seventh).accessToken;
+
+    const mint = await api("/api/v1/auth/web-handoff", {
+      method: "POST",
+      token: handoffAccess,
+      body: { next: "/account/security" }
+    });
+    const handoffPath = (mint.body.data as { path?: string } | undefined)?.path ?? "";
+    check(
+      "mint returns a token-only path (destination stays server-side)",
+      mint.status === 200 && handoffPath.startsWith("/auth/handoff?token=") && !handoffPath.includes("next="),
+      mint.body
+    );
+    const handoffToken = new URL(`${BASE}${handoffPath}`).searchParams.get("token") ?? "";
+    const mintedRow = await prisma.nativeAuthToken.findUnique({ where: { token: handoffToken } });
+    check(
+      "token row is purpose-, destination-, and session-bound",
+      mintedRow?.purpose === "WEB_HANDOFF" &&
+        mintedRow?.destination === "/account/security" &&
+        Boolean(mintedRow?.mobileSessionFamilyId),
+      mintedRow
+    );
+
+    const handoffForm = (token: string, headers: Record<string, string>) =>
+      fetch(`${BASE}/auth/handoff`, {
+        method: "POST",
+        redirect: "manual",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-For": currentClientIp, ...headers },
+        body: `token=${encodeURIComponent(token)}`
+      });
+
+    const peek = await fetch(`${BASE}${handoffPath}`, { redirect: "manual", headers: { "X-Forwarded-For": currentClientIp } });
+    const peekHtml = await peek.text();
+    check(
+      "GET renders the confirmation page without the full email",
+      peek.status === 200 &&
+        peekHtml.includes('method="post"') &&
+        peekHtml.includes("/account/security") &&
+        !peekHtml.includes(user.email),
+      { status: peek.status }
+    );
+    check("confirmation page is no-store", (peek.headers.get("cache-control") ?? "").includes("no-store"));
+    const peekAgain = await fetch(`${BASE}${handoffPath}`, { redirect: "manual", headers: { "X-Forwarded-For": currentClientIp } });
+    const afterPeeks = await prisma.nativeAuthToken.findUnique({ where: { token: handoffToken }, select: { usedAt: true } });
+    check("peeking burns nothing (prefetch/link-scanner safe)", peekAgain.status === 200 && afterPeeks?.usedAt === null);
+
+    const crossSite = await handoffForm(handoffToken, { Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site" });
+    const afterCross = await prisma.nativeAuthToken.findUnique({ where: { token: handoffToken }, select: { usedAt: true } });
+    check(
+      "a cross-site POST cannot consume (login CSRF blocked)",
+      crossSite.status >= 300 && crossSite.status < 400 &&
+        (crossSite.headers.get("location") ?? "").includes("/login") &&
+        afterCross?.usedAt === null,
+      { status: crossSite.status, location: crossSite.headers.get("location") }
+    );
+
+    const confirmed = await handoffForm(handoffToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" });
+    const confirmedCookies = confirmed.headers.getSetCookie().join("; ");
+    check(
+      "a same-origin confirmation POST signs the browser in and lands on the bound destination",
+      confirmed.status >= 300 && confirmed.status < 400 &&
+        (confirmed.headers.get("location") ?? "").includes("/account/security") &&
+        /authjs\.session-token/.test(confirmedCookies),
+      { status: confirmed.status, location: confirmed.headers.get("location") }
+    );
+
+    const replayed = await handoffForm(handoffToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" });
+    check(
+      "a spent token is refused on replay",
+      replayed.status >= 300 && replayed.status < 400 && (replayed.headers.get("location") ?? "").includes("/login"),
+      { status: replayed.status, location: replayed.headers.get("location") }
+    );
+
+    // Purpose doors must not cross: a WebView-bridge token presented at the handoff door dies at
+    // the peek, and is not consumed by the attempt.
+    const bridgeToken = `${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}`;
+    await prisma.nativeAuthToken.create({
+      data: { userId: user.id, token: bridgeToken, purpose: "WEBVIEW_BRIDGE", expiresAt: new Date(Date.now() + 300_000) }
+    });
+    const wrongDoor = await fetch(`${BASE}/auth/handoff?token=${bridgeToken}`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-For": currentClientIp }
+    });
+    const bridgeAfter = await prisma.nativeAuthToken.findUnique({ where: { token: bridgeToken }, select: { usedAt: true } });
+    check(
+      "a WebView-bridge token is refused at the handoff door",
+      wrongDoor.status >= 300 && wrongDoor.status < 400 &&
+        (wrongDoor.headers.get("location") ?? "").includes("/login") &&
+        bridgeAfter?.usedAt === null,
+      { status: wrongDoor.status }
+    );
+
+    // An expired handoff token is refused at the peek.
+    const expiredToken = `${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}`;
+    await prisma.nativeAuthToken.create({
+      data: {
+        userId: user.id,
+        token: expiredToken,
+        purpose: "WEB_HANDOFF",
+        destination: "/account",
+        expiresAt: new Date(Date.now() - 1_000)
+      }
+    });
+    const expired = await fetch(`${BASE}/auth/handoff?token=${expiredToken}`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-For": currentClientIp }
+    });
+    check("an expired token is refused", expired.status >= 300 && expired.status < 400 && (expired.headers.get("location") ?? "").includes("/login"));
+
+    // Revoking the minting mobile session (stolen phone) kills its outstanding handoff links even
+    // inside their 5-minute window.
+    const mintForRevocation = await api("/api/v1/auth/web-handoff", {
+      method: "POST",
+      token: handoffAccess,
+      body: { next: "/account" }
+    });
+    const revocationPath = (mintForRevocation.body.data as { path?: string } | undefined)?.path ?? "";
+    const revocationToken = new URL(`${BASE}${revocationPath}`).searchParams.get("token") ?? "";
+    const revocationRow = await prisma.nativeAuthToken.findUnique({ where: { token: revocationToken } });
+    await prisma.mobileSession.updateMany({
+      where: { familyId: revocationRow?.mobileSessionFamilyId ?? "" },
+      data: { revokedAt: new Date() }
+    });
+    const afterRevocation = await handoffForm(revocationToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" });
+    const revokedTokenState = await prisma.nativeAuthToken.findUnique({
+      where: { token: revocationToken },
+      select: { usedAt: true }
+    });
+    check(
+      "a revoked mobile session kills its outstanding handoff link",
+      afterRevocation.status >= 300 && afterRevocation.status < 400 &&
+        (afterRevocation.headers.get("location") ?? "").includes("/login") &&
+        revokedTokenState?.usedAt === null,
+      { status: afterRevocation.status, location: afterRevocation.headers.get("location") }
+    );
   } finally {
     // Registering fires a notification, and Notification.userId has no cascade — clear the rows
     // that block the user delete before removing the test accounts.
+    await prisma.nativeAuthToken.deleteMany({ where: { userId: { in: createdUserIds } } });
     await prisma.mobileIdempotencyRecord.deleteMany({ where: { userId: { in: createdUserIds } } });
     await prisma.notificationDelivery.deleteMany({
       where: { notification: { userId: { in: createdUserIds } } }

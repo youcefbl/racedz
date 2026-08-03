@@ -42,3 +42,25 @@ Energetic, sporty, and motivating — race-day energy without the gimmicks. Thre
 - **Full RTL (Arabic)** as a first-class layout target.
 - **Reduced motion**: every animation ships a `prefers-reduced-motion: reduce` alternative (crossfade or instant).
 - **Mobile-first / large tap targets**: ≥44px touch targets, thumb-reachable primary actions.
+
+## Product decisions — AI coach and native app (owner, 2026-08-02/03)
+
+Durable owner decisions; status and evidence live in `EXECUTION_PLAN.md`, never here.
+
+- **Coach trial is 7 days.**
+- **Plan lifecycle:** a generated plan activates instantly (deterministic planner is authoritative)
+  and stays easy to adjust; an explicit acceptance step is reserved for future material-change
+  diffs only.
+- **Consent is scaffolded ahead of the SEC-002 policy text**, and re-consent after a policy-version
+  bump is a **hard gate** (403 + guidance) — no grace period during which health data flows
+  without a current grant.
+- **Delete-all coach memory = full erase, may re-learn.** Right-to-erase wins; the per-fact
+  "Forget" action remains the never-relearn tool, and UI copy should say so.
+- **MFA stays a web handoff permanently.** The hardened web `/account/security` flow is the one
+  audited MFA surface; native opens it in a Custom Tab that lands signed-in via the handoff token.
+  No `/api/v1` MFA endpoints will be built.
+- **Cloud TTS speaks guided-run cues only** (allowlist + private cache). Free-text reply playback
+  on native uses on-device TTS.
+- **Ramadan mode is post-MVP** (next Ramadan ≈ Feb 2027); the deadline watch stays.
+- **Capacitor is retired as a mobile target.** The native Android app (`native-android/`) is the
+  only mobile client; no Capacitor parity work.

@@ -20,6 +20,9 @@ export type SecurityEventType =
   | "admin_account_deleted"
   | "rate_limit_blocked"
   | "private_file_denied"
+  | "web_handoff_minted"
+  | "web_handoff_consumed"
+  | "web_handoff_rejected"
   | "cross_site_request_blocked"
   // Native mobile client (/api/v1). Refresh reuse and a PKCE verifier mismatch are the two
   // signals that a device token or an authorization code was intercepted, so they are the ones

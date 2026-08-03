@@ -406,6 +406,16 @@ model NativeAuthToken {
   id        String    @id @default(cuid())
   userId    String
   token     String    @unique
+  /// What this token may be exchanged for (DD6-R02): WEBVIEW_BRIDGE (web login -> app WebView
+  /// session) or WEB_HANDOFF (app -> signed-in browser). A token minted for one door never opens
+  /// the other.
+  purpose   String    @default("WEBVIEW_BRIDGE")
+  /// WEB_HANDOFF only: the exact internal path the browser lands on. Bound at mint — the exchange
+  /// ignores any client-supplied destination.
+  destination String?
+  /// WEB_HANDOFF only: the MobileSession.familyId that minted it. Revocation is re-checked at
+  /// exchange, so a signed-out/revoked device cannot still convert its link into a browser session.
+  mobileSessionFamilyId String?
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -1106,6 +1116,9 @@ enum CoachInteractionStatus {
 enum AiRequestStatus {
   SUCCEEDED
   FAILED
+  /// Atomic quota reservation (DD6-R03): inserted before a billed provider call, then updated to
+  /// SUCCEEDED/FAILED. A row stuck PENDING is a crashed worker's reservation.
+  PENDING
 }
 
 // Coaching "tips" shown to runners on the coach dashboard. Stored per-language

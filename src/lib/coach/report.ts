@@ -168,7 +168,9 @@ export async function getCoachOpsReport(windowDays = 30, now: Date = new Date())
   for (const row of usageRows) {
     const t = num(row.total);
     requests += t;
-    if (row.status !== "SUCCESS" && row.status !== "SUCCEEDED") requestFailures += t;
+    // PENDING is a live in-flight quota reservation (TTS), not an outcome — neither a failure
+    // nor a success yet.
+    if (row.status !== "SUCCESS" && row.status !== "SUCCEEDED" && row.status !== "PENDING") requestFailures += t;
     inputTokens += num(row.inputTokens);
     outputTokens += num(row.outputTokens);
     costMicro += num(row.costMicro);
