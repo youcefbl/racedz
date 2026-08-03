@@ -20,6 +20,7 @@ import androidx.navigation.navArgument
 import dz.racedz.nativeapp.core.auth.AuthState
 import dz.racedz.nativeapp.core.auth.SignOutReason
 import dz.racedz.nativeapp.core.network.ApiResult
+import dz.racedz.nativeapp.core.network.AppFeaturesDto
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.feature.account.AccountViewModel
 import dz.racedz.nativeapp.feature.account.PrivacyDataScreen
@@ -35,6 +36,8 @@ import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel
 import dz.racedz.nativeapp.feature.runs.record.RecordingScreen
+import dz.racedz.nativeapp.feature.coach.CoachMemoryScreen
+import dz.racedz.nativeapp.feature.coach.CoachMemoryViewModel
 import dz.racedz.nativeapp.feature.coach.CoachOnboardingScreen
 import dz.racedz.nativeapp.feature.account.UserOnboardingScreen
 import dz.racedz.nativeapp.feature.coach.ConversationScreen
@@ -89,6 +92,14 @@ fun ZidRunApp(
         } else {
             false
         }
+    }
+
+    // Remote feature flags from /api/v1/config (RUNPAR-006). Null until fetched, and the shell
+    // fails OPEN on null: the flags are an operator kill switch for a misbehaving feature, not an
+    // entitlement gate, so an offline launch must show the app, not an emptied one.
+    var features by remember { mutableStateOf<AppFeaturesDto?>(null) }
+    LaunchedEffect(Unit) {
+        features = (container.authRepository.appConfig() as? ApiResult.Success)?.value?.features
     }
 
     // A race link that arrives while the splash is still up cannot be navigated to yet: the splash
@@ -228,6 +239,8 @@ fun ZidRunApp(
                     onOpenCoachPlan = { navController.navigate(RootDestinations.COACH_PLAN) },
                     onOpenCoachChat = { navController.navigate(RootDestinations.coachChat()) },
                     onOpenCoachSleep = { navController.navigate(RootDestinations.COACH_SLEEP) },
+                    onOpenCoachMemory = { navController.navigate(RootDestinations.COACH_MEMORY) },
+                    features = features,
                     onOpenRegistrations = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     onOpenProfile = { navController.navigate(RootDestinations.PROFILE) },
                     onOpenPrivacy = { navController.navigate(RootDestinations.PRIVACY) },
@@ -310,6 +323,13 @@ fun ZidRunApp(
                     factory = SimpleViewModelFactory { SleepViewModel(container.coachRepository) }
                 )
                 SleepScreen(viewModel = sleepViewModel, onBack = { navController.popBackStack() })
+            }
+
+            composable(RootDestinations.COACH_MEMORY) {
+                val memoryViewModel: CoachMemoryViewModel = viewModel(
+                    factory = SimpleViewModelFactory { CoachMemoryViewModel(container.coachRepository) }
+                )
+                CoachMemoryScreen(viewModel = memoryViewModel, onBack = { navController.popBackStack() })
             }
 
             composable(RootDestinations.COACH_PLAN) {

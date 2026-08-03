@@ -251,16 +251,31 @@ not release-gate closures):*
       SYSTEM_DERIVED PB facts written on run save (longest / best pace / 5K / 10K, after ≥5
       runs); all-time records block added to the context.
 
-*Native track (from Fable §9 P0, unchanged):*
-- [ ] `/api/v1/coach/memory` + native memory/privacy screen (COACHPAR-002; carries U-05's new
-      suppression semantics and U-02's consent surface).
-- [ ] Voice input + TTS in native composer (COACHPAR-001) — after U-10 so voice sends are
-      idempotent (Codex P3.4 dependency, adopted).
-- [ ] Real kill switch: honour `/api/v1/config` flags, then flip `coach: true` (RUNPAR-006).
-- [ ] Manual entry + GPX import or hide the dead controls (NATPAR-003).
-- [ ] Verify coach push delivery on native (rail for U-13); web-handoff token for subscribe
-      (NATPAR-002).
-- [ ] Production v1 endpoint probes as a release gate (Codex CR-007 — `404/405` drift).
+*Native track — implementation evidence (2026-08-02, `feat/coach-tier0`; Kotlin not compiled in
+this session — owner compiles/migrates separately; statuses are evidence, not gate closures):*
+- [x] **`/api/v1/coach/memory` + native memory screen** (COACHPAR-002) — additive route
+      (GET list / `?export=1` raw export / PATCH confirm|dismiss / DELETE all, reusing the web
+      handlers; deliberately not entitlement-gated — privacy surface); native `CoachMemoryScreen`
+      + ViewModel + DTOs + repository methods, navigated from the Coach overview via
+      `coach/memory`, with a second entry point on the locked/subscribe state so an expired-trial
+      runner can still inspect and erase; per-fact "still true"/"forget", provenance + age pills,
+      two-tap delete-all (RunDetail pattern); 17 `coach_memory_*` strings × en/fr/ar (native
+      parity 487 keys green). *Open: export UX on-device (Custom Tab is cookie-auth; needs the
+      NATPAR-002 handoff or an ACTION_SEND share), DB-backed cross-user negative test (T0-R07).*
+- [x] **Real kill switch** (RUNPAR-006) — `/api/v1/config` now serves env-driven flags
+      (`FEATURE_RUNS`/`FEATURE_COACH`, default **true**, documented in `.env.example`);
+      `ZidRunApp` fetches the config once and `ShellBottomBar` filters the Runs/Coach tabs on the
+      flags, failing OPEN on fetch failure (kill switch, not entitlement gate); Races/Account
+      never gated (start destination + sign-out/privacy reachability).
+- [x] **Dead controls hidden** (NATPAR-003) — manual entry + GPX import buttons, their params,
+      wiring, and strings removed from the Runs overview until the real screens ship (per the
+      tracker's "implement or hide" acceptance).
+- [ ] Voice input + TTS in native composer (COACHPAR-001) — next; U-10 idempotency prerequisite
+      now in place.
+- [ ] Verify coach push delivery on native (rail for U-13); web-handoff token for subscribe +
+      memory export (NATPAR-002).
+- [ ] Production v1 endpoint probes as a release gate (Codex CR-007 — `404/405` drift; the new
+      memory route must join the probe list).
 
 ### Tier 2 — the selling point (product differentiators, native-first UI)
 
@@ -441,3 +456,59 @@ release gate closes without the tests the acceptance conditions name:
   captured in a browser across themes/locales.
 - The concurrently changing uncommitted Tier 1 work requires its own stable-commit review; its
   presence must not change the status of `a18e9b9` or any release gate.
+
+---
+
+## 10. Static code review — commit `b83a239`
+
+### Review boundary and verdict
+
+- **Reviewed commit:** `b83a2391e25b8a9cac6d54dcb5f18ab601f67638`
+  (`feat(coach): Tier 1 trust cluster + Tier 0 review remediation`).
+- **Parent:** `a18e9b9`.
+- **Method:** static source/diff inspection only, at the user's request. No test, lint, typecheck,
+  build, migration, database, browser, emulator, device, provider, or production command was run.
+- **Verdict:** **changes requested.** The commit is a substantial improvement, especially the
+  atomic goal/consent write, native consent field, current-policy lookup, cost-warning UI, prompt
+  split, and richer web response rendering. It does not yet complete the consent-processing,
+  idempotency, plan-lifecycle, memory-concurrency, or native-parity guarantees it claims.
+- **Release status:** this code-only review closes no release or `SEC-*` gate.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `B83-R01` | **P1** | **Consent is enforced when a goal is written, but not when sensitive data is actually processed.** `getActiveCoachHealthConsent()` now checks the current policy (`consent.ts:62-71`), but it has no caller. `createCoachInteraction()` (`service.ts:1167-1420`) proceeds from the active goal to an OpenAI context containing body measurements, injury/health text, sleep, nutrition, and run notes without checking for a current grant. | Existing goals created before the consent migration, a withdrawn grant, or a future policy-version bump can still send health context to the provider. `T0-R02` and `T0-R04` are therefore only partially remediated. | Check the current active grant immediately before every provider-bound sensitive operation; require re-consent for legacy/superseded grants or build an explicitly non-sensitive context. Withdrawal or a policy bump must stop provider processing without deleting unrelated training history. |
+| `B83-R02` | **P1** | **Goal edits do not invalidate a plan for every input the planner uses.** The `materialChange` predicate at `service.ts:340-349` omits `peakWeeklyDistanceKm` and `longestRecentRunKm`, although `buildAdaptivePlanForGoal()` passes both into the planner (`service.ts:934-935`) and the planner uses them to determine safe volume/long-run progression (`adaptive-planner.ts:268,330`). Other edited context fields are also omitted despite the comment promising that material edits rebuild the week. | A runner can correct their training history and save successfully while continuing to see and act on a week calculated from the old capacity. That undermines the edit-goal trust and safety promise. | Centralize a normalized plan-input fingerprint or compare every field consumed by the deterministic planner. Supersede/rebuild whenever that fingerprint changes, and separately define which health/context changes must pause or rebuild an actionable plan. |
+| `B83-R03` | **P1** | **Interaction idempotency does not reach the native client.** The server accepts `requestId`, but native `AskCoachRequest` has only `type`, `message`, and `runId` (`Dtos.kt:539-543`); both native sends construct it without a key (`ConversationViewModel.kt:81,110`). The native request is deliberately synchronous and may remain open for up to 120 seconds. | A timeout followed by the runner's Retry creates a new interaction, provider call, and quota charge—the main mobile failure mode U-10 was meant to prevent. Web manual retries also create a fresh UUID per invocation rather than retaining one logical-operation key. | Generate one UUID when a logical ask/analyse action begins, retain it across timeout/auth/network retries, and send it from native and web until that operation settles or is explicitly abandoned. |
+| `B83-R04` | **P1** | **Immediate plan activation is not atomic with completing/accounting for the interaction.** `saveGeneratedPlan()` commits and activates the new plan first (`service.ts:1420,1694-1732`); only afterward does a separate transaction mark the interaction `COMPLETED` and insert `AiUsageLog` (`service.ts:1423-1442`). The broad catch then labels any later database failure as an AI-generation failure. | The API can return an error and store a `FAILED` interaction even though the runner's active plan already changed. Retrying can call the provider and replace the plan again, while the successful provider cost is recorded as a failure without its real usage. | Commit the generated plan, interaction completion, and successful usage row in one database transaction, with a durable link from the interaction to its plan. Distinguish provider failure from post-provider persistence failure and make recovery/replay idempotent. |
+| `B83-R05` | **P2** | **A retry of a failed idempotent request can become permanently `PENDING`.** The existing row is changed to `PENDING` at `service.ts:1203`, before active-goal, run-ownership, entitlement, metrics, context, and other preconditions are evaluated. Those operations sit outside the later provider `try/catch`. The key also has no normalized request fingerprint. | Any pre-provider rejection/error leaves the row hidden from history and all later uses of the key return `INTERACTION_IN_PROGRESS`. Reusing a key for a different payload can also replay or overwrite data for the earlier logical request. | Bind each key to a hash of normalized type/run/message and return 409 on a mismatch. Change state only after preconditions pass, make the transition conditional/transactional, and provide stale-`PENDING` recovery. |
+| `B83-R06` | **P2** | **The dismissal insert guard does not fully close the race claimed by `T0-R05`.** `writeMemories()` supersedes the active row, then inserts when no dismissed tombstone exists (`memory-store.ts:69-95`). If a concurrent `dismissMemory()` targets the old active row after the writer has locked it, the dismissal waits; the writer sees no tombstone, inserts a new active row, commits, and the dismissal then marks only the old row dismissed. The new fact remains active. The function also reports `accepted.length` as written even when `NOT EXISTS` suppresses an insert (`memory-store.ts:98`). | “Forget this” can still lose to a concurrent extraction despite returning success, and callers can receive an incorrect write count. | Enforce one serialized slot-level invariant in the database/transaction—such as advisory/row locking plus a durable suppression record or a dedicated slot table—and return the actual inserted-row count. |
+| `B83-R07` | **P2** | **Derived performance memory has no deletion/correction lifecycle.** A valid run can create global `PERFORMANCE` facts (`service.ts:598,1062-1091`), but `deleteRun()` only removes the run and reopens its workout (`service.ts:712-733`). Memory stores no `sourceRunId`, and no recalculation occurs. | Deleting a mistaken or private run can leave “longest run” or “best pace” in active memory, where the prompt explicitly tells the model to treat `SYSTEM_DERIVED` facts as true. It may also contradict the newly recomputed `records` block. | Store run provenance for derived facts and reconcile affected record slots on run deletion/correction, replacing them with the next valid record or removing them when no record remains. |
+| `B83-R08` | **P2** | **The provider data contract was not updated for the new all-time `records` block.** `context.ts:115,170` adds total runs, total distance, bests, and streaks to every interaction context, while `docs/COACH_CONTEXT_DATA_CONTRACT.md` still claims to enumerate every field sent and contains no `records` entry. | Privacy/support review can no longer answer accurately what is transmitted, why, how sensitive it is, or how long its source data is retained. | Add `records` to the contract with source, purpose, sensitivity, bounds, and retention, and keep the context-version change tied to that reviewed contract. |
+| `B83-R09` | **P2** | **U-11's transparency/follow-up UX is web-only even though native is the mobile target.** Web now displays `usedSignals` and an **Answer** affordance (`coach-conversation.tsx:370-404`). The v1 mapper deliberately strips `usedSignals` (`src/lib/api/v1/coach.ts:41-56`), native `CoachReplyDto` has no field for it, and native renders `followUpQuestion` as inert text (`ConversationScreen.kt:363-366`). | Native runners cannot see what evidence the answer was based on or act directly on the Coach's follow-up, so the trust/continuation feature is inconsistent across clients. | Carry the reviewed transparency fields through `/api/v1`, render them accessibly in Compose, and make the follow-up action focus the native composer without pre-filling or auto-sending content. |
+| `B83-R10` | **P3** | **The new web follow-up action forces smooth scrolling without respecting reduced motion.** `answerFollowUp()` calls `scrollIntoView({ behavior: "smooth" })` at `coach-conversation.tsx:51-54`. | A runner who requested reduced motion still receives an animated viewport transition. | Use instant scrolling when `prefers-reduced-motion: reduce` is active, or rely on focus/scroll behavior that follows the shared motion policy. |
+
+### Prior Tier 0 finding status at this commit
+
+| Finding | Static status at `b83a239` |
+|---|---|
+| `T0-R01` | **Implemented in code:** native sends an explicit consent Boolean and edit mode no longer pre-checks it. Runtime/native verification was not performed. |
+| `T0-R02` | **Partial:** goal and grant now share a transaction, but current consent is not enforced at the provider-processing boundary (`B83-R01`). |
+| `T0-R03` | **Partial/open:** TTS now logs/caps cache misses, but the endpoint still accepts arbitrary text and returns publicly cacheable audio from `public/uploads/tts-audio` (`tts/route.ts:51`; `tts.ts:15-38`). The count-then-call daily ceiling and cache-miss generation are also not concurrency-reserved. |
+| `T0-R04` | **Partial:** the lookup filters the current policy version, but no processing path uses the lookup (`B83-R01`). |
+| `T0-R05` | **Open:** the insert guard improves the common ordering but does not establish the promised concurrent forget invariant (`B83-R06`); delete-all semantics remain an owner decision. |
+| `T0-R06` | **Implemented in code:** failed rows no longer inflate the unpriced count, and the primary admin cost card displays incomplete totals. Runtime/database verification was not performed. |
+| `T0-R07` | **Open:** this review intentionally ran no checks, and the commit still contains no new database/API/native-contract integration suite for the governance boundaries. |
+
+### Static-review limitations
+
+- The five approved Coach v2 screenshots were inspected as design references, but the commit was
+  not rendered or compared in a browser/emulator. Theme, locale, RTL, large-text, keyboard,
+  TalkBack/screen-reader, and visual fidelity are therefore unverified.
+- Performance was not measured. Prompt-cache effectiveness, all-history record-query cost, and
+  Compose/web rendering behavior are unverified.
+- Migration behavior, raw-SQL transaction behavior, concurrency interleavings, and provider usage
+  accounting were reasoned about from code, not executed.
+- The repository-required ZidRun app-review skill was used. The referenced `impeccable` skill was
+  unavailable.

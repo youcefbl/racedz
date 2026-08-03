@@ -237,8 +237,6 @@
     <string name="runs_stat_pace">الإيقاع</string>
     <string name="runs_stat_distance">المسافة</string>
     <string name="runs_record">سجّل</string>
-    <string name="runs_log_manually">دخّل يدوي</string>
-    <string name="runs_import_gpx">استورد GPX</string>
     <string name="runs_cd_history">تاريخ الجري</string>
     <string name="runs_splits">الأشواط</string>
     <string name="runs_split_km">كم</string>
@@ -487,4 +485,31 @@
     <string name="onboarding_needed_body">المنظمين يحتاجو شوية معلومات قبل ما تسجّل.</string>
     <string name="coach_setup_birth_year_hint">بين %1$d و %2$d</string>
     <string name="coach_setup_birth_year_error">دخّل عام من 4 أرقام في هذا المجال.</string>
+
+    <!-- ذاكرة المدرب — واجهة الخصوصية (COACHPAR-002)، بنفس صياغة الموقع. -->
+    <string name="coach_memory_title">ما يتذكره مدربك</string>
+    <string name="coach_memory_intro">حقائق دائمة يحتفظ بها مدربك بين المحادثات حتى لا يسألك مرتين. أنت المتحكم — احذف أي شيء خاطئ أو لم يعد صحيحًا.</string>
+    <string name="coach_memory_health_note">لا يحفظ مدربك هنا أبدًا أي بيانات صحية أو إصابات أو معلومات طبية.</string>
+    <string name="coach_memory_empty_title">لا شيء في الذاكرة بعد</string>
+    <string name="coach_memory_empty_body">مع تحدثك إلى مدربك، سيتذكر الأمور الدائمة: متى تحب الجري، والتضاريس المتاحة لك، وقيدًا يجب مراعاته. ستظهر هنا لمراجعتها أو حذفها في أي وقت.</string>
+    <string name="coach_memory_confirm">لا يزال صحيحًا</string>
+    <string name="coach_memory_forget">نسيان</string>
+    <string name="coach_memory_saving">جارٍ الحفظ…</string>
+    <string name="coach_memory_delete_all">حذف الكل</string>
+    <string name="coach_memory_delete_body">سيؤدي ذلك إلى مسح كل حقيقة محفوظة نهائيًا. لن تتأثر جرياتك أو خططك أو أهدافك — فقط ما تعلّمه المدرب عن تفضيلاتك.</string>
+    <string name="coach_memory_delete_confirm">حذف كل شيء</string>
+    <string name="coach_memory_deleted">تم مسح ذاكرة مدربك.</string>
+    <string name="coach_memory_age_today">عُرف اليوم</string>
+    <plurals name="coach_memory_age_days">
+        <item quantity="zero">عُرف اليوم</item>
+        <item quantity="one">عُرف قبل يوم واحد</item>
+        <item quantity="two">عُرف قبل يومين</item>
+        <item quantity="few">عُرف قبل %1$d أيام</item>
+        <item quantity="many">عُرف قبل %1$d يومًا</item>
+        <item quantity="other">عُرف قبل %1$d يوم</item>
+    </plurals>
+    <string name="coach_memory_source_stated">أخبرت مدربك بذلك</string>
+    <string name="coach_memory_source_inferred">لاحظ مدربك ذلك</string>
+    <string name="coach_memory_source_derived">من تدريبك</string>
+    <string name="coach_memory_source_human">من مدربك</string>
 </resources>

@@ -57,6 +57,7 @@ import dz.racedz.nativeapp.R
 import dz.racedz.nativeapp.core.design.R as DesignR
 import dz.racedz.nativeapp.SimpleViewModelFactory
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.network.AppFeaturesDto
 import dz.racedz.nativeapp.feature.account.AccountScreen
 import dz.racedz.nativeapp.feature.races.RacesScreen
 import dz.racedz.nativeapp.feature.coach.CoachScreen
@@ -107,6 +108,7 @@ fun AppShell(
     onOpenCoachPlan: () -> Unit,
     onOpenCoachChat: () -> Unit,
     onOpenCoachSleep: () -> Unit,
+    onOpenCoachMemory: () -> Unit,
     onOpenRegistrations: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -114,6 +116,12 @@ fun AppShell(
     onOpenSupport: () -> Unit,
     onOpenSecurity: () -> Unit,
     onSignedOut: () -> Unit,
+    /**
+     * Remote feature flags from /api/v1/config, or null while the fetch is pending or failed.
+     * Null fails OPEN (all tabs shown): the flags are an operator kill switch for a misbehaving
+     * feature (RUNPAR-006), not an entitlement gate — an offline launch must not hide the app.
+     */
+    features: AppFeaturesDto? = null,
 ) {
     val navController = rememberNavController()
 
@@ -123,7 +131,7 @@ fun AppShell(
         // Scaffold report the status-bar height in innerPadding so each tab can inset itself
         // instead of the screen title rendering behind the clock.
         contentWindowInsets = WindowInsets.systemBars,
-        bottomBar = { ShellBottomBar(navController) },
+        bottomBar = { ShellBottomBar(navController, features) },
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -149,10 +157,6 @@ fun AppShell(
                     onResumeRecording = onResumeRecording,
                     onOpenRun = onOpenRun,
                     onRecordRun = { onRecordRun(null) },
-                    // Manual entry and GPX import are still to come; until then they open history
-                    // rather than a dead end.
-                    onLogManually = onOpenRunHistory,
-                    onImportGpx = onOpenRunHistory,
                     contentPadding = innerPadding,
                 )
             }
@@ -171,6 +175,7 @@ fun AppShell(
                     onViewPlan = onOpenCoachPlan,
                     onAskCoach = onOpenCoachChat,
                     onOpenSleep = onOpenCoachSleep,
+                    onOpenMemory = onOpenCoachMemory,
                     contentPadding = innerPadding,
                 )
             }
@@ -202,7 +207,7 @@ private fun RunsPlaceholder(contentPadding: androidx.compose.foundation.layout.P
 }
 
 @Composable
-private fun ShellBottomBar(navController: NavHostController) {
+private fun ShellBottomBar(navController: NavHostController, features: AppFeaturesDto?) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -218,7 +223,18 @@ private fun ShellBottomBar(navController: NavHostController) {
                 .selectableGroup(),
             verticalAlignment = Alignment.Top,
         ) {
-            shellTabs.forEach { spec ->
+            // The kill switch made real (RUNPAR-006): a tab whose server flag is off is not
+            // rendered, so an operator can hide a misbehaving feature without a new binary.
+            // Races and Account are never gated — Races is the start destination and Account
+            // carries sign-out/privacy, which must stay reachable.
+            val visibleTabs = shellTabs.filter { spec ->
+                when (spec.tab) {
+                    ShellTab.Runs -> features?.runs != false
+                    ShellTab.Coach -> features?.coach != false
+                    else -> true
+                }
+            }
+            visibleTabs.forEach { spec ->
                 val selected = currentRoute == spec.tab.route
                 // Icon sits in a pill, matching .mobile-tab-icon on the website: tinted at 16% when
                 // the tab is active, and for the primary (Runs) tab a solid fill with a dark glyph.

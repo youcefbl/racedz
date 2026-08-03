@@ -16,6 +16,8 @@ import dz.racedz.nativeapp.core.network.AskCoachRequest
 import dz.racedz.nativeapp.core.network.AskCoachResponseDto
 import dz.racedz.nativeapp.core.network.WorkoutActionRequest
 import dz.racedz.nativeapp.core.network.CoachConversationDto
+import dz.racedz.nativeapp.core.network.CoachMemoryActionRequest
+import dz.racedz.nativeapp.core.network.CoachMemoryDto
 import dz.racedz.nativeapp.core.network.CoachOnboardingStateDto
 import dz.racedz.nativeapp.core.network.LogSleepRequest
 import dz.racedz.nativeapp.core.network.SleepHistoryDto
@@ -279,4 +281,24 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
 
     suspend fun createGoal(request: CreateCoachGoalRequest): ApiResult<kotlinx.serialization.json.JsonObject> =
         client.call { api.createCoachGoal(request) }
+
+    /** What the coach remembers. Not entitlement-gated — a privacy surface, not a paid feature. */
+    suspend fun memory(): ApiResult<CoachMemoryDto> = client.call { api.coachMemory() }
+
+    /**
+     * Confirm ("still true") or dismiss ("forget") one fact. The caller reloads the list, so what
+     * remains remembered comes from the server rather than a local guess.
+     */
+    suspend fun memoryAction(request: CoachMemoryActionRequest): ApiResult<Unit> =
+        when (val result = client.call { api.coachMemoryAction(request) }) {
+            is ApiResult.Success -> ApiResult.Success(Unit)
+            is ApiResult.Failure -> result
+        }
+
+    /** Deletes every remembered fact — the runner's right to erase. */
+    suspend fun deleteMemory(): ApiResult<Unit> =
+        when (val result = client.call { api.deleteCoachMemory() }) {
+            is ApiResult.Success -> ApiResult.Success(Unit)
+            is ApiResult.Failure -> result
+        }
 }

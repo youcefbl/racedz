@@ -33,6 +33,8 @@ object RootDestinations {
      */
     const val COACH_CHAT = "coach/chat?runId={runId}"
     const val COACH_SLEEP = "coach/sleep"
+    /** "What your coach remembers" — the memory/privacy surface (COACHPAR-002). */
+    const val COACH_MEMORY = "coach/memory"
 
     fun coachSetup(editing: Boolean = false) = if (editing) "coach/setup?edit=true" else "coach/setup"
 

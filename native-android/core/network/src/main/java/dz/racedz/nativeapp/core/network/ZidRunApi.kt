@@ -112,6 +112,21 @@ interface ZidRunApi {
     @PATCH("api/v1/coach/goals")
     suspend fun updateCoachGoal(@Body body: CreateCoachGoalRequest): Response<ApiEnvelope<JsonObject>>
 
+    /**
+     * What the coach remembers about this runner. A privacy surface, deliberately available even
+     * without an entitlement — an expired-trial runner must still be able to inspect their data.
+     */
+    @GET("api/v1/coach/memory")
+    suspend fun coachMemory(): Response<ApiEnvelope<CoachMemoryDto>>
+
+    /** Confirm ("still true") or dismiss ("forget, never re-learn") one remembered fact. */
+    @PATCH("api/v1/coach/memory")
+    suspend fun coachMemoryAction(@Body body: CoachMemoryActionRequest): Response<ApiEnvelope<JsonObject>>
+
+    /** The runner's right to erase: deletes every remembered fact. */
+    @DELETE("api/v1/coach/memory")
+    suspend fun deleteCoachMemory(): Response<ApiEnvelope<JsonObject>>
+
     @GET("api/v1/runs/guided")
     suspend fun guidedSession(): Response<ApiEnvelope<GuidedSessionDto>>
 

@@ -556,6 +556,28 @@ data class SleepEntryDto(
 @Serializable
 data class SleepHistoryDto(val entries: List<SleepEntryDto> = emptyList())
 
+/**
+ * One fact the coach remembers about this runner, shaped for the memory/privacy screen. The raw
+ * internal key and interaction ids are deliberately absent — the runner sees the fact, where it
+ * came from, and how old it is (mirrors the website's memory panel).
+ */
+@Serializable
+data class CoachMemoryItemDto(
+    val id: String = "",
+    /** PREFERENCE, COACHING_TONE, SCHEDULE, TERRAIN, CONSTRAINT, COMMITMENT,
+     *  STRATEGY_WORKED, STRATEGY_FAILED, REJECTED_SUGGESTION, COACH_NOTE, PERFORMANCE. */
+    val kind: String = "",
+    val fact: String = "",
+    /** RUNNER_STATED, HUMAN_COACH, SYSTEM_DERIVED, AI_INFERRED. */
+    val source: String = "",
+    val ageDays: Int = 0,
+    /** True when the fact is close to aging out and worth a "still true?" confirmation. */
+    val agingOut: Boolean = false,
+)
+
+@Serializable
+data class CoachMemoryDto(val items: List<CoachMemoryItemDto> = emptyList())
+
 @Serializable
 data class LogSleepRequest(
     val durationHours: Double? = null,
@@ -604,6 +626,14 @@ data class WorkoutActionRequest(
     val reason: String? = null,
     val note: String? = null,
     val scheduledFor: String? = null,
+)
+
+/** Confirm a remembered fact is still true, or dismiss it so it is never re-learned. */
+@Serializable
+data class CoachMemoryActionRequest(
+    val id: String,
+    /** "confirm" or "dismiss". */
+    val action: String,
 )
 
 /** What the coach onboarding still has to ask for, plus the answers already on file. */

@@ -252,8 +252,6 @@
     <string name="runs_stat_pace">Pace</string>
     <string name="runs_stat_distance">Distance</string>
     <string name="runs_record">Record run</string>
-    <string name="runs_log_manually">Log manually</string>
-    <string name="runs_import_gpx">Import GPX</string>
     <string name="runs_cd_history">Run history</string>
     <string name="runs_splits">Splits</string>
     <string name="runs_split_km">KM</string>
@@ -502,4 +500,29 @@
     <string name="onboarding_needed_body">Race organisers need a few details before you can enter.</string>
     <string name="coach_setup_birth_year_hint">Between %1$d and %2$d</string>
     <string name="coach_setup_birth_year_error">Enter a four-digit year in that range.</string>
+
+    <!-- Coach memory — the "what your coach remembers" privacy surface (COACHPAR-002). Wording
+         mirrors the website's memory panel (src/components/coach/copy.ts) so both clients make
+         the same promises in the same words. -->
+    <string name="coach_memory_title">What your coach remembers</string>
+    <string name="coach_memory_intro">Durable facts your coach keeps between conversations, so it doesn\'t ask twice. You\'re in control — remove anything wrong or out of date.</string>
+    <string name="coach_memory_health_note">Your coach never stores health, injury, or medical details here.</string>
+    <string name="coach_memory_empty_title">Nothing remembered yet</string>
+    <string name="coach_memory_empty_body">As you talk with your coach, it remembers lasting things — when you like to run, the terrain you have, a constraint to plan around. They\'ll appear here for you to review or remove anytime.</string>
+    <string name="coach_memory_confirm">Still true</string>
+    <string name="coach_memory_forget">Forget</string>
+    <string name="coach_memory_saving">Saving…</string>
+    <string name="coach_memory_delete_all">Delete all</string>
+    <string name="coach_memory_delete_body">This clears every remembered fact for good. Your runs, plans and goals aren\'t affected — only what the coach learned about your preferences.</string>
+    <string name="coach_memory_delete_confirm">Delete everything</string>
+    <string name="coach_memory_deleted">Your coach\'s memory was cleared.</string>
+    <string name="coach_memory_age_today">Learned today</string>
+    <plurals name="coach_memory_age_days">
+        <item quantity="one">Learned %1$d day ago</item>
+        <item quantity="other">Learned %1$d days ago</item>
+    </plurals>
+    <string name="coach_memory_source_stated">You told your coach</string>
+    <string name="coach_memory_source_inferred">Your coach noticed</string>
+    <string name="coach_memory_source_derived">From your training</string>
+    <string name="coach_memory_source_human">From your coach</string>
 </resources>

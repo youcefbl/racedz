@@ -88,8 +88,6 @@ fun RunsOverviewScreen(
     onResumeRecording: () -> Unit,
     onOpenRun: (String) -> Unit,
     onRecordRun: () -> Unit,
-    onLogManually: () -> Unit,
-    onImportGpx: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -259,30 +257,14 @@ fun RunsOverviewScreen(
                     )
                 }
 
-                // Record and log sit side by side as on the website; GPX import keeps its own row
-                // rather than being dropped, since the website still offers it further down its page.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
-                ) {
-                    OverviewAction(
-                        iconRes = R.drawable.ic_footprints,
-                        label = stringResource(R.string.runs_record),
-                        onClick = onRecordRun,
-                        filled = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    OverviewAction(
-                        iconRes = R.drawable.ic_route,
-                        label = stringResource(R.string.runs_log_manually),
-                        onClick = onLogManually,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                // Manual entry and GPX import are hidden until they exist (NATPAR-003): a
+                // visible control is a promise, and both used to dead-end into run history. They
+                // return here when the real screens ship.
                 OverviewAction(
-                    iconRes = R.drawable.ic_arrow_up_right,
-                    label = stringResource(R.string.runs_import_gpx),
-                    onClick = onImportGpx,
+                    iconRes = R.drawable.ic_footprints,
+                    label = stringResource(R.string.runs_record),
+                    onClick = onRecordRun,
+                    filled = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
 

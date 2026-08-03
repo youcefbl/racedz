@@ -83,6 +83,8 @@ fun CoachScreen(
     onViewPlan: () -> Unit,
     onAskCoach: () -> Unit,
     onOpenSleep: () -> Unit,
+    /** "What your coach remembers" — reachable even without an entitlement (privacy surface). */
+    onOpenMemory: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -136,6 +138,12 @@ fun CoachScreen(
                             body = stringResource(R.string.coach_locked_body),
                             actionLabel = stringResource(R.string.coach_subscribe),
                             onAction = onOpenSubscribe,
+                        )
+                        // Memory stays reachable without a subscription: an expired-trial runner
+                        // must still be able to inspect and erase what the coach stored.
+                        ZidRunTextButton(
+                            text = stringResource(R.string.coach_memory_title),
+                            onClick = onOpenMemory,
                         )
                         Spacer(Modifier.height(ZidRunDimens.spaceXxl))
                         return@Column
@@ -331,6 +339,10 @@ fun CoachScreen(
                     ZidRunOutlinedButton(
                         text = stringResource(R.string.coach_sleep_title),
                         onClick = onOpenSleep,
+                    )
+                    ZidRunOutlinedButton(
+                        text = stringResource(R.string.coach_memory_title),
+                        onClick = onOpenMemory,
                     )
 
                     Spacer(Modifier.height(ZidRunDimens.spaceXxl))

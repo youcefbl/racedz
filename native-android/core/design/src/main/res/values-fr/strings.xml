@@ -231,8 +231,6 @@
     <string name="runs_stat_pace">Allure</string>
     <string name="runs_stat_distance">Distance</string>
     <string name="runs_record">Enregistrer</string>
-    <string name="runs_log_manually">Saisir</string>
-    <string name="runs_import_gpx">Importer GPX</string>
     <string name="runs_cd_history">Historique des sorties</string>
     <string name="runs_splits">Tours</string>
     <string name="runs_split_km">KM</string>
@@ -481,4 +479,27 @@
     <string name="onboarding_needed_body">Les organisateurs ont besoin de quelques informations avant votre inscription.</string>
     <string name="coach_setup_birth_year_hint">Entre %1$d et %2$d</string>
     <string name="coach_setup_birth_year_error">Entrez une année à quatre chiffres dans cette plage.</string>
+
+    <!-- Mémoire du coach — surface de confidentialité (COACHPAR-002), même formulation que le site. -->
+    <string name="coach_memory_title">Ce que votre coach retient</string>
+    <string name="coach_memory_intro">Les faits durables que votre coach garde d\'une conversation à l\'autre, pour ne pas les redemander. Vous gardez le contrôle : supprimez tout ce qui est faux ou dépassé.</string>
+    <string name="coach_memory_health_note">Votre coach ne conserve jamais ici de données de santé, de blessure ou médicales.</string>
+    <string name="coach_memory_empty_title">Rien en mémoire pour l\'instant</string>
+    <string name="coach_memory_empty_body">Au fil de vos échanges avec votre coach, il retient les choses durables : quand vous aimez courir, le terrain dont vous disposez, une contrainte à prévoir. Elles apparaîtront ici, à consulter ou supprimer à tout moment.</string>
+    <string name="coach_memory_confirm">Toujours vrai</string>
+    <string name="coach_memory_forget">Oublier</string>
+    <string name="coach_memory_saving">Enregistrement…</string>
+    <string name="coach_memory_delete_all">Tout supprimer</string>
+    <string name="coach_memory_delete_body">Cela efface définitivement chaque fait retenu. Vos courses, plans et objectifs ne sont pas touchés — seulement ce que le coach a appris de vos préférences.</string>
+    <string name="coach_memory_delete_confirm">Tout supprimer</string>
+    <string name="coach_memory_deleted">La mémoire de votre coach a été effacée.</string>
+    <string name="coach_memory_age_today">Appris aujourd\'hui</string>
+    <plurals name="coach_memory_age_days">
+        <item quantity="one">Appris il y a %1$d jour</item>
+        <item quantity="other">Appris il y a %1$d jours</item>
+    </plurals>
+    <string name="coach_memory_source_stated">Vous l\'avez dit à votre coach</string>
+    <string name="coach_memory_source_inferred">Votre coach l\'a remarqué</string>
+    <string name="coach_memory_source_derived">D\'après votre entraînement</string>
+    <string name="coach_memory_source_human">De la part de votre coach</string>
 </resources>
