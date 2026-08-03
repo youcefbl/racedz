@@ -166,6 +166,7 @@ async function runMatrix() {
         currentWeeklyDistanceKm: testCase.weeklyKm,
         availableTrainingDays: testCase.days,
         preferredLocale: "en",
+        consent: true,
       },
     });
     check(`${testCase.id}: goal created`, created.status === 201, { status: created.status, body: created.body });
@@ -317,7 +318,7 @@ async function runBoundaryCases() {
   const everyDay = await api("/coach/goals", {
     method: "POST",
     token: runner.token,
-    body: { ...base, availableTrainingDays: [0, 1, 2, 3, 4, 5, 6], preferredLongRunDay: 6 },
+    body: { ...base, availableTrainingDays: [0, 1, 2, 3, 4, 5, 6], preferredLongRunDay: 6, consent: true },
   });
   check("seven training days is accepted", everyDay.status === 201, everyDay.status);
 }
@@ -335,6 +336,7 @@ async function runLocaleCase() {
       currentWeeklyDistanceKm: 10,
       availableTrainingDays: [1, 3, 5],
       preferredLocale: "ar",
+      consent: true,
     },
   });
   check("goal accepts preferredLocale ar", created.status === 201, created.status);
@@ -383,6 +385,7 @@ async function runWorkoutActionCases() {
       currentWeeklyDistanceKm: 10,
       availableTrainingDays: [0, 1, 2, 3, 4, 5, 6],
       preferredLocale: "en",
+      consent: true,
     },
   });
 
@@ -483,6 +486,7 @@ async function runGoalEditCase() {
     currentWeeklyDistanceKm: 10,
     availableTrainingDays: [1, 3, 5],
     preferredLocale: "en",
+    consent: true,
   };
   await api("/coach/goals", { method: "POST", token: runner.token, body: base });
 
@@ -504,7 +508,8 @@ async function runGoalEditCase() {
   const edited = await api("/coach/goals", {
     method: "PATCH",
     token: runner.token,
-    body: { ...base, preferredLocale: "ar", availableTrainingDays: [2, 4, 6], injuryHistory: "Left calf, 2024" },
+    body: { ...base, preferredLocale: "ar",
+ consent: true, availableTrainingDays: [2, 4, 6], injuryHistory: "Left calf, 2024" },
   });
   check("the goal can be edited", edited.status === 200, { status: edited.status, body: edited.body });
 
@@ -520,7 +525,10 @@ async function runGoalEditCase() {
     where: { userId: runner.id, status: "ACTIVE" },
     select: { id: true },
   });
-  check("the active plan survived the edit", after?.id === before?.id, { before: before?.id, after: after?.id });
+  // Contract change (owner decision 2026-08-02, review U-08): a MATERIAL edit — this one changes
+  // availability, locale, and health context — supersedes the stale week and immediately rebuilds
+  // it from the new answers. The plan must be REPLACED, and exactly one must be active.
+  check("a material edit rebuilds the active plan", Boolean(after?.id) && after?.id !== before?.id, { before: before?.id, after: after?.id });
 
   // Only one goal stays active — an edit must not leave a second one behind.
   const activeGoals = await prisma.runnerGoal.count({ where: { userId: runner.id, status: "ACTIVE" } });
@@ -553,6 +561,7 @@ async function runReplyShapeCase() {
       currentWeeklyDistanceKm: 10,
       availableTrainingDays: [1, 3, 5],
       preferredLocale: "en",
+      consent: true,
     },
   });
 
@@ -595,7 +604,10 @@ async function runReplyShapeCase() {
 
   // The context contract's exclusions, checked at the edge the client actually sees.
   const serialised = JSON.stringify(transcript.body);
-  check("no prompt or context dump is echoed to the client", !serialised.includes("usedSignals"), "usedSignals present");
+  // usedSignals is the reviewed transparency feature ("Based on") and is deliberately carried
+  // since review B83-R09; what must NEVER be echoed is the write-layer internals.
+  check("usedSignals reaches the client", serialised.includes("usedSignals"), "usedSignals missing");
+  check("no memory internals are echoed to the client", !serialised.includes("memoryCandidates"), "memoryCandidates present");
   check("no memory candidates are echoed to the client", !serialised.includes("memoryCandidates"), "memoryCandidates present");
 
   // Another runner must not see this conversation.
@@ -626,6 +638,121 @@ async function runEntitlementCase() {
   check("the plan endpoint also answers 200 with an empty week", plan.status === 200 && plan.body?.data?.hasPlan === false, plan.body?.data);
 }
 
+
+// ── Governance boundaries (reviews U-01/U-02/U-10, COACHPAR-002; the T0-R07 integration set) ────
+// Safety preflight, consent enforcement, idempotency claiming, and the memory privacy surface,
+// exercised over the same live server + database as everything else. None of these need a provider
+// key: urgent and off-topic messages are blocked BEFORE any AI call by design.
+async function runGovernanceCases() {
+  console.log("governance boundaries");
+  const runner = await makeRunner("gov", { birthYear: THIS_YEAR - 30, gender: "MALE" });
+  const runnerB = await makeRunner("govb", { birthYear: THIS_YEAR - 28, gender: "FEMALE" });
+
+  // Without a goal (hence without any consent grant), a benign coach question must be refused for
+  // the missing ACTIVE GOAL first — and after a goal exists, consent is what gates the provider.
+  await api("/coach/goals", {
+    method: "POST",
+    token: runner.token,
+    body: {
+      goalType: "TEN_K",
+      targetDate: inDays(60),
+      experienceLevel: "BEGINNER",
+      currentWeeklyDistanceKm: 12,
+      availableTrainingDays: [1, 3, 5],
+      preferredLocale: "en",
+      consent: true,
+    },
+  });
+
+  // 1) Urgent symptoms are BLOCKED deterministically — no provider, no quota, and they must win
+  //    over every other gate (topicality would not even recognise "chest pain" as running talk).
+  const urgentKey = randomUUID();
+  const urgent = await api("/coach/interactions", {
+    method: "POST",
+    token: runner.token,
+    body: { type: "CHAT", message: "I fainted and have chest pain", requestId: urgentKey },
+  });
+  check("urgent chat is blocked before any AI call", urgent.status === 201 || urgent.status === 200, urgent.status);
+  const urgentRow = await prisma.coachInteraction.findFirst({
+    where: { userId: runner.id, clientRequestId: urgentKey },
+    select: { id: true, status: true },
+  });
+  check("urgent block is persisted as BLOCKED", urgentRow?.status === "BLOCKED", urgentRow);
+  const urgentUsage = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
+  check("urgent block consumed zero provider calls", urgentUsage === 0, urgentUsage);
+
+  // 2) Idempotency: replaying the SAME key returns the SAME interaction; reusing the key for a
+  //    DIFFERENT payload is refused (U-10 / B83-R05).
+  const replay = await api("/coach/interactions", {
+    method: "POST",
+    token: runner.token,
+    body: { type: "CHAT", message: "I fainted and have chest pain", requestId: urgentKey },
+  });
+  const replayId = (replay.body as { data?: { id?: string } }).data?.id;
+  check("replaying the same requestId returns the stored interaction", replayId === urgentRow?.id, { replayId, original: urgentRow?.id });
+  const mismatch = await api("/coach/interactions", {
+    method: "POST",
+    token: runner.token,
+    body: { type: "CHAT", message: "a completely different question about pacing", requestId: urgentKey },
+  });
+  check("reusing a requestId for a different payload is refused", mismatch.status === 409, mismatch.status);
+
+  // 3) Consent at the provider boundary: wipe the grant and a benign on-topic question must be
+  //    refused with CONSENT_REQUIRED — never silently coached (B83-R01/19A-R01 boundary).
+  await prisma.coachConsent.deleteMany({ where: { userId: runner.id } });
+  const noConsent = await api("/coach/interactions", {
+    method: "POST",
+    token: runner.token,
+    body: { type: "CHAT", message: "what pace should my tempo run be?", requestId: randomUUID() },
+  });
+  check("benign coaching without a current grant is refused", noConsent.status === 403 || noConsent.status === 422, noConsent.status);
+  const noConsentBody = JSON.stringify(noConsent.body);
+  check("the refusal names consent", noConsentBody.includes("consent") || noConsentBody.includes("CONSENT"), noConsent.body);
+  // …but the urgent path still works without a grant: safety beats paperwork.
+  const urgentNoConsent = await api("/coach/interactions", {
+    method: "POST",
+    token: runner.token,
+    body: { type: "CHAT", message: "douleur à la poitrine et évanouissement", requestId: randomUUID() },
+  });
+  const urgentNoConsentRow = await prisma.coachInteraction.findFirst({
+    where: { userId: runner.id, userMessage: { contains: "poitrine" } },
+    select: { status: true },
+  });
+  check("urgent symptoms are blocked even without a consent grant", urgentNoConsent.status < 500 && urgentNoConsentRow?.status === "BLOCKED", { status: urgentNoConsent.status, row: urgentNoConsentRow });
+
+  // 4) The memory privacy surface (COACHPAR-002): reachable without entitlement, scoped per user.
+  await prisma.coachMemory.create({
+    data: {
+      userId: runner.id,
+      kind: "PREFERENCE",
+      key: "preferred_time",
+      value: "mornings before work",
+      source: "RUNNER_STATED",
+    },
+  });
+  const list = await api("/coach/memory", { token: runner.token });
+  const items = (list.body as { data?: { items?: Array<{ id: string; fact: string }> } }).data?.items ?? [];
+  check("memory list returns the stored fact", items.length === 1 && items[0]!.fact.includes("mornings"), items);
+  const foreign = await api("/coach/memory", {
+    method: "PATCH",
+    token: runnerB.token,
+    body: { id: items[0]!.id, action: "dismiss" },
+  });
+  check("another runner cannot dismiss the fact (reads as not-found)", foreign.status === 404, foreign.status);
+  const dismiss = await api("/coach/memory", {
+    method: "PATCH",
+    token: runner.token,
+    body: { id: items[0]!.id, action: "dismiss" },
+  });
+  check("the owner can dismiss the fact", dismiss.status === 200, dismiss.status);
+  const dismissedRow = await prisma.coachMemory.findFirst({ where: { userId: runner.id, key: "preferred_time" }, select: { status: true } });
+  check("dismissal is persisted", dismissedRow?.status === "DISMISSED", dismissedRow);
+  const wipe = await api("/coach/memory", { method: "DELETE", token: runner.token });
+  check("delete-all erases every row (full-erase decision, Q9)", wipe.status === 200, wipe.status);
+  const remaining = await prisma.coachMemory.count({ where: { userId: runner.id } });
+  check("no memory rows remain after delete-all", remaining === 0, remaining);
+}
+
 async function main() {
   console.log(`Coach mobile-API contract tests against ${BASE}`);
   try {
@@ -636,6 +763,7 @@ async function main() {
     await runGoalEditCase();
     await runReplyShapeCase();
     await runEntitlementCase();
+    await runGovernanceCases();
   } finally {
     // Test runners are disposable; leaving them behind would slowly fill the dev database with
     // accounts carrying health-shaped fields.
