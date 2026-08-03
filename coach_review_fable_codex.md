@@ -280,10 +280,24 @@ this session — owner compiles/migrates separately; statuses are evidence, not 
 - [x] **Dead controls hidden** (NATPAR-003) — manual entry + GPX import buttons, their params,
       wiring, and strings removed from the Runs overview until the real screens ship (per the
       tracker's "implement or hide" acceptance).
+- [x] **TTS full fix (T0-R03 closed in code, per owner decision)** — `tts-allowlist.ts`: the
+      endpoint synthesizes ONLY guided-run cue phrases (static pools enumerated from the real
+      generators + bounded regex templates for split/rep/step phrases, en/fr/ar), refusing
+      arbitrary prose with `400 UNSUPPORTED_CUE` before the provider is contacted; the audio
+      cache moved to `/uploads/tts-cache`, 403'd by Caddy like the payment-proof scopes — the
+      authed route is the only reader. Golden tests (allowed generators + refused prose) in
+      `test-coach.ts`.
+- [x] **Web-handoff token (NATPAR-002)** — `POST /api/v1/auth/web-handoff` (bearer) mints the
+      same 5-minute single-use `NativeAuthToken` the WebView bridge uses; `GET /auth/handoff`
+      exchanges it via the existing `native-bridge` credentials provider, signing the BROWSER in
+      and forwarding to the sanitized internal `next` (failure degrades to login with the
+      destination preserved). Native: `webHandoffUrl()` helper with plain-URL fallback; the
+      subscribe, support, and security/MFA Custom Tabs now land signed-in — and the run GPX
+      export was silently broken (bearer-only v1 URL in a browser → 401) and now goes through
+      the handoff to the cookie-authed web route.
 - [ ] Voice input + TTS in native composer (COACHPAR-001) — next; U-10 idempotency prerequisite
       now in place.
-- [ ] Verify coach push delivery on native (rail for U-13); web-handoff token for subscribe +
-      memory export (NATPAR-002).
+- [ ] Verify coach push delivery on native (rail for U-13).
 - [ ] Production v1 endpoint probes as a release gate (Codex CR-007 — `404/405` drift; the new
       memory route must join the probe list).
 
@@ -661,5 +675,64 @@ queued next), T0-R07 DB integration suites, R05 durable repair, R06 process-deat
 - The approved Coach v2 screenshots remain the visual references, but this commit was not rendered.
   Theme, locale, RTL, keyboard/focus, large-text, screen-reader/TalkBack, and visual parity remain
   unverified.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+---
+
+## 12. Static code review — commit `fa191d4`
+
+### Review boundary and verdict
+
+- **Reviewed commit:** `fa191d417a4625fe8e55ad6435da5c767fac66e8`
+  (`fix(coach): remediate 19A-R01..R07 — transcription consent, honest persistence errors,
+  atomic retry claiming, slot locks`).
+- **Parent:** `19a58f3bc19a48b42e10b24e3865f8d4bf3c1c2b`.
+- **Date:** 2026-08-03.
+- **Method:** exact committed diff plus surrounding source, migration, client-flow, and approved
+  Coach Conversation reference inspection only. No test, lint, typecheck, build, migration,
+  database, browser, emulator, device, provider, or production command was run. The validation
+  claims embedded in the commit were not re-run or independently accepted.
+- **Verdict:** **changes requested.** Current-consent enforcement now covers transcription, the
+  provider/persistence error categories are separated, conditional FAILED claims prevent two
+  ordinary retries from reaching the provider, and the shared advisory slot lock is the right
+  static shape for forget/write serialization. However, stale-lease recovery returns the wrong
+  state, the normal web language switch still bypasses plan invalidation, and native post-run Retry
+  is a dead action.
+- **Release status:** this code-only review closes no release, privacy, security, migration,
+  native-parity, or `SEC-*` gate. `EXECUTION_PLAN.md` remains the only status tracker.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `FA1-R01` | **P1** | **A successfully reclaimed stale request is immediately replayed from the stale in-memory `PENDING` row instead of being processed.** The code changes the database row from PENDING to FAILED and sets `interactionId` (`service.ts:1257-1275`), but the next branch still tests the unchanged `prior.status`; because it is still the string `PENDING`, `prior.status !== "FAILED"` is true and the function returns that runtime status with its null response (`service.ts:1276-1284`). Both interaction routes treat this as a successful 201 response; v1 shapes the null response to null (`api/v1/coach/interactions/route.ts:74-82`). | The first retry after the ten-minute lease does not reclaim/generate anything. Web/native can refresh a transcript that excludes the FAILED row, clear the retained key, and make the question disappear; a later ask uses a new key while the failed row still counts toward quota. The commit's stale-PENDING guarantee is not implemented. | After the conditional stale update wins, continue through the FAILED claim path using an updated local state or a dedicated branch; never return PENDING from this synchronous create operation. Verify fresh lease, stale lease, two simultaneous reclaimers, and the client response shape against a database before accepting `19A-R03`. |
+| `FA1-R02` | **P1** | **The normal web Coach language selector still bypasses the new locale fingerprint.** The dashboard sends the lightweight `{ preferredLocale }` PATCH (`coach-dashboard.tsx:153-165`); the route dispatches that shape to `updateCoachGoalSettings()` (`api/coach/goals/[id]/route.ts:19-27`), which only updates the goal row (`service.ts:269-279`). `planInputFingerprint()` is evaluated only by the full `updateCoachGoal()` path (`service.ts:287-355,1903-1923`). | Switching the Coach from EN to FR/AR (or back) through the visible header control still leaves the active plan's persisted titles, instructions, and summary in the old language. `19A-R07` is fixed for full goal edits/native PATCH, but not for the primary web settings flow or RTL parity. | Route every locale mutation through one helper that updates the preference and rebuilds or relocalizes the active deterministic plan, without a provider charge. Accept only after the header selector is verified for EN→FR, FR→AR RTL, and AR→EN with the current week visible. |
+| `FA1-R03` | **P2** | **The native Retry button is a no-op for failed post-run analysis.** `analyseRun()` deliberately leaves `pendingQuestion=null` and stores only `sendError` on failure (`ConversationViewModel.kt:142-155`). The screen renders `PendingTurn` whenever `sendError` is present and wires its Retry button to `viewModel.retry` (`ConversationScreen.kt:122-133,251-264`), but `retry()` immediately returns when `pendingQuestion` is null (`ConversationViewModel.kt:97-104`). A successful POST_RUN followed by reload failure is also silent: no pending question/error is retained (`ConversationViewModel.kt:149-151`). | The new recovery control visibly invites a tap but does nothing for the Analyze-run journey—the approved Conversation screen's main entry path. A refresh-only failure also gives no explanation, leaving the runner to infer that the separate Analyze card is the retry. | Store a typed pending operation (`CHAT` with message or `POST_RUN` with runId and retained requestId) and make Retry dispatch that exact operation. Show a distinct recoverable refresh state, keep one working action, and verify TalkBack/large-text/RTL focus and disabled states on both chat and post-run failures. |
+| `FA1-R04` | **P2** | **A failed interaction can be regenerated against a different active goal while remaining linked to the old goal.** Idempotency matching compares only type/run/message (`service.ts:1247-1255`). A retry later loads the current active goal (`service.ts:1295-1300`), but the conditional upsert does not update or validate `goalId` (`service.ts:1412-1423`). Plan generation then writes the current goal plus the old interaction id (`service.ts:1857-1877`). The new `TrainingPlan.sourceInteractionId` is also only an unconstrained nullable text column—there is no Prisma relation, foreign key, or index (`schema.prisma:637-659`; migration `20260803090000`:1-2). | If a runner replaces/activates a goal after a failed ask and that request is retried, the interaction audit says Goal A while its response and linked plan were produced for Goal B. The new “durable link” can therefore preserve contradictory provenance and cannot enforce that the source interaction exists or belongs to the same runner/goal. | Bind a request id to the implicit goal/context identity and reject or explicitly restart when the active goal changed. Add the intended database relation/index (and same-runner/goal invariant where feasible), then verify failed INITIAL_PLAN/WEEKLY_REVIEW retries across goal replacement. |
+| `FA1-R05` | **P2** | **This commit records roadmap/product decisions in the review evidence file instead of the designated sources of truth.** The document header explicitly says it is not a progress/priority/roadmap tracker (`coach_review_fable_codex.md:3-8`), but the commit adds decisions that change MVP scope and queued work—Ramadan deferral, permanent MFA handoff, delete-all semantics, and a queued TTS fix—and even says to mirror one into `EXECUTION_PLAN.md` (`coach_review_fable_codex.md:184-192,654-655`). Neither `EXECUTION_PLAN.md` nor `PRODUCT.md` contains those decisions in this commit. | Another device or reviewer following repository instructions still sees stale acceptance/priority text (for example `NATPAR-001` remains undecided), while the only current decision lives in a historical review. This recreates the competing-tracker problem the user and repository rules explicitly prohibited. | Put stable product decisions in `PRODUCT.md`; put priority, gate, owner, and open/closed status in `EXECUTION_PLAN.md`; update affected acceptance rows there in the same change. Keep this review file as dated evidence and links only, not the authoritative decision record. |
+
+### Status of the findings this commit claims to remediate
+
+| Prior finding | Static status at `fa191d4` |
+|---|---|
+| `19A-R01` | **Implemented in code:** transcription now checks the current consent grant before its quota read/provider call. Runtime/provider verification was not performed. |
+| `19A-R02` | **Partial:** `CoachError` now escapes without provider reclassification and successful provider usage has a best-effort compensation write. The new plan-source field lacks relational integrity and can become cross-goal provenance (`FA1-R04`). |
+| `19A-R03` | **Partial/open:** conditional FAILED claiming prevents the ordinary concurrent-retry double call, but stale-PENDING reclaim short-circuits on the old status (`FA1-R01`). |
+| `19A-R04` | **Implemented in static code shape:** writer and dismisser take the same transaction advisory slot lock. Raw-SQL/PostgreSQL concurrency behavior was not executed. |
+| `19A-R05` | **Still open by the commit's own description:** one immediate retry is not a durable repair path; two failures can still leave stale PB memory, and the prompt does not explicitly make the separate `records` block override conflicting SYSTEM_DERIVED memory. |
+| `19A-R06` | **Partial:** web and native chat retain keys through transcript refresh, but native POST_RUN Retry is dead and process-death persistence remains open (`FA1-R03`). |
+| `19A-R07` | **Partial/open:** full goal edits include locale in the fingerprint; the visible web language selector uses a separate non-invalidating settings helper (`FA1-R02`). |
+
+### Static-review limitations for `fa191d4`
+
+- The approved Coach Conversation v2 screenshot was inspected at original resolution as the relevant
+  UI reference, but the changed recovery state has no approved screenshot and was not rendered.
+- Theme, locale, RTL, keyboard/focus, large-text, screen-reader/TalkBack, Compose compilation,
+  browser behavior, performance, and Capacitor/native side-by-side behavior remain unverified.
+- Migration application/rollback, foreign-key behavior, raw-SQL affected-row semantics, advisory
+  locks, leases, failure compensation, and provider accounting were reasoned about from code only.
+- Concurrent uncommitted TTS/auth/Caddy/native-network work appeared during documentation; it was
+  excluded from this exact-commit review and left untouched.
 - The repository-required ZidRun app-review skill guided the review. The separately referenced
   `impeccable` skill was unavailable in this workspace.

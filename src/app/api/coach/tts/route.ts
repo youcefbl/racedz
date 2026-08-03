@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import { CoachError } from "@/lib/coach/errors";
 import { coachErrorResponse } from "@/lib/coach/http";
+import { isAllowedCueText } from "@/lib/coach/tts-allowlist";
 import { isTtsLocale, synthesizeSpeech } from "@/lib/coach/tts";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
@@ -41,6 +42,10 @@ export async function GET(request: Request) {
     if (!text) throw new CoachError("Missing text to speak.", 400, "MISSING_TEXT");
     if (text.length > MAX_TEXT_LENGTH) throw new CoachError("That cue is too long to speak.", 400, "TEXT_TOO_LONG");
     if (!isTtsLocale(locale)) throw new CoachError("Unsupported locale.", 400, "UNSUPPORTED_LOCALE");
+    // Allowlist (T0-R03): only phrases the guided-run audio coach can legitimately speak are
+    // synthesized — arbitrary prose is refused before the provider is contacted, so this endpoint
+    // cannot be used as a general text-to-speech service or to mint cached audio of user content.
+    if (!isAllowedCueText(text, locale)) throw new CoachError("That is not a known coaching cue.", 400, "UNSUPPORTED_CUE");
 
     const audio = await synthesizeSpeech(text, locale, session.user.id);
     return new NextResponse(new Uint8Array(audio), {

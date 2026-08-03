@@ -6,6 +6,7 @@ import dz.racedz.nativeapp.core.network.ApiClient
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AppConfigDto
+import dz.racedz.nativeapp.core.network.WebHandoffRequest
 import dz.racedz.nativeapp.core.network.AuthSessionDto
 import dz.racedz.nativeapp.core.network.LoginRequest
 import dz.racedz.nativeapp.core.network.NetworkFactory
@@ -78,6 +79,18 @@ class AuthRepository(
      * the same configured base as the API so a debug build points at the developer's machine and a
      * production build at zidrun.com — never a hard-coded host.
      */
+    /**
+     * A web URL that lands SIGNED IN (NATPAR-002): mints a single-use handoff token and returns
+     * the absolute /auth/handoff link that signs the browser in and forwards to [next]. Falls back
+     * to the plain URL when the mint fails (offline, expired session) — the runner then meets the
+     * normal login with the destination preserved, which is exactly the old behavior.
+     */
+    suspend fun webHandoffUrl(next: String): String =
+        when (val result = client.call { api.webHandoff(WebHandoffRequest(next = next)) }) {
+            is ApiResult.Success -> buildWebUrl(result.value.path)
+            is ApiResult.Failure -> buildWebUrl(next)
+        }
+
     fun buildWebUrl(path: String): String =
         Uri.parse(NetworkFactory.baseUrl).buildUpon()
             .appendEncodedPath(path.trimStart('/'))

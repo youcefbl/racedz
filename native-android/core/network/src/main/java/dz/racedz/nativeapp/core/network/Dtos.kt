@@ -210,6 +210,13 @@ data class AppFeaturesDto(
     val googleSignIn: Boolean = false,
 )
 
+/** A minted single-use web-handoff link (NATPAR-002): open `path` on the website immediately. */
+@Serializable
+data class WebHandoffDto(
+    val path: String = "",
+    val expiresInSeconds: Int = 300,
+)
+
 @Serializable
 data class RegisterAccountResultDto(
     val email: String = "",
@@ -248,6 +255,10 @@ data class RefreshRequest(
 
 @Serializable
 data class LogoutRequest(val refreshToken: String)
+
+/** Where the web handoff should land after the browser is signed in (internal path only). */
+@Serializable
+data class WebHandoffRequest(val next: String)
 
 @Serializable
 data class ResendVerificationRequest(val email: String, val language: String? = null)

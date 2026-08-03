@@ -28,6 +28,14 @@ interface ZidRunApi {
     @GET("api/v1/config")
     suspend fun config(): Response<ApiEnvelope<AppConfigDto>>
 
+    /**
+     * Mints a single-use link that signs the system browser in as this account and forwards to
+     * `next` (NATPAR-002) — so subscribe, security/MFA, and support open signed-in instead of at
+     * a login wall. The token is 5-minute single-use; open the returned path immediately.
+     */
+    @POST("api/v1/auth/web-handoff")
+    suspend fun webHandoff(@Body body: WebHandoffRequest): Response<ApiEnvelope<WebHandoffDto>>
+
     // ---- auth ---------------------------------------------------------------------------------
 
     @POST("api/v1/auth/login")

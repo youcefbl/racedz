@@ -9,6 +9,12 @@ zidrun.com, www.zidrun.com {
 		respond 403
 	}
 
+	# Cloud-TTS cue audio cache. Not sensitive by content (allowlisted coaching phrases only), but
+	# it is provider-generated media that only the authenticated /api/coach/tts route should serve.
+	handle /uploads/tts-cache/* {
+		respond 403
+	}
+
 	# Race-registration payment proofs (BaridiMob/CCP screenshots) are the same class of
 	# financial PII as coach-payment above. Only the authenticated /api/registrations/[id]/proof
 	# route (owner, an admin, or an organizer member of the race's organization) may read them.

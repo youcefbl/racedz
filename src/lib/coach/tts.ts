@@ -13,8 +13,9 @@ import type { CoachLocale } from "@/components/coach/types";
 // instead. Generated audio is cached to disk keyed by a hash of (locale, text) — since cue
 // phrases are drawn from a small set of templates, the same text recurs across many runners and
 // runs, so after the first request for a given phrase every later request (any user) is a disk
-// read, not a paid OpenAI call. The cache lives under public/uploads/tts-audio, riding on the
-// same persistent volume the app's other uploads already use in production.
+// read, not a paid OpenAI call. The cache lives under public/uploads/tts-cache on the same
+// persistent volume as other uploads, but — like the payment-proof scopes — the path is 403'd by
+// Caddy (T0-R03): the ONLY way to read the audio is this authenticated, allowlisted route.
 
 const DEFAULT_TTS_MODEL = "gpt-4o-mini-tts";
 const VOICE_BY_LOCALE: Record<CoachLocale, string> = { en: "alloy", fr: "alloy", ar: "alloy" };
@@ -28,7 +29,7 @@ function cacheKeyFor(locale: CoachLocale, text: string): string {
 }
 
 function cachePath(locale: CoachLocale, key: string): string {
-  return path.join(process.cwd(), "public", "uploads", "tts-audio", locale, `${key}.mp3`);
+  return path.join(process.cwd(), "public", "uploads", "tts-cache", locale, `${key}.mp3`);
 }
 
 // Per-user daily ceiling on BILLED synth calls (cache misses only — cache hits stay free and

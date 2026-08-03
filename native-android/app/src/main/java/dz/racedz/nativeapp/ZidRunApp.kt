@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -17,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
 import dz.racedz.nativeapp.core.auth.AuthState
 import dz.racedz.nativeapp.core.auth.SignOutReason
 import dz.racedz.nativeapp.core.network.ApiResult
@@ -91,6 +93,16 @@ fun ZidRunApp(
                 ?.entitlement?.tier?.let { it != "NONE" } ?: false
         } else {
             false
+        }
+    }
+
+    // Web handoffs open in a coroutine: the handoff URL is minted server-side (single-use token)
+    // so the Custom Tab lands signed in (NATPAR-002); on failure the plain URL is opened instead
+    // and the runner meets the normal login with the destination preserved.
+    val handoffScope = rememberCoroutineScope()
+    fun openWebSignedIn(next: String) {
+        handoffScope.launch {
+            onOpenBrowserSignIn(container.authRepository.webHandoffUrl(next))
         }
     }
 
@@ -232,9 +244,7 @@ fun ZidRunApp(
                     onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
                     // Subscribing is a payment-proof upload flow that already exists on the website;
                     // the app opens it in a custom tab rather than shipping a second version of it.
-                    onOpenSubscribe = {
-                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/coach/subscribe"))
-                    },
+                    onOpenSubscribe = { openWebSignedIn("/account/coach/subscribe") },
                     onOpenCoachSetup = { editing -> navController.navigate(RootDestinations.coachSetup(editing)) },
                     onOpenCoachPlan = { navController.navigate(RootDestinations.COACH_PLAN) },
                     onOpenCoachChat = { navController.navigate(RootDestinations.coachChat()) },
@@ -247,11 +257,9 @@ fun ZidRunApp(
                     // Support and security are web surfaces. A Custom Tab shares the system
                     // browser's cookie jar, so a runner already signed in on the web lands straight
                     // on the page rather than at a second login.
-                    onOpenSupport = {
-                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/support"))
-                    },
+                    onOpenSupport = { openWebSignedIn("/account/support") },
                     onOpenSecurity = {
-                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/account/security"))
+                        openWebSignedIn("/account/security")
                     },
                     onSignedOut = {
                         navController.navigate(RootDestinations.AUTH) { popUpTo(0) { inclusive = true } }
@@ -409,7 +417,9 @@ fun ZidRunApp(
                         null
                     },
                     onExportGpx = { id ->
-                        onOpenBrowserSignIn(container.authRepository.buildWebUrl("/api/v1/runs/$id/gpx"))
+                        // The web (cookie-authed) GPX route via the signed-in handoff — the old
+                        // direct v1 URL was bearer-authed and 401'd in a browser (NATPAR-002).
+                        openWebSignedIn("/api/coach/runs/$id/gpx")
                     },
                     // Back to the list, which reloads on resume — the deleted run is gone from the
                     // server, so returning to its detail screen would show a 404.
