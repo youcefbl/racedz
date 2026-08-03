@@ -502,4 +502,6 @@
     <string name="coach_memory_source_inferred">Votre coach l\'a remarqué</string>
     <string name="coach_memory_source_derived">D\'après votre entraînement</string>
     <string name="coach_memory_source_human">De la part de votre coach</string>
+    <string name="coach_chat_based_on">Basé sur</string>
+    <string name="coach_chat_answer">Répondre</string>
 </resources>

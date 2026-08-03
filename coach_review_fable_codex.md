@@ -501,6 +501,51 @@ release gate closes without the tests the acceptance conditions name:
 | `T0-R06` | **Implemented in code:** failed rows no longer inflate the unpriced count, and the primary admin cost card displays incomplete totals. Runtime/database verification was not performed. |
 | `T0-R07` | **Open:** this review intentionally ran no checks, and the commit still contains no new database/API/native-contract integration suite for the governance boundaries. |
 
+### Remediation of B83-R findings (2026-08-02, on `feat/coach-tier0` after `e586def`)
+
+Implementation evidence responding to §10's findings — same rule as always: no gate closes
+without the tests the acceptance conditions name.
+
+- **B83-R01** — `createCoachInteraction` now requires an ACTIVE grant under the CURRENT policy
+  version before any provider-bound work (after the deterministic urgent preflight, which is
+  never blocked by paperwork); missing/withdrawn/superseded grants → `403 CONSENT_REQUIRED`
+  with re-consent guidance. The AI sleep-note parse enforces the same (manual fields stay free).
+- **B83-R02** — the hand-picked `materialChange` list is replaced by `planInputFingerprint()`:
+  a normalized fingerprint over every `AdaptivePlannerInput` goal field (incl. the previously
+  missing `peakWeeklyDistanceKm`/`longestRecentRunKm`) plus the safety-gate health fields, with
+  a KEEP-IN-SYNC marker tying it to the planner input type.
+- **B83-R03** — `AskCoachRequest` gains `requestId`; the native `ConversationViewModel` mints
+  one key per logical ask/analyse and retains it across retries until success. Web dashboard and
+  runs-view now retain their key per logical payload (type|run|message) instead of minting per
+  invocation.
+- **B83-R04** — plan activation, interaction COMPLETED, and the SUCCEEDED usage row commit in
+  ONE transaction (`saveGeneratedPlan` now runs inside the caller's tx); post-provider
+  persistence failure is its own code (`COACH_PERSISTENCE_FAILED`) instead of masquerading as a
+  provider failure while the plan had already changed.
+- **B83-R05** — the FAILED→PENDING flip no longer happens before preconditions (only the final
+  insert's ON CONFLICT flips it), so a rejected retry can't strand an invisible PENDING row; a
+  reused key is validated against the stored type/runId/message and mismatches → `409
+  REQUEST_ID_MISMATCH`.
+- **B83-R06** — `dismissMemory` now dismisses the whole (kind, key) slot, not just the tapped
+  row — a concurrently inserted duplicate of the rejected fact dies with it, closing the
+  write-vs-dismiss race by outcome; `writeMemories` reports the rows actually inserted.
+- **B83-R07** — `reconcilePerformanceMemory()` re-derives every PERFORMANCE slot from surviving
+  runs after `deleteRun` (rewrite surviving slots, retire empty ones), so a deleted run's PB
+  cannot linger as a SYSTEM_DERIVED "fact".
+- **B83-R08** — `docs/COACH_CONTEXT_DATA_CONTRACT.md` gains the `records` row (source, purpose,
+  sensitivity, bounds, deletion reconciliation) — and the previously missing `coachMemory` row.
+- **B83-R09** — `usedSignals` now carried through the v1 mapper (comment updated: it is the
+  reviewed transparency feature, not prompt internals); native `CoachReplyDto` gains
+  `usedSignals`; ConversationScreen renders "Based on" and gives the follow-up question an
+  Answer affordance that focuses the composer (never pre-fills or auto-sends). +2 strings ×3
+  locales (native parity 489 keys).
+- **B83-R10** — the web follow-up scroll honours `prefers-reduced-motion`.
+
+Validation: pure suites, eslint, coach-scope tsc, web parity 629+461, native parity 489 — all
+green. Kotlin changes not compiled in this session (owner compiles separately). Still open from
+§10: T0-R03's cue allowlist/private audio cache, T0-R07 DB/API integration suites, delete-all
+semantics (§7 Q9), escalation-copy review (§7 Q3).
+
 ### Static-review limitations
 
 - The five approved Coach v2 screenshots were inspected as design references, but the commit was

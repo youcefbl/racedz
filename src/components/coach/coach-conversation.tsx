@@ -50,7 +50,9 @@ export function CoachConversation({
   // the coach's, so the box starts empty and focused rather than pre-filled (review U-11).
   function answerFollowUp() {
     composerRef.current?.focus();
-    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Honour reduced motion (B83-R10): the smooth scroll is a courtesy, not the behavior.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    composerRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
   }
 
   // Merge the loaded older pages under the live window, de-duped by id (a just-asked interaction can

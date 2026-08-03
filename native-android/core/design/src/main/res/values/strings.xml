@@ -525,4 +525,6 @@
     <string name="coach_memory_source_inferred">Your coach noticed</string>
     <string name="coach_memory_source_derived">From your training</string>
     <string name="coach_memory_source_human">From your coach</string>
+    <string name="coach_chat_based_on">Based on</string>
+    <string name="coach_chat_answer">Answer</string>
 </resources>

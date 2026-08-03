@@ -62,6 +62,9 @@ export async function writeMemories(
   }
 
   const prisma = getPrisma();
+  // The reported count is the rows the INSERT actually created (B83-R06): a candidate suppressed
+  // by the in-transaction dismissal guard must not be reported as written.
+  let written = 0;
   await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
     for (const candidate of accepted) {
       // A newer value for the same slot retires the old one rather than deleting it — the audit trail
@@ -74,9 +77,9 @@ export async function writeMemories(
           AND "key" = ${candidate.key} AND "status" = 'ACTIVE'
       `;
       // The dismissal guard is part of the INSERT itself (T0-R05): the pre-transaction slot check
-      // above filters the common case, but only this NOT EXISTS makes "forget this" hold against a
-      // dismissal that lands concurrently between the check and the write.
-      await tx.$executeRaw`
+      // above filters the common case, and this NOT EXISTS plus the slot-wide dismissMemory update
+      // make "forget this" hold against a dismissal that lands concurrently in either order.
+      const inserted = await tx.$executeRaw`
         INSERT INTO "CoachMemory" (
           "id", "userId", "goalId", "kind", "key", "value", "source", "sourceInteractionId",
           "confidence", "status", "expiresAt", "updatedAt"
@@ -92,10 +95,11 @@ export async function writeMemories(
             AND "key" = ${candidate.key} AND "status" = 'DISMISSED'
         )
       `;
+      written += inserted;
     }
   });
 
-  return { written: accepted.length, rejected: rejected.map((r) => ({ kind: r.candidate.kind, reason: r.reason })) };
+  return { written, rejected: rejected.map((r) => ({ kind: r.candidate.kind, reason: r.reason })) };
 }
 
 /**
@@ -181,12 +185,21 @@ export async function exportMemory(userId: string) {
 /**
  * The runner dismisses a fact. Scoped by userId in the WHERE clause so one runner can never dismiss
  * another's memory even with a guessed id.
+ *
+ * Dismissal applies to the whole (kind, key) SLOT, not just the tapped row (B83-R06): the runner is
+ * rejecting the fact, and any concurrent extraction that slipped a fresh ACTIVE row into the same
+ * slot — the writer holds the row lock first, commits, and only then does this UPDATE run — is the
+ * same fact and dies with it. That closes, by outcome, the write-vs-dismiss race the insert-time
+ * NOT EXISTS guard alone could not.
  */
 export async function dismissMemory(userId: string, memoryId: string): Promise<{ dismissed: boolean }> {
   const count = await getPrisma().$executeRaw`
     UPDATE "CoachMemory"
     SET "status" = 'DISMISSED', "updatedAt" = NOW()
-    WHERE "id" = ${memoryId} AND "userId" = ${userId} AND "status" <> 'DISMISSED'
+    WHERE "userId" = ${userId} AND "status" <> 'DISMISSED'
+      AND ("kind", "key") IN (
+        SELECT "kind", "key" FROM "CoachMemory" WHERE "id" = ${memoryId} AND "userId" = ${userId}
+      )
   `;
   return { dismissed: count > 0 };
 }

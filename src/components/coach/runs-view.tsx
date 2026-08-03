@@ -85,15 +85,21 @@ export function RunsView({
 
   // Generate the run's analysis here (so it counts against the AI quota exactly like the
   // coach tab), then hand off to the coach screen focused on the fresh answer.
+  const analyzeKeysRef = useRef<Record<string, string>>({});
+
   const analyze = useCallback(
     async (runId: string) => {
       setPendingAction("POST_RUN");
       try {
+        // One key per run, retained across retries (B83-R03): re-tapping Analyze after a timeout
+        // replays the stored analysis instead of a second provider call. Cleared on success.
+        const requestId = analyzeKeysRef.current[runId] ?? crypto.randomUUID();
+        analyzeKeysRef.current[runId] = requestId;
         const created = await coachRequest<{ data: { id: string } }>("/api/coach/interactions", {
           method: "POST",
-          // requestId (review U-10): retries of the same analyze tap replay the stored answer.
-          body: JSON.stringify({ type: "POST_RUN", runId, message: null, requestId: crypto.randomUUID() })
+          body: JSON.stringify({ type: "POST_RUN", runId, message: null, requestId })
         });
+        delete analyzeKeysRef.current[runId];
         setAnalyzedRuns((prev) => ({ ...prev, [runId]: created.data.id }));
         openAnalysis(created.data.id);
       } finally {

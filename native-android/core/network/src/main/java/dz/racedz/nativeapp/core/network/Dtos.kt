@@ -488,6 +488,8 @@ data class CoachReplyDto(
     val requiresProfessionalAdvice: Boolean = false,
     /** What the coach did not have. Shown so uncertainty reads as missing data, not as an opinion. */
     val dataGaps: List<String> = emptyList(),
+    /** The context signals the advice actually rests on — the "Based on" chips (B83-R09). */
+    val usedSignals: List<String> = emptyList(),
     val followUpQuestion: String? = null,
 )
 
@@ -540,6 +542,12 @@ data class AskCoachRequest(
     val type: String = "CHAT",
     val message: String? = null,
     val runId: String? = null,
+    /**
+     * Client idempotency key (B83-R03). Retained across retries of the same logical ask, so a
+     * timeout followed by Retry replays the stored interaction server-side instead of creating a
+     * second provider call and quota charge — the main mobile failure mode on a 120s request.
+     */
+    val requestId: String? = null,
 )
 
 @Serializable

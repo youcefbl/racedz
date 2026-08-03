@@ -41,6 +41,8 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | `trainingPhase` / `planAdaptations` | `adaptive-planner.ts` | Name the phase + explain load changes | 🟢 | Recomputed |
 | `activePlan` (per-workout status + linked run) | `TrainingPlan` / `TrainingWorkout` / `RunnerRun` | Reference exactly which sessions happened | 🟡 personal | While plan active |
 | `fixedSafetyDecision` / `fixedWeeklyPlanSkeleton` | deterministic | Authoritative safety + candidate week | 🟢 | Recomputed |
+| `records` (total runs/distance, longest run, best pace, est. 5K/10K bests, week streaks — ctx-v2) | derived from `RunnerRun` (`records.ts`) | Milestone-aware coaching (congratulate PBs, calibrate encouragement) without re-deriving from the 10-run window | 🟡 personal (aggregates only — no run ids, dates, or routes) | Recomputed per request over all VALID runs; re-derived facts reconciled on run deletion |
+| `coachMemory` (≤12 facts: kind, fact text, source, age) | `CoachMemory` | Durable preferences/constraints/milestones so the coach doesn't re-ask | 🔴 free-text (runner-stated wording) | Until superseded/dismissed/expired; runner-controlled (confirm/forget/export/delete-all) |
 
 ## Trust & safety notes
 

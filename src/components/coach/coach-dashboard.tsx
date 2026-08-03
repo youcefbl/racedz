@@ -2,7 +2,7 @@
 
 import { Capacitor } from "@capacitor/core";
 import { Activity, ArrowRight, BrainCircuit, BrainCog, CalendarRange, Flame, Gauge, Languages, Moon, Pencil, Sparkles, Target } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { withLocale } from "@/lib/i18n";
@@ -87,17 +87,24 @@ export function CoachDashboard({
     [copy.requestFailed]
   );
 
+  // One idempotency key per LOGICAL request, retained across manual retries (B83-R03): retrying
+  // the same type/run/message after a timeout replays the stored interaction server-side instead
+  // of spending a second provider call. A different payload gets a fresh key; success clears it.
+  const askKeyRef = useRef<{ payload: string; requestId: string } | null>(null);
+
   const runInteraction = useCallback(
     (type: "INITIAL_PLAN" | "WEEKLY_REVIEW" | "POST_RUN" | "CHAT", options?: { runId?: string; message?: string }) =>
       new Promise<void>((resolve, reject) => {
         mutate(type, async () => {
+          const payload = `${type}|${options?.runId ?? ""}|${options?.message ?? ""}`;
+          const requestId = askKeyRef.current?.payload === payload ? askKeyRef.current.requestId : crypto.randomUUID();
+          askKeyRef.current = { payload, requestId };
           try {
             const created = await coachRequest<{ data: { id: string } }>("/api/coach/interactions", {
               method: "POST",
-              // requestId (review U-10): one fresh key per ask makes a network retry or double
-              // tap idempotent server-side — one provider call, one quota charge.
-              body: JSON.stringify({ type, runId: options?.runId ?? null, message: options?.message ?? null, requestId: crypto.randomUUID() })
+              body: JSON.stringify({ type, runId: options?.runId ?? null, message: options?.message ?? null, requestId })
             });
+            askKeyRef.current = null;
             await refresh();
             if (type === "INITIAL_PLAN" || type === "WEEKLY_REVIEW") {
               setView("plan");

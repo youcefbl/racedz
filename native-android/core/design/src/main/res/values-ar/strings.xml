@@ -512,4 +512,6 @@
     <string name="coach_memory_source_inferred">لاحظ مدربك ذلك</string>
     <string name="coach_memory_source_derived">من تدريبك</string>
     <string name="coach_memory_source_human">من مدربك</string>
+    <string name="coach_chat_based_on">استنادًا إلى</string>
+    <string name="coach_chat_answer">أجب</string>
 </resources>

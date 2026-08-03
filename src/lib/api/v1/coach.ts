@@ -16,6 +16,7 @@ type CoachReplyShape = {
   warningSignals?: string[];
   recoveryAdvice?: string[];
   requiresProfessionalAdvice?: boolean;
+  usedSignals?: string[];
   dataGaps?: string[];
   followUpQuestion?: string | null;
 };
@@ -38,8 +39,9 @@ export function coachReplySummary(raw: unknown): string | null {
  * summary — dropping them showed the phone strictly less than the website said for the same reply.
  *
  * `nextWorkout`/`upcomingWorkouts` are deliberately excluded: the plan endpoints own the schedule and
- * a second copy here could disagree with it. `memoryCandidates` and `usedSignals` are internal — the
- * write layer decides what is remembered, and echoing either tells the client about the prompt.
+ * a second copy here could disagree with it. `memoryCandidates` stays internal — the write layer
+ * decides what is remembered. `usedSignals` is carried (B83-R09): it is the reviewed transparency
+ * feature ("Based on") the web already renders, and native must not show strictly less.
  */
 export function coachReplyDto(raw: unknown) {
   const summary = coachReplySummary(raw);
@@ -52,6 +54,7 @@ export function coachReplyDto(raw: unknown) {
     warningSignals: asStrings(reply.warningSignals),
     recoveryAdvice: asStrings(reply.recoveryAdvice),
     requiresProfessionalAdvice: reply.requiresProfessionalAdvice === true,
+    usedSignals: asStrings(reply.usedSignals),
     dataGaps: asStrings(reply.dataGaps),
     followUpQuestion: typeof reply.followUpQuestion === "string" ? reply.followUpQuestion : null,
   };

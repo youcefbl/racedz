@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class ConversationUiState(
     val conversation: CoachConversationDto = CoachConversationDto(),
@@ -72,14 +73,37 @@ class ConversationViewModel(
         }
     }
 
+    // One idempotency key per LOGICAL ask, retained across retries (B83-R03): this request is
+    // deliberately synchronous and can stay open ~120s, so "timeout, then Retry" is the main
+    // mobile failure mode — with a retained key the retry replays the stored interaction instead
+    // of buying a second provider call and quota charge. A different payload gets a fresh key.
+    private var retainedRequestPayload: String? = null
+    private var retainedRequestId: String? = null
+
+    private fun requestIdFor(payload: String): String {
+        val existing = retainedRequestId
+        if (retainedRequestPayload == payload && existing != null) return existing
+        val fresh = UUID.randomUUID().toString()
+        retainedRequestPayload = payload
+        retainedRequestId = fresh
+        return fresh
+    }
+
+    private fun clearRetainedRequest() {
+        retainedRequestPayload = null
+        retainedRequestId = null
+    }
+
     fun send(message: String) {
         val trimmed = message.trim()
         if (trimmed.isEmpty() || _state.value.generating) return
 
+        val requestId = requestIdFor("CHAT|" + trimmed)
         _state.update { it.copy(generating = true, pendingQuestion = trimmed, sendError = null) }
         viewModelScope.launch {
-            when (val result = repository.ask(AskCoachRequest(type = "CHAT", message = trimmed))) {
+            when (val result = repository.ask(AskCoachRequest(type = "CHAT", message = trimmed, requestId = requestId))) {
                 is ApiResult.Success -> {
+                    clearRetainedRequest()
                     // Refetched rather than appended: the server decides what the transcript says,
                     // including whether the message was refused on safety grounds and what the reply
                     // is finally stored as.
@@ -88,7 +112,7 @@ class ConversationViewModel(
                 }
                 is ApiResult.Failure -> _state.update {
                     // The question is kept in [pendingQuestion] so the runner can see what they
-                    // asked; the composer is re-enabled so they can retry.
+                    // asked; the composer is re-enabled so they can retry — with the SAME key.
                     it.copy(generating = false, sendError = result.error.message)
                 }
             }
@@ -105,10 +129,12 @@ class ConversationViewModel(
     fun analyseRun() {
         val run = runId ?: return
         if (_state.value.generating) return
+        val requestId = requestIdFor("POST_RUN|" + run)
         _state.update { it.copy(generating = true, pendingQuestion = null, sendError = null) }
         viewModelScope.launch {
-            when (val result = repository.ask(AskCoachRequest(type = "POST_RUN", runId = run))) {
+            when (val result = repository.ask(AskCoachRequest(type = "POST_RUN", runId = run, requestId = requestId))) {
                 is ApiResult.Success -> {
+                    clearRetainedRequest()
                     reload()
                     _state.update { it.copy(generating = false) }
                 }

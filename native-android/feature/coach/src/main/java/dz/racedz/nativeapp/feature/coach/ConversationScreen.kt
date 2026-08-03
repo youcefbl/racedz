@@ -36,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -52,6 +54,7 @@ import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
+import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
@@ -72,6 +75,9 @@ fun ConversationScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
+    // Focus target for the follow-up "Answer" affordance (B83-R09): answering the coach's
+    // question means typing, so the action lands the runner in the composer.
+    val composerFocus = remember { FocusRequester() }
     var draft by remember { mutableStateOf("") }
 
     Column(
@@ -126,7 +132,7 @@ fun ConversationScreen(
                     }
 
                     items(state.conversation.messages, key = { it.id }) { message ->
-                        MessageTurn(message)
+                        MessageTurn(message, onAnswerFollowUp = { composerFocus.requestFocus() })
                     }
 
                     // The run this screen was opened for, offered rather than auto-sent.
@@ -185,7 +191,9 @@ fun ConversationScreen(
                         // Disabled while a reply is generating: a second question would spend
                         // another credit before the first is answered.
                         enabled = !state.generating,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(composerFocus),
                     )
                     Spacer(Modifier.width(ZidRunDimens.spaceSm))
                     if (state.generating) {
@@ -263,7 +271,7 @@ private fun RunnerBubble(text: String) {
 }
 
 @Composable
-private fun MessageTurn(message: CoachMessageDto) {
+private fun MessageTurn(message: CoachMessageDto, onAnswerFollowUp: () -> Unit) {
     val colors = ZidRunTheme.colors
 
     Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
@@ -286,7 +294,7 @@ private fun MessageTurn(message: CoachMessageDto) {
 
             "FAILED" -> Notice(stringResource(R.string.coach_chat_failed))
 
-            else -> message.response?.let { reply -> CoachReplyCard(reply) }
+            else -> message.response?.let { reply -> CoachReplyCard(reply, onAnswerFollowUp) }
         }
 
         // The deterministic safety verdict, rendered as its own notice rather than folded into the
@@ -307,7 +315,7 @@ private fun MessageTurn(message: CoachMessageDto) {
  * used to be dropped entirely on the way to the phone.
  */
 @Composable
-private fun CoachReplyCard(reply: CoachReplyDto) {
+private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
     val colors = ZidRunTheme.colors
     Column(
         modifier = Modifier
@@ -360,9 +368,32 @@ private fun CoachReplyCard(reply: CoachReplyDto) {
             }
         }
 
+        // The signals the advice actually rests on — the "Based on" transparency chips the web
+        // shows for the same reply (B83-R09). Never render more or less than the website here.
+        if (reply.usedSignals.isNotEmpty()) {
+            ZidRunDivider()
+            Text(
+                stringResource(R.string.coach_chat_based_on),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textMuted,
+            )
+            Text(
+                reply.usedSignals.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textMuted,
+            )
+        }
+
         reply.followUpQuestion?.takeIf { it.isNotBlank() }?.let {
             ZidRunDivider()
             Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.primary)
+            // Answering means typing: the affordance focuses the composer, never pre-fills or
+            // auto-sends anything on the runner's behalf.
+            ZidRunTextButton(
+                text = stringResource(R.string.coach_chat_answer),
+                onClick = onAnswerFollowUp,
+                fillWidth = false,
+            )
         }
     }
 }
