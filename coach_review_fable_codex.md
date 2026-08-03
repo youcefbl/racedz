@@ -180,6 +180,16 @@ the rollback path (`NATIVE-007`).*
 > plan lifecycle is **instant deterministic activation + easy adjust** on both clients
 > (acceptance reserved for material-change diffs) · consent is **scaffolded now** ahead of the
 > SEC-002 policy text · work starts with **Tier 0 in full**.
+>
+> **Owner decisions (2026-08-02, second round):** **Ramadan mode → post-MVP** (next Ramadan
+> ≈ Feb 2027; U-03 drops from the MVP path, deadline watch stays) · re-consent lands as a
+> **hard gate now** (403 + guidance; no grace period during which health data flows without a
+> current grant) · **delete-all = full erase, may re-learn** (Q9 closed: right-to-erase wins;
+> per-fact Forget remains the never-relearn tool — UI copy should say so) · **MFA stays a web
+> handoff permanently** (NATPAR-001 closed as a product decision: the hardened web
+> /account/security flow is the one audited surface; the handoff token makes it land signed-in;
+> mirror into `EXECUTION_PLAN.md`) · **TTS gets the full fix** (cue allowlist + private audio
+> cache — T0-R03 to be closed properly, not deferred).
 
 ### Tier 0 — governance blockers — branch implementation reviewed, changes requested
 
@@ -557,3 +567,99 @@ semantics (§7 Q9), escalation-copy review (§7 Q3).
   accounting were reasoned about from code, not executed.
 - The repository-required ZidRun app-review skill was used. The referenced `impeccable` skill was
   unavailable.
+
+---
+
+## 11. Static code review — commit `19a58f3`
+
+### Review boundary and verdict
+
+- **Reviewed commit:** `19a58f3bc19a48b42e10b24e3865f8d4bf3c1c2b`
+  (`fix(coach): remediate B83-R01..R10 — consent boundary, atomic persistence, idempotency
+  retention, native parity`).
+- **Parent:** `e586defbab34b73d4fe15f3b6570a0eda641fed0`.
+- **Date:** 2026-08-03.
+- **Method:** exact committed diff plus surrounding source/contract inspection only, at the user's
+  request. No test, lint, typecheck, build, migration, database, browser, emulator, device,
+  provider, or production command was run. The validation claims embedded in the commit and the
+  remediation note above were not re-run or independently accepted here.
+- **Verdict:** **changes requested.** The commit materially improves the original findings: goal
+  invalidation covers the planner's stored goal inputs, request IDs reach native, the core plan
+  write is in the interaction transaction, payload mismatches are rejected, the v1 transparency
+  fields reach Compose, and reduced motion is respected. The consent, persistence-error,
+  idempotency, memory-concurrency, and derived-memory guarantees are still incomplete.
+- **Release status:** this code-only review closes no release, privacy, security, native-parity, or
+  `SEC-*` gate. `EXECUTION_PLAN.md` remains the only status tracker.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `19A-R01` | **P1** | **The current-consent provider boundary still excludes Coach voice transcription.** `createCoachInteraction()` checks the current grant (`service.ts:1286-1299`) and the sleep-note parser now does likewise (`service.ts:1938-1953`), but `transcribeCoachVoiceNote()` calls `transcribeCoachAudio(file)` without any consent lookup (`service.ts:372-400`). Its route checks authentication, subscription, size, and MIME type only (`api/coach/transcribe/route.ts:15-46`). | A paid runner with no current grant—or one who withdrew or must re-consent after a policy bump—can send a Coach voice note containing symptoms, injuries, or other health data to the provider before reviewing its transcript. `B83-R01` is therefore only partially remediated. | Enforce an ACTIVE grant under `COACH_CONSENT_POLICY_VERSION` immediately before every provider-bound user-content operation, including transcription (or explicitly constrain it to a reviewed non-sensitive mode). Cover missing, withdrawn, old-version, and active grants at the route/service boundary before accepting the guarantee. |
+| `19A-R02` | **P1** | **The intended persistence error is still converted into a provider failure.** The plan, interaction completion, and successful usage row now share one transaction (`service.ts:1488-1511`), which fixes the partial-plan commit. But its catch throws `COACH_PERSISTENCE_FAILED` (`service.ts:1512-1527`) inside the broader provider `try`; the outer catch catches that `CoachError`, converts every non-`CoachProviderError` to `COACH_GENERATION_FAILED`, overwrites the row, inserts a FAILED usage record without the real token/cost data, and returns 503 (`service.ts:1555-1576`). `TrainingPlan` also still has no durable source-interaction relation (`schema.prisma:637-656,807-841`). | A provider response that succeeded but cannot be persisted is reported and accounted as model failure, contrary to the commit claim. Operators lose the real provider usage/cost, clients receive the wrong recovery code, and there is no durable plan↔interaction link for reconciliation. | Restrict the provider catch to provider-call failures (or rethrow `CoachError` unchanged); handle persistence failure outside it; preserve/log the actual successful provider usage through a recoverable accounting path; and durably relate an AI-assisted plan to its generating interaction. |
+| `19A-R03` | **P2** | **Failed-request claiming and stale-`PENDING` recovery remain non-idempotent.** Payload comparison is now correct (`service.ts:1212-1231`), but two concurrent retries can both read the same FAILED row, then both execute the unconditional `ON CONFLICT (id) DO UPDATE SET status='PENDING'` and proceed to the provider (`service.ts:1247-1252,1359-1373`). Separately, every existing PENDING row returns `INTERACTION_IN_PROGRESS` with no lease/age check (`service.ts:1232-1235`); a process termination after the insert leaves that key stuck indefinitely. | Concurrent retry delivery can still buy two provider calls for one logical request. A crashed worker can permanently strand the request ID and consume quota because PENDING rows are counted (`entitlement.ts:131-142`). `B83-R05` is improved but not complete. | Claim a FAILED row with one conditional atomic transition and proceed only for the winner. Add a processing lease/attempt timestamp and deterministic stale-PENDING recovery or reconciliation; verify concurrent retries and worker interruption against the database. |
+| `19A-R04` | **P2** | **The slot-wide memory UPDATE still does not serialize “forget” with extraction.** The actual insert count is fixed, but the race remains: if dismissal starts while the writer holds the old ACTIVE row lock, the dismissal statement's snapshot cannot target a new row inserted after that statement began. The writer can supersede the old row, insert a fresh ACTIVE row, and commit; `dismissMemory()` then updates only rows visible to its original target scan even though its predicate now names the whole slot (`memory-store.ts:68-100,185-204`). | “Forget this” can still return success while a concurrently extracted copy remains ACTIVE and is sent in later Coach context. The implementation does not establish the privacy invariant claimed for `B83-R06`/`T0-R05`. | Serialize both write and dismiss on the same `(userId, kind, key)` lock (for example a transaction advisory lock or durable slot row), retain an authoritative suppression tombstone, and exercise both concurrency orderings in a database integration test. |
+| `19A-R05` | **P2** | **Run-deletion reconciliation is best-effort with no durable repair path.** `deleteRun()` commits the run deletion first, then catches and only logs any `reconcilePerformanceMemory()` failure (`service.ts:713-721`). There is no dirty marker, retry job, on-read repair, or source-run relation on `CoachMemory`; the reconciliation itself rewrites/retire slots only when that one call succeeds (`service.ts:1108-1127`; `schema.prisma:696-728`). | A transient database error after deletion can leave the deleted run's PB fact ACTIVE indefinitely, while the independently recomputed `records` context says something else. The contract's “reconciled on run deletion” statement is not guaranteed. | Make deletion plus derived-memory state atomic where practical, or durably enqueue/mark reconciliation and retry it; alternatively derive these facts at read time. Preserve enough provenance to audit which run established a SYSTEM_DERIVED record. |
+| `19A-R06` | **P2** | **Client retry retention ends before the reply is safely visible, and native chat exposes no direct retry.** Web clears `askKeyRef` immediately after the POST and before `refresh()` (`coach-dashboard.tsx:99-119`). Native clears its retained key before `reload()`, silently ignores reload failure, and clears the pending question (`ConversationViewModel.kt:101-117,153-157`). The Compose send button also erases the draft immediately, while the failed pending turn has no retry action (`ConversationScreen.kt:208-210,230-255`). | If generation succeeds but the follow-up history refresh fails, the answer disappears from the client and re-asking uses a new key/provider call. After a native timeout, retrying with the retained key requires manually retyping the exact question, so the claimed main mobile retry flow is not actually presented to the runner. | Keep the logical request ID/payload until the returned reply is rendered or transcript reconciliation succeeds; render the POST result directly or provide an explicit Retry action using the saved payload. Preserve pending state across configuration/process recreation where required by the mobile reliability target. |
+| `19A-R07` | **P2** | **A locale-only goal edit leaves the active plan in the old language.** `updateCoachGoal()` stores `preferredLocale` (`service.ts:300-324`), while `planInputFingerprint()` omits it (`service.ts:1831-1848`). Yet that locale is used to localize the generated workout titles/instructions before they are persisted (`service.ts:1480,1802-1818`). | A runner who changes between English, French, and Arabic can save the preference successfully but keep a current week whose stored content remains in the previous language, undermining localization and RTL parity. | Include every persisted-plan presentation input—at least `preferredLocale`—in invalidation, or relocalize the active deterministic plan without another provider call. Review the result across EN/FR/AR and RTL before accepting parity. |
+
+### Status of the findings this commit claims to remediate
+
+| Prior finding | Static status at `19a58f3` |
+|---|---|
+| `B83-R01` | **Partial:** interaction and AI sleep parsing check current consent; Coach voice transcription does not (`19A-R01`). |
+| `B83-R02` | **Implemented for the original planner/safety input scope:** the previously omitted load-ceiling inputs now invalidate the plan. Persisted-plan locale remains outside invalidation (`19A-R07`). |
+| `B83-R03` | **Partial:** web/native send request IDs and retain them after request failure, but successful-POST/refetch failure and native retry presentation remain open (`19A-R06`). |
+| `B83-R04` | **Partial:** domain writes are in one transaction, but the outer catch still reclassifies persistence failure as provider failure and no plan↔interaction relation exists (`19A-R02`). |
+| `B83-R05` | **Partial:** mismatch detection and the premature FAILED→PENDING flip are fixed; exclusive retry claiming and stale-PENDING recovery are not (`19A-R03`). |
+| `B83-R06` | **Partial/open:** actual insert counts are correct; slot-wide dismissal does not supply the required serialization invariant (`19A-R04`). |
+| `B83-R07` | **Partial:** reconciliation exists, but its failure is swallowed with no durable retry/provenance (`19A-R05`). |
+| `B83-R08` | **Implemented in code:** the context contract now documents `records` and `coachMemory`. Policy/runtime verification was not performed. |
+| `B83-R09` | **Implemented in code:** `usedSignals` and the native follow-up focus affordance cross the v1/native contract. Kotlin compilation, rendering, TalkBack, RTL, and device behavior were not verified. |
+| `B83-R10` | **Implemented in code:** web scrolling switches to `auto` under reduced-motion preference. Browser behavior was not verified. |
+
+### Remediation of 19A-R findings (2026-08-03, on `feat/coach-tier0`)
+
+Implementation evidence for §11's findings; same rule — no gate closes without the named tests.
+
+- **19A-R01** — `transcribeCoachVoiceNote` now requires the current health-consent grant before
+  the provider call (`403 CONSENT_REQUIRED`), completing the provider-boundary set (interaction,
+  sleep parse, transcription).
+- **19A-R02** — the outer catch rethrows `CoachError` unchanged, so `COACH_PERSISTENCE_FAILED`
+  reaches the client as itself; the persistence-failure path now also records the SUCCESSFUL
+  provider usage row (real tokens/cost, annotated) alongside the FAILED interaction; and
+  `TrainingPlan.sourceInteractionId` (migration `20260803090000`) durably links an AI-assisted
+  plan to the interaction that generated it.
+- **19A-R03** — claiming is atomic: the insert's ON CONFLICT is conditional
+  (`WHERE status='FAILED'`) on all three insert paths, zero affected rows → 409, so exactly one
+  concurrent retry wins; `CoachInteraction.claimedAt` (same migration) is a processing lease and
+  a PENDING row idle >10 min is conditionally reclaimed (`STALE_PENDING_RECLAIMED`) instead of
+  stranding the key forever.
+- **19A-R04** — writer and dismisser now serialize on the same per-slot
+  `pg_advisory_xact_lock(hashtextextended(userId:kind:key))`; `dismissMemory` takes the lock
+  then dismisses the whole slot in a transaction — both interleavings are now strictly ordered.
+- **19A-R05 (partial)** — reconciliation is retried once with loud logging; the residual window
+  (both attempts fail → stale until the next run save/delete) is documented in code, with the
+  independently recomputed `records` context block as the live counterweight. A durable
+  queue/dirty-marker (or read-time derivation) remains open.
+- **19A-R06** — web clears the retained key only after the transcript refresh succeeds;
+  native releases the key and pending bubble only once the reply is VISIBLE (reload success),
+  keeps the pending question rendered otherwise, and the failed/unrefreshed pending turn now has
+  a **Retry** button that re-sends the same question with the retained key. Process-death
+  persistence of pending state remains open.
+- **19A-R07** — `preferredLocale` added to `planInputFingerprint` (a locale-only edit rebuilds
+  the deterministic week in the new language, free).
+
+Validation: pure suites, eslint, coach-scope tsc, web parity 629+461, native parity 489 — green.
+Kotlin uncompiled in this session. Open: T0-R03 TTS allowlist+private cache (decided: full fix,
+queued next), T0-R07 DB integration suites, R05 durable repair, R06 process-death persistence.
+
+### Static-review limitations for `19a58f3`
+
+- No runtime or automated validation was performed, per request. PostgreSQL concurrency behavior,
+  raw-SQL result counts, provider accounting, and failure recovery were assessed from source only.
+- The approved Coach v2 screenshots remain the visual references, but this commit was not rendered.
+  Theme, locale, RTL, keyboard/focus, large-text, screen-reader/TalkBack, and visual parity remain
+  unverified.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.

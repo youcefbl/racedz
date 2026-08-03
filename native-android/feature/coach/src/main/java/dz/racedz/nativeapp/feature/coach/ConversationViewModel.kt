@@ -94,6 +94,15 @@ class ConversationViewModel(
         retainedRequestId = null
     }
 
+    /**
+     * Re-sends the failed (or not-yet-visible) pending question with its RETAINED request key
+     * (19A-R06): if the server already generated the reply, this replays it for free.
+     */
+    fun retry() {
+        val question = _state.value.pendingQuestion ?: return
+        send(question)
+    }
+
     fun send(message: String) {
         val trimmed = message.trim()
         if (trimmed.isEmpty() || _state.value.generating) return
@@ -103,16 +112,20 @@ class ConversationViewModel(
         viewModelScope.launch {
             when (val result = repository.ask(AskCoachRequest(type = "CHAT", message = trimmed, requestId = requestId))) {
                 is ApiResult.Success -> {
-                    clearRetainedRequest()
-                    // Refetched rather than appended: the server decides what the transcript says,
-                    // including whether the message was refused on safety grounds and what the reply
-                    // is finally stored as.
-                    reload()
-                    _state.update { it.copy(generating = false, pendingQuestion = null) }
+                    // Refetched rather than appended: the server decides what the transcript says.
+                    // The retained key and pending bubble are released only once the reply is
+                    // actually VISIBLE (19A-R06) — if generation succeeded but this refresh
+                    // failed, Retry replays the stored reply server-side instead of paying again.
+                    if (reload()) {
+                        clearRetainedRequest()
+                        _state.update { it.copy(generating = false, pendingQuestion = null) }
+                    } else {
+                        _state.update { it.copy(generating = false, sendError = null) }
+                    }
                 }
                 is ApiResult.Failure -> _state.update {
                     // The question is kept in [pendingQuestion] so the runner can see what they
-                    // asked; the composer is re-enabled so they can retry — with the SAME key.
+                    // asked; Retry re-sends it with the SAME key.
                     it.copy(generating = false, sendError = result.error.message)
                 }
             }
@@ -134,8 +147,7 @@ class ConversationViewModel(
         viewModelScope.launch {
             when (val result = repository.ask(AskCoachRequest(type = "POST_RUN", runId = run, requestId = requestId))) {
                 is ApiResult.Success -> {
-                    clearRetainedRequest()
-                    reload()
+                    if (reload()) clearRetainedRequest()
                     _state.update { it.copy(generating = false) }
                 }
                 is ApiResult.Failure -> _state.update {
@@ -150,10 +162,11 @@ class ConversationViewModel(
         if (_state.value.sendError != null) _state.update { it.copy(sendError = null, pendingQuestion = null) }
     }
 
-    private suspend fun reload() {
-        when (val result = repository.conversation()) {
-            is ApiResult.Success -> _state.update { it.copy(conversation = result.value, error = null) }
-            is ApiResult.Failure -> Unit
+    private suspend fun reload(): Boolean = when (val result = repository.conversation()) {
+        is ApiResult.Success -> {
+            _state.update { it.copy(conversation = result.value, error = null) }
+            true
         }
+        is ApiResult.Failure -> false
     }
 }

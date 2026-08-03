@@ -104,8 +104,10 @@ export function CoachDashboard({
               method: "POST",
               body: JSON.stringify({ type, runId: options?.runId ?? null, message: options?.message ?? null, requestId })
             });
-            askKeyRef.current = null;
             await refresh();
+            // Cleared only once the transcript refresh succeeded (19A-R06): if generation worked
+            // but the refresh failed, re-asking replays the stored reply instead of paying again.
+            askKeyRef.current = null;
             if (type === "INITIAL_PLAN" || type === "WEEKLY_REVIEW") {
               setView("plan");
             } else if (type === "POST_RUN" || type === "CHAT") {

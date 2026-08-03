@@ -99,9 +99,10 @@ export function RunsView({
           method: "POST",
           body: JSON.stringify({ type: "POST_RUN", runId, message: null, requestId })
         });
-        delete analyzeKeysRef.current[runId];
         setAnalyzedRuns((prev) => ({ ...prev, [runId]: created.data.id }));
         openAnalysis(created.data.id);
+        // Cleared only after the hand-off is issued (19A-R06).
+        delete analyzeKeysRef.current[runId];
       } finally {
         setPendingAction(null);
       }

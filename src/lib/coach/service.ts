@@ -363,6 +363,11 @@ export async function updateCoachGoal(userId: string, goalId: string, rawInput: 
 // issue unlimited billed transcription calls. This bounds the daily cost per user.
 const TRANSCRIBE_DAILY_LIMIT = 60;
 
+// How old a PENDING interaction's processing lease must be before a retry may reclaim its
+// requestId (19A-R03). Generation is bounded by the 30s provider timeout (x2 attempts) plus
+// route overhead, so ten minutes of silence means the claiming worker is gone.
+const STALE_PENDING_AFTER_MS = 10 * 60_000;
+
 // Off-topic CHAT refusals are persisted for audit, but they bypass the entitlement/quota gate,
 // so cap how many we store per user per day to keep repeated off-topic spam from bloating the table.
 const OFF_TOPIC_DAILY_LOG_CAP = 30;
@@ -372,6 +377,17 @@ const OFF_TOPIC_DAILY_LOG_CAP = 30;
 export async function transcribeCoachVoiceNote(userId: string, file: File): Promise<string> {
   const prisma = getPrisma();
   const model = resolveTranscribeModel();
+
+  // A voice note is arbitrary runner speech — symptoms and injuries included — sent to the
+  // provider before the runner even reviews the transcript, so it sits behind the same current
+  // health-consent grant as every other provider-bound user-content path (19A-R01).
+  if (!(await getActiveCoachHealthConsent(userId))) {
+    throw new CoachError(
+      "Health-data consent is required for voice notes. Re-save your goal to consent under the current policy.",
+      403,
+      "CONSENT_REQUIRED"
+    );
+  }
 
   const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT COUNT(*)::bigint AS count
@@ -713,11 +729,20 @@ export async function deleteRun(userId: string, runId: string) {
   await prisma.$executeRaw`DELETE FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId}`;
 
   // A deleted run may have held a personal best; re-derive the PERFORMANCE facts from the runs
-  // that remain (B83-R07). Non-fatal: the deletion itself must never fail on this.
+  // that remain (B83-R07). Non-fatal for the deletion itself, but retried once (19A-R05) since a
+  // transient failure would otherwise leave the deleted run's PB active until the next run save.
+  // Residual window: if both attempts fail, the stale fact persists until any later run save or
+  // deletion reconciles again — the context's independently recomputed `records` block remains
+  // the authoritative live numbers the prompt tells the model to prefer.
   try {
     await reconcilePerformanceMemory(userId);
-  } catch (reconcileError) {
-    console.error("[coach] failed to reconcile performance memory after run deletion", reconcileError);
+  } catch (firstError) {
+    console.error("[coach] performance-memory reconcile failed after run deletion; retrying", firstError);
+    try {
+      await reconcilePerformanceMemory(userId);
+    } catch (retryError) {
+      console.error("[coach] performance-memory reconcile failed twice — stale PB fact may persist", retryError);
+    }
   }
 
   if (run.workoutId) {
@@ -1211,9 +1236,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   let interactionId: string = randomUUID();
   if (input.requestId) {
     const existing = await prisma.$queryRaw<
-      Array<{ id: string; status: string; type: string; runId: string | null; userMessage: string | null; response: CoachResponse | null; safety: unknown }>
+      Array<{ id: string; status: string; type: string; runId: string | null; userMessage: string | null; response: CoachResponse | null; safety: unknown; claimedAt: Date | null }>
     >`
-      SELECT "id", "status"::text AS "status", "type"::text AS "type", "runId", "userMessage", "response", "safety"
+      SELECT "id", "status"::text AS "status", "type"::text AS "type", "runId", "userMessage", "response", "safety", "claimedAt"
       FROM "CoachInteraction"
       WHERE "userId" = ${userId} AND "clientRequestId" = ${input.requestId}
       LIMIT 1
@@ -1230,9 +1255,23 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         throw new CoachError("This request id was already used for a different request.", 409, "REQUEST_ID_MISMATCH");
       }
       if (prior.status === "PENDING") {
-        // Still generating (the first request is in flight). The client should poll history
-        // rather than trigger a parallel generation for the same question.
-        throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+        // A PENDING row whose lease is old belongs to a worker that died mid-generation
+        // (19A-R03): reclaim it (conditionally — one winner) so the requestId is not stranded
+        // forever. A fresh lease means the first request really is still in flight.
+        const staleBefore = new Date(Date.now() - STALE_PENDING_AFTER_MS);
+        const leaseAge = prior.claimedAt ?? new Date(0);
+        if (leaseAge.getTime() >= staleBefore.getTime()) {
+          throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+        }
+        const reclaimed = await prisma.$executeRaw`
+          UPDATE "CoachInteraction"
+          SET "status" = 'FAILED', "errorCode" = 'STALE_PENDING_RECLAIMED', "completedAt" = NOW()
+          WHERE "id" = ${prior.id} AND "status" = 'PENDING' AND ("claimedAt" IS NULL OR "claimedAt" < ${staleBefore})
+        `;
+        if (reclaimed === 0) {
+          throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+        }
+        interactionId = prior.id;
       }
       if (prior.status !== "FAILED") {
         // COMPLETED or BLOCKED: replay the stored result verbatim.
@@ -1244,11 +1283,12 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
           plan: null
         };
       }
-      // FAILED: the retry reuses the row, so the runner sees one logical interaction. The status
-      // flip back to PENDING happens only in the eventual insert's ON CONFLICT — flipping it here,
-      // before the precondition checks, stranded the row as invisible-and-in-progress whenever a
-      // precondition rejected the retry (B83-R05). The failed provider attempt stays in AiUsageLog.
-      interactionId = prior.id;
+      // FAILED (or a just-reclaimed stale PENDING): the retry reuses the row, so the runner sees
+      // one logical interaction. The flip back to PENDING happens only in the eventual insert's
+      // CONDITIONAL ON CONFLICT (claim WHERE status='FAILED') — late, so a precondition rejection
+      // cannot strand the row (B83-R05), and atomic, so of two concurrent retries exactly one
+      // wins the claim and the other gets INTERACTION_IN_PROGRESS (19A-R03).
+      if (prior.status === "FAILED") interactionId = prior.id;
     }
   }
 
@@ -1268,8 +1308,8 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   if (containsUrgentSymptomText(input.message)) {
     const decision = urgentSymptomDecision();
     const response = buildBlockedCoachResponse(decision, goal.preferredLocale);
-    // ON CONFLICT ("id"): a retry of a previously FAILED request reuses its interaction row.
-    await prisma.$executeRaw`
+    // Conditional ON CONFLICT: only a still-FAILED row may be re-claimed by a retry (19A-R03).
+    const claimedUrgent = await prisma.$executeRaw`
       INSERT INTO "CoachInteraction" (
         "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
       ) VALUES (
@@ -1279,7 +1319,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       )
       ON CONFLICT ("id") DO UPDATE SET
         "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
+      WHERE "CoachInteraction"."status" = 'FAILED'
     `;
+    if (claimedUrgent === 0) {
+      throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+    }
     return { id: interactionId, status: "BLOCKED" as const, response, safety: decision, plan: null };
   }
 
@@ -1313,7 +1357,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         AND "createdAt" >= NOW() - INTERVAL '1 day'
     `;
     if (Number(logged?.count ?? 0) < OFF_TOPIC_DAILY_LOG_CAP) {
-      await prisma.$executeRaw`
+      const claimedOffTopic = await prisma.$executeRaw`
         INSERT INTO "CoachInteraction" (
           "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
         ) VALUES (
@@ -1323,7 +1367,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         )
         ON CONFLICT ("id") DO UPDATE SET
           "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
+        WHERE "CoachInteraction"."status" = 'FAILED'
       `;
+      if (claimedOffTopic === 0) {
+        throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+      }
       return { id: interactionId, status: "BLOCKED" as const, response, safety: offTopicSafety, plan: null };
     }
     // Over the daily log cap: still refuse gracefully, just don't write another row.
@@ -1356,21 +1404,26 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence, consistency.status);
   const skeleton = adaptivePlan.workouts;
 
-  // ON CONFLICT ("id"): a retried FAILED request reuses its row (reset to PENDING above). A
-  // concurrent duplicate with the same requestId instead trips the (userId, clientRequestId)
-  // unique constraint — that request errors, and its retry lands in the dedup path and gets the
-  // stored result. Either way: one interaction, one provider call, one quota charge.
-  await prisma.$executeRaw`
+  // The claim: a fresh request inserts its row; a retry of a FAILED row re-claims it via the
+  // CONDITIONAL ON CONFLICT (only rows still FAILED flip back to PENDING). Zero affected rows
+  // means a concurrent retry won the claim first — this request backs off instead of buying a
+  // second provider call (19A-R03). A concurrent duplicate of a NEW request instead trips the
+  // (userId, clientRequestId) unique constraint and its retry replays the stored result.
+  const claimed = await prisma.$executeRaw`
     INSERT INTO "CoachInteraction" (
-      "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion"
+      "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion", "claimedAt"
     ) VALUES (
       ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
-      'PENDING', ${input.message ?? null}, CAST(${JSON.stringify(safety)} AS JSONB), ${COACH_PROMPT_VERSION}
+      'PENDING', ${input.message ?? null}, CAST(${JSON.stringify(safety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
     )
     ON CONFLICT ("id") DO UPDATE SET
       "status" = 'PENDING', "userMessage" = EXCLUDED."userMessage", "safety" = EXCLUDED."safety",
-      "promptVersion" = EXCLUDED."promptVersion", "errorCode" = NULL, "completedAt" = NULL
+      "promptVersion" = EXCLUDED."promptVersion", "errorCode" = NULL, "completedAt" = NULL, "claimedAt" = NOW()
+    WHERE "CoachInteraction"."status" = 'FAILED'
   `;
+  if (claimed === 0) {
+    throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+  }
 
   if (safety.level === "BLOCKED") {
     const response = buildBlockedCoachResponse(safety, goal.preferredLocale);
@@ -1488,7 +1541,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     try {
       plan = await prisma.$transaction(async (tx) => {
         const savedPlan = input.type === "INITIAL_PLAN" || input.type === "WEEKLY_REVIEW"
-          ? await saveGeneratedPlan(userId, goal.id, response, tx)
+          ? await saveGeneratedPlan(userId, goal.id, response, tx, interactionId)
           : null;
         await tx.$executeRaw`
           UPDATE "CoachInteraction"
@@ -1521,8 +1574,22 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
           SET "status" = 'FAILED', "model" = ${generated.model}, "errorCode" = 'COACH_PERSISTENCE_FAILED', "completedAt" = NOW()
           WHERE "id" = ${interactionId}
         `;
+        // The provider call SUCCEEDED and must be accounted as such even though the reply could
+        // not be stored (19A-R02) — losing the real token/cost row made a paid call invisible.
+        await prisma.$executeRaw`
+          INSERT INTO "AiUsageLog" (
+            "id", "userId", "interactionId", "providerResponseId", "model", "status",
+            "inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens", "estimatedCostMicroUsd", "errorMessage"
+          ) VALUES (
+            ${randomUUID()}, ${userId}, ${interactionId}, ${generated.providerResponseId}, ${generated.model}, 'SUCCEEDED',
+            ${generated.usage.inputTokens}, ${generated.usage.cachedInputTokens}, ${generated.usage.outputTokens},
+            ${generated.usage.reasoningTokens}, ${generated.usage.estimatedCostMicroUsd},
+            'Reply generated but persistence failed (COACH_PERSISTENCE_FAILED).'
+          )
+        `;
       } catch {
-        // The row stays PENDING; the stale-PENDING case is bounded to database-outage windows.
+        // The row stays PENDING; the stale-PENDING lease reclaim (19A-R03) recovers the key once
+        // the database is reachable again.
       }
       throw new CoachError("Your coach answered but saving the reply failed. Please try again.", 500, "COACH_PERSISTENCE_FAILED");
     }
@@ -1553,6 +1620,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
     return { id: interactionId, status: "COMPLETED" as const, response, safety, plan };
   } catch (error) {
+    // A CoachError raised inside this try is already classified and persisted (the persistence
+    // branch marks its own row and code) — rewrapping it as a provider failure here is exactly
+    // the misaccounting 19A-R02 called out. Only genuine provider-call failures fall through.
+    if (error instanceof CoachError) throw error;
+
     const providerError = error instanceof CoachProviderError
       ? error
       : new CoachProviderError("AI coaching is temporarily unavailable.", "COACH_GENERATION_FAILED", process.env.OPENAI_COACH_MODEL ?? "gpt-5.4-mini");
@@ -1782,7 +1854,7 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
 // atomically with the interaction that generated it (B83-R04).
 type RawDb = Pick<ReturnType<typeof getPrisma>, "$queryRaw" | "$executeRaw">;
 
-async function saveGeneratedPlan(userId: string, goalId: string, response: EnforcedCoachResponse, tx: RawDb) {
+async function saveGeneratedPlan(userId: string, goalId: string, response: EnforcedCoachResponse, tx: RawDb, sourceInteractionId: string) {
   if (response.upcomingWorkouts.length === 0) return null;
   const dates = response.upcomingWorkouts.map((workout) => new Date(workout.scheduledFor));
   const startsOn = new Date(Math.min(...dates.map((date) => date.getTime())));
@@ -1800,9 +1872,9 @@ async function saveGeneratedPlan(userId: string, goalId: string, response: Enfor
     `;
     await tx.$executeRaw`
       INSERT INTO "TrainingPlan" (
-        "id", "userId", "goalId", "version", "startsOn", "endsOn", "status", "source", "summary", "updatedAt"
+        "id", "userId", "goalId", "version", "startsOn", "endsOn", "status", "source", "summary", "sourceInteractionId", "updatedAt"
       ) VALUES (
-        ${planId}, ${userId}, ${goalId}, ${version}, ${startsOn}, ${endsOn}, 'ACTIVE', 'AI_ASSISTED', ${response.summary}, NOW()
+        ${planId}, ${userId}, ${goalId}, ${version}, ${startsOn}, ${endsOn}, 'ACTIVE', 'AI_ASSISTED', ${response.summary}, ${sourceInteractionId}, NOW()
       )
     `;
     for (const workout of response.upcomingWorkouts) {
@@ -1844,7 +1916,10 @@ function planInputFingerprint(goal: GoalRow): string {
     goal.injuryNotes ?? "",
     goal.injuryHistory ?? "",
     [...goal.chronicConditions].sort(),
-    goal.healthNotes ?? ""
+    goal.healthNotes ?? "",
+    // Presentation input (19A-R07): workout titles/instructions are localized at persist time, so
+    // a locale change must rebuild the week or the stored plan stays in the old language.
+    goal.preferredLocale
   ]);
 }
 

@@ -644,6 +644,9 @@ model TrainingPlan {
   status    TrainingPlanStatus @default(DRAFT)
   source    TrainingPlanSource @default(AI_ASSISTED)
   summary   String?
+  /// The coach interaction whose reply produced this plan (19A-R02) — the durable link that lets
+  /// support reconcile "which ask changed my week". Null for RULE_BASED weeks and legacy rows.
+  sourceInteractionId String?
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
@@ -826,6 +829,10 @@ model CoachInteraction {
   contextHash    String? // sha256 (16 hex) of the exact context payload sent, for reproducibility — no content stored
   errorCode      String?
   acceptedAt     DateTime?
+  /// Processing lease (19A-R03): stamped when a request claims (or re-claims) this row for
+  /// generation. A PENDING row whose lease is old is a dead worker's, and its requestId may be
+  /// reclaimed by a retry instead of returning "in progress" forever.
+  claimedAt      DateTime?
   createdAt      DateTime               @default(now())
   completedAt    DateTime?
 

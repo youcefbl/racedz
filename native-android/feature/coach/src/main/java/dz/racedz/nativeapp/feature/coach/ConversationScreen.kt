@@ -120,13 +120,16 @@ fun ConversationScreen(
                     reverseLayout = true,
                 ) {
                     // reverseLayout puts the first item at the bottom, so the question being
-                    // answered belongs at the head of the list.
-                    if (state.generating || state.sendError != null) {
+                    // answered belongs at the head of the list. Keyed on pendingQuestion too:
+                    // a question whose reply was generated but not yet refetched (reload failed)
+                    // must stay visible with its Retry, not vanish into limbo (19A-R06).
+                    if (state.generating || state.pendingQuestion != null || state.sendError != null) {
                         item(key = "pending") {
                             PendingTurn(
                                 question = state.pendingQuestion,
                                 generating = state.generating,
-                                failed = state.sendError != null,
+                                failed = !state.generating,
+                                onRetry = viewModel::retry,
                             )
                         }
                     }
@@ -229,7 +232,7 @@ fun ConversationScreen(
 
 /** The question the runner just asked, while the coach is still answering it. */
 @Composable
-private fun PendingTurn(question: String?, generating: Boolean, failed: Boolean) {
+private fun PendingTurn(question: String?, generating: Boolean, failed: Boolean, onRetry: () -> Unit) {
     val colors = ZidRunTheme.colors
     Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
         question?.takeIf { it.isNotBlank() }?.let { RunnerBubble(it) }
@@ -250,6 +253,14 @@ private fun PendingTurn(question: String?, generating: Boolean, failed: Boolean)
                 stringResource(R.string.coach_chat_failed),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.danger,
+            )
+            // Retry re-sends the SAME question with its retained request key (19A-R06): if the
+            // server already generated the reply, the retry replays it without a second charge.
+            // Without this, retrying after a timeout meant retyping the question by hand.
+            ZidRunTextButton(
+                text = stringResource(R.string.common_retry),
+                onClick = onRetry,
+                fillWidth = false,
             )
         }
     }

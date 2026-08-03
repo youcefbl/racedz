@@ -67,6 +67,13 @@ export async function writeMemories(
   let written = 0;
   await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
     for (const candidate of accepted) {
+      // Serialize on the slot (19A-R04): writer and dismisser both take the same transaction-
+      // scoped advisory lock, so "forget this" and a concurrent extraction for the same
+      // (userId, kind, key) execute strictly one-after-the-other — the snapshot race where a
+      // dismissal could miss a just-inserted row cannot occur.
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtextextended(${userId} || ':' || ${candidate.kind} || ':' || ${candidate.key}, 0))
+      `;
       // A newer value for the same slot retires the old one rather than deleting it — the audit trail
       // is part of the memory-quality rules. DISMISSED rows are left alone: the runner removed those,
       // and re-learning them automatically would undo an explicit correction.
@@ -193,15 +200,28 @@ export async function exportMemory(userId: string) {
  * NOT EXISTS guard alone could not.
  */
 export async function dismissMemory(userId: string, memoryId: string): Promise<{ dismissed: boolean }> {
-  const count = await getPrisma().$executeRaw`
-    UPDATE "CoachMemory"
-    SET "status" = 'DISMISSED', "updatedAt" = NOW()
-    WHERE "userId" = ${userId} AND "status" <> 'DISMISSED'
-      AND ("kind", "key") IN (
-        SELECT "kind", "key" FROM "CoachMemory" WHERE "id" = ${memoryId} AND "userId" = ${userId}
-      )
-  `;
-  return { dismissed: count > 0 };
+  const prisma = getPrisma();
+  return prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
+    const slot = await tx.$queryRaw<Array<{ kind: string; key: string }>>`
+      SELECT "kind"::text AS "kind", "key" FROM "CoachMemory"
+      WHERE "id" = ${memoryId} AND "userId" = ${userId}
+      LIMIT 1
+    `;
+    if (!slot[0]) return { dismissed: false };
+    // Same advisory lock the writer takes (19A-R04): once acquired, any concurrent extraction for
+    // this slot has either fully committed (its row is visible below) or not started (its insert
+    // will hit the DISMISSED tombstone this update creates). No interleaving can survive.
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${userId} || ':' || ${slot[0].kind} || ':' || ${slot[0].key}, 0))
+    `;
+    const count = await tx.$executeRaw`
+      UPDATE "CoachMemory"
+      SET "status" = 'DISMISSED', "updatedAt" = NOW()
+      WHERE "userId" = ${userId} AND "status" <> 'DISMISSED'
+        AND "kind" = ${slot[0].kind}::"CoachMemoryKind" AND "key" = ${slot[0].key}
+    `;
+    return { dismissed: count > 0 };
+  });
 }
 
 /** The runner confirms a fact is still true, which resets its staleness clock. */
