@@ -4,6 +4,7 @@ import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { createCoachInteraction, getConversationHistory } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
 import { coachReplyDto, coachErrorToApiError } from "@/lib/api/v1/coach";
+import { getPrisma } from "@/lib/db";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +31,18 @@ export const GET = withApi(async (request) => {
   const before = url.searchParams.get("before");
   const history = await getConversationHistory(viewer.id, { before });
 
+  // The language the coach WRITES in — the goal's, not the device's. The client needs it to read a
+  // reply aloud with the right on-device voice (COACHPAR-001); reading French text with an English
+  // voice is worse than not reading it at all.
+  const goal = await getPrisma().runnerGoal.findFirst({
+    where: { userId: viewer.id, status: "ACTIVE" },
+    select: { preferredLocale: true },
+    orderBy: { createdAt: "desc" },
+  });
+
   return apiOk(request, {
     entitlement,
+    replyLanguage: goal?.preferredLocale ?? "en",
     // Cursor is the createdAt of the last row the client already has; an offset would drift as new
     // interactions land at the top.
     nextCursor: history.nextCursor,

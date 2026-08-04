@@ -8,12 +8,16 @@ import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AskCoachRequest
 import dz.racedz.nativeapp.core.network.CoachConversationDto
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+/** The distinct ways a voice note can fail, each with its own localized message. */
+enum class VoiceError { MicUnavailable, TooShort, Empty, ConsentRequired, SubscriptionRequired, Failed }
 
 data class ConversationUiState(
     val conversation: CoachConversationDto = CoachConversationDto(),
@@ -31,7 +35,16 @@ data class ConversationUiState(
      * sentence (the server used to report this as a plain validation error — see FDE-R01).
      */
     val consentRequired: Boolean = false,
+    /** True while the microphone is open. */
+    val recording: Boolean = false,
+    /** True while a finished recording is being turned into text. */
+    val transcribing: Boolean = false,
+    /** Why the last voice attempt did not produce text, if it did not. */
+    val voiceError: VoiceError? = null,
 ) {
+    /** Voice input is a paid feature, so the mic is only offered to subscribers. */
+    val canUseVoice: Boolean get() = conversation.entitlement.tier == "SUBSCRIBED"
+
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val hasCoaching: Boolean get() = conversation.entitlement.tier != "NONE"
 
@@ -177,6 +190,90 @@ class ConversationViewModel(
         if (_state.value.sendError != null) {
             _state.update { it.copy(sendError = null, pendingQuestion = null, consentRequired = false) }
         }
+    }
+
+
+    // ---- voice note (COACHPAR-001) -------------------------------------------------------------
+
+    private var recorder: VoiceNoteRecorder? = null
+
+    /**
+     * Opens the microphone. The caller has already been granted RECORD_AUDIO — permission is asked
+     * for at the tap, never at launch.
+     */
+    fun startRecording(newRecorder: VoiceNoteRecorder) {
+        if (_state.value.recording || _state.value.transcribing) return
+        recorder = newRecorder
+        try {
+            newRecorder.start()
+            _state.update { it.copy(recording = true, sendError = null, consentRequired = false) }
+        } catch (error: Exception) {
+            recorder = null
+            _state.update { it.copy(recording = false, voiceError = VoiceError.MicUnavailable) }
+        }
+    }
+
+    /**
+     * Stops recording and transcribes.
+     *
+     * The transcript is handed back through [onTranscript] for the composer to show — it is NEVER
+     * sent as a question here. Speech recognition mishears, and asking on the runner's behalf would
+     * spend one of their daily messages on a sentence they never approved.
+     */
+    fun stopRecordingAndTranscribe(onTranscript: (String) -> Unit) {
+        val active = recorder ?: return
+        val file = active.stop()
+        _state.update { it.copy(recording = false) }
+        if (file == null) {
+            recorder = null
+            _state.update { it.copy(voiceError = VoiceError.TooShort) }
+            return
+        }
+
+        _state.update { it.copy(transcribing = true, voiceError = null) }
+        viewModelScope.launch {
+            when (val result = repository.transcribe(file, VoiceNoteRecorder.MIME_TYPE)) {
+                is ApiResult.Success -> {
+                    val text = result.value.transcript.trim()
+                    if (text.isEmpty()) {
+                        _state.update { it.copy(transcribing = false, voiceError = VoiceError.Empty) }
+                    } else {
+                        _state.update { it.copy(transcribing = false, voiceError = null) }
+                        onTranscript(text)
+                    }
+                }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(
+                        transcribing = false,
+                        voiceError = when (result.error.code) {
+                            ApiErrorCode.ConsentRequired -> VoiceError.ConsentRequired
+                            ApiErrorCode.SubscriptionRequired -> VoiceError.SubscriptionRequired
+                            else -> VoiceError.Failed
+                        },
+                    )
+                }
+            }
+            // The recording leaves no trace once it has been transcribed, successfully or not.
+            active.discard(file)
+            recorder = null
+        }
+    }
+
+    /** Abandons an in-flight recording; nothing is uploaded and nothing is left on disk. */
+    fun cancelRecording() {
+        recorder?.cancel()
+        recorder = null
+        _state.update { it.copy(recording = false) }
+    }
+
+    fun dismissVoiceError() {
+        if (_state.value.voiceError != null) _state.update { it.copy(voiceError = null) }
+    }
+
+    override fun onCleared() {
+        recorder?.cancel()
+        recorder = null
+        super.onCleared()
     }
 
     private suspend fun reload(): Boolean = when (val result = repository.conversation()) {

@@ -58,6 +58,16 @@ import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import dz.racedz.nativeapp.core.network.CoachMessageDto
 import dz.racedz.nativeapp.core.network.CoachReplyDto
 
@@ -79,6 +89,36 @@ fun ConversationScreen(
     // question means typing, so the action lands the runner in the composer.
     val composerFocus = remember { FocusRequester() }
     var draft by remember { mutableStateOf("") }
+
+    // Voice note + reply playback (COACHPAR-001). Both are held by the screen rather than the view
+    // model because both own Android resources — a microphone and a bound TTS service — that must
+    // be released when this screen leaves composition, not when the view model is cleared.
+    val context = LocalContext.current
+    val speaker = remember { ReplySpeaker(context) }
+    var speakingId by remember { mutableStateOf<String?>(null) }
+    var speechNotice by remember { mutableStateOf<Int?>(null) }
+    DisposableEffect(speaker) {
+        speaker.observeState { newState ->
+            when (newState) {
+                is ReplySpeaker.State.Speaking -> { speakingId = newState.messageId; speechNotice = null }
+                ReplySpeaker.State.Idle -> speakingId = null
+                ReplySpeaker.State.Unsupported -> { speakingId = null; speechNotice = R.string.coach_reply_speech_unsupported }
+                ReplySpeaker.State.Unavailable -> { speakingId = null; speechNotice = R.string.coach_reply_speech_unavailable }
+            }
+        }
+        onDispose { speaker.release() }
+    }
+
+    var micDenied by remember { mutableStateOf(false) }
+    val startRecording = {
+        micDenied = false
+        viewModel.startRecording(VoiceNoteRecorder(context))
+    }
+    // Permission is asked for at the moment the runner taps the mic — never at launch, and never
+    // for anything but this one action.
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startRecording() else micDenied = true
+    }
 
     Column(
         modifier = modifier
@@ -135,7 +175,27 @@ fun ConversationScreen(
                     }
 
                     items(state.conversation.messages, key = { it.id }) { message ->
-                        MessageTurn(message, onAnswerFollowUp = { composerFocus.requestFocus() })
+                        MessageTurn(
+                            message,
+                            onAnswerFollowUp = { composerFocus.requestFocus() },
+                            speaking = speakingId == message.id,
+                            onToggleSpeech = {
+                                if (speakingId == message.id) {
+                                    speaker.stop()
+                                } else {
+                                    val text = message.response?.spokenText()
+                                    if (text.isNullOrBlank()) {
+                                        speechNotice = R.string.coach_reply_speech_unavailable
+                                    } else {
+                                        speaker.speak(
+                                            message.id,
+                                            text,
+                                            ReplySpeaker.localeFor(state.conversation.replyLanguage),
+                                        )
+                                    }
+                                }
+                            },
+                        )
                     }
 
                     // The run this screen was opened for, offered rather than auto-sent.
@@ -174,6 +234,39 @@ fun ConversationScreen(
                     }
                 }
 
+                // Speech/voice feedback sits directly above the composer, where the action was.
+                speechNotice?.let { ZidRunInlineError(stringResource(it), modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg)) }
+                if (micDenied) {
+                    ZidRunInlineError(
+                        stringResource(R.string.coach_voice_permission_denied),
+                        modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
+                    )
+                }
+                state.voiceError?.let { voiceError ->
+                    ZidRunInlineError(
+                        stringResource(
+                            when (voiceError) {
+                                VoiceError.MicUnavailable -> R.string.coach_voice_error_mic
+                                VoiceError.TooShort -> R.string.coach_voice_error_short
+                                VoiceError.Empty -> R.string.coach_voice_error_empty
+                                VoiceError.ConsentRequired -> R.string.coach_consent_required
+                                VoiceError.SubscriptionRequired -> R.string.coach_voice_error_subscription
+                                VoiceError.Failed -> R.string.coach_voice_error_failed
+                            }
+                        ),
+                        modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
+                    )
+                }
+                if (state.recording || state.transcribing) {
+                    Text(
+                        stringResource(
+                            if (state.recording) R.string.coach_voice_recording else R.string.coach_voice_transcribing
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.primary,
+                        modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
+                    )
+                }
                 state.sendError?.let {
                     // A consent refusal is actionable, not a fault: show the localized instruction
                     // rather than the server's English sentence.
@@ -187,6 +280,46 @@ fun ConversationScreen(
                         .padding(ZidRunDimens.spaceLg),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // Voice note: subscribers only, and never while a reply is generating — the
+                    // composer is disabled then, so offering the mic would promise something the
+                    // send button would refuse.
+                    if (state.canUseVoice && !state.generating) {
+                        val micLabel = stringResource(
+                            if (state.recording) R.string.coach_voice_stop else R.string.coach_voice_record
+                        )
+                        IconButton(
+                            onClick = {
+                                viewModel.dismissVoiceError()
+                                speechNotice = null
+                                when {
+                                    state.recording -> viewModel.stopRecordingAndTranscribe { transcript ->
+                                        // The text lands in the composer for the runner to READ and
+                                        // edit. It is never sent for them: recognition mishears, and
+                                        // an unapproved question still spends a daily message.
+                                        draft = if (draft.isBlank()) transcript else "${draft.trim()} $transcript"
+                                        composerFocus.requestFocus()
+                                    }
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                                        PackageManager.PERMISSION_GRANTED -> startRecording()
+                                    else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            modifier = Modifier
+                                .size(ZidRunDimens.minTouchTarget)
+                                .semantics { contentDescription = micLabel },
+                        ) {
+                            if (state.transcribing) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = colors.primary)
+                            } else {
+                                Icon(
+                                    if (state.recording) Icons.Filled.Stop else Icons.Filled.Mic,
+                                    contentDescription = null,
+                                    tint = if (state.recording) colors.primary else colors.textMuted,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(ZidRunDimens.spaceXs))
+                    }
                     ZidRunTextField(
                         value = draft,
                         onValueChange = {
@@ -285,7 +418,12 @@ private fun RunnerBubble(text: String) {
 }
 
 @Composable
-private fun MessageTurn(message: CoachMessageDto, onAnswerFollowUp: () -> Unit) {
+private fun MessageTurn(
+    message: CoachMessageDto,
+    onAnswerFollowUp: () -> Unit,
+    speaking: Boolean = false,
+    onToggleSpeech: () -> Unit = {},
+) {
     val colors = ZidRunTheme.colors
 
     Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
@@ -308,7 +446,29 @@ private fun MessageTurn(message: CoachMessageDto, onAnswerFollowUp: () -> Unit) 
 
             "FAILED" -> Notice(stringResource(R.string.coach_chat_failed))
 
-            else -> message.response?.let { reply -> CoachReplyCard(reply, onAnswerFollowUp) }
+            else -> message.response?.let { reply ->
+                CoachReplyCard(reply, onAnswerFollowUp)
+                // Read aloud by the DEVICE's own voice, not the server's cue endpoint — that one is
+                // allow-listed to guided-run phrases on purpose, and a reply is arbitrary text.
+                val speakLabel = stringResource(
+                    if (speaking) R.string.coach_reply_stop_speaking else R.string.coach_reply_speak
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onToggleSpeech,
+                        modifier = Modifier
+                            .size(ZidRunDimens.minTouchTarget)
+                            .semantics { contentDescription = speakLabel },
+                    ) {
+                        Icon(
+                            if (speaking) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = null,
+                            tint = ZidRunTheme.colors.primary,
+                        )
+                    }
+                    Text(speakLabel, style = MaterialTheme.typography.labelSmall, color = colors.textMuted)
+                }
+            }
         }
 
         // The deterministic safety verdict, rendered as its own notice rather than folded into the

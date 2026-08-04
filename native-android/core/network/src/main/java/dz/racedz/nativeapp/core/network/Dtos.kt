@@ -502,7 +502,25 @@ data class CoachReplyDto(
     /** The context signals the advice actually rests on — the "Based on" chips (B83-R09). */
     val usedSignals: List<String> = emptyList(),
     val followUpQuestion: String? = null,
-)
+) {
+    /**
+     * What a screen reads aloud (COACHPAR-001), in the order the reply is rendered.
+     *
+     * Warnings and the professional-advice flag are included deliberately: a runner listening with
+     * the phone in a pocket must hear the caution, not just the encouraging summary. The "based on"
+     * signal chips are left out — they are provenance for the eye, and reading a list of field
+     * names aloud helps nobody.
+     */
+    fun spokenText(): String = buildList {
+        add(summary)
+        progressAssessment?.takeIf { it.isNotBlank() }?.let { add(it) }
+        addAll(positiveSignals)
+        addAll(warningSignals)
+        addAll(recoveryAdvice)
+        addAll(dataGaps)
+        followUpQuestion?.takeIf { it.isNotBlank() }?.let { add(it) }
+    }.filter { it.isNotBlank() }.joinToString(". ")
+}
 
 /** The deterministic safety verdict, evaluated server-side before and around the reply. */
 @Serializable
@@ -546,6 +564,17 @@ data class CoachConversationDto(
     val entitlement: CoachEntitlementDto = CoachEntitlementDto(),
     val nextCursor: String? = null,
     val messages: List<CoachMessageDto> = emptyList(),
+    /**
+     * The language the coach writes in — the GOAL's language, not the device's. Used to pick the
+     * on-device voice when a reply is read aloud (COACHPAR-001).
+     */
+    val replyLanguage: String = "en",
+)
+
+/** What the runner said, as text, for them to check before it is sent (COACHPAR-001). */
+@Serializable
+data class CoachTranscriptDto(
+    val transcript: String = "",
 )
 
 @Serializable

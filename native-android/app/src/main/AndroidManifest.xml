@@ -21,6 +21,15 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
+      Voice notes to the coach (COACHPAR-001). Requested at the moment the runner taps the mic, not
+      at launch, and the recording is a cache file deleted as soon as it has been transcribed. The
+      microphone is never opened by anything else in the app: there is no background listening, no
+      wake word, and no ambient capture during a run.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!--
       Custom Tabs needs to see whether a browser is installed. This <queries> entry is the minimum
       package visibility that allows it on API 30+; the app does not enumerate installed apps.
     -->

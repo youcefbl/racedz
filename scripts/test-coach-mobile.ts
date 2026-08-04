@@ -741,6 +741,86 @@ async function runGovernanceCases() {
   const urgentNoConsentUsage = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
   check("the consent-free urgent path still reached no provider", urgentNoConsentUsage === urgentUsage, urgentNoConsentUsage);
 
+
+  // 5) Voice input (COACHPAR-001). The provider is never reached in these cases: each one is
+  //    refused by a gate BEFORE transcription, which is exactly what is being asserted. A real
+  //    transcription would need a live OpenAI key and is not part of this suite.
+  const usageBeforeVoice = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
+
+  const voiceForm = (bytes: Uint8Array, type: string, name = "note.m4a") => {
+    const form = new FormData();
+    form.append("audio", new Blob([bytes as BlobPart], { type }), name);
+    return form;
+  };
+  const postVoice = async (token: string, form: FormData) => {
+    const response = await fetch(`${BASE}/api/v1/coach/transcribe`, {
+      method: "POST",
+      headers: { "x-forwarded-for": `${IP_PREFIX}.252`, authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const text = await response.text();
+    let body: ApiBody = {};
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      body = { raw: text.slice(0, 200) };
+    }
+    return { status: response.status, body };
+  };
+  const codeOf = (body: ApiBody) => (body as { error?: { code?: string } }).error?.code;
+
+  const anonymous = await fetch(`${BASE}/api/v1/coach/transcribe`, { method: "POST", body: voiceForm(new Uint8Array([1, 2, 3]), "audio/mp4") });
+  check("voice input refuses an unauthenticated caller", anonymous.status === 401, anonymous.status);
+
+  // The runner is on TRIAL here (no subscription row), so voice must be refused as a paid feature
+  // — and with the typed code the app branches on, not a generic validation failure.
+  const trialVoice = await postVoice(runner.token, voiceForm(new Uint8Array([1, 2, 3]), "audio/mp4"));
+  check("voice input is refused on the free trial", trialVoice.status === 402, trialVoice.status);
+  check("the trial refusal is exactly SUBSCRIPTION_REQUIRED", codeOf(trialVoice.body) === "SUBSCRIPTION_REQUIRED", trialVoice.body);
+
+  // Give the runner a real subscription and re-check the gates that sit behind it.
+  await prisma.coachSubscription.create({
+    data: {
+      userId: runner.id,
+      plan: "MONTHLY",
+      status: "ACTIVE",
+      months: 1,
+      startedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const noAudio = await postVoice(runner.token, new FormData());
+  check("a request with no audio is refused", noAudio.status === 400, noAudio.status);
+
+  // Both of these are 400 BAD_REQUEST on the mobile facade, not 415/413: the v1 error taxonomy has
+  // no media-type or payload-size code, so coachErrorToApiError() normalizes them. The distinction
+  // survives in the message, and what matters here is that neither reaches the provider.
+  const wrongType = await postVoice(runner.token, voiceForm(new Uint8Array([1, 2, 3]), "application/pdf", "note.pdf"));
+  check("a non-audio upload is refused before the provider", wrongType.status === 400, wrongType.status);
+  check("the non-audio refusal is BAD_REQUEST", codeOf(wrongType.body) === "BAD_REQUEST", wrongType.body);
+
+  const tooLarge = await postVoice(runner.token, voiceForm(new Uint8Array(11 * 1024 * 1024), "audio/mp4"));
+  check("an oversized recording is refused", tooLarge.status === 400, tooLarge.status);
+  check("the oversize refusal is BAD_REQUEST", codeOf(tooLarge.body) === "BAD_REQUEST", tooLarge.body);
+
+  // Consent still governs voice: it is arbitrary runner speech sent to a provider before the
+  // runner has even read it back (19A-R01). The grant was wiped earlier in this function.
+  const voiceNoConsent = await postVoice(runner.token, voiceForm(new Uint8Array([1, 2, 3]), "audio/mp4"));
+  check("voice input without a consent grant is refused", voiceNoConsent.status === 403, voiceNoConsent.status);
+  check("the voice refusal is exactly CONSENT_REQUIRED", codeOf(voiceNoConsent.body) === "CONSENT_REQUIRED", voiceNoConsent.body);
+
+  const usageAfterVoice = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
+  check("no refused voice request reached the provider", usageAfterVoice === usageBeforeVoice, {
+    before: usageBeforeVoice,
+    after: usageAfterVoice,
+  });
+
+  // The reply language the client uses to pick an on-device voice travels with the transcript.
+  const conversation = await api("/coach/interactions", { token: runner.token });
+  const replyLanguage = (conversation.body as { data?: { replyLanguage?: string } }).data?.replyLanguage;
+  check("the conversation carries the language the coach writes in", replyLanguage === "en", replyLanguage);
+
   // 4) The memory privacy surface (COACHPAR-002): reachable without entitlement, scoped per user.
   await prisma.coachMemory.create({
     data: {

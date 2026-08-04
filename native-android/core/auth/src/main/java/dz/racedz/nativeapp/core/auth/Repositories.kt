@@ -21,6 +21,7 @@ import dz.racedz.nativeapp.core.network.CoachMemoryDto
 import dz.racedz.nativeapp.core.network.CoachOnboardingStateDto
 import dz.racedz.nativeapp.core.network.LogSleepRequest
 import dz.racedz.nativeapp.core.network.SleepHistoryDto
+import dz.racedz.nativeapp.core.network.CoachTranscriptDto
 import dz.racedz.nativeapp.core.network.CoachPlanWeekDto
 import dz.racedz.nativeapp.core.network.CoachOverviewDto
 import dz.racedz.nativeapp.core.network.CreateCoachGoalRequest
@@ -247,6 +248,24 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
      */
     suspend fun ask(request: AskCoachRequest): ApiResult<AskCoachResponseDto> =
         client.call { api.askCoach(request) }
+
+    /**
+     * Transcribes a recorded voice note.
+     *
+     * The part is labelled with a fixed name: the file lives in the app's own cache and its real
+     * path says something about the device, which has no business travelling with a health-adjacent
+     * recording.
+     */
+    suspend fun transcribe(file: File, mimeType: String): ApiResult<CoachTranscriptDto> =
+        client.call {
+            api.coachTranscribe(
+                MultipartBody.Part.createFormData(
+                    "audio",
+                    "coach-note",
+                    file.asRequestBody(mimeType.toMediaTypeOrNull()),
+                )
+            )
+        }
 
     /**
      * Skips ("I can't today"), moves, or attaches a reason to a planned workout.

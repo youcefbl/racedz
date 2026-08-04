@@ -389,29 +389,39 @@ export async function transcribeCoachVoiceNote(userId: string, file: File): Prom
     );
   }
 
-  const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
-    SELECT COUNT(*)::bigint AS count
-    FROM "AiUsageLog"
-    WHERE "userId" = ${userId}
-      AND "model" = ${model}
-      AND "createdAt" >= NOW() - INTERVAL '24 hours'
-  `;
-  if (Number(count) >= TRANSCRIBE_DAILY_LIMIT) {
-    throw new CoachError("Daily voice-note limit reached. Try again tomorrow.", 429, "TRANSCRIBE_QUOTA_EXCEEDED");
-  }
+  // Reserve the quota slot atomically BEFORE the billed call, exactly as TTS does (FD1-R02): count
+  // and insert inside one transaction serialized per user, so N concurrent notes each see every
+  // earlier reservation and the ceiling cannot be overshot by racing requests. This matters more
+  // now that voice input has two clients — the website and the native composer.
+  const reservationId = randomUUID();
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"transcribe:" + userId}, 0))`;
+    const [{ count }] = await tx.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count
+      FROM "AiUsageLog"
+      WHERE "userId" = ${userId}
+        AND "model" = ${model}
+        AND "createdAt" >= NOW() - INTERVAL '24 hours'
+    `;
+    if (Number(count) >= TRANSCRIBE_DAILY_LIMIT) {
+      throw new CoachError("Daily voice-note limit reached. Try again tomorrow.", 429, "TRANSCRIBE_QUOTA_EXCEEDED");
+    }
+    await tx.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status")
+      VALUES (${reservationId}, ${userId}, ${model}, 'PENDING')
+    `;
+  });
 
   try {
     const transcript = await transcribeCoachAudio(file);
-    await prisma.$executeRaw`
-      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status")
-      VALUES (${randomUUID()}, ${userId}, ${model}, 'SUCCEEDED')
-    `;
+    await prisma.$executeRaw`UPDATE "AiUsageLog" SET "status" = 'SUCCEEDED' WHERE "id" = ${reservationId}`;
     return transcript;
   } catch (error) {
     const code = error instanceof CoachError ? error.code : "OPENAI_TRANSCRIBE_FAILED";
     await prisma.$executeRaw`
-      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status", "errorCode", "errorMessage")
-      VALUES (${randomUUID()}, ${userId}, ${model}, 'FAILED', ${code}, ${errorMessageFor(error)})
+      UPDATE "AiUsageLog"
+      SET "status" = 'FAILED', "errorCode" = ${code}, "errorMessage" = ${errorMessageFor(error)}
+      WHERE "id" = ${reservationId}
     `;
     throw error;
   }

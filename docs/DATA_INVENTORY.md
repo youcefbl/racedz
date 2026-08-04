@@ -52,7 +52,9 @@ before relying on this file if the schema has moved on.
 | Sleep | `SleepLog` (`:769`) | Coach recovery context | Owner only | Indefinite | Deleted with the account | OpenAI (aggregated context only) |
 | Coach interactions/usage | `CoachInteraction`, `AiUsageLog` (`:787,:818`) | Conversation history, cost/abuse tracking | Owner only (interactions); admin (aggregate usage) | Indefinite | Deleted with the account | OpenAI |
 | Coach subscription | `CoachSubscription`, `CoachSubscriptionRequest.paymentProofUrl` (`:843,:870`) | Manual coach-tier billing proof | Owner, admin — served via `/api/coach/subscription/proof/[...path]` (already authenticated) | Indefinite | Deleted with the account | None |
-| Voice | Guided-run TTS audio (disk-cached by locale+text, not a DB model) | Cloud TTS fallback when no on-device voice exists | Not user-specific (cached by text content, not by user) | Cache, no defined eviction policy yet | N/A | OpenAI (TTS) |
+| Voice (out) | Guided-run TTS audio (disk-cached by locale+text, not a DB model) | Cloud TTS fallback when no on-device voice exists | Not user-specific (cached by text content, not by user) | Cache, no defined eviction policy yet | N/A | OpenAI (TTS) |
+| Voice (in) | Voice-note recording — a cache file on the device, never stored server-side | Speech-to-text for the coach composer, so a runner who cannot type comfortably still has the surface | Owner only, transiently: the audio is sent to the provider, transcribed, and the response returned | **Not retained.** The web client holds a `Blob` in memory; the native client writes to its own cache directory and deletes the file after transcription, successfully or not. Only the `AiUsageLog` row (model, status, no content) persists | N/A — nothing to export | OpenAI (transcription) |
+| Reply playback | None — the coach reply is spoken by the **device's own** TTS engine | Reading a reply aloud | N/A | N/A | N/A | **None.** Deliberately not the cloud TTS route, which is allow-listed to cue phrases so it can never synthesize arbitrary reply text |
 
 ## Notifications, admin, and analytics
 

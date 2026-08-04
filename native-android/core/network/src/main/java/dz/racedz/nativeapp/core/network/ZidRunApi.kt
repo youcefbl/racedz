@@ -100,6 +100,18 @@ interface ZidRunApi {
     @POST("api/v1/coach/sleep")
     suspend fun logSleep(@Body body: LogSleepRequest): Response<ApiEnvelope<JsonObject>>
 
+    /**
+     * Transcribe a short voice note (COACHPAR-001). Returns TEXT for the runner to review — it does
+     * not ask the coach anything, because speech recognition mishears and auto-asking would spend a
+     * daily message on a sentence nobody approved.
+     *
+     * Marked slow at the HTTP layer for the same reason as [askCoach]: this waits on a provider.
+     */
+    @Multipart
+    @Headers("$SLOW_CALL_HEADER: 1")
+    @POST("api/v1/coach/transcribe")
+    suspend fun coachTranscribe(@Part audio: MultipartBody.Part): Response<ApiEnvelope<CoachTranscriptDto>>
+
     @GET("api/v1/coach/plan")
     suspend fun coachPlanWeek(): Response<ApiEnvelope<CoachPlanWeekDto>>
 
