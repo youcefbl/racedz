@@ -84,6 +84,20 @@ fun resolveDebugApiBase(raw: String?): String {
     }
     require(!uri.host.isNullOrBlank()) { "zidrun.debugApiBase has no host: $value" }
 
+    // Shapes java.net.URI accepts but Retrofit/OkHttp cannot use, or that should never be baked
+    // into a build artifact (review F234-R08).
+    require(uri.userInfo == null) {
+        "zidrun.debugApiBase must not embed credentials — they would end up in the generated BuildConfig: $value"
+    }
+    require(uri.query == null && uri.fragment == null) {
+        "zidrun.debugApiBase must be a bare base URL with no query or fragment: $value"
+    }
+    // URI.getPort() returns -1 when absent; anything else must be a usable TCP port. A value such
+    // as http://host:99999/ parses here but fails inside OkHttp at runtime.
+    require(uri.port == -1 || uri.port in 1..65535) {
+        "zidrun.debugApiBase port must be between 1 and 65535: $value"
+    }
+
     // Retrofit requires the trailing slash; adding it is unambiguous, so normalize rather than fail.
     return if (value.endsWith("/")) value else "$value/"
 }

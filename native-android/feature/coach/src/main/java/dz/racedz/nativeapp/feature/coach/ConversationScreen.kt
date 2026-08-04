@@ -81,6 +81,12 @@ import dz.racedz.nativeapp.core.network.CoachReplyDto
 fun ConversationScreen(
     viewModel: ConversationViewModel,
     onBack: () -> Unit,
+    /**
+     * Opens goal setup in edit mode. A consent refusal is a hard gate the runner CAN clear — but
+     * only there — so the failure state has to offer the way out rather than just naming it
+     * (review F234-R04).
+     */
+    onReviewConsent: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -168,7 +174,10 @@ fun ConversationScreen(
                             PendingTurn(
                                 question = state.pendingQuestion,
                                 generating = state.generating,
-                                failed = !state.generating,
+                                // Retry is offered only when it can actually change the outcome:
+                                // a consent gate is cleared in goal setup, not by asking again
+                                // (F234-R04), and the action beneath the error says so.
+                                failed = !state.generating && viewModel.canRetry(),
                                 onRetry = viewModel::retry,
                             )
                         }
@@ -269,9 +278,18 @@ fun ConversationScreen(
                 }
                 state.sendError?.let {
                     // A consent refusal is actionable, not a fault: show the localized instruction
-                    // rather than the server's English sentence.
+                    // rather than the server's English sentence, and offer the one action that
+                    // resolves it. Retrying the message cannot.
                     val message = if (state.consentRequired) stringResource(R.string.coach_consent_required) else it
                     ZidRunInlineError(message, modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg))
+                    if (state.consentRequired) {
+                        ZidRunTextButton(
+                            text = stringResource(R.string.coach_consent_review_goal),
+                            onClick = onReviewConsent,
+                            fillWidth = false,
+                            modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
+                        )
+                    }
                 }
 
                 Row(

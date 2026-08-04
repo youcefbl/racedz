@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { ZidRunMark } from "@/components/layout/racedz-logo";
+import { handoffDestinationKey } from "@/lib/api/v1/coach";
 import { peekWebHandoffToken } from "@/lib/native-auth";
 import { getDictionary, getLocale, withLocale, type Locale } from "@/lib/i18n";
 import { logSecurityEvent } from "@/lib/security-log";
@@ -92,12 +93,7 @@ export default async function HandoffPage({
  * path.
  */
 function destinationLabel(destination: string, locale: Locale): string {
-  const t = getDictionary(locale).auth;
-  if (destination.startsWith("/account/security")) return t.handoffDestSecurity;
-  if (destination.startsWith("/account/support")) return t.handoffDestSupport;
-  if (destination.startsWith("/coach/subscribe") || destination.includes("subscription")) return t.handoffDestSubscribe;
-  if (destination.includes("/gpx")) return t.handoffDestGpx;
-  return t.handoffDestAccount;
+  return getDictionary(locale).auth[handoffDestinationKey(destination)];
 }
 
 function maskEmail(email: string): string {

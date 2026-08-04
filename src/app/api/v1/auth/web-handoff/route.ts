@@ -3,6 +3,7 @@ import { requireMobileUser } from "@/lib/api/v1/guard";
 import { createNativeAuthToken } from "@/lib/native-auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { logSecurityEvent } from "@/lib/security-log";
+import { LOCALES } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,17 @@ export const POST = withApi(async (request) => {
   const limited = enforceRateLimit(rateLimitKey("v1-web-handoff", viewer.id), 10, 60_000);
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many requests. Please slow down."));
 
-  const body = (await readJsonBody(request)) as { next?: unknown };
+  const body = (await readJsonBody(request)) as { next?: unknown; locale?: unknown };
   const requested = typeof body.next === "string" ? body.next : "";
   // Same-origin internal paths only — a handoff link must never bounce the signed-in browser to
   // an arbitrary host ("//evil.example" is a protocol-relative external URL, hence the double
   // check). Anything else falls back to the account home.
   const next = requested.startsWith("/") && !requested.startsWith("//") ? requested.slice(0, 500) : "/account";
+
+  // The app's own language travels with the link (F234-R07). Without it the confirmation page fell
+  // back to the browser cookie or Accept-Language, so a runner using the app in Darija could be
+  // asked to confirm a sign-in in English.
+  const locale = LOCALES.includes(body.locale as (typeof LOCALES)[number]) ? (body.locale as string) : null;
 
   const token = await createNativeAuthToken(viewer.id, {
     purpose: "WEB_HANDOFF",
@@ -42,7 +48,7 @@ export const POST = withApi(async (request) => {
     mobileSessionFamilyId: viewer.sessionId,
   });
   return apiOk(request, {
-    path: `/auth/handoff?token=${encodeURIComponent(token)}`,
+    path: `/auth/handoff?token=${encodeURIComponent(token)}${locale ? `&lang=${locale}` : ""}`,
     // Matches the NativeAuthToken TTL; the client should open the link immediately.
     expiresInSeconds: 300,
   });

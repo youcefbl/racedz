@@ -1,13 +1,16 @@
 import { randomUUID } from "crypto";
+import { readdir, rm } from "fs/promises";
+import path from "path";
 import { PrismaClient } from "@prisma/client";
+import { synthesizeSpeech } from "@/lib/coach/tts";
 
-// FD1-R02: the same-key TTS single-flight is only as good as its claim statement, and that
-// statement is the one thing a provider-free test CAN pin exactly. These checks drive the real SQL
-// against the real table: exactly one winner under contention, no takeover while a lease is live,
-// takeover once it has expired, and a release that only ever clears its own claim.
+// FD1-R02 / F234-R02: the TTS cost boundary — one paid call per cache key, a quota that cannot be
+// overshot, and a cache that is never observable half-written.
 //
-// What this deliberately does NOT cover: the OpenAI call itself. No provider request is made here,
-// so "one paid call per cache key" is verified at the ownership invariant, not end to end.
+// This drives the PRODUCTION function (`synthesizeSpeech`) with an injected synthesizer that counts
+// calls, rather than re-implementing its claim SQL in the test. An earlier version of this suite
+// copied the SQL and so could not have caught a defect in the function itself (review F234-R06).
+// No OpenAI request is made: the injected synthesizer is the only thing that "produces" audio.
 
 const prisma = new PrismaClient();
 
@@ -24,69 +27,123 @@ function check(name: string, condition: boolean, detail?: unknown) {
   }
 }
 
-/** The exact statement src/lib/coach/tts.ts uses to take ownership. */
-async function claim(cacheKey: string, ownerId: string, leaseMs: number): Promise<boolean> {
-  const leaseUntil = new Date(Date.now() + leaseMs);
-  const rows = await prisma.$executeRaw`
-    INSERT INTO "TtsCacheClaim" ("cacheKey", "ownerId", "claimedAt", "leaseUntil")
-    VALUES (${cacheKey}, ${ownerId}, NOW(), ${leaseUntil})
-    ON CONFLICT ("cacheKey") DO UPDATE
-      SET "ownerId" = ${ownerId}, "claimedAt" = NOW(), "leaseUntil" = ${leaseUntil}
-      WHERE "TtsCacheClaim"."leaseUntil" < NOW()
-  `;
-  return rows === 1;
+const CACHE_ROOT = path.join(process.cwd(), "public", "uploads", "tts-cache");
+const MODEL = process.env.OPENAI_TTS_MODEL?.trim() || "gpt-4o-mini-tts";
+
+/** A synthesizer that counts calls and can be made slow, so overlap is real rather than assumed. */
+function countingSynthesizer(delayMs = 0) {
+  const state = { calls: 0 };
+  return {
+    state,
+    fn: async () => {
+      state.calls += 1;
+      if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return Buffer.from(`audio-${state.calls}`);
+    }
+  };
 }
 
-async function release(cacheKey: string, ownerId: string): Promise<void> {
-  await prisma.$executeRaw`
-    DELETE FROM "TtsCacheClaim" WHERE "cacheKey" = ${cacheKey} AND "ownerId" = ${ownerId}
+async function usageRows(userId: string) {
+  return prisma.$queryRaw<Array<{ status: string; errorCode: string | null }>>`
+    SELECT "status"::text AS "status", "errorCode" FROM "AiUsageLog" WHERE "userId" = ${userId}
   `;
 }
 
 async function main() {
-  console.log("\nTTS cache-key single-flight (FD1-R02)\n");
-  const key = `test-${randomUUID()}`;
+  console.log("\nTTS cost boundary — production synthesizeSpeech() with a counted provider\n");
+
+  const user = await prisma.user.create({
+    data: {
+      email: `tts-claim-${randomUUID()}@example.test`,
+      firstName: "TTS",
+      lastName: "Tester",
+      role: "RUNNER",
+      emailVerifiedAt: new Date()
+    },
+    select: { id: true }
+  });
+
+  const written: string[] = [];
 
   try {
-    // 1) Contention: many workers race for one uncached phrase; exactly one may call the provider.
-    const contenders = Array.from({ length: 8 }, () => randomUUID());
-    const results = await Promise.all(contenders.map((owner) => claim(key, owner, 60_000)));
-    const winners = results.filter(Boolean).length;
-    check("exactly one worker wins a contested cache key", winners === 1, { winners });
-
-    const holder = contenders[results.indexOf(true)];
-
-    // 2) A live lease is not stealable — this is what stops a duplicate paid call while a slow
-    //    provider retry is still in flight.
-    check("a live lease cannot be taken over", (await claim(key, randomUUID(), 60_000)) === false);
-
-    // 3) A foreign release must not free someone else's claim.
-    await release(key, randomUUID());
-    const stillHeld = await prisma.ttsCacheClaim.findUnique({ where: { cacheKey: key } });
-    check("releasing another worker's claim does nothing", stillHeld?.ownerId === holder, stillHeld);
-
-    // 4) An EXPIRED lease is stealable, so a worker that died cannot wedge the phrase forever.
-    await prisma.ttsCacheClaim.update({
-      where: { cacheKey: key },
-      data: { leaseUntil: new Date(Date.now() - 1_000) }
+    // 1) Same cache key, many concurrent misses: exactly ONE paid call, and everyone gets audio.
+    const phrase = `Test cue ${randomUUID()}`;
+    written.push(phrase);
+    const single = countingSynthesizer(400);
+    const results = await Promise.allSettled(
+      Array.from({ length: 6 }, () => synthesizeSpeech(phrase, "en", user.id, { synthesize: single.fn }))
+    );
+    check("a contested cache key costs exactly one provider call", single.state.calls === 1, single.state.calls);
+    const fulfilled = results.filter((r) => r.status === "fulfilled") as PromiseFulfilledResult<Buffer>[];
+    check("every caller either got audio or was told to retry", results.length === 6 && fulfilled.length >= 1, {
+      fulfilled: fulfilled.length,
+      rejected: results.length - fulfilled.length
     });
-    const successor = randomUUID();
-    check("an expired lease is taken over", (await claim(key, successor, 60_000)) === true);
-    const afterTakeover = await prisma.ttsCacheClaim.findUnique({ where: { cacheKey: key } });
-    check("the takeover records the new owner", afterTakeover?.ownerId === successor, afterTakeover);
+    check(
+      "callers that got audio all got the SAME bytes",
+      new Set(fulfilled.map((r) => r.value.toString())).size === 1,
+      fulfilled.map((r) => r.value.toString())
+    );
 
-    // 5) Only two workers may ever hold it across the takeover — the original holder's release is
-    //    now a no-op, which is why release() is owner-scoped.
-    await release(key, holder);
-    const afterStaleRelease = await prisma.ttsCacheClaim.findUnique({ where: { cacheKey: key } });
-    check("a superseded owner cannot release the new owner's claim", afterStaleRelease?.ownerId === successor, afterStaleRelease);
+    // 2) Publication is atomic: no partially written file is left behind or exposed.
+    const localeDir = path.join(CACHE_ROOT, "en");
+    const stray = (await readdir(localeDir).catch(() => [])).filter((name) => name.endsWith(".part"));
+    check("no partially written cache file remains", stray.length === 0, stray);
 
-    // 6) The rightful owner releases, and the key is immediately claimable again.
-    await release(key, successor);
-    check("the owner's release frees the key", (await prisma.ttsCacheClaim.findUnique({ where: { cacheKey: key } })) === null);
-    check("a freed key is claimable again", (await claim(key, randomUUID(), 60_000)) === true);
+    // 3) A second request for the same phrase is served from cache — no further provider call.
+    const cachedRun = countingSynthesizer();
+    const fromCache = await synthesizeSpeech(phrase, "en", user.id, { synthesize: cachedRun.fn });
+    check("a cached phrase costs no provider call", cachedRun.state.calls === 0, cachedRun.state.calls);
+    check("the cached bytes are the published ones", fromCache.toString() === "audio-1", fromCache.toString());
+
+    // 4) Exactly one usage row was billed for all of that, and nothing is left PENDING.
+    const rows = await usageRows(user.id);
+    const succeeded = rows.filter((r) => r.status === "SUCCEEDED").length;
+    const pending = rows.filter((r) => r.status === "PENDING").length;
+    check("one billed usage row for one provider call", succeeded === 1, rows);
+    check("no reservation is left PENDING", pending === 0, rows);
+
+    // 5) An ABANDONED reservation (a worker killed after reserving) must not keep consuming quota.
+    //    Inserted older than the lease, it is reconciled on the next attempt instead of counted.
+    await prisma.$executeRaw`
+      INSERT INTO "AiUsageLog" ("id", "userId", "model", "status", "createdAt")
+      VALUES (${randomUUID()}, ${user.id}, ${MODEL}, 'PENDING', NOW() - INTERVAL '30 minutes')
+    `;
+    const afterCrash = `Test cue ${randomUUID()}`;
+    written.push(afterCrash);
+    const recovery = countingSynthesizer();
+    await synthesizeSpeech(afterCrash, "en", user.id, { synthesize: recovery.fn });
+    const reconciled = (await usageRows(user.id)).filter((r) => r.errorCode === "RESERVATION_ABANDONED").length;
+    check("a stale reservation is reconciled, not counted forever", reconciled === 1, reconciled);
+    check("work continues after a killed worker", recovery.state.calls === 1, recovery.state.calls);
+
+    // 6) A provider failure is recorded as FAILED and leaves nothing claimed, so the next attempt
+    //    can proceed rather than meeting a wedged key.
+    const failing = `Test cue ${randomUUID()}`;
+    written.push(failing);
+    await synthesizeSpeech(failing, "en", user.id, {
+      synthesize: async () => {
+        throw new Error("provider exploded");
+      }
+    }).catch(() => undefined);
+    const failedRows = (await usageRows(user.id)).filter((r) => r.status === "FAILED" && r.errorCode !== "RESERVATION_ABANDONED");
+    check("a provider failure is recorded as FAILED", failedRows.length === 1, failedRows);
+    const claimsLeft = await prisma.ttsCacheClaim.count();
+    check("a failed synthesis leaves no claim behind", claimsLeft === 0, claimsLeft);
+
+    const retry = countingSynthesizer();
+    await synthesizeSpeech(failing, "en", user.id, { synthesize: retry.fn });
+    check("the phrase can be retried after a failure", retry.state.calls === 1, retry.state.calls);
   } finally {
-    await prisma.ttsCacheClaim.deleteMany({ where: { cacheKey: { startsWith: "test-" } } });
+    // Remove only the cache files this run created.
+    const localeDir = path.join(CACHE_ROOT, "en");
+    const { createHash } = await import("crypto");
+    for (const phrase of written) {
+      const key = createHash("sha256").update(`en::${phrase}`).digest("hex");
+      await rm(path.join(localeDir, `${key}.mp3`), { force: true });
+    }
+    await prisma.$executeRaw`DELETE FROM "AiUsageLog" WHERE "userId" = ${user.id}`;
+    await prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
     await prisma.$disconnect();
   }
 

@@ -79,6 +79,35 @@ npm run smoke
   regression.
 - Record evidence and the go/no-go decision in `EXECUTION_PLAN.md`.
 
+### Required post-deploy check — legacy TTS audio purge
+
+The production start command runs `npm run tts:purge-legacy` between `prisma:deploy` and the app
+(`docker-compose.prod.yml`). It erases `public/uploads/tts-audio` on the persistent volume — audio
+synthesized from ARBITRARY user text before the cue allow-list existed, which nothing reads any more.
+
+It is deliberately **non-blocking**: access control is already in place (Caddy 403s both
+`/uploads/tts-audio/*` and `/uploads/tts-cache/*`), so refusing to start the site over one
+undeletable file would be disproportionate. That makes the log line the only signal, so checking it
+is a required release step, not an optional one.
+
+1. After the stack is up, read the app container's startup log:
+   `docker compose -f docker-compose.prod.yml logs app | grep TTS_PURGE`
+2. Expect exactly one of:
+   - `TTS_PURGE_OK nothing to purge — <path> does not exist.` — already clean on a previous deploy.
+   - `TTS_PURGE_OK removed N file(s), B byte(s) from <path>.` — record N and B as the before/after
+     inventory in the `EXECUTION_PLAN.md` evidence row.
+3. `TTS_PURGE_FAILED` means the directory survived. **Owner action, same release window:**
+   `docker compose -f docker-compose.prod.yml exec app npm run tts:purge-legacy` and re-check. If it
+   still fails, remove the directory from the volume directly
+   (`docker run --rm -v racedz_uploads:/v alpine rm -rf /v/tts-audio`) and confirm the Caddy denies
+   are live: `curl -sI https://zidrun.com/uploads/tts-audio/anything` must answer 403.
+4. Not seeing any `TTS_PURGE` line at all is itself a failure — the deploy command was changed or
+   the script did not run. Treat it as `TTS_PURGE_FAILED`.
+
+Rollback is unaffected: the purge only deletes files no code path reads, so a rollback to a previous
+image needs no restore. If the files are needed for a forensic reason, snapshot the volume BEFORE
+deploying — the purge is not reversible.
+
 ## Secrets and environment
 
 Required production groups are documented in `.env.example`. At minimum verify:

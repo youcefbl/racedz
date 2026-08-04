@@ -448,6 +448,7 @@
     <string name="coach_chat_hint">Posez une question</string>
     <string name="coach_chat_send">Envoyer</string>
     <string name="coach_consent_required">Votre coach a besoin de votre consentement pour utiliser vos données de santé. Ouvrez votre objectif et enregistrez-le pour continuer.</string>
+    <string name="coach_consent_review_goal">Revoir l\'objectif et le consentement</string>
     <string name="coach_voice_record">Enregistrer une note vocale</string>
     <string name="coach_voice_stop">Arrêter l\'enregistrement</string>
     <string name="coach_voice_recording">À l\'écoute… appuyez pour arrêter</string>

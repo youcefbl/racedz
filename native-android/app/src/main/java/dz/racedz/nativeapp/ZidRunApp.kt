@@ -102,7 +102,9 @@ fun ZidRunApp(
     val handoffScope = rememberCoroutineScope()
     fun openWebSignedIn(next: String) {
         handoffScope.launch {
-            onOpenBrowserSignIn(container.authRepository.webHandoffUrl(next))
+            // The app's own language, normalized to the two-letter tag the web dictionaries use.
+            val appLanguage = LocaleManager.currentTag(context).take(2).lowercase()
+            onOpenBrowserSignIn(container.authRepository.webHandoffUrl(next, appLanguage))
         }
     }
 
@@ -323,7 +325,13 @@ fun ZidRunApp(
                     key = "coach-chat-${runId ?: "general"}",
                     factory = SimpleViewModelFactory { ConversationViewModel(container.coachRepository, runId) },
                 )
-                ConversationScreen(viewModel = chatViewModel, onBack = { navController.popBackStack() })
+                ConversationScreen(
+                    viewModel = chatViewModel,
+                    onBack = { navController.popBackStack() },
+                    // A consent refusal is cleared by re-saving the goal, so the failure state
+                    // routes there directly (F234-R04).
+                    onReviewConsent = { navController.navigate(RootDestinations.coachSetup(true)) },
+                )
             }
 
             composable(RootDestinations.COACH_SLEEP) {

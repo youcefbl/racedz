@@ -258,7 +258,14 @@ data class LogoutRequest(val refreshToken: String)
 
 /** Where the web handoff should land after the browser is signed in (internal path only). */
 @Serializable
-data class WebHandoffRequest(val next: String)
+data class WebHandoffRequest(
+    val next: String,
+    /**
+     * The app's current language, so the confirmation page speaks it (F234-R07). Without it the
+     * browser decided from its own cookie or Accept-Language, which can differ from the app.
+     */
+    val locale: String? = null,
+)
 
 @Serializable
 data class ResendVerificationRequest(val email: String, val language: String? = null)

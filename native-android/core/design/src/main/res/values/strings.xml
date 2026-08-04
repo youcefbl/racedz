@@ -469,6 +469,7 @@
     <string name="coach_chat_hint">Ask a question</string>
     <string name="coach_chat_send">Send</string>
     <string name="coach_consent_required">Your coach needs your consent to use health details. Open your goal and save it to continue.</string>
+    <string name="coach_consent_review_goal">Review goal and consent</string>
     <string name="coach_voice_record">Record a voice note</string>
     <string name="coach_voice_stop">Stop recording</string>
     <string name="coach_voice_recording">Listening… tap to stop</string>

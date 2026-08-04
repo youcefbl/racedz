@@ -31,7 +31,22 @@ const nextConfig: NextConfig = {
   // runtime-written files). Also lighter on CPU/RAM for a small VPS.
   images: { unoptimized: true },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        // The app→browser handoff carries a five-minute sign-in credential in its query string, and
+        // the site-wide strict-origin-when-cross-origin still sends the FULL url as the Referer on
+        // same-origin requests — so the token could be copied into same-origin access/telemetry logs
+        // by the page's own subresource requests (review F234-R03). no-referrer is the only policy
+        // that keeps a secret-bearing URL out of them.
+        source: "/auth/handoff/:path*",
+        headers: [
+          ...securityHeaders.filter((header) => header.key !== "Referrer-Policy"),
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" }
+        ]
+      }
+    ];
   }
 };
 

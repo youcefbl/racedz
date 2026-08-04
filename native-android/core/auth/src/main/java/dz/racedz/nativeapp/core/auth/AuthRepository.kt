@@ -86,10 +86,13 @@ class AuthRepository(
      * the destination preserved — not the destination itself, because some targets are not pages
      * (a GPX API URL would render as raw 401 JSON in a signed-out browser).
      */
-    suspend fun webHandoffUrl(next: String): String =
-        when (val result = client.call { api.webHandoff(WebHandoffRequest(next = next)) }) {
+    suspend fun webHandoffUrl(next: String, locale: String? = null): String =
+        when (val result = client.call { api.webHandoff(WebHandoffRequest(next = next, locale = locale)) }) {
             is ApiResult.Success -> buildWebUrl(result.value.path)
-            is ApiResult.Failure -> buildWebUrl("/login") + "?callbackUrl=" + Uri.encode(next)
+            // The fallback carries the language too, so a failed mint does not also switch the
+            // runner into a different language on the login page.
+            is ApiResult.Failure -> buildWebUrl("/login") + "?callbackUrl=" + Uri.encode(next) +
+                (locale?.let { "&lang=" + Uri.encode(it) } ?: "")
         }
 
     fun buildWebUrl(path: String): String =

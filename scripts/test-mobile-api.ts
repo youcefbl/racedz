@@ -922,16 +922,20 @@ async function main() {
     const otherUser = await makeUser(password);
     createdUserIds.push(otherUser.id);
     const foreignToken = `${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}`;
-    const victim = await prisma.user.findUnique({ where: { id: user.id }, select: { securityStampAt: true } });
+    // The token carries the OTHER user's own, current stamp (F234-R06): with the victim's stamp it
+    // failed the stamp comparison one check earlier, so the case never actually reached the
+    // device-family ownership predicate it claimed to be testing.
+    const foreignOwner = await prisma.user.findUnique({ where: { id: otherUser.id }, select: { securityStampAt: true } });
     await prisma.nativeAuthToken.create({
       data: {
         userId: otherUser.id,
         token: foreignToken,
         purpose: "WEB_HANDOFF",
         destination: "/account",
-        // A live family — but it is the FIRST user's, not this token owner's.
+        // A live family — but it is the FIRST user's, not this token owner's. Ownership is now the
+        // ONLY predicate that can reject this token.
         mobileSessionFamilyId: mintedRow?.mobileSessionFamilyId,
-        securityStampAt: victim?.securityStampAt,
+        securityStampAt: foreignOwner?.securityStampAt,
         expiresAt: new Date(Date.now() + 300_000)
       }
     });
@@ -961,6 +965,89 @@ async function main() {
       "a token with no recorded security stamp is refused",
       !/authjs\.session-token=[^;]/.test(stampless.headers.getSetCookie().join("; ")),
       { location: stampless.headers.get("location") }
+    );
+
+    // F234-R01: invalidation CONCURRENT with consumption, not merely before it. One transaction
+    // holds the account row and bumps the stamp; the handoff POST runs while that is uncommitted,
+    // so it must block on the row lock and then observe the new stamp. Asserting "no session
+    // cookie" is the invariant: a browser must never be signed in from credentials that were
+    // invalid at commit time.
+    // A FRESH sign-in, so this token has its own un-revoked device family. Reusing the earlier
+    // session made this case pass for the wrong reason: that family had already been revoked by the
+    // revocation test above, so the token was dead before the race could matter.
+    actAsClient(`203.0.${RUN_OCTET}.72`);
+    const raceLogin = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const raceAccess = tokensOf(raceLogin).accessToken;
+    const raceMint = await api("/api/v1/auth/web-handoff", {
+      method: "POST",
+      token: raceAccess,
+      body: { next: "/account" }
+    });
+    const racePath = (raceMint.body.data as { path?: string } | undefined)?.path ?? "";
+    const raceToken = new URL(`${BASE}${racePath}`).searchParams.get("token") ?? "";
+
+    let consumeStatus = 0;
+    let consumeCookies = "";
+    let inFlight: Promise<void> | null = null;
+    await prisma.$transaction(
+      async (tx) => {
+        // Take the same row the consume path locks, then change it.
+        await tx.$executeRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
+        await tx.$executeRaw`UPDATE "User" SET "securityStampAt" = NOW() WHERE "id" = ${user.id}`;
+
+        // Fire the consume while this transaction is still open; it queues on the lock. It must NOT
+        // be awaited here — this transaction holds the lock the request is waiting for, so awaiting
+        // it inside would deadlock and roll the invalidation back, which is what made an earlier
+        // version of this case pass for the wrong reason.
+        inFlight = handoffForm(raceToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" }).then((response) => {
+          consumeStatus = response.status;
+          consumeCookies = response.headers.getSetCookie().join("; ");
+        });
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+      },
+      { timeout: 20_000, maxWait: 20_000 }
+    );
+    // The lock is released now; let the queued request finish against the committed new stamp.
+    await inFlight;
+
+    check(
+      "invalidation racing consumption never yields a session",
+      !/authjs\.session-token=[^;]/.test(consumeCookies),
+      { status: consumeStatus, cookies: consumeCookies.slice(0, 80) }
+    );
+    const raceTokenRow = await prisma.nativeAuthToken.findUnique({ where: { token: raceToken }, select: { usedAt: true } });
+    check("the raced token is spent, not left reusable", raceTokenRow?.usedAt !== null, raceTokenRow);
+
+    // F234-R03: the token-bearing URL must not leak into same-origin Referer headers.
+    const headerProbe = await fetch(`${BASE}/auth/handoff?token=probe`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-For": currentClientIp }
+    });
+    check(
+      "the handoff URL is served no-referrer",
+      (headerProbe.headers.get("referrer-policy") ?? "").toLowerCase() === "no-referrer",
+      headerProbe.headers.get("referrer-policy")
+    );
+
+    // F234-R07: the app's language reaches the confirmation page, and the destination the native
+    // app actually opens for subscriptions is named rather than falling back to "Your account".
+    // Fresh sign-in: the stamp-bump case above deliberately invalidated the earlier access token.
+    actAsClient(`203.0.${RUN_OCTET}.73`);
+    const localeLogin = await api("/api/v1/auth/login", { method: "POST", body: { email: user.email, password } });
+    const localeMint = await api("/api/v1/auth/web-handoff", {
+      method: "POST",
+      token: tokensOf(localeLogin).accessToken,
+      body: { next: "/account/coach/subscribe", locale: "ar" }
+    });
+    const localePath = (localeMint.body.data as { path?: string } | undefined)?.path ?? "";
+    check("the mint carries the app locale in the link", localePath.includes("lang=ar"), localePath);
+    const localePage = await fetch(`${BASE}${localePath}`, { redirect: "manual", headers: { "X-Forwarded-For": currentClientIp } });
+    const localeHtml = await localePage.text();
+    check('the confirmation renders right-to-left for Arabic', localeHtml.includes('dir="rtl"'), localePage.status);
+    check(
+      "the native subscribe destination is named, not generic",
+      localeHtml.includes("اشتراك المدرّب") && !localeHtml.includes("حسابك"),
+      { named: localeHtml.includes("اشتراك المدرّب") }
     );
   } finally {
     // Registering fires a notification, and Notification.userId has no cascade — clear the rows

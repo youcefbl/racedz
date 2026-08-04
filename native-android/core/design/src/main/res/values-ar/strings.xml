@@ -454,6 +454,7 @@
     <string name="coach_chat_hint">اطرح سؤالك</string>
     <string name="coach_chat_send">ابعث</string>
     <string name="coach_consent_required">المدرّب يحتاج موافقتك باش يستعمل معلومات صحتك. حلّ الهدف تاعك واحفظه باش تكمّل.</string>
+    <string name="coach_consent_review_goal">راجع الهدف والموافقة</string>
     <string name="coach_voice_record">سجّل رسالة صوتية</string>
     <string name="coach_voice_stop">وقّف التسجيل</string>
     <string name="coach_voice_recording">راني نسمع… دوس باش توقّف</string>

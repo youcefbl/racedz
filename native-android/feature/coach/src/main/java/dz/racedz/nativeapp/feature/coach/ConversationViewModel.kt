@@ -100,6 +100,9 @@ class ConversationViewModel(
     private var retainedRequestPayload: String? = null
     private var retainedRequestId: String? = null
 
+    /** True when the failed turn awaiting Retry is a run analysis rather than a typed question. */
+    private var pendingRunAnalysis = false
+
     private fun requestIdFor(payload: String): String {
         val existing = retainedRequestId
         if (retainedRequestPayload == payload && existing != null) return existing
@@ -115,12 +118,21 @@ class ConversationViewModel(
     }
 
     /**
-     * Re-sends the failed (or not-yet-visible) pending question with its RETAINED request key
-     * (19A-R06): if the server already generated the reply, this replays it for free.
+     * Re-sends the failed attempt with its RETAINED request key (19A-R06): if the server already
+     * generated the reply, this replays it for free.
+     *
+     * Handles BOTH kinds of pending turn (F234-R04). A POST_RUN analysis deliberately has no
+     * pendingQuestion — the runner typed nothing — so the old implementation returned immediately
+     * and its Retry button did nothing at all.
      */
     fun retry() {
-        val question = _state.value.pendingQuestion ?: return
-        send(question)
+        if (_state.value.consentRequired) return
+        val question = _state.value.pendingQuestion
+        if (question != null) {
+            send(question)
+            return
+        }
+        if (pendingRunAnalysis) analyseRun()
     }
 
     fun send(message: String) {
@@ -166,12 +178,16 @@ class ConversationViewModel(
     fun analyseRun() {
         val run = runId ?: return
         if (_state.value.generating) return
+        pendingRunAnalysis = true
         val requestId = requestIdFor("POST_RUN|" + run)
         _state.update { it.copy(generating = true, pendingQuestion = null, sendError = null) }
         viewModelScope.launch {
             when (val result = repository.ask(AskCoachRequest(type = "POST_RUN", runId = run, requestId = requestId))) {
                 is ApiResult.Success -> {
-                    if (reload()) clearRetainedRequest()
+                    if (reload()) {
+                        clearRetainedRequest()
+                        pendingRunAnalysis = false
+                    }
                     _state.update { it.copy(generating = false) }
                 }
                 is ApiResult.Failure -> _state.update {
@@ -188,9 +204,13 @@ class ConversationViewModel(
     /** Clears a failed attempt once the runner has acknowledged it by typing again. */
     fun dismissSendError() {
         if (_state.value.sendError != null) {
+            pendingRunAnalysis = false
             _state.update { it.copy(sendError = null, pendingQuestion = null, consentRequired = false) }
         }
     }
+
+    /** True when Retry can actually do something — a consent gate is not cleared by retrying. */
+    fun canRetry(): Boolean = !_state.value.consentRequired && (_state.value.pendingQuestion != null || pendingRunAnalysis)
 
 
     // ---- voice note (COACHPAR-001) -------------------------------------------------------------

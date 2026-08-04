@@ -158,31 +158,41 @@ export async function consumeNativeAuthToken(token: string, purpose: NativeAuthP
 
     const user = row.user;
 
+    // Lock the account row for the rest of this transaction (F234-R01). Reading it unlocked left a
+    // real race: a password reset, MFA change, or block could COMMIT between the read and this
+    // transaction finishing, and the handoff would still mint a browser session from credentials
+    // that were invalid by the time it landed. Every invalidation writer updates this row, so
+    // taking it FOR UPDATE forces them to queue behind us — and us behind them.
+    const locked = await tx.$queryRaw<Array<{ securityStampAt: Date; blockedAt: Date | null }>>`
+      SELECT "securityStampAt", "blockedAt" FROM "User" WHERE "id" = ${row.userId} FOR UPDATE
+    `;
+    const current = locked[0];
+    if (!current) return null;
+
     // A blocked account cannot be signed into by any door.
-    if (user.blockedAt) return null;
+    if (current.blockedAt) return null;
 
     // The stamp must not have moved since the token was minted. NULL means the token predates this
     // column or was minted by code that failed to record it — refused either way, never trusted.
-    if (!row.securityStampAt || row.securityStampAt.getTime() !== user.securityStampAt.getTime()) {
+    if (!row.securityStampAt || row.securityStampAt.getTime() !== current.securityStampAt.getTime()) {
       return null;
     }
 
     // A browser handoff additionally requires the minting device to still be a live, current
-    // session OWNED BY THIS USER — checked inside the same transaction as the claim, so a device
-    // revoked concurrently cannot slip through a check/consume window.
+    // session OWNED BY THIS USER. Locked for the same reason as the account row: revokeFamily()
+    // must not be able to commit underneath this check.
     if (purpose === "WEB_HANDOFF") {
       if (!row.mobileSessionFamilyId) return null;
-      const device = await tx.mobileSession.findFirst({
-        where: {
-          familyId: row.mobileSessionFamilyId,
-          userId: row.userId,
-          revokedAt: null,
-          expiresAt: { gt: new Date() },
-          securityStamp: user.securityStampAt
-        },
-        select: { id: true }
-      });
-      if (!device) return null;
+      const devices = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "MobileSession"
+        WHERE "familyId" = ${row.mobileSessionFamilyId}
+          AND "userId" = ${row.userId}
+          AND "revokedAt" IS NULL
+          AND "expiresAt" > NOW()
+          AND "securityStamp" = ${current.securityStampAt}
+        FOR UPDATE
+      `;
+      if (devices.length === 0) return null;
     }
 
     return {

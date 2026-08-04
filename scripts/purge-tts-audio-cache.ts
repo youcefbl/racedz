@@ -12,8 +12,9 @@ import path from "path";
 //
 // Failure is deliberately NON-BLOCKING. Access control is the real boundary here and it is already
 // in place (the Caddy deny), so refusing to start the site over an undeletable leftover file would
-// be disproportionate. A failure prints the marker TTS_PURGE_FAILED with the resolved path; the
-// release checklist in docs/OPERATIONS.md requires grepping the startup log for it.
+// be disproportionate. A failure prints the marker TTS_PURGE_FAILED with the resolved path, and
+// "Required post-deploy check — legacy TTS audio purge" in docs/OPERATIONS.md makes reading that
+// line a release step with named remediation — including that a MISSING marker counts as a failure.
 async function inventory(dir: string): Promise<{ files: number; bytes: number }> {
   let files = 0;
   let bytes = 0;

@@ -363,6 +363,12 @@ export async function updateCoachGoal(userId: string, goalId: string, rawInput: 
 // issue unlimited billed transcription calls. This bounds the daily cost per user.
 const TRANSCRIBE_DAILY_LIMIT = 60;
 
+// A PENDING transcription reservation older than this belongs to a process that died between
+// reserving and resolving (F234-R02). Transcription is bounded by the provider timeout plus
+// retries; five minutes of silence cannot be live work, and leaving the row counted would deny the
+// runner voice notes for a full day over someone else's crash.
+const TRANSCRIBE_RESERVATION_LEASE_MS = 5 * 60_000;
+
 // How old a PENDING interaction's processing lease must be before a retry may reclaim its
 // requestId (19A-R03). Generation is bounded by the 30s provider timeout (x2 attempts) plus
 // route overhead, so ten minutes of silence means the claiming worker is gone.
@@ -395,13 +401,22 @@ export async function transcribeCoachVoiceNote(userId: string, file: File): Prom
   // now that voice input has two clients — the website and the native composer.
   const reservationId = randomUUID();
   await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"transcribe:" + userId}, 0))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"transcribe:" + userId}, 0))`;
+    await tx.$executeRaw`
+      UPDATE "AiUsageLog"
+      SET "status" = 'FAILED', "errorCode" = 'RESERVATION_ABANDONED'
+      WHERE "userId" = ${userId}
+        AND "model" = ${model}
+        AND "status" = 'PENDING'
+        AND "createdAt" < NOW() - ${`${Math.ceil(TRANSCRIBE_RESERVATION_LEASE_MS / 1000)} seconds`}::interval
+    `;
     const [{ count }] = await tx.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
       FROM "AiUsageLog"
       WHERE "userId" = ${userId}
         AND "model" = ${model}
         AND "createdAt" >= NOW() - INTERVAL '24 hours'
+        AND ("status" <> 'FAILED' OR "errorCode" IS DISTINCT FROM 'RESERVATION_ABANDONED')
     `;
     if (Number(count) >= TRANSCRIBE_DAILY_LIMIT) {
       throw new CoachError("Daily voice-note limit reached. Try again tomorrow.", 429, "TRANSCRIBE_QUOTA_EXCEEDED");

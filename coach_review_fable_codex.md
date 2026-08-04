@@ -1046,3 +1046,133 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions live i
   remain unverified.
 - The repository-required ZidRun app-review skill guided the review. The separately referenced
   `impeccable` skill was unavailable in this workspace.
+
+---
+
+## 16. Static code review — commit `e0093b6`
+
+### Review boundary and verdict
+
+- **Reviewed commit:** `e0093b653291f13e2388e8d8918e90e3f38de4e5`
+  (`feat(coach): COACHPAR-001 — voice notes and reply playback on native`), relative to parent
+  `f2343d437e2db85ff20e2d1f8db64ef9156b86c3`.
+- **Boundary:** the exact committed diff plus the directly affected native microphone/TTS lifecycle,
+  Coach conversation contract, transcription/provider accounting, privacy inventory, approved Coach
+  flow, and Android manifest. Uncommitted changes in `src/lib/native-auth.ts` and
+  `scripts/test-mobile-api.ts` were unrelated and excluded.
+- **Method:** static code and document inspection only, as requested. No test, lint, typecheck,
+  build, migration, database, browser, emulator, device, provider, or production command was run.
+  The `165/165`, Gradle, and parity results committed in `EXECUTION_PLAN.md` are author evidence,
+  not independently reproduced results.
+- **Verdict:** **changes requested.** The bearer transcription facade, paid-tier/consent checks,
+  atomic quota admission, review-before-send intent, localized copy, app-private cache, and on-device
+  TTS are sensible foundations. Three P1 privacy/safety defects remain: recording can continue after
+  its stop control disappears, cancellation/process death can retain the health-adjacent audio file,
+  and spoken playback omits the professional/safety notices shown on screen. Five P2 functional,
+  accessibility, abuse-resistance, and accounting defects also remain.
+- **Release status:** this review closes no release, privacy, safety, cost, accessibility, or
+  native-parity gate. `COACHPAR-001` remains open under its existing device-acceptance condition.
+  `EXECUTION_PLAN.md` remains the only progress/status tracker; this section is dated review evidence
+  only.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `E009-R01` | **P1** | **A voice recording can continue after the UI removes its only stop control.** The text field and Send remain enabled while `state.recording` is true (`ConversationScreen.kt:277-363`), and `ConversationViewModel.send()` guards only an empty message or `generating`, not recording/transcribing (`ConversationViewModel.kt:126-132`). Sending an existing draft therefore sets `generating=true`; the entire mic/Stop control is then removed by `if (state.canUseVoice && !state.generating)` while `MediaRecorder` remains active (`ConversationScreen.kt:283-320`). There is no duration ceiling and no lifecycle observer that stops capture when the app backgrounds; only an explicit tap, `cancelRecording()`, or eventual ViewModel clearing closes it (`ConversationViewModel.kt:196-277`). The manifest nevertheless states there is “no background listening” (`AndroidManifest.xml:23-30`). | A runner can believe recording stopped because the stop affordance vanished while the app continues capturing ambient, health, or household speech throughout a Coach request (whose client timeout is intentionally long). Backgrounding the app has the same unbounded-capture risk. | Make recording, transcribing, and generating mutually exclusive in both UI and ViewModel; never remove or disable the visible Stop/Cancel action while the microphone is open. Stop/cancel on lifecycle background, navigation, send, logout, and entitlement loss; add a bounded duration and visible elapsed time. Pin send-during-recording, background/foreground, navigation, timeout, and entitlement-change cases with a recorder fake that proves `stop/release` occurs exactly once. |
+| `E009-R02` | **P1** | **The “not retained” audio guarantee is not cancellation- or process-safe.** After `active.stop()`, deletion occurs only after the suspended network call and outside `finally` (`ConversationViewModel.kt:223-259`). If that coroutine is cancelled when the ViewModel is cleared, `active.discard(file)` is skipped; `onCleared()` calls `recorder.cancel()`, but `VoiceNoteRecorder.stop()` has already nulled its internal `output`, so `cancel()` no longer knows the finished file (`VoiceNoteRecorder.kt:57-84`). Process death leaves the same cache file, and there is no startup stale-file purge. `start()` also leaks its temp file and unreleased `MediaRecorder` if `prepare()`/`start()` throws before the fields are assigned (`:29-50`); a successful stop with a zero-length file returns null without deleting it (`:62-71`); every `delete()` result is ignored. This contradicts `docs/DATA_INVENTORY.md:56` and the committed evidence in `EXECUTION_PLAN.md:359`. | Arbitrary runner speech—including symptoms and injuries—can remain on disk indefinitely even though the privacy inventory says nothing is retained or exportable. Repeated failures can also accumulate cache files/resources. | Own the finished file independently of recorder state; wrap upload handling in cancellation-safe cleanup, and purge stale `coach-note-*` files at startup to cover process death. Release/delete on every `start` and `stop` failure, delete zero-byte results, handle deletion failure explicitly, and update the inventory/evidence until verified. Add cache-directory assertions for success, provider/API failure, coroutine cancellation, ViewModel clear, process restart, start/stop exceptions, and failed deletion. |
+| `E009-R03` | **P1** | **“Read aloud” drops the reply's highest-level safety warnings.** `CoachReplyDto.spokenText()` says the professional-advice flag is included, but it concatenates only text collections and never adds localized text for `requiresProfessionalAdvice` (`Dtos.kt:485-522`). Playback is built from `message.response` alone (`ConversationScreen.kt:177-195`), so it also cannot include the separate notable `message.safety` notice rendered at `ConversationScreen.kt:474-479`. The visual card does show both professional advice (`:503-505`) and the deterministic safety notice, making the audio experience strictly less safe than the screen. | A runner using playback with the phone in a pocket can hear encouragement, warnings, and recovery advice but miss that the app recommends professional assessment or that the deterministic safety layer raised a notable verdict. This directly contradicts the evidence claim that a listening runner “must hear the caution.” | Compose spoken content at the message/UI layer so it can prepend/append localized professional-advice and notable-safety text as well as the structured reply. Test `requiresProfessionalAdvice`, each notable safety shape, ordinary warnings, CLEAR replies, and all three locales; playback must never omit a notice visible for that same message. |
+| `E009-R04` | **P2** | **The new TTS feature is missing Android's package-visibility declaration.** The app targets SDK 36 (`native-android/app/build.gradle.kts:7-22`) and constructs `TextToSpeech` in `ReplySpeaker.kt:38-61`, but the manifest's `<queries>` contains only a browser VIEW intent (`AndroidManifest.xml:32-42`). [Android's `TextToSpeech` API documentation](https://developer.android.com/reference/android/speech/tts/TextToSpeech) says apps targeting Android 11+ that use TTS should declare an intent query for `android.intent.action.TTS_SERVICE`. In addition, `ReplySpeaker.speak()` sets the UI to Speaking before calling `tts.speak()` and ignores its immediate `ERROR` return (`ReplySpeaker.kt:79-87`). | Engine discovery/playback can be unavailable or inconsistent on Android 11+ even when a voice is installed, and an immediate enqueue failure can leave the control saying “Stop reading” without speech. | Add the `TTS_SERVICE` intent to `<queries>`, treat the return value of `speak()` as authoritative, and return the UI to an actionable unavailable state on `ERROR`. Verify default and alternative engines, missing-language data, no TTS engine, initialization/enqueue failure, and Android 11+ package visibility on a device. |
+| `E009-R05` | **P2** | **One current goal language is incorrectly applied to every historical reply.** `GET /api/v1/coach/interactions` fetches the latest active goal's current `preferredLocale` and returns one conversation-level `replyLanguage` (`src/app/api/v1/coach/interactions/route.ts:30-60`). Every message is spoken with that one locale (`ConversationScreen.kt:177-195`). Goal editing mutates `preferredLocale` in place (`src/lib/coach/service.ts:269-279,287-324`), while `CoachInteraction` persists no response locale (`prisma/schema.prisma:847-885`). Replies from earlier goals are also returned in the same history. | After changing Coach language—or when history spans goals—old French/Arabic/English replies are read with the new goal's voice, producing the mispronunciation the commit says `replyLanguage` prevents. The new test asserts only one English current-goal happy path (`scripts/test-coach-mobile.ts:819-822`). | Persist the response locale with each interaction and return it per `CoachMessageDto`; choose the voice per message. Define a safe legacy-row fallback that avoids confidently using a known-wrong voice. Cover language edits, histories spanning goals, pagination, and en/fr/ar message mixtures. |
+| `E009-R06` | **P2** | **Several advertised voice states are unreachable or incomplete.** A provider-empty transcript becomes a 422 `EMPTY_TRANSCRIPT` `CoachError`, but `coachErrorToApiError()` maps 422 to `VALIDATION_FAILED` (`src/app/api/v1/coach/transcribe/route.ts:66-73`; `src/lib/api/v1/coach.ts:78-104`); the ViewModel maps every non-consent/subscription failure to `VoiceError.Failed` (`ConversationViewModel.kt:235-253`). `VoiceError.Empty` is therefore reachable only from a successful empty response that the route explicitly prevents. While transcribing, the spinner remains an enabled IconButton labelled “Record”; tapping it silently no-ops because `startRecording()` refuses transcribing (`ConversationScreen.kt:286-320`; `ConversationViewModel.kt:204-205`). Recording/transcribing feedback is plain `Text` without live-region semantics and has no elapsed time (`ConversationScreen.kt:260-269`), contrary to the approved flow's elapsed/status and announced-live-state requirements (`COACH_DESIGN_FLOW.md:200-214,265-267`). The localized `coach_voice_review` instruction is present in all locales but unused. | “Nothing heard” shows the generic failure, TalkBack may not announce microphone state changes, the busy mic is a dead control, and runners are not explicitly reminded to review the inserted transcript. The existing device acceptance matrix cannot pass as implemented. | Give empty transcript a stable mobile error code and map it to `VoiceError.Empty`; disable or replace the mic during transcription with truthful semantics; expose elapsed recording time and an announced polite status; show the localized review instruction after insertion. Add reducer/Compose semantics cases for every advertised state and transition in en/fr/ar/RTL. |
+| `E009-R07` | **P2** | **The 10 MB and audio-only boundaries are enforced only after the multipart body is parsed.** The route calls `await request.formData()` before inspecting `audio.size`, and accepts an empty MIME type because the allow-list check is conditional on `audio.type` being truthy (`src/app/api/v1/coach/transcribe/route.ts:45-66`). No repository proxy or multipart-route body cap was found (the existing bounded reader covers JSON only: `src/lib/api/v1/http.ts:149-168`). The new tests construct an 11 MB `FormData` object and prove only post-parse refusal (`scripts/test-coach-mobile.ts:793-805`). | An authenticated/compromised paid account can make the server consume an arbitrarily large multipart upload before the advertised cap runs, causing avoidable memory/temp-storage and request-worker pressure. Empty-type arbitrary bytes can also reach a billed provider attempt. The process-local burst limiter does not bound bytes or coordinate instances. | Enforce a hard request-body limit before/full-stream parsing at the proxy or streaming multipart boundary (including chunked requests), require a non-empty allowlisted media type, and add container/signature validation where practical. Test over-limit and chunked bodies without materializing them in the application, missing MIME, spoofed MIME, and multi-instance rate behavior; confirm no usage reservation/provider call occurs. |
+| `E009-R08` | **P2** | **The transcription quota reservation has no crash lease or stale reconciliation.** The advisory lock correctly serializes count + PENDING insert, but the rolling count includes every status and the row is resolved only after the provider promise returns (`src/lib/coach/service.ts:361-428`). Process death after line 409 leaves PENDING counted for 24 hours; a DB failure while marking success can turn a completed paid transcription into an error and can itself prevent the catch update. Unlike `CoachInteraction.claimedAt` or `TtsCacheClaim`, the new transcription reservation has no ownership lease/recovery path. The added suite deliberately exercises only pre-provider refusals (`scripts/test-coach-mobile.ts:772-817`). | Crashed workers or accounting outages can consume subscriber voice quota without returning text, while logs can misclassify or strand a provider call. Atomic admission prevents overshoot but does not make the reservation lifecycle durable. | Add a lease/attempt identity and deterministic stale-PENDING reconciliation; make terminal accounting idempotent and distinguish provider success from later bookkeeping failure. Test killed owners before/during/after provider success, stale recovery, terminal-update failure, concurrent limit saturation, and exactly-once usage classification with an injectable provider. |
+
+### Static status of the advertised feature
+
+| Advertised area | Static status after `e0093b6` |
+|---|---|
+| Paid bearer transcription facade | **Partial:** authentication, entitlement, consent, quota admission, and review-before-send shape are present; pre-parse byte limiting, MIME strictness, empty-result typing, and crash-durable accounting remain open (`E009-R06`–`R08`). |
+| Native voice recording | **Changes required:** the basic AAC/cache/upload path exists, but capture control is not lifecycle-safe and local deletion is not guaranteed (`E009-R01`, `E009-R02`). |
+| Reply playback | **Partial and safety-incomplete:** on-device TTS avoids sending arbitrary reply text to another provider, but safety notices are omitted, manifest visibility is missing, and engine errors are incomplete (`E009-R03`, `E009-R04`). |
+| Reply language | **Incorrect for history:** one mutable current-goal locale is applied to every message (`E009-R05`). |
+| Localization/accessibility | **Partial:** strings and control descriptions exist in en/fr/ar, but live-state announcement, elapsed time, truthful busy controls, and transcript-review feedback are incomplete (`E009-R06`). |
+| Advertised verification | **Not closure-grade for this feature:** the committed server suite covers refusal paths and one English locale field only; it explicitly contains no successful transcription. No focused native test for recorder cleanup, ViewModel cancellation/state transitions, `spokenText()`, TTS errors, or historical message locales was added. Device/TalkBack/cache verification remains open in the tracker. |
+
+### Static-review limitations
+
+- The approved Coach Conversation screenshot was inspected at original resolution. It specifies the
+  composer/mic placement but not the new recording, transcribing, permission, or playback error
+  states; those were checked against `docs/coach-design/COACH_DESIGN_FLOW.md` and the existing web
+  voice flow instead.
+- Android microphone/background behavior, cache deletion, lifecycle cancellation, TTS package
+  visibility/engine behavior, multipart buffering, PostgreSQL advisory locking, OpenAI retries and
+  billing, process death, multi-instance deployment, and provider output were reasoned about from
+  source only.
+- Light/dark/race, EN/FR/Arabic RTL, font scaling, TalkBack/live announcements, permission denial,
+  app backgrounding, no-engine/no-language devices, offline/slow upload, and physical-device behavior
+  remain unverified.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+### 15.1 Remediation evidence for `F234-R01`–`R08` (2026-08-04, Fable)
+
+Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions in `PRODUCT.md`.
+
+**Two real defects were found by taking R06 seriously — both invisible to the previous suites.**
+
+1. **The advisory locks never worked.** `pg_advisory_xact_lock` returns `void`, which `$queryRaw`
+   cannot deserialize: both the TTS and transcription quota reservations threw `P2010` at runtime
+   instead of taking a lock. `memory-store.ts` used `$executeRaw` and worked; the two paths added in
+   the DD6/FD1 rounds did not, and nothing executed them because `synthesizeSpeech()` needs a
+   provider key. Both now use `$executeRaw`. The "atomic reservation" reported as evidence in §13.1
+   and §14.1 **was not functioning** on either path until this commit.
+2. **The claim was held after a provider failure**, not only after a failed publication, so a failed
+   synthesis wedged the phrase for its lease and the next runner waited it out for someone else's
+   error. Now held only when audio was paid for but could not be published.
+
+- **`F234-R01`** — the consume transaction now takes `FOR UPDATE` on the `User` row and on the
+  matching `MobileSession` row, so an invalidation cannot commit between validation and consume;
+  every invalidation writer touches those rows, so they queue behind each other. **The new race case
+  was verified to actually detect the defect:** with the lock removed it FAILS (a real
+  `authjs.session-token` is issued); with it, refused. An earlier version of that case passed
+  without the lock — its token was already dead from a previous test's revocation, and it awaited
+  the in-flight request inside the holding transaction, deadlocking and rolling the invalidation
+  back. Both flaws are fixed and noted in the test.
+- **`F234-R02`** — audio is published temp-file + `rename` (atomic within the directory), so a
+  waiter can never read a partial MP3; the claim is released unless publication failed;
+  `AiUsageLog` PENDING rows have a lease and are reconciled to `RESERVATION_ABANDONED` on the next
+  attempt instead of consuming quota for 24 hours after a process death. Same lease applied to
+  transcription.
+- **`F234-R06`** — `synthesizeSpeech()` takes an injectable synthesizer **only** so tests can drive
+  the production function; `test:tts-claim` (13/13) now counts provider calls through it rather than
+  re-running copied SQL: one call under 6-way contention, identical bytes to every caller, no
+  `.part` file left, cached second call costs nothing, one billed row, nothing left PENDING, stale
+  reservation reconciled, provider failure recorded and the key immediately retryable. The
+  foreign-device-family case now carries its own user's valid stamp, so ownership is the only
+  predicate that can reject it (it previously failed one check earlier — a false positive).
+- **`F234-R03`** — `/auth/handoff/:path*` is served `Referrer-Policy: no-referrer` (and `no-store`);
+  verified live and pinned by a contract case.
+- **`F234-R04`** — the consent state now offers "Review goal and consent" wired to
+  `coachSetup(editing = true)`; Retry is suppressed when it cannot change the outcome; and
+  `retry()` handles a POST_RUN analysis, whose Retry button previously did nothing at all because
+  `pendingQuestion` is deliberately null for it.
+- **`F234-R05`** — `docs/OPERATIONS.md` gains "Required post-deploy check — legacy TTS audio purge":
+  the grep, both success markers, the before/after inventory to record, owner remediation for
+  `TTS_PURGE_FAILED` (including direct volume removal and a `curl -I` 403 confirmation), the rule
+  that a MISSING marker counts as failure, and the note that the purge is not reversible. The
+  script's comment no longer references a procedure that does not exist.
+- **`F234-R07`** — the mint accepts the app's locale and returns it in the link; the native client
+  sends `LocaleManager.currentTag()` and carries it into the login fallback too; destinations resolve
+  through one shared ordered map that includes `/account/coach/subscribe`. Pinned: `lang=ar` in the
+  minted path, `dir="rtl"` rendered, and the subscribe destination named in Arabic rather than the
+  generic account label.
+- **`F234-R08`** — user info, query, fragment, and out-of-range ports are refused at Gradle
+  configuration time; verified against four such values.
+- **Validation:** `test:mobile-api` 94/94 · `test:coach-mobile` 165/165 · `test:tts-claim` 13/13 ·
+  pure coach suites pass · lint + web parity (641+461) + native parity (506) clean · `tsc` clean
+  apart from two pre-existing unrelated items · native `assembleDebug lintDebug testDebugUnitTest`
+  BUILD SUCCESSFUL.
+- **Still unverified:** no device run this round (the phone was disconnected); the confirmation
+  page's theme/large-text/TalkBack matrix; a real provider call anywhere; production purge and
+  Caddy-reload evidence.

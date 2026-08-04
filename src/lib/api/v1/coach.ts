@@ -103,3 +103,28 @@ export function coachErrorToApiError(error: CoachError): ApiError {
       return new ApiError("VALIDATION_FAILED", error.message);
   }
 }
+
+/**
+ * The destinations a web handoff may name, and the dictionary key each is described by.
+ *
+ * A single ordered list because the label and the allow-list must not drift: the confirmation page
+ * showed the generic "Your account" for the native subscribe destination, since the app opens
+ * `/account/coach/subscribe` while the label matcher only knew `/coach/subscribe` (review
+ * F234-R07). Longest prefix first, so a more specific path wins.
+ */
+export const HANDOFF_DESTINATIONS = [
+  { prefix: "/account/coach/subscribe", key: "handoffDestSubscribe" },
+  { prefix: "/account/security", key: "handoffDestSecurity" },
+  { prefix: "/account/support", key: "handoffDestSupport" },
+  { prefix: "/coach/subscribe", key: "handoffDestSubscribe" },
+] as const;
+
+export type HandoffDestinationKey = (typeof HANDOFF_DESTINATIONS)[number]["key"] | "handoffDestGpx" | "handoffDestAccount";
+
+/** Which dictionary key describes [destination]; never the raw path. */
+export function handoffDestinationKey(destination: string): HandoffDestinationKey {
+  const match = HANDOFF_DESTINATIONS.find((entry) => destination.startsWith(entry.prefix));
+  if (match) return match.key;
+  if (destination.includes("/gpx")) return "handoffDestGpx";
+  return "handoffDestAccount";
+}

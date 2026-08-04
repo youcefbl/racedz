@@ -49,7 +49,7 @@
     "test:mobile-api": "tsx scripts/test-mobile-api.ts",
     "check:native-i18n": "tsx scripts/check-native-i18n.ts",
     "test:coach-mobile": "tsx scripts/test-coach-mobile.ts",
-    "test:tts-claim": "tsx scripts/test-tts-claim.ts"
+    "test:tts-claim": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-tts-claim.ts"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",

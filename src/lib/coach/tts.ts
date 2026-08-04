@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomUUID } from "crypto";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
 import { getPrisma } from "@/lib/db";
@@ -47,17 +47,50 @@ const CLAIM_LEASE_MS = PROVIDER_TIMEOUT_MS * (PROVIDER_MAX_RETRIES + 1) + 30_000
 // A waiter polls for the owner's output for as long as that owner could legitimately still be
 // working, plus one poll interval.
 const WAIT_POLL_MS = 500;
+// How long a PENDING usage reservation may sit before it is treated as abandoned (F234-R02). A
+// worker killed between reserving and resolving would otherwise hold a slot of the runner's daily
+// quota for the full 24-hour window, because nothing in the process survives to release it. The
+// lease is the claim lease plus margin: past it, the row cannot belong to live work.
+const RESERVATION_LEASE_MS = CLAIM_LEASE_MS + 60_000;
 const MAX_WAIT_MS = CLAIM_LEASE_MS + WAIT_POLL_MS;
 
-export async function synthesizeSpeech(text: string, locale: CoachLocale, userId: string): Promise<Buffer> {
+/**
+ * How the audio is actually produced. Injectable ONLY so tests can exercise this function itself —
+ * the single-flight, reservation, and publication logic below is the thing that has to be right,
+ * and a test that re-implements it proves nothing about it (review F234-R06). Production always
+ * uses the OpenAI default.
+ */
+export type TtsSynthesizer = (input: { text: string; locale: CoachLocale; model: string }) => Promise<Buffer>;
+
+async function synthesizeWithOpenAI({ text, locale, model }: { text: string; locale: CoachLocale; model: string }): Promise<Buffer> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new CoachError("Voice generation is not configured.", 503, "OPENAI_NOT_CONFIGURED");
+  }
+  const client = new OpenAI({ apiKey, timeout: PROVIDER_TIMEOUT_MS, maxRetries: PROVIDER_MAX_RETRIES });
+  const response = await client.audio.speech.create({
+    model,
+    voice: VOICE_BY_LOCALE[locale],
+    input: text,
+    response_format: "mp3"
+  });
+  return Buffer.from(await response.arrayBuffer());
+}
+
+export async function synthesizeSpeech(
+  text: string,
+  locale: CoachLocale,
+  userId: string,
+  options: { synthesize?: TtsSynthesizer } = {}
+): Promise<Buffer> {
   const key = cacheKeyFor(locale, text);
   const file = cachePath(locale, key);
 
   const cached = await readCached(file);
   if (cached) return cached;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const synthesize = options.synthesize ?? synthesizeWithOpenAI;
+  if (!options.synthesize && !process.env.OPENAI_API_KEY) {
     throw new CoachError("Voice generation is not configured.", 503, "OPENAI_NOT_CONFIGURED");
   }
 
@@ -75,10 +108,22 @@ export async function synthesizeSpeech(text: string, locale: CoachLocale, userId
   // overshot by racing requests.
   const reservationId = randomUUID();
   await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"tts:" + userId}, 0))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"tts:" + userId}, 0))`;
+    // Abandoned reservations are reconciled rather than counted (F234-R02): a PENDING row older
+    // than the lease belongs to a process that died, and charging a runner for it would deny them
+    // voice cues for a day over someone else's crash.
+    await tx.$executeRaw`
+      UPDATE "AiUsageLog"
+      SET "status" = 'FAILED', "errorCode" = 'RESERVATION_ABANDONED'
+      WHERE "userId" = ${userId}
+        AND "model" = ${model}
+        AND "status" = 'PENDING'
+        AND "createdAt" < NOW() - ${`${Math.ceil(RESERVATION_LEASE_MS / 1000)} seconds`}::interval
+    `;
     const [{ count }] = await tx.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count FROM "AiUsageLog"
       WHERE "userId" = ${userId} AND "model" = ${model} AND "createdAt" >= NOW() - INTERVAL '24 hours'
+        AND ("status" <> 'FAILED' OR "errorCode" IS DISTINCT FROM 'RESERVATION_ABANDONED')
     `;
     if (Number(count) >= TTS_SYNTH_DAILY_LIMIT) {
       throw new CoachError("Daily voice-cue generation limit reached. Try again tomorrow.", 429, "TTS_QUOTA_EXCEEDED");
@@ -111,17 +156,13 @@ export async function synthesizeSpeech(text: string, locale: CoachLocale, userId
       throw new CoachError("That voice cue is being prepared. Please try again shortly.", 503, "TTS_BUSY");
     }
 
+    let synthesized = false;
+    let published = false;
     try {
-      const client = new OpenAI({ apiKey, timeout: PROVIDER_TIMEOUT_MS, maxRetries: PROVIDER_MAX_RETRIES });
       let buffer: Buffer;
       try {
-        const response = await client.audio.speech.create({
-          model,
-          voice: VOICE_BY_LOCALE[locale],
-          input: text,
-          response_format: "mp3"
-        });
-        buffer = Buffer.from(await response.arrayBuffer());
+        buffer = await synthesize({ text, locale, model });
+        synthesized = true;
         await prisma.$executeRaw`UPDATE "AiUsageLog" SET "status" = 'SUCCEEDED' WHERE "id" = ${reservationId}`;
         reservationResolved = true;
       } catch (error) {
@@ -135,10 +176,15 @@ export async function synthesizeSpeech(text: string, locale: CoachLocale, userId
 
       // Written after the usage row is resolved: a failed disk write must not make a paid call
       // look free, and the caller still gets the audio it paid for.
-      await writeCache(file, buffer);
+      published = await writeCache(file, buffer);
       return buffer;
     } finally {
-      await releaseCacheKey(key, reservationId);
+      // Held ONLY in the narrow case where audio was paid for but could not be published: releasing
+      // then would hand the key to a waiter who finds no cache file and buys the same audio again —
+      // the duplicate charge this mechanism exists to prevent (F234-R02), and the lease throttles
+      // the retry instead. A provider failure produced nothing to protect, so the key is freed
+      // immediately and the next runner is not made to wait out a lease for someone else's error.
+      if (!synthesized || published) await releaseCacheKey(key, reservationId);
     }
   } finally {
     if (!reservationResolved) await refundReservation(reservationId);
@@ -153,13 +199,27 @@ async function readCached(file: string): Promise<Buffer | null> {
   }
 }
 
-async function writeCache(file: string, buffer: Buffer): Promise<void> {
+/**
+ * Publishes the audio ATOMICALLY: written to a temporary name, then renamed into place.
+ *
+ * Writing straight to the final filename made the cache observable while it was still being
+ * written, so a waiter polling that path could read a truncated MP3 (F234-R02). rename() within the
+ * same directory is atomic, so the final path either does not exist or is a complete file.
+ *
+ * Returns whether the audio is now durably readable — the caller must not release its claim if not.
+ */
+async function writeCache(file: string, buffer: Buffer): Promise<boolean> {
+  const temporary = `${file}.${randomUUID()}.part`;
   try {
     await mkdir(path.dirname(file), { recursive: true });
-    await writeFile(file, buffer);
+    await writeFile(temporary, buffer);
+    await rename(temporary, file);
+    return true;
   } catch {
     // A cache that cannot be written costs the next request another call; it must never fail the
     // request that already has its audio.
+    await unlink(temporary).catch(() => undefined);
+    return false;
   }
 }
 
