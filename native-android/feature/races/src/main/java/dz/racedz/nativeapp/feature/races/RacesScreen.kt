@@ -199,8 +199,16 @@ fun RacesScreen(
                                 icon = Icons.Filled.EmojiEvents,
                                 title = stringResource(R.string.races_empty_title),
                                 body = stringResource(R.string.races_empty_body),
-                                actionLabel = if (state.hasFilters) stringResource(R.string.races_clear_filters) else null,
-                                onAction = if (state.hasFilters) viewModel::clearFilters else null,
+                                // With filters there is something to clear; without them there is
+                                // not, and the app has no pull-to-refresh — so an unfiltered empty
+                                // list was a dead end only a force-quit escaped (device pass
+                                // 2026-08-04, seeded races appeared only after restarting the app).
+                                actionLabel = if (state.hasFilters) {
+                                    stringResource(R.string.races_clear_filters)
+                                } else {
+                                    stringResource(R.string.common_retry)
+                                },
+                                onAction = if (state.hasFilters) viewModel::clearFilters else viewModel::retry,
                             )
                         }
                     }

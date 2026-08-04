@@ -513,6 +513,18 @@ fun CoachOnboardingScreen(
                                 stringResource(R.string.coach_setup_conditions),
                                 conditionLabels.joinToString(", ").ifEmpty { noneLabel },
                             )
+                            // The free-text health answers are the most sensitive thing the runner
+                            // typed, and the consent below says "including the health details" —
+                            // so they have to be visible here, not just silently sent (device pass
+                            // 2026-08-04). Shown only when filled, to keep the card short.
+                            constraints.trim().takeIf { it.isNotEmpty() }
+                                ?.let { ReviewRow(stringResource(R.string.coach_setup_constraints), it) }
+                            injuryNotes.trim().takeIf { it.isNotEmpty() }
+                                ?.let { ReviewRow(stringResource(R.string.coach_setup_injury_now), it) }
+                            injuryHistory.trim().takeIf { it.isNotEmpty() }
+                                ?.let { ReviewRow(stringResource(R.string.coach_setup_injury_history), it) }
+                            healthNotes.trim().takeIf { it.isNotEmpty() }
+                                ?.let { ReviewRow(stringResource(R.string.coach_setup_health_notes), it) }
                         }
                     }
 
