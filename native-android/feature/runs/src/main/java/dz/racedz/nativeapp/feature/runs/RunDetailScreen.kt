@@ -220,6 +220,18 @@ fun RunDetailScreen(
                     }
                 }
 
+                if (run.splits.isEmpty() && run.paceSeries.size <= 1 &&
+                    (run.route?.size ?: 0) > 1
+                ) {
+                    ZidRunCard {
+                        Text(
+                            text = stringResource(R.string.runs_series_unavailable),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textMuted,
+                        )
+                    }
+                }
+
                 val elevations = run.elevationSeries
                 if (elevations.size > 1) {
                     ZidRunSectionHeader(title = stringResource(R.string.runs_elevation))
@@ -256,7 +268,9 @@ fun RunDetailScreen(
                             }
                             ChartWithAxes(
                                 values = elevations.map { it.value },
-                                color = colors.primary,
+                                // Info hue: one hue per metric — pace owns primary, and the card
+                                // title names the series, so colour never carries identity alone.
+                                color = colors.info,
                                 yLabel = { "${it.toInt()} m" },
                                 xMax = run.distanceKm,
                             )
@@ -278,7 +292,8 @@ fun RunDetailScreen(
                             // chart is flipped to put "faster" at the top where a runner expects it.
                             ChartWithAxes(
                                 values = paces.map { it.value },
-                                color = colors.accent,
+                                // Primary, not accent: orange is 2.74:1 on the light surface (R3).
+                                color = colors.primary,
                                 invert = true,
                                 yLabel = { ZidRunFormat.pace(it.toInt()) },
                                 xMax = run.distanceKm,
@@ -499,6 +514,9 @@ private fun SplitRow(
     // Proportional to how close this split is to the fastest one; floored so even the slowest
     // kilometre still reads as a bar rather than a sliver.
     val fraction = (fastestPace.toFloat() / split.paceSecondsPerKm.toFloat()).coerceIn(0.25f, 1f)
+    // The fastest full kilometre wears the accent; its delta column carries the same fact in
+    // text, so the colour is emphasis, never the only signal.
+    val isFastest = split.paceSecondsPerKm == fastestPace && split.meters >= 995
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -528,7 +546,7 @@ private fun SplitRow(
                     .fillMaxWidth(fraction)
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(colors.primary)
+                    .background(if (isFastest) colors.accentStrong else colors.primary)
             )
         }
         Text(
