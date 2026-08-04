@@ -230,6 +230,8 @@
     <string name="runs_stat_time">Temps</string>
     <string name="runs_stat_pace">Allure</string>
     <string name="runs_stat_distance">Distance</string>
+    <string name="runs_series_unavailable">Le tracé de cette sortie n\u2019a pas d\u2019horodatage point par point, donc les fractionnés et l\u2019allure ne peuvent pas être tracés.</string>
+    <string name="runs_split_fastest">le plus rapide</string>
     <string name="runs_record">Enregistrer</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$d sortie</item>
@@ -338,6 +340,13 @@
     <string name="coach_next_workout">Prochaine séance</string>
     <string name="coach_latest_review">Dernier retour du coach</string>
     <string name="coach_trial">Essai gratuit</string>
+    <string name="coach_sessions_done_plan">Séances terminées — plan complet</string>
+    <string name="coach_plan_sessions_week">%1$d séance(s) sur %2$d cette semaine</string>
+    <plurals name="coach_trial_days_left">
+        <item quantity="one">%1$d jour restant</item>
+        <item quantity="many">%1$d jours restants</item>
+        <item quantity="other">%1$d jours restants</item>
+    </plurals>
     <string name="coach_locked_title">Votre coach IA</string>
     <string name="coach_locked_body">Un plan bâti autour de votre objectif, avec un retour après chaque sortie.</string>
     <string name="coach_subscribe">Voir les offres</string>

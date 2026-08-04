@@ -205,7 +205,7 @@ fun PlanWeekScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = stringResource(R.string.coach_plan_sessions, done, total),
+                            text = stringResource(R.string.coach_plan_sessions_week, done, total),
                             style = MaterialTheme.typography.titleSmall,
                             color = colors.textMuted,
                         )

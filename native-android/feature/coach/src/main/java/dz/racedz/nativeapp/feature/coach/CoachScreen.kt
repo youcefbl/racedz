@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import dz.racedz.nativeapp.core.design.ZidRunPill
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
@@ -30,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -55,7 +59,6 @@ import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
-import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTheme
@@ -127,7 +130,17 @@ fun CoachScreen(
                     verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
                 ) {
                     ZidRunBrandBar()
-                    ZidRunDisplayTitle(text = stringResource(R.string.coach_title))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZidRunDisplayTitle(
+                            text = stringResource(R.string.coach_title),
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Reserved slot beside the title (C2): the payment-adjacent status renders
+                        // in the header, so it can never pop in below and shift the dashboard.
+                        if (state.isTrial) {
+                            TrialPill(trialEndsAt = overview.entitlement.trialEndsAt)
+                        }
+                    }
 
                     if (!state.hasCoaching) {
                         // Not subscribed is a normal state, not a failure — say what coaching does
@@ -147,13 +160,6 @@ fun CoachScreen(
                         )
                         Spacer(Modifier.height(ZidRunDimens.spaceXxl))
                         return@Column
-                    }
-
-                    if (state.isTrial) {
-                        ZidRunPill(
-                            text = stringResource(R.string.coach_trial),
-                            color = colors.accent,
-                        )
                     }
 
                     val goal = overview.goal
@@ -239,7 +245,7 @@ fun CoachScreen(
                                             planned = adherence.plannedSessions,
                                         )
                                         Text(
-                                            stringResource(R.string.coach_sessions_done),
+                                            stringResource(R.string.coach_sessions_done_plan),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colors.textMuted,
                                             textAlign = TextAlign.Center,
@@ -253,15 +259,18 @@ fun CoachScreen(
                             ZidRunCard(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
                                     Text(
+                                        // Muted ink, not orange: accent-as-text fails AA on the
+                                        // light surface (2.74:1). The calendar icon carries the
+                                        // accent instead.
                                         stringResource(R.string.coach_next_workout),
                                         style = MaterialTheme.typography.titleSmall,
-                                        color = colors.accent,
+                                        color = colors.textMuted,
                                     )
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Filled.CalendarMonth,
                                             contentDescription = null,
-                                            tint = colors.textMuted,
+                                            tint = colors.accent,
                                             modifier = Modifier.size(14.dp),
                                         )
                                         Spacer(Modifier.width(ZidRunDimens.spaceXs))
@@ -470,5 +479,44 @@ private fun SessionsRing(completed: Int, planned: Int) {
                 color = colors.textMuted,
             )
         }
+    }
+}
+
+/**
+ * The trial pill in the header's reserved slot: soft primary fill, live dot, and — when the
+ * entitlement carries an end date — how many days remain. Primary ink on the soft fill passes
+ * 4.5:1 in all three themes; the old accent-outline pill was orange text on the light surface.
+ */
+@Composable
+private fun TrialPill(trialEndsAt: String?, modifier: Modifier = Modifier) {
+    val colors = ZidRunTheme.colors
+    val daysLeft = remember(trialEndsAt) {
+        trialEndsAt?.let {
+            runCatching {
+                java.time.Duration.between(java.time.Instant.now(), java.time.Instant.parse(it))
+                    .toDays().toInt()
+            }.getOrNull()?.takeIf { days -> days > 0 }
+        }
+    }
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+            .background(colors.primarySoft)
+            .padding(horizontal = ZidRunDimens.spaceMd, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(colors.primary))
+        Text(
+            text = if (daysLeft != null) {
+                stringResource(R.string.coach_trial) + " · " +
+                    pluralStringResource(R.plurals.coach_trial_days_left, daysLeft, daysLeft)
+            } else {
+                stringResource(R.string.coach_trial)
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.primary,
+            maxLines = 1,
+        )
     }
 }

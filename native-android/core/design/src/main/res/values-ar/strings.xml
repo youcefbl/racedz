@@ -236,6 +236,8 @@
     <string name="runs_stat_time">الوقت</string>
     <string name="runs_stat_pace">الإيقاع</string>
     <string name="runs_stat_distance">المسافة</string>
+    <string name="runs_series_unavailable">مسار هذي الجَرية ما فيهش توقيت لكل نقطة، لهذا ما نقدروش نرسمو السبليتات والإيقاع.</string>
+    <string name="runs_split_fastest">الأسرع</string>
     <string name="runs_record">سجّل</string>
     <plurals name="runs_overview_count">
         <item quantity="zero">%1$d جَريات</item>
@@ -347,6 +349,16 @@
     <string name="coach_next_workout">الحصة الجاية</string>
     <string name="coach_latest_review">آخر ملاحظة من المدرب</string>
     <string name="coach_trial">تجربة مجانية</string>
+    <string name="coach_sessions_done_plan">حصص كمّلتها — البرنامج كامل</string>
+    <string name="coach_plan_sessions_week">%1$d من %2$d حصص هذا الأسبوع</string>
+    <plurals name="coach_trial_days_left">
+        <item quantity="zero">باقي %1$d يوم</item>
+        <item quantity="one">باقي يوم واحد</item>
+        <item quantity="two">باقي يومين</item>
+        <item quantity="few">باقي %1$d أيام</item>
+        <item quantity="many">باقي %1$d يوم</item>
+        <item quantity="other">باقي %1$d يوم</item>
+    </plurals>
     <string name="coach_locked_title">المدرب الذكي تاعك</string>
     <string name="coach_locked_body">برنامج مبني على هدفك، مع ملاحظات بعد كل سورتي.</string>
     <string name="coach_subscribe">شوف العروض</string>
