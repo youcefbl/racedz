@@ -180,8 +180,13 @@ object RunRecorder {
      * @param workoutId the planned session this run is being logged for, when the runner arrived
      *   from the coach's plan. It rides in the recording state so it survives the app being killed
      *   mid-run: the outbox restores the request, and the request is where the link lives.
+     * @return false when a recording already exists (recording, paused, or finished-unsaved), in
+     *   which case nothing is touched. Starting used to clear the previous run unconditionally,
+     *   which turned any stray "start" into silent route loss (NDP-R05); replacing a non-idle
+     *   recording now requires the runner to discard it first via [reset].
      */
-    fun start(workoutId: String? = null) {
+    fun start(workoutId: String? = null): Boolean {
+        if (_state.value.status != RecordingStatus.Idle) return false
         route.clear()
         lastFix = null
         lastAcceptedTimeMs = 0
@@ -194,6 +199,7 @@ object RunRecorder {
             startedAtEpochMs = System.currentTimeMillis(),
             workoutId = workoutId,
         )
+        return true
     }
 
     fun pause() {

@@ -102,6 +102,8 @@ fun AppShell(
     /** [workoutId] is the planned session being logged, or null for a free run from the Runs tab. */
     onRecordRun: (String?) -> Unit,
     onResumeRecording: () -> Unit,
+    /** Opens the save/discard summary for a finished recording that was never saved. */
+    onOpenPendingSave: () -> Unit,
     onOpenSubscribe: () -> Unit,
     /** [editing] distinguishes first-time setup from editing an existing goal. */
     onOpenCoachSetup: (Boolean) -> Unit,
@@ -157,6 +159,7 @@ fun AppShell(
                     onResumeRecording = onResumeRecording,
                     onOpenRun = onOpenRun,
                     onRecordRun = { onRecordRun(null) },
+                    onOpenPendingSave = onOpenPendingSave,
                     contentPadding = innerPadding,
                 )
             }

@@ -237,6 +237,18 @@
     <string name="runs_stat_pace">الإيقاع</string>
     <string name="runs_stat_distance">المسافة</string>
     <string name="runs_record">سجّل</string>
+    <plurals name="runs_overview_count">
+        <item quantity="zero">%1$d جَريات</item>
+        <item quantity="one">جَرية وحدة</item>
+        <item quantity="two">جَريتين</item>
+        <item quantity="few">%1$d جَريات</item>
+        <item quantity="many">%1$d جَرية</item>
+        <item quantity="other">%1$d جَرية</item>
+    </plurals>
+    <string name="runs_dock_paused">موقّفة · %1$s كم</string>
+    <string name="runs_empty_hero_title">أول جَرية تاعك تبدا من هنا</string>
+    <string name="runs_empty_hero_sub">سجّل بالـGPS وشوف أسبوعك يتعمّر كيلومتر بكيلومتر.</string>
+    <string name="runs_record_first">سجّل أول جَرية تاعك</string>
     <string name="runs_cd_history">تاريخ الجري</string>
     <string name="runs_splits">الأشواط</string>
     <string name="runs_split_km">كم</string>

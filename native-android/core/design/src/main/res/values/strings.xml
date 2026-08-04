@@ -252,6 +252,14 @@
     <string name="runs_stat_pace">Pace</string>
     <string name="runs_stat_distance">Distance</string>
     <string name="runs_record">Record run</string>
+    <plurals name="runs_overview_count">
+        <item quantity="one">%1$d run</item>
+        <item quantity="other">%1$d runs</item>
+    </plurals>
+    <string name="runs_dock_paused">Paused · %1$s km</string>
+    <string name="runs_empty_hero_title">Your first run starts here</string>
+    <string name="runs_empty_hero_sub">Record with GPS and watch this week fill up, kilometre by kilometre.</string>
+    <string name="runs_record_first">Record your first run</string>
     <string name="runs_cd_history">Run history</string>
     <string name="runs_splits">Splits</string>
     <string name="runs_split_km">KM</string>

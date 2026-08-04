@@ -231,6 +231,15 @@
     <string name="runs_stat_pace">Allure</string>
     <string name="runs_stat_distance">Distance</string>
     <string name="runs_record">Enregistrer</string>
+    <plurals name="runs_overview_count">
+        <item quantity="one">%1$d sortie</item>
+        <item quantity="many">%1$d sorties</item>
+        <item quantity="other">%1$d sorties</item>
+    </plurals>
+    <string name="runs_dock_paused">En pause · %1$s km</string>
+    <string name="runs_empty_hero_title">Votre première sortie commence ici</string>
+    <string name="runs_empty_hero_sub">Enregistrez avec le GPS et regardez votre semaine se remplir, kilomètre après kilomètre.</string>
+    <string name="runs_record_first">Enregistrer votre première sortie</string>
     <string name="runs_cd_history">Historique des sorties</string>
     <string name="runs_splits">Tours</string>
     <string name="runs_split_km">KM</string>

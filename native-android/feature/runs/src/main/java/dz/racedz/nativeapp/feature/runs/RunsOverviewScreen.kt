@@ -1,6 +1,5 @@
 package dz.racedz.nativeapp.feature.runs
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,11 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,10 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -60,23 +53,21 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunBrandBar
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
-import dz.racedz.nativeapp.core.design.ZidRunDisplayTitle
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
-import dz.racedz.nativeapp.core.design.ZidRunSectionHeader
-import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.RunDto
 import dz.racedz.nativeapp.feature.runs.record.RecordingStatus
 import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.core.network.displayRoute
-import kotlin.math.min
 
 /**
- * Runs overview (01-runs-overview.png): this week's volume as a ring, the supporting counts, the
- * latest run, and the ways to add one.
+ * Runs overview, Variant B of the 2026-08-04 redesign (docs/native-design/proposals/2026-08-04):
+ * one merged week card (distance + count + streak), the latest run, personal bests — and the
+ * page's primary action pinned in a stateful dock above the tab bar, so it is visible and
+ * thumb-reachable at every scroll position instead of below the fold.
  *
  * Everything shown is derived from runs the server returned. Nothing is stored or computed locally
  * that the server does not already agree with, so two devices cannot disagree about the week.
@@ -88,6 +79,8 @@ fun RunsOverviewScreen(
     onResumeRecording: () -> Unit,
     onOpenRun: (String) -> Unit,
     onRecordRun: () -> Unit,
+    /** Opens the save/discard summary for a finished recording that was never saved. */
+    onOpenPendingSave: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -124,13 +117,14 @@ fun RunsOverviewScreen(
                 useLocalizedBody = state.error?.isGeneric == true,
             )
 
-            else -> Column(
+            else -> Box(modifier = Modifier.fillMaxSize()) {
+              Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = ZidRunDimens.spaceLg),
                 verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
-            ) {
+              ) {
                 // The brand bar stays. The website's own header types the word "ZidRun" as an <h1>
                 // instead of drawing the wordmark, which is a defect logged as RUNPAR-008 — matching
                 // its Runs *page* is the point here, not importing its chrome.
@@ -139,42 +133,6 @@ fun RunsOverviewScreen(
                     actionContentDescription = stringResource(R.string.runs_cd_history),
                     onAction = onOpenHistory,
                 )
-
-                // A run left recording in the background needs an obvious way back — otherwise the
-                // runner's only clue that it is still going is the system notification.
-                val recording by RunRecorder.state.collectAsStateWithLifecycle()
-                if (recording.status == RecordingStatus.Recording ||
-                    recording.status == RecordingStatus.Acquiring ||
-                    recording.status == RecordingStatus.Paused
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                            .background(colors.primarySoft)
-                            .clickable(role = Role.Button, onClick = onResumeRecording)
-                            .padding(ZidRunDimens.spaceMd)
-                            .semantics(mergeDescendants = true) { },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(colors.primary))
-                        Spacer(Modifier.width(ZidRunDimens.spaceSm))
-                        Text(
-                            text = stringResource(
-                                R.string.runs_recording_banner,
-                                ZidRunFormat.decimal(recording.distanceKm, locale),
-                            ),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = colors.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = stringResource(R.string.runs_open_recording),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colors.primary,
-                        )
-                    }
-                }
 
                 // Header block, ported from the website's RunsOverview: teal eyebrow, the week
                 // title, and the "what this screen is for" line, with the history link opposite.
@@ -227,19 +185,17 @@ fun RunsOverviewScreen(
                     }
                 }
 
-                // Week hero: distance on the dark surface, with the fill bar the website uses.
-                WeekHeroCard(
-                    distanceKm = state.weekDistanceKm,
-                    runCount = state.weekRunCount,
-                )
-
-                WeekCountCard(
-                    runCount = state.weekRunCount,
-                    streakWeeks = state.streakWeeks,
-                )
-
                 val latest = state.latestRun
                 if (latest != null) {
+                    // One merged week card: distance, count and streak together (the second
+                    // "This week" card repeated the same fact and pushed the primary action
+                    // below the fold — R2 in the 2026-08-04 diagnosis).
+                    WeekHeroCard(
+                        distanceKm = state.weekDistanceKm,
+                        runCount = state.weekRunCount,
+                        streakWeeks = state.streakWeeks,
+                    )
+
                     LatestRunCard(run = latest, onClick = { onOpenRun(latest.id) })
 
                     if (state.runs.isNotEmpty()) {
@@ -250,43 +206,200 @@ fun RunsOverviewScreen(
                         )
                     }
                 } else {
-                    ZidRunStatusView(
-                        icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                        title = stringResource(R.string.runs_empty_title),
-                        body = stringResource(R.string.runs_overview_empty),
-                    )
+                    // The empty state is a brand moment (PRODUCT.md "earned energy"), not a grey
+                    // shrug: the Z mark and one message, once. The dock below carries the single
+                    // primary action, so this card deliberately has no button of its own.
+                    EmptyWeekHero()
                 }
 
                 // Manual entry and GPX import are hidden until they exist (NATPAR-003): a
                 // visible control is a promise, and both used to dead-end into run history. They
                 // return here when the real screens ship.
-                OverviewAction(
-                    iconRes = R.drawable.ic_footprints,
-                    label = stringResource(R.string.runs_record),
-                    onClick = onRecordRun,
-                    filled = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
 
-                Spacer(Modifier.height(ZidRunDimens.spaceXxl))
+                // Clearance so the last card scrolls out from under the pinned dock, including at
+                // large font scale.
+                Spacer(Modifier.height(96.dp))
+              }
+
+              RecordDock(
+                  firstRun = state.latestRun == null,
+                  onRecordRun = onRecordRun,
+                  onResumeRecording = onResumeRecording,
+                  onOpenPendingSave = onOpenPendingSave,
+                  modifier = Modifier.align(Alignment.BottomCenter),
+              )
             }
         }
     }
 }
 
-
 /**
- * This week's distance on the dark surface, with the flame accent and the fill bar.
- *
- * The bar is a display device, not a goal: the website fills it at 4% per kilometre with an 8%
- * floor so an opened-but-empty week still reads as a bar rather than an empty groove, and this
- * mirrors that exactly rather than inventing a weekly target the runner never set.
+ * The pinned primary action (Variant B). Stateful, and never destructive (NDP-R05): it offers
+ * Record only while the recorder is idle; an active or paused recording turns it into the way
+ * back to the live run, and a finished-but-unsaved one into the way to the save screen. Starting
+ * over an existing recording is impossible from here — and [RunRecorder.start] refuses it too.
  */
 @Composable
-private fun WeekHeroCard(distanceKm: Double, runCount: Int) {
+private fun RecordDock(
+    firstRun: Boolean,
+    onRecordRun: () -> Unit,
+    onResumeRecording: () -> Unit,
+    onOpenPendingSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
-    val fill = ((distanceKm * 4).coerceIn(8.0, 100.0) / 100.0).toFloat()
+    val recording by RunRecorder.state.collectAsStateWithLifecycle()
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.55f to colors.background,
+                )
+            )
+            .padding(
+                start = ZidRunDimens.spaceLg,
+                end = ZidRunDimens.spaceLg,
+                top = ZidRunDimens.spaceXl,
+                bottom = ZidRunDimens.spaceMd,
+            ),
+    ) {
+        when (recording.status) {
+            RecordingStatus.Idle -> DockButton(
+                label = stringResource(if (firstRun) R.string.runs_record_first else R.string.runs_record),
+                container = colors.primary,
+                content = colors.onPrimary,
+                onClick = onRecordRun,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_footprints),
+                    contentDescription = null,
+                    tint = colors.onPrimary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+
+            RecordingStatus.Recording, RecordingStatus.Acquiring -> DockButton(
+                label = stringResource(
+                    R.string.runs_recording_banner,
+                    ZidRunFormat.decimal(recording.distanceKm, locale),
+                ) + " — " + stringResource(R.string.runs_open_recording),
+                container = colors.primarySoft,
+                content = colors.primary,
+                border = colors.primary,
+                onClick = onResumeRecording,
+            ) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(colors.primary))
+            }
+
+            RecordingStatus.Paused -> DockButton(
+                label = stringResource(
+                    R.string.runs_dock_paused,
+                    ZidRunFormat.decimal(recording.distanceKm, locale),
+                ) + " — " + stringResource(R.string.runs_resume),
+                container = colors.primarySoft,
+                content = colors.primary,
+                border = colors.primary,
+                onClick = onResumeRecording,
+            )
+
+            RecordingStatus.Finished -> DockButton(
+                label = stringResource(R.string.runs_save),
+                container = colors.accentSoft,
+                // Strong ink, not orange: accentStrong on accentSoft is below the 4.5:1 text bar
+                // in the light theme. The border carries the accent.
+                content = colors.textStrong,
+                border = colors.accentStrong,
+                onClick = onOpenPendingSave,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DockButton(
+    label: String,
+    container: Color,
+    content: Color,
+    onClick: () -> Unit,
+    border: Color? = null,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(container)
+            .then(if (border != null) Modifier.border(1.5.dp, border, RoundedCornerShape(14.dp)) else Modifier)
+            .clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 56.dp)
+            .padding(horizontal = ZidRunDimens.spaceLg),
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading?.invoke()
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            color = content,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** First-run hero on the dark surface: the Z mark, one message — and no fake progress bar. */
+@Composable
+private fun EmptyWeekHero() {
+    val colors = ZidRunTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(colors.surfaceStrong)
+            .padding(horizontal = ZidRunDimens.spaceXl, vertical = ZidRunDimens.spaceXxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_zidrun_mark),
+            contentDescription = null,
+            tint = Color.Unspecified,
+            modifier = Modifier.size(48.dp),
+        )
+        Text(
+            text = stringResource(R.string.runs_empty_hero_title),
+            style = MaterialTheme.typography.displaySmall,
+            color = colors.heroAccent,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = ZidRunDimens.spaceLg),
+        )
+        Text(
+            text = stringResource(R.string.runs_empty_hero_sub),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.65f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = ZidRunDimens.spaceSm),
+        )
+    }
+}
+
+
+/**
+ * The one week card: distance, run count and streak on the dark surface, with the fill bar.
+ *
+ * The bar is a display device, not a goal: it fills at 4% per kilometre with an 8% floor so a
+ * week with any distance reads as a bar rather than an empty groove — but at zero kilometres it
+ * stays empty, because a bar showing progress that does not exist is a small lie (R4).
+ */
+@Composable
+private fun WeekHeroCard(distanceKm: Double, runCount: Int, streakWeeks: Int) {
+    val colors = ZidRunTheme.colors
+    val locale = currentLocale()
+    val fill = if (distanceKm <= 0.0) 0f else ((distanceKm * 4).coerceIn(8.0, 100.0) / 100.0).toFloat()
 
     Column(
         modifier = Modifier
@@ -328,17 +441,35 @@ private fun WeekHeroCard(distanceKm: Double, runCount: Int) {
                 modifier = Modifier.padding(start = ZidRunDimens.spaceXs, bottom = 4.dp),
             )
         }
-        Text(
-            text = pluralStringResource(
-                R.plurals.runs_overview_count_summary,
-                runCount,
-                runCount,
-                ZidRunFormat.decimal(distanceKm, locale, digits = 1),
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.65f),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
             modifier = Modifier.padding(top = ZidRunDimens.spaceXs),
-        )
+        ) {
+            Text(
+                text = pluralStringResource(R.plurals.runs_overview_count, runCount, runCount),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.65f),
+            )
+            if (streakWeeks > 0) {
+                Text(
+                    text = "·",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.65f),
+                )
+                Icon(
+                    painterResource(R.drawable.ic_timer),
+                    contentDescription = null,
+                    tint = colors.accent,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    text = "$streakWeeks ${stringResource(R.string.runs_overview_streak)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.65f),
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .padding(top = 20.dp)
@@ -355,64 +486,6 @@ private fun WeekHeroCard(distanceKm: Double, runCount: Int) {
                     .background(colors.primary),
             )
         }
-    }
-}
-
-/** Runs completed this week, with the streak line underneath. */
-@Composable
-private fun WeekCountCard(runCount: Int, streakWeeks: Int) {
-    val colors = ZidRunTheme.colors
-
-    ZidRunCard {
-      Column {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.runs_this_week),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.textMuted,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                painterResource(R.drawable.ic_footprints),
-                contentDescription = null,
-                tint = colors.primary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Text(
-            text = runCount.toString(),
-            style = MaterialTheme.typography.displayMedium,
-            color = colors.textStrong,
-            modifier = Modifier.padding(top = ZidRunDimens.spaceMd),
-        )
-        Text(
-            text = stringResource(R.string.runs_unit_runs),
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.textMuted,
-            modifier = Modifier.padding(top = ZidRunDimens.spaceXs),
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
-            modifier = Modifier.padding(top = 20.dp),
-        ) {
-            Icon(
-                painterResource(R.drawable.ic_timer),
-                contentDescription = null,
-                tint = colors.accent,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = if (streakWeeks > 0) {
-                    "$streakWeeks ${stringResource(R.string.runs_overview_streak)}"
-                } else {
-                    stringResource(R.string.runs_overview_empty)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textMuted,
-            )
-        }
-      }
     }
 }
 
@@ -578,48 +651,3 @@ private fun MetricDivider() {
     )
 }
 
-/**
- * A full-width action row. [filled] is the primary treatment (solid teal); the rest are outlined,
- * matching the website's two button styles.
- */
-@Composable
-private fun OverviewAction(
-    iconRes: Int,
-    label: String,
-    onClick: () -> Unit,
-    filled: Boolean = false,
-    modifier: Modifier = Modifier,
-) {
-    val colors = ZidRunTheme.colors
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(ZidRunDimens.cornerMd))
-            .background(if (filled) colors.primary else colors.surface)
-            .then(
-                if (filled) {
-                    Modifier
-                } else {
-                    Modifier.border(1.dp, colors.borderStrong, RoundedCornerShape(ZidRunDimens.cornerMd))
-                }
-            )
-            .clickable(role = Role.Button, onClick = onClick)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = ZidRunDimens.spaceSm),
-        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painterResource(iconRes),
-            contentDescription = null,
-            tint = if (filled) colors.onPrimary else colors.text,
-            modifier = Modifier.size(16.dp),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (filled) colors.onPrimary else colors.text,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-        )
-    }
-}

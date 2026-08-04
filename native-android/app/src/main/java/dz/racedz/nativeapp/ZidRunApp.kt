@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -229,8 +230,17 @@ fun ZidRunApp(
                 // A run finished but never saved — the app was killed, or the save failed and the
                 // runner backed out. Surfaced once, on the first shell entry, rather than left
                 // sitting silently on disk where it would look like the run simply vanished.
+                //
+                // Genuinely once: LaunchedEffect(Unit) re-runs every time back-navigation returns
+                // to this destination, which used to re-open the summary forever — the shell was
+                // unreachable while a pending run existed, and the runner could not browse before
+                // deciding. After the first surfacing, the Runs tab's pinned dock shows
+                // "Save run" instead, so the pending run stays one tap away without a trap.
+                var pendingSurfaced by rememberSaveable { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
+                    if (pendingSurfaced) return@LaunchedEffect
                     RunRecorder.restorePending()?.let { pending ->
+                        pendingSurfaced = true
                         RunRecorder.resumeFinished(pending)
                         navController.navigate(RootDestinations.RUN_SUMMARY)
                     }
@@ -244,6 +254,7 @@ fun ZidRunApp(
                     onOpenRun = { navController.navigate(RootDestinations.runDetail(it)) },
                     onRecordRun = { workoutId -> navController.navigate(RootDestinations.runStart(workoutId)) },
                     onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
+                    onOpenPendingSave = { navController.navigate(RootDestinations.RUN_SUMMARY) },
                     // Subscribing is a payment-proof upload flow that already exists on the website;
                     // the app opens it in a custom tab rather than shipping a second version of it.
                     onOpenSubscribe = { openWebSignedIn("/account/coach/subscribe") },

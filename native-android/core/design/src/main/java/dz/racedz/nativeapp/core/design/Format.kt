@@ -117,5 +117,10 @@ object ZidRunFormat {
 @Composable
 fun currentLocale(): Locale {
     val configuration = LocalConfiguration.current
-    return configuration.locales[0] ?: Locale.getDefault()
+    val locale = configuration.locales[0] ?: Locale.getDefault()
+    // The app's "ar" is Algerian Darija. A bare Locale("ar") formats numbers with Arabic-Indic
+    // digits (٩٫٢), but Algeria — like the rest of the Maghreb — writes Western digits, and the
+    // captured screens mixed both systems in one card (finding R5). Pinning the country makes
+    // CLDR pick the latn numbering system while keeping Arabic month names and shaping.
+    return if (locale.language == "ar" && locale.country.isEmpty()) Locale("ar", "DZ") else locale
 }

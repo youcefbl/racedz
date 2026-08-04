@@ -261,7 +261,12 @@ private fun beginRecording(
 ) {
     // An explicit workout from the plan wins over the guided session's own id: the runner said
     // which session they are running, and the guided card is only a suggestion of one.
-    RunRecorder.start(workoutId ?: session?.workoutId?.takeIf { mode == RunMode.Guided })
+    if (!RunRecorder.start(workoutId ?: session?.workoutId?.takeIf { mode == RunMode.Guided })) {
+        // A recording already exists (this screen was reached by deep link or a stale back stack).
+        // Do not touch the live run's settings or restart the service — just land on it.
+        onStarted()
+        return
+    }
     // A guided run with no session (offline when the screen opened) records as a free one rather
     // than refusing to start — the run matters more than the guidance.
     GuidedSessionController.start(if (mode == RunMode.Guided) session else null)
