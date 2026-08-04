@@ -32,6 +32,11 @@ export async function createNativeAuthToken(
 ): Promise<string> {
   const token = randomBytes(32).toString("hex");
 
+  // The stamp in force right now travels with the token (FD1-R01). If it moves before the token is
+  // exchanged — password reset, MFA change, block, role change — the exchange refuses.
+  const owner = await getPrisma().user.findUnique({ where: { id: userId }, select: { securityStampAt: true } });
+  if (!owner) throw new Error("Cannot mint a native auth token for an unknown user.");
+
   await getPrisma().nativeAuthToken.create({
     data: {
       userId,
@@ -39,6 +44,7 @@ export async function createNativeAuthToken(
       purpose: options.purpose ?? "WEBVIEW_BRIDGE",
       destination: options.destination ?? null,
       mobileSessionFamilyId: options.mobileSessionFamilyId ?? null,
+      securityStampAt: owner.securityStampAt,
       expiresAt: new Date(Date.now() + TOKEN_TTL_MS)
     }
   });
@@ -58,9 +64,12 @@ export async function peekWebHandoffToken(token: string): Promise<{
   if (!token || token.length < 32) return null;
   const row = await getPrisma().nativeAuthToken.findUnique({
     where: { token },
-    include: { user: { select: { email: true } } }
+    include: { user: { select: { email: true, securityStampAt: true, blockedAt: true } } }
   });
   if (!row || row.purpose !== "WEB_HANDOFF" || row.usedAt || row.expiresAt.getTime() < Date.now()) return null;
+  // Same conditions the exchange enforces, so the interstitial is never shown for a token that
+  // cannot be spent. This is a courtesy check only — consumeNativeAuthToken() is the gate.
+  if (!(await handoffCredentialIsLive(row))) return null;
   return {
     email: row.user.email,
     destination: row.destination ?? "/account",
@@ -114,39 +123,100 @@ export async function upsertGoogleUserFromPayload(payload: TokenPayload): Promis
   return created.id;
 }
 
+/**
+ * Exchange a single-use token for its user — the ONE authoritative gate for both auth doors.
+ *
+ * Validation and claim are a single server-side operation (FD1-R01): the UPDATE carries the token,
+ * purpose, unspent, and unexpired predicates, so there is no window in which two callers both pass
+ * a read and both proceed. The claim is deliberately made BEFORE the remaining checks and is not
+ * rolled back when they fail: a token presented under revoked credentials is burnt, not left
+ * spendable for a second attempt.
+ */
 export async function consumeNativeAuthToken(token: string, purpose: NativeAuthPurpose = "WEBVIEW_BRIDGE"): Promise<NativeAuthUser | null> {
   if (!token || token.length < 32) return null;
 
   const prisma = getPrisma();
-  const row = await prisma.nativeAuthToken.findUnique({
-    where: { token },
-    include: {
-      user: {
-        include: {
-          organizations: { select: { organizationId: true } }
+
+  return prisma.$transaction(async (tx) => {
+    const claimed = await tx.nativeAuthToken.updateMany({
+      where: { token, purpose, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() }
+    });
+    if (claimed.count !== 1) return null;
+
+    const row = await tx.nativeAuthToken.findUnique({
+      where: { token },
+      include: {
+        user: {
+          include: {
+            organizations: { select: { organizationId: true } }
+          }
         }
       }
+    });
+    if (!row) return null;
+
+    const user = row.user;
+
+    // A blocked account cannot be signed into by any door.
+    if (user.blockedAt) return null;
+
+    // The stamp must not have moved since the token was minted. NULL means the token predates this
+    // column or was minted by code that failed to record it — refused either way, never trusted.
+    if (!row.securityStampAt || row.securityStampAt.getTime() !== user.securityStampAt.getTime()) {
+      return null;
     }
+
+    // A browser handoff additionally requires the minting device to still be a live, current
+    // session OWNED BY THIS USER — checked inside the same transaction as the claim, so a device
+    // revoked concurrently cannot slip through a check/consume window.
+    if (purpose === "WEB_HANDOFF") {
+      if (!row.mobileSessionFamilyId) return null;
+      const device = await tx.mobileSession.findFirst({
+        where: {
+          familyId: row.mobileSessionFamilyId,
+          userId: row.userId,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+          securityStamp: user.securityStampAt
+        },
+        select: { id: true }
+      });
+      if (!device) return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: `${user.firstName} ${user.lastName}`,
+      role: user.role as UserRole,
+      organizationIds: user.organizations.map((member) => member.organizationId)
+    };
   });
+}
 
-  if (!row || row.purpose !== purpose || row.usedAt || row.expiresAt.getTime() < Date.now()) {
-    return null;
-  }
-
-  // Single-use: atomically claim it. If a concurrent request already did, bail.
-  const claimed = await prisma.nativeAuthToken.updateMany({
-    where: { id: row.id, usedAt: null },
-    data: { usedAt: new Date() }
+/**
+ * Read-only mirror of the exchange conditions for the confirmation interstitial. Returns false when
+ * the credential is already dead (stamp moved, account blocked, device revoked or expired).
+ */
+async function handoffCredentialIsLive(row: {
+  userId: string;
+  mobileSessionFamilyId: string | null;
+  securityStampAt: Date | null;
+  user: { securityStampAt: Date; blockedAt: Date | null };
+}): Promise<boolean> {
+  if (row.user.blockedAt) return false;
+  if (!row.securityStampAt || row.securityStampAt.getTime() !== row.user.securityStampAt.getTime()) return false;
+  if (!row.mobileSessionFamilyId) return false;
+  const device = await getPrisma().mobileSession.findFirst({
+    where: {
+      familyId: row.mobileSessionFamilyId,
+      userId: row.userId,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+      securityStamp: row.user.securityStampAt
+    },
+    select: { id: true }
   });
-
-  if (claimed.count !== 1) return null;
-
-  const user = row.user;
-  return {
-    id: user.id,
-    email: user.email,
-    name: `${user.firstName} ${user.lastName}`,
-    role: user.role as UserRole,
-    organizationIds: user.organizations.map((member) => member.organizationId)
-  };
+  return Boolean(device);
 }

@@ -1,3 +1,4 @@
+import { coachErrorToApiError } from "@/lib/api/v1/coach";
 import { apiError, apiOk, ApiError, withApi, readJsonBody } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { createCoachGoal, ensureCurrentWeekPlan, getCoachProfileGaps, updateCoachGoal } from "@/lib/coach/service";
@@ -73,7 +74,7 @@ export const PATCH = withApi(async (request) => {
     return apiOk(request, { goal });
   } catch (error) {
     if (error instanceof CoachError) {
-      throw new ApiError(error.status === 404 ? "NOT_FOUND" : "VALIDATION_FAILED", error.message);
+      throw coachErrorToApiError(error);
     }
     if (error instanceof Error && error.name === "ZodError") {
       // Field names would be safe to log, but the values here are injury and health history.
@@ -117,8 +118,7 @@ export const POST = withApi(async (request) => {
     return apiOk(request, { goal, planCreated: plan.created }, { status: 201 });
   } catch (error) {
     if (error instanceof CoachError) {
-      const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : "VALIDATION_FAILED";
-      throw new ApiError(code, error.message);
+      throw coachErrorToApiError(error);
     }
     // A schema miss from the shared parser. The field names are safe to log; the values are the
     // runner's health and injury history and are not.

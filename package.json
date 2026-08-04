@@ -34,6 +34,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "tts:purge-legacy": "tsx scripts/purge-tts-audio-cache.ts",
     "prisma:seed": "tsx prisma/seed.ts",
     "seed:tips": "tsx scripts/seed-coach-tips.ts",
     "import:races": "tsx scripts/import-coursealgerie.ts",
@@ -47,7 +48,8 @@
     "splash:gen": "node scripts/gen-splash.mjs",
     "test:mobile-api": "tsx scripts/test-mobile-api.ts",
     "check:native-i18n": "tsx scripts/check-native-i18n.ts",
-    "test:coach-mobile": "tsx scripts/test-coach-mobile.ts"
+    "test:coach-mobile": "tsx scripts/test-coach-mobile.ts",
+    "test:tts-claim": "tsx scripts/test-tts-claim.ts"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",

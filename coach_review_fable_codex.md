@@ -852,3 +852,131 @@ live in `PRODUCT.md` ("Product decisions — AI coach and native app").
   `test:coach` pure suites pass (planner 68/68, memory 42/42, context evals) · lint + web i18n
   parity + native parity (489 keys en/fr/ar) clean · `tsc` clean apart from the two pre-existing
   unrelated Capacitor/sentry items · native `assembleDebug lintDebug` exit 0.
+
+---
+
+## 14. Static code review — last two commits at `fd1c62b`
+
+### Review boundary and verdict
+
+- **Reviewed commits, oldest first:**
+  1. `fde3d793645e06b444c6a8f5f33faeb72d2d3c4d`
+     (`test(coach): governance integration cases + contract updates; overridable debug API base`).
+  2. `fd1c62b421cf861a5b7766c2ae688ad47634a6da`
+     (`fix(coach): DD6 remediation — handoff CSRF interstitial, TTS quota atomicity, legacy cache purge`).
+- **Boundary:** exact committed diff from `dd64e00f7b4c7eeaad4213ea31a1b994ab78f1b8` through
+  `fd1c62b421cf861a5b7766c2ae688ad47634a6da`, plus directly affected auth/session,
+  deployment/storage, Coach/TTS, product/tracker, native-client, and test-contract source.
+- **Method:** static code and document inspection only, as requested. No test, lint, typecheck,
+  build, migration, database, browser, emulator, device, provider, or production command was run.
+  Validation statements committed in §13.1 and `EXECUTION_PLAN.md` were read as author evidence,
+  not independently reproduced or accepted.
+- **Verdict:** **changes requested.** Purpose- and destination-bound handoff tokens, a read-only GET
+  interstitial, private TTS response caching, the legacy Caddy deny, an atomic per-user TTS quota
+  reservation, the GPX login fallback, and broader governance cases are meaningful improvements.
+  However, the handoff can still mint a fresh browser session after a security-stamp invalidation,
+  and the same-key TTS path can still issue duplicate paid provider calls. Five lower-severity
+  deployment, product-source, UI/accessibility, and test-contract gaps also remain.
+- **Release status:** this review closes no release, security, privacy, cost, native-parity, or
+  `SEC-*` gate. `EXECUTION_PLAN.md` remains the only progress/status tracker; this section is dated
+  review evidence only.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `FD1-R01` | **P1** | **A handoff minted before a password reset or MFA change can still establish a fresh browser session afterward.** The POST checks only that some `MobileSession` with the stored `familyId` is unrevoked/unexpired, selecting only its id (`src/app/auth/handoff/route.ts:58-69`); it does not bind that row back to the token's user or compare `MobileSession.securityStamp` with the live `User.securityStampAt`. `consumeNativeAuthToken()` then claims on only token id + `usedAt: null` after a separate read and never checks the mobile session, user block, or stamp (`src/lib/native-auth.ts:117-142`). MFA enrollment and password reset bump `User.securityStampAt` without revoking the session rows (`src/app/account/security/actions.ts:80-89`; `src/lib/password-reset.ts:74-86`). Finally, the new Credentials sign-in reaches the JWT callback with no old `token.securityStamp`; the callback treats that as not revoked and adopts the current stamp (`src/auth.ts:184-201`). There is also a check/consume window in which the mobile family can be revoked after line 61 but before line 74. The new contract cases cover revocation *before* POST but not a stamp bump or this race (`scripts/test-mobile-api.ts:851-875`). | A five-minute link minted before a password reset can sign the browser back in after the password was changed; one minted before MFA enrollment can create a post-enrollment session without the new second factor. This violates the repository's security-stamp revocation contract and the prior `DD6-R02` acceptance condition. | Validate and claim the handoff as one server-side operation: require matching token user + purpose + destination + unexpired/unspent state, a live unrevoked mobile family owned by that user, `MobileSession.securityStamp === User.securityStampAt`, and an unblocked user. Do not let the later JWT callback upgrade a stale credential to the current stamp. Add password-reset, MFA-enable, block/stamp-change, wrong-user-family, expiry-at-claim, and revoke-versus-consume race cases. |
+| `FD1-R02` | **P1** | **The advertised same-key TTS single-flight still has an explicit duplicate-provider escape path.** A waiter polls for only about 25 seconds, tries the lock once more, and then continues even when `holdsLock` is still false (`src/lib/coach/tts.ts:84-102,161-178`). The owner may still be working: the OpenAI client is configured with a 20-second timeout and one retry (`:102`), while the pinned SDK defines that timeout per request and warns retries can make total wait much longer (`node_modules/openai/client.d.ts:78-104`). The source nevertheless assumes synthesis is at most 20 seconds (`tts.ts:139-140`). Pre-provider filesystem/lock failures also occur after the PENDING reservation but outside the resolving `try/finally` (`:69-104`), so such rows can consume the runner's quota for the full 24-hour count window. No parallel TTS case was added; §13.1 itself leaves same-cue/distinct-cue DB verification open. | A slow/retried synthesis can make two or more paid calls for the same cache key, exactly the cost race `DD6-R03` required single-flight to prevent. Operational errors can accumulate stuck reservations and deny otherwise eligible runners voice cues for up to a day. The distinct-cue daily ceiling is atomically reserved, but the same-key ownership and reservation lifecycle are not closed. | Use a durable cache-key claim/uniqueness invariant whose wait/lease covers the provider's complete retry budget; never call the provider without owning it. Give PENDING rows an explicit lease and deterministic stale reconciliation, and resolve/refund reservations on every exit. Verify parallel same-key success, slow retry, owner failure/takeover, process death, distinct-key quota saturation, and a request arriving at the quota edge while its same-key owner is in flight. |
+| `FD1-R03` | **P2** | **The legacy-audio purge exists but is not part of deployment.** `scripts/purge-tts-audio-cache.ts` deletes the correct app-volume path when manually invoked (`:4-19`), but there is no package script, production start hook, Compose command, CI/release step, or operations instruction that invokes it. Production still runs only `prisma:deploy && start:docker` (`docker-compose.prod.yml:40-42`), while the committed evidence says the script “deletes the legacy volume directory on deploy” (`EXECUTION_PLAN.md:352`). | Reloading the new Caddy rule removes anonymous access, but arbitrary-text audio already retained on the persistent volume is not actually erased. `DD6-R01`'s purge/quarantine acceptance and the evidence statement are therefore only partially satisfied. | Wire the idempotent cleanup into the exact controlled deployment or document it as a mandatory one-shot release migration with failure/rollback handling. Record the resolved volume path, before/after inventory, Caddy reload, and anonymous public/direct-origin denial; do not claim “on deploy” until the deploy path invokes it. |
+| `FD1-R04` | **P2** | **The move out of the review file leaves the designated sources of truth internally contradictory.** `PRODUCT.md` newly says native Android is the only mobile client and Capacitor is retired (`:65-66`), but its Users section still says the app ships as Android/Capacitor (`:12`). More importantly, `EXECUTION_PLAN.md` still locks Capacitor as the current release path and native as deferred/fallback (`:155-163,211-227`), including an open future switch decision, even though this commit adds native-only as an already made owner decision. The plan also remains “Last updated: 2026-08-02” (`:7`) despite the new 2026-08-03 statuses/evidence, and its evidence overstates both the deploy purge and “all six findings addressed” (`:352`). | A second device or reviewer cannot determine the actual mobile target, release path, parity obligation, or remaining DD6 work from the repository's sole tracker. `DD6-R06` is improved—this file is historicalized—but not fully remediated. | Reconcile the product introduction and every current plan/gate/decision affected by native-only, retire or rewrite the now-obsolete switch/fallback work, correct the DD6 evidence to partial where appropriate, and update the plan date in the same change. Keep this review section as immutable evidence rather than advancing status here. |
+| `FD1-R05` | **P2** | **The new authentication interstitial is a hard-coded visual fork from ZidRun's approved auth system.** `confirmationPage()` emits raw HTML with `lang="fr"`, three languages mixed into single controls, fixed dark colors/system font, a raw internal path as “Destination,” no canonical ZidRun logo, no locale selection, no real RTL document mode, and a small unpadded 0.8rem “Not me” link (`src/app/auth/handoff/route.ts:103-137`). The approved native auth flow requires visible locale/theme support, shared three-mode tokens, natural single-locale French/Darija, true RTL, 1.3× font/TalkBack coverage, and canonical brand assets (`docs/native-design/NATIVE_APP_DESIGN_FLOW.md:55-63,105-140`). | The security confirmation is harder to understand and operate precisely where account identity must be unmistakable. It does not meet ZidRun's localization, theme, brand, touch-target, or accessibility contract, and it has no approved handoff-state reference. | Render the confirmation through the shared web design/i18n system (or a deliberately equivalent minimal component), resolve one locale and correct `lang`/`dir`, use a human destination label, canonical logo/tokens, visible focus and at least 44px actions, and verify light/dark/race plus EN/FR/Arabic RTL, large text, keyboard, and screen reader behavior. Add/approve a reference for this new auth state. |
+| `FDE-R01` | **P2** | **The new governance suite does not pin several contracts it says it verifies.** The urgent route is unconditionally 201 in production (`src/app/api/coach/interactions/route.ts:36-40`), but the test accepts 200 or 201 (`scripts/test-coach-mobile.ts:667-682`); the consent boundary is explicitly a 403 `CONSENT_REQUIRED` (`src/lib/coach/service.ts:1330-1343`), but the test accepts 403 or 422 and merely searches the entire body for “consent” (`test-coach-mobile.ts:700-710`). It never re-counts provider usage after that no-consent request, and the urgent-without-consent assertion accepts any status below 500 (`:711-721`). The response privacy check is duplicated verbatim rather than covering another excluded field (`:605-611`). The handoff suite added in the next commit likewise omits the security-stamp invalidation exposed by `FD1-R01`, and no TTS concurrency case pins `FD1-R02`. | Regressions can pass with the wrong HTTP contract or an earlier validation failure, while committed “150/150”/“all six addressed” evidence appears stronger than the assertions. For health-consent and authentication/cost boundaries, permissive success criteria weaken the release evidence materially. | Assert exact status and stable error code (`201`, `403`, `CONSENT_REQUIRED`), verify the usage/provider boundary remains unchanged after no-consent traffic, assert the exact urgent response contract, replace the duplicate privacy assertion with a distinct excluded field, and add the missing stamp/revocation and TTS concurrency cases before treating the suites as closure evidence. |
+| `FDE-R02` | **P3** | **The debug API-base override is interpolated into generated Kotlin without validation.** `-Pzidrun.debugApiBase` is inserted directly into a quoted `BuildConfig` literal and passed to Retrofit (`native-android/core/network/build.gradle.kts:21-29`; `ApiClient.kt:223-228`). A missing trailing slash is rejected by Retrofit at app startup, while a quote/backslash can make the generated source invalid. This is debug-only and cannot repoint a release build. | A common physical-device setup typo produces a late crash or opaque build failure instead of a clear configuration error, reducing the usefulness of the feature introduced by `fde3d79`. | Parse and validate an absolute `http`/`https` URI during Gradle configuration, require/normalize the trailing slash, escape the generated string safely, and fail with a targeted `zidrun.debugApiBase` message. |
+
+### Static status of the advertised remediation
+
+| Prior finding / claim | Static status after `fd1c62b` |
+|---|---|
+| `DD6-R01` legacy public TTS audio | **Partial:** Caddy now denies both TTS prefixes, but the promised persistent-volume purge is not invoked by deployment (`FD1-R03`). |
+| `DD6-R02` browser handoff | **Partial:** GET is read-only; purpose, destination, expiry, reuse, basic mobile-family revocation, and same-origin POST are materially improved. Security-stamp invalidation/atomic revocation remains open (`FD1-R01`), and the confirmation UI is not product-ready (`FD1-R05`). |
+| `DD6-R03` TTS cost concurrency | **Partial:** the per-user distinct-request ceiling is atomically reserved, but same-key ownership deliberately falls back to duplicate calls and reservation cleanup is incomplete (`FD1-R02`). |
+| `DD6-R04` shared-cache response | **Implemented in static code shape:** the authenticated response is now `private, max-age=31536000, immutable`. Proxy/browser behavior was not run. |
+| `DD6-R05` GPX handoff fallback | **Implemented in static code shape:** mint failure now opens login with the API destination preserved. Login/download/device behavior was not run. |
+| `DD6-R06` review file as tracker | **Partial:** stable decisions and operational status were moved to the intended files and the old checklists were frozen, but those intended files now conflict and the tracker evidence/date is stale (`FD1-R04`). |
+| `fde3d79` governance coverage | **Useful but not closure-grade:** safety, replay/mismatch, consent, memory ownership/dismiss/delete, material-plan replacement, and response-shape cases were added; permissive/duplicate assertions leave important contracts under-specified (`FDE-R01`). |
+| Earlier `FA1-R01`–`FA1-R04` | **Unchanged by these two commits:** stale interaction reclaim, web locale invalidation, native post-run retry/process persistence, and cross-goal retry provenance were not modified here. |
+
+### Static-review limitations
+
+- The approved native Login screenshot was inspected at original resolution. The new handoff
+  confirmation has no approved screenshot and was not rendered; Account/Run/Coach target screens
+  were unchanged by these commits and retain the limitations recorded in §13.
+- PostgreSQL advisory locks/transactions/enums, persistent-volume cleanup, Caddy precedence/reload,
+  Auth.js cookie/JWT behavior, security-stamp races, OpenAI retries/billing, cache lockfiles, and
+  Android Custom Tab/download behavior were reasoned about from source only.
+- Theme, locale, Arabic RTL, large text, keyboard/focus, screen reader/TalkBack, browser cache,
+  process-death, multi-instance, emulator/device, and production behavior remain unverified.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+### 14.1 Remediation evidence for `FD1-R01`–`R05`, `FDE-R01`–`R02` (2026-08-04, Fable)
+
+Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions live in `PRODUCT.md`.
+
+- **`FD1-R01`** — `NativeAuthToken.securityStampAt` records the stamp in force at mint (migration
+  `20260804090000`; nullable with no default and treated as INVALID, so a forgetful insert fails
+  closed). `consumeNativeAuthToken()` is now one transaction: it claims by predicate
+  (`token + purpose + usedAt NULL + not expired`), then requires an unblocked account, an unmoved
+  stamp, and — for `WEB_HANDOFF` — a live unrevoked `MobileSession` **owned by the token's user**
+  whose own `securityStamp` still matches. The claim is not rolled back on a failed check: a token
+  presented under revoked credentials is burnt, not left spendable. The route's separate
+  session pre-check was deleted rather than kept, since it was the check/consume window itself.
+  New cases in `test:mobile-api`: stamp bump refused at both peek and POST (no session cookie),
+  foreign device family refused, stamp-less token refused, plus the existing reuse/expiry/
+  cross-origin/revocation set — 88/88.
+- **`FD1-R02`** — the lockfile is replaced by a leased DB claim (`TtsCacheClaim`, migration
+  `20260804100000`). The lease is derived from the provider's COMPLETE budget in the same file
+  (`PROVIDER_TIMEOUT_MS × (PROVIDER_MAX_RETRIES + 1) + 30s`), the provider is never called without
+  owning the claim, a waiter re-attempts the claim each tick so a failed owner is taken over on
+  release, and a key that stays owned answers `503 TTS_BUSY` rather than duplicating a paid call.
+  The `PENDING` reservation is resolved on every exit — SUCCEEDED/FAILED after a real call,
+  refunded otherwise — so a filesystem or claim error can no longer strand a runner's quota.
+  `npm run test:tts-claim` (new, 8/8) drives the real claim SQL: one winner under 8-way contention,
+  no takeover of a live lease, takeover of an expired one, owner-scoped release.
+  **Not covered: any actual provider call. "One paid call per key" is verified at the ownership
+  invariant, not end to end.**
+- **`FD1-R03`** — `tts:purge-legacy` added and invoked by the production start command
+  (`prisma:deploy && tts:purge-legacy && start:docker`). The script reports `TTS_PURGE_OK` /
+  `TTS_PURGE_FAILED` with a file/byte inventory and verifies removal rather than trusting
+  `rm -f`; verified locally against seeded files. Deliberately non-blocking: the Caddy deny is the
+  access boundary, and refusing to start the site over one undeletable file is disproportionate.
+- **`FD1-R05`** — the hand-written HTML is gone. `/auth/handoff` is a real page rendering through
+  the app layout, brand mark, theme tokens, ≥44px actions and the `en/fr/ar` dictionary, with a
+  **human** destination label instead of a raw path; verified in all three locales
+  (`dir="rtl"` and Darija copy for `ar`). The exchange moved to `POST /auth/handoff/confirm`, so a
+  GET cannot become a state change even by accident.
+- **`FDE-R01`** — assertions tightened to exact contracts (`201` + `BLOCKED` body; `403` +
+  exactly `CONSENT_REQUIRED`; provider usage re-counted after a refused request; a genuinely
+  distinct privacy field). **The tightened assertion immediately failed and exposed a real defect:**
+  every v1 coach route mapped `CoachError` through an inline ternary that knew only 404/409/429, so
+  a consent refusal reached the phone as `422 VALIDATION_FAILED` with nothing to route on. Fixed
+  with a shared `coachErrorToApiError()`, new `CONSENT_REQUIRED` (403) and `SUBSCRIPTION_REQUIRED`
+  (402) codes mirrored into the Kotlin `ApiErrorCode`, and a localized re-consent instruction in the
+  native composer. `test:coach-mobile` 153/153.
+- **`FDE-R02`** — `-Pzidrun.debugApiBase` is parsed and validated at Gradle configuration time:
+  absolute `http(s)` only, host required, trailing slash normalized, quote/backslash/control
+  characters refused. Verified against `not-a-url`, `ftp://x/`, and an embedded quote — each fails
+  with a message naming the property.
+- **`FD1-R04`** — `PRODUCT.md` no longer describes a Capacitor build; the locked release decision
+  now states native-only and explicitly supersedes the old one; `NATIVE-008` is closed by owner
+  decision; the P2 section is a delivery backlog, not an evaluation; the plan date is corrected; and
+  the 2026-08-03 evidence row is marked partial where it overstated (the "deletes on deploy" claim
+  was not true when written).
+- **Validation:** `test:mobile-api` 88/88 · `test:coach-mobile` 153/153 · `test:tts-claim` 8/8 ·
+  `test:coach` pure suites pass · lint + web i18n parity (641 UI + 461 coach) + native parity (490)
+  clean · `tsc` clean apart from two pre-existing unrelated items · both migrations rehearsed on
+  the local DB · native `assembleDebug lintDebug testDebugUnitTest` BUILD SUCCESSFUL.
+- **Still unverified:** Custom Tab / browser-cookie behaviour of the new interstitial on a device
+  (the phone was disconnected before this round), its light/dark/race × EN/FR/AR-RTL × large-text ×
+  TalkBack matrix, an end-to-end paid TTS concurrency test, and production purge/Caddy-reload
+  evidence.

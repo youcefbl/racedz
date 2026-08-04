@@ -3,7 +3,7 @@ import { requireMobileUser } from "@/lib/api/v1/guard";
 import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { createCoachInteraction, getConversationHistory } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
-import { coachReplyDto } from "@/lib/api/v1/coach";
+import { coachReplyDto, coachErrorToApiError } from "@/lib/api/v1/coach";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -82,8 +82,7 @@ export const POST = withApi(async (request) => {
     );
   } catch (error) {
     if (error instanceof CoachError) {
-      const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : error.status === 429 ? "RATE_LIMITED" : "VALIDATION_FAILED";
-      throw new ApiError(code, error.message);
+      throw coachErrorToApiError(error);
     }
     if (error instanceof Error && error.name === "ZodError") {
       throw new ApiError("VALIDATION_FAILED", "Check your message and try again.");

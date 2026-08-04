@@ -763,7 +763,7 @@ async function main() {
     );
 
     const handoffForm = (token: string, headers: Record<string, string>) =>
-      fetch(`${BASE}/auth/handoff`, {
+      fetch(`${BASE}/auth/handoff/confirm`, {
         method: "POST",
         redirect: "manual",
         headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-For": currentClientIp, ...headers },
@@ -774,12 +774,17 @@ async function main() {
     const peekHtml = await peek.text();
     check(
       "GET renders the confirmation page without the full email",
-      peek.status === 200 &&
-        peekHtml.includes('method="post"') &&
-        peekHtml.includes("/account/security") &&
-        !peekHtml.includes(user.email),
+      peek.status === 200 && peekHtml.includes('method="post"') && !peekHtml.includes(user.email),
       { status: peek.status }
     );
+    // The destination is shown as a HUMAN label, never the raw path (FD1-R05): asking a runner to
+    // audit a URL on a security screen is asking for the one judgement they cannot make.
+    check(
+      "the destination is named in words, not as a path",
+      peekHtml.includes("Security and sign-in") && !peekHtml.includes("/account/security"),
+      { hasLabel: peekHtml.includes("Security and sign-in") }
+    );
+    check("the confirmation posts to the dedicated consume endpoint", peekHtml.includes("/auth/handoff/confirm"));
     check("confirmation page is no-store", (peek.headers.get("cache-control") ?? "").includes("no-store"));
     const peekAgain = await fetch(`${BASE}${handoffPath}`, { redirect: "manual", headers: { "X-Forwarded-For": currentClientIp } });
     const afterPeeks = await prisma.nativeAuthToken.findUnique({ where: { token: handoffToken }, select: { usedAt: true } });
@@ -873,6 +878,89 @@ async function main() {
         (afterRevocation.headers.get("location") ?? "").includes("/login") &&
         revokedTokenState?.usedAt === null,
       { status: afterRevocation.status, location: afterRevocation.headers.get("location") }
+    );
+
+    // FD1-R01: a token minted BEFORE a security-stamp bump (password reset, MFA change, block)
+    // must not be exchangeable afterwards. The stamp in force at mint travels on the token row and
+    // is compared inside the same transaction that claims it.
+    const mintBeforeStamp = await api("/api/v1/auth/web-handoff", {
+      method: "POST",
+      token: handoffAccess,
+      body: { next: "/account/security" }
+    });
+    const stampPath = (mintBeforeStamp.body.data as { path?: string } | undefined)?.path ?? "";
+    const stampToken = new URL(`${BASE}${stampPath}`).searchParams.get("token") ?? "";
+    const storedStamp = await prisma.nativeAuthToken.findUnique({
+      where: { token: stampToken },
+      select: { securityStampAt: true }
+    });
+    check("the mint records the security stamp in force", storedStamp?.securityStampAt !== null, storedStamp);
+
+    // Exactly what a password reset or MFA enrolment does.
+    await prisma.user.update({ where: { id: user.id }, data: { securityStampAt: new Date() } });
+
+    const afterStampPeek = await fetch(`${BASE}/auth/handoff?token=${stampToken}`, {
+      redirect: "manual",
+      headers: { "X-Forwarded-For": currentClientIp }
+    });
+    check(
+      "the interstitial refuses a token whose stamp has moved",
+      afterStampPeek.status >= 300 && afterStampPeek.status < 400 && (afterStampPeek.headers.get("location") ?? "").includes("/login"),
+      { status: afterStampPeek.status }
+    );
+    const afterStampPost = await handoffForm(stampToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" });
+    const afterStampCookies = afterStampPost.headers.getSetCookie().join("; ");
+    check(
+      "a handoff minted before a password reset cannot sign the browser in afterwards",
+      !/authjs\.session-token=[^;]/.test(afterStampCookies) &&
+        (afterStampPost.headers.get("location") ?? "").includes("/login"),
+      { location: afterStampPost.headers.get("location") }
+    );
+
+    // FD1-R01: a token whose mobile family belongs to ANOTHER user is refused even if that family
+    // is perfectly live.
+    const otherUser = await makeUser(password);
+    createdUserIds.push(otherUser.id);
+    const foreignToken = `${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}`;
+    const victim = await prisma.user.findUnique({ where: { id: user.id }, select: { securityStampAt: true } });
+    await prisma.nativeAuthToken.create({
+      data: {
+        userId: otherUser.id,
+        token: foreignToken,
+        purpose: "WEB_HANDOFF",
+        destination: "/account",
+        // A live family — but it is the FIRST user's, not this token owner's.
+        mobileSessionFamilyId: mintedRow?.mobileSessionFamilyId,
+        securityStampAt: victim?.securityStampAt,
+        expiresAt: new Date(Date.now() + 300_000)
+      }
+    });
+    const foreign = await handoffForm(foreignToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" });
+    const foreignCookies = foreign.headers.getSetCookie().join("; ");
+    check(
+      "a token pointing at another user's device family is refused",
+      !/authjs\.session-token=[^;]/.test(foreignCookies),
+      { location: foreign.headers.get("location") }
+    );
+
+    // FD1-R01: a token with NO recorded stamp (pre-column, or minted by code that forgot it) is
+    // treated as invalid rather than trusted.
+    const stamplessToken = `${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}`;
+    await prisma.nativeAuthToken.create({
+      data: {
+        userId: user.id,
+        token: stamplessToken,
+        purpose: "WEB_HANDOFF",
+        destination: "/account",
+        mobileSessionFamilyId: mintedRow?.mobileSessionFamilyId,
+        expiresAt: new Date(Date.now() + 300_000)
+      }
+    });
+    const stampless = await handoffForm(stamplessToken, { Origin: BASE, "Sec-Fetch-Site": "same-origin" });
+    check(
+      "a token with no recorded security stamp is refused",
+      !/authjs\.session-token=[^;]/.test(stampless.headers.getSetCookie().join("; ")),
+      { location: stampless.headers.get("location") }
     );
   } finally {
     // Registering fires a notification, and Notification.userId has no cascade — clear the rows

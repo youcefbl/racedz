@@ -1,3 +1,4 @@
+import { coachErrorToApiError } from "@/lib/api/v1/coach";
 import { apiError, apiOk, ApiError, readJsonBody, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
@@ -53,7 +54,7 @@ export const POST = withApi(async (request) => {
     return apiOk(request, entry, { status: 201 });
   } catch (error) {
     if (error instanceof CoachError) {
-      throw new ApiError(error.status === 409 ? "CONFLICT" : "VALIDATION_FAILED", error.message);
+      throw coachErrorToApiError(error);
     }
     if (error instanceof Error && error.name === "ZodError") {
       throw new ApiError("VALIDATION_FAILED", "Check the highlighted fields.");

@@ -24,6 +24,13 @@ data class ConversationUiState(
     val pendingQuestion: String? = null,
     val error: ApiCallException? = null,
     val sendError: String? = null,
+    /**
+     * True when the last send was refused because the runner's health-data consent is missing or
+     * predates the current policy. It is not a failure to retry: the answer is to re-consent, so
+     * the UI says that in the runner's own language instead of echoing the server's English
+     * sentence (the server used to report this as a plain validation error — see FDE-R01).
+     */
+    val consentRequired: Boolean = false,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val hasCoaching: Boolean get() = conversation.entitlement.tier != "NONE"
@@ -126,7 +133,11 @@ class ConversationViewModel(
                 is ApiResult.Failure -> _state.update {
                     // The question is kept in [pendingQuestion] so the runner can see what they
                     // asked; Retry re-sends it with the SAME key.
-                    it.copy(generating = false, sendError = result.error.message)
+                    it.copy(
+                        generating = false,
+                        sendError = result.error.message,
+                        consentRequired = result.error.code == ApiErrorCode.ConsentRequired,
+                    )
                 }
             }
         }
@@ -151,7 +162,11 @@ class ConversationViewModel(
                     _state.update { it.copy(generating = false) }
                 }
                 is ApiResult.Failure -> _state.update {
-                    it.copy(generating = false, sendError = result.error.message)
+                    it.copy(
+                        generating = false,
+                        sendError = result.error.message,
+                        consentRequired = result.error.code == ApiErrorCode.ConsentRequired,
+                    )
                 }
             }
         }
@@ -159,7 +174,9 @@ class ConversationViewModel(
 
     /** Clears a failed attempt once the runner has acknowledged it by typing again. */
     fun dismissSendError() {
-        if (_state.value.sendError != null) _state.update { it.copy(sendError = null, pendingQuestion = null) }
+        if (_state.value.sendError != null) {
+            _state.update { it.copy(sendError = null, pendingQuestion = null, consentRequired = false) }
+        }
     }
 
     private suspend fun reload(): Boolean = when (val result = repository.conversation()) {

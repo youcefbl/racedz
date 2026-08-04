@@ -608,7 +608,14 @@ async function runReplyShapeCase() {
   // since review B83-R09; what must NEVER be echoed is the write-layer internals.
   check("usedSignals reaches the client", serialised.includes("usedSignals"), "usedSignals missing");
   check("no memory internals are echoed to the client", !serialised.includes("memoryCandidates"), "memoryCandidates present");
-  check("no memory candidates are echoed to the client", !serialised.includes("memoryCandidates"), "memoryCandidates present");
+  // A DISTINCT excluded field (FDE-R01 — this used to repeat the memoryCandidates check verbatim):
+  // the prompt/context provenance is stored for audit but must not travel to the client, where it
+  // would expose how the model is steered.
+  check(
+    "no prompt/context provenance is echoed to the client",
+    !serialised.includes("contextHash") && !serialised.includes("promptVersion"),
+    "provenance fields present"
+  );
 
   // Another runner must not see this conversation.
   const other = await makeRunner("reply-other", { birthYear: THIS_YEAR - 41, gender: "FEMALE" });
@@ -672,7 +679,10 @@ async function runGovernanceCases() {
     token: runner.token,
     body: { type: "CHAT", message: "I fainted and have chest pain", requestId: urgentKey },
   });
-  check("urgent chat is blocked before any AI call", urgent.status === 201 || urgent.status === 200, urgent.status);
+  // Exact contract, not a range (FDE-R01): the route answers 201 with a BLOCKED interaction body.
+  check("urgent chat is blocked before any AI call", urgent.status === 201, urgent.status);
+  const urgentBody = (urgent.body as { data?: { status?: string; safety?: string } }).data;
+  check("the urgent response itself reports BLOCKED", urgentBody?.status === "BLOCKED", urgentBody);
   const urgentRow = await prisma.coachInteraction.findFirst({
     where: { userId: runner.id, clientRequestId: urgentKey },
     select: { id: true, status: true },
@@ -705,9 +715,18 @@ async function runGovernanceCases() {
     token: runner.token,
     body: { type: "CHAT", message: "what pace should my tempo run be?", requestId: randomUUID() },
   });
-  check("benign coaching without a current grant is refused", noConsent.status === 403 || noConsent.status === 422, noConsent.status);
-  const noConsentBody = JSON.stringify(noConsent.body);
-  check("the refusal names consent", noConsentBody.includes("consent") || noConsentBody.includes("CONSENT"), noConsent.body);
+  check("benign coaching without a current grant is refused", noConsent.status === 403, noConsent.status);
+  // The stable error CODE, not a substring search of the whole body (FDE-R01): a body that merely
+  // mentions "consent" could be an unrelated validation failure.
+  const noConsentCode = (noConsent.body as { error?: { code?: string } }).error?.code;
+  check("the refusal is exactly CONSENT_REQUIRED", noConsentCode === "CONSENT_REQUIRED", noConsent.body);
+  // The point of the gate is that the provider is never reached — assert the boundary, not just
+  // the status line.
+  const usageAfterNoConsent = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
+  check("a refused-for-consent request reached no provider", usageAfterNoConsent === urgentUsage, {
+    before: urgentUsage,
+    after: usageAfterNoConsent,
+  });
   // …but the urgent path still works without a grant: safety beats paperwork.
   const urgentNoConsent = await api("/coach/interactions", {
     method: "POST",
@@ -718,7 +737,9 @@ async function runGovernanceCases() {
     where: { userId: runner.id, userMessage: { contains: "poitrine" } },
     select: { status: true },
   });
-  check("urgent symptoms are blocked even without a consent grant", urgentNoConsent.status < 500 && urgentNoConsentRow?.status === "BLOCKED", { status: urgentNoConsent.status, row: urgentNoConsentRow });
+  check("urgent symptoms are blocked even without a consent grant", urgentNoConsent.status === 201 && urgentNoConsentRow?.status === "BLOCKED", { status: urgentNoConsent.status, row: urgentNoConsentRow });
+  const urgentNoConsentUsage = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
+  check("the consent-free urgent path still reached no provider", urgentNoConsentUsage === urgentUsage, urgentNoConsentUsage);
 
   // 4) The memory privacy surface (COACHPAR-002): reachable without entitlement, scoped per user.
   await prisma.coachMemory.create({

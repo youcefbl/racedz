@@ -39,7 +39,10 @@ services:
       - "127.0.0.1:${APP_PORT:-3003}:3003"
     volumes:
       - racedz_uploads:/app/public/uploads
-    command: sh -c "npm run prisma:deploy && npm run start:docker"
+    # tts:purge-legacy erases the pre-allowlist arbitrary-text audio cache from the persistent
+    # uploads volume (DD6-R01/FD1-R03). It is idempotent and deliberately non-blocking — it reports
+    # TTS_PURGE_OK / TTS_PURGE_FAILED and never prevents startup; see docs/OPERATIONS.md.
+    command: sh -c "npm run prisma:deploy && npm run tts:purge-legacy && npm run start:docker"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3003/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s

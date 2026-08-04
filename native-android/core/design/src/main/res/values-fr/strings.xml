@@ -447,6 +447,7 @@
     <string name="coach_chat_title">Demandez à votre coach</string>
     <string name="coach_chat_hint">Posez une question</string>
     <string name="coach_chat_send">Envoyer</string>
+    <string name="coach_consent_required">Votre coach a besoin de votre consentement pour utiliser vos données de santé. Ouvrez votre objectif et enregistrez-le pour continuer.</string>
     <string name="coach_chat_thinking">Votre coach réfléchit…</string>
     <string name="coach_chat_empty_title">Posez n’importe quelle question</string>
     <string name="coach_chat_empty_body">Entraînement, allure, récupération — votre coach connaît votre plan et votre historique.</string>

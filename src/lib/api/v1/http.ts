@@ -28,6 +28,13 @@ export type ApiErrorCode =
   // The caller must finish onboarding before this action is possible. Distinct from
   // VALIDATION_FAILED so the app can route to onboarding rather than highlight fields.
   | "PROFILE_INCOMPLETE"
+  // Health-data consent is missing or predates the current policy version. Distinct from
+  // VALIDATION_FAILED for the same reason as PROFILE_INCOMPLETE: the app must route the runner to
+  // re-consent (save their goal), not highlight a field they cannot see.
+  | "CONSENT_REQUIRED"
+  // The action needs a paid coach subscription. Distinct so the app can offer to subscribe rather
+  // than report a failure.
+  | "SUBSCRIPTION_REQUIRED"
   | "RATE_LIMITED"
   | "UNAVAILABLE"
   | "INTERNAL";
@@ -50,6 +57,8 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   CONFLICT: 409,
   IDEMPOTENCY_KEY_REUSED: 409,
   PROFILE_INCOMPLETE: 428,
+  CONSENT_REQUIRED: 403,
+  SUBSCRIPTION_REQUIRED: 402,
   RATE_LIMITED: 429,
   UNAVAILABLE: 503,
   INTERNAL: 500

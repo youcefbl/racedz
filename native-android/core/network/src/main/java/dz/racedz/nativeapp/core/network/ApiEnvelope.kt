@@ -73,6 +73,16 @@ enum class ApiErrorCode {
     IdempotencyKeyReused,
     /** Onboarding is incomplete; the caller should be sent to fill it in, not shown field errors. */
     ProfileIncomplete,
+
+    /**
+     * Health-data consent is missing or predates the current policy version. The runner must be
+     * sent to re-consent (open the goal and save it), NOT shown a field error — this used to
+     * arrive as ValidationFailed, which said nothing about what to do.
+     */
+    ConsentRequired,
+
+    /** The action needs a paid coach subscription; offer to subscribe rather than report failure. */
+    SubscriptionRequired,
     RateLimited,
     Unavailable,
     Internal,
@@ -101,6 +111,8 @@ enum class ApiErrorCode {
             "NOT_FOUND" -> NotFound
             "CONFLICT" -> Conflict
         "PROFILE_INCOMPLETE" -> ProfileIncomplete
+            "CONSENT_REQUIRED" -> ConsentRequired
+            "SUBSCRIPTION_REQUIRED" -> SubscriptionRequired
         "IDEMPOTENCY_KEY_REUSED" -> IdempotencyKeyReused
             "RATE_LIMITED" -> RateLimited
             "UNAVAILABLE" -> Unavailable

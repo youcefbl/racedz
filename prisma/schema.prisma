@@ -402,6 +402,24 @@ model EmailVerificationToken {
 // into the native app's webview session. Minted at /auth/native/handoff after a
 // successful OAuth login, delivered via the zidrun://auth deep link, then consumed
 // by the "native-bridge" credentials provider. See src/lib/native-auth.ts.
+/// Single-flight ownership of one TTS cache key (FD1-R02). A cache miss must be synthesized by
+/// exactly one worker: without this, N concurrent requests for the same uncached cue each made
+/// their own paid provider call. Ownership is a durable row with a LEASE rather than a lockfile,
+/// so a worker that dies cannot wedge the phrase forever and a slow provider retry cannot let a
+/// second worker start while the first is still in flight.
+model TtsCacheClaim {
+  /// sha256(locale::text) — the same key the cached audio file is named after.
+  cacheKey   String   @id
+  /// The owning request's AiUsageLog reservation id, so a release only ever clears its own claim.
+  ownerId    String
+  claimedAt  DateTime @default(now())
+  /// Covers the provider's COMPLETE retry budget, not one attempt. Past this, another worker may
+  /// take the claim over.
+  leaseUntil DateTime
+
+  @@index([leaseUntil])
+}
+
 model NativeAuthToken {
   id        String    @id @default(cuid())
   userId    String
@@ -416,6 +434,15 @@ model NativeAuthToken {
   /// WEB_HANDOFF only: the MobileSession.familyId that minted it. Revocation is re-checked at
   /// exchange, so a signed-out/revoked device cannot still convert its link into a browser session.
   mobileSessionFamilyId String?
+  /// `User.securityStampAt` when this token was minted, compared against the live stamp at exchange
+  /// (FD1-R01). Without it a link minted before a password reset or MFA enrolment could still open
+  /// a fresh browser session afterwards, because a Credentials sign-in arrives at the JWT callback
+  /// with no prior stamp to compare and simply adopts the current one.
+  ///
+  /// Deliberately nullable with NO default, and treated as INVALID at exchange: a default would let
+  /// any future insert that forgets this field mint a token that looks freshly authenticated, which
+  /// is the exact bypass this column exists to close.
+  securityStampAt DateTime?
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())

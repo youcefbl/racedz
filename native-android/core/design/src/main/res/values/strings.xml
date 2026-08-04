@@ -468,6 +468,7 @@
     <string name="coach_chat_title">Ask your coach</string>
     <string name="coach_chat_hint">Ask a question</string>
     <string name="coach_chat_send">Send</string>
+    <string name="coach_consent_required">Your coach needs your consent to use health details. Open your goal and save it to continue.</string>
     <string name="coach_chat_thinking">Your coach is thinking…</string>
     <string name="coach_chat_empty_title">Ask your coach anything</string>
     <string name="coach_chat_empty_body">Training, pacing, recovery, or how a run felt — your coach has your plan and your history.</string>

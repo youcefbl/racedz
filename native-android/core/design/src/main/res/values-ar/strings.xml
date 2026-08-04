@@ -453,6 +453,7 @@
     <string name="coach_chat_title">اسأل المدرب</string>
     <string name="coach_chat_hint">اطرح سؤالك</string>
     <string name="coach_chat_send">ابعث</string>
+    <string name="coach_consent_required">المدرّب يحتاج موافقتك باش يستعمل معلومات صحتك. حلّ الهدف تاعك واحفظه باش تكمّل.</string>
     <string name="coach_chat_thinking">المدرب قاعد يفكّر…</string>
     <string name="coach_chat_empty_title">اسأل المدرب واش ما تحب</string>
     <string name="coach_chat_empty_body">التدريب، الإيقاع، الاسترجاع — المدرب عندو البرنامج والتاريخ تاعك.</string>

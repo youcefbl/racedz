@@ -175,7 +175,10 @@ fun ConversationScreen(
                 }
 
                 state.sendError?.let {
-                    ZidRunInlineError(it, modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg))
+                    // A consent refusal is actionable, not a fault: show the localized instruction
+                    // rather than the server's English sentence.
+                    val message = if (state.consentRequired) stringResource(R.string.coach_consent_required) else it
+                    ZidRunInlineError(message, modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg))
                 }
 
                 Row(

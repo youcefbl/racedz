@@ -684,7 +684,19 @@ export const dictionaries = {
       goToLogin: "Go to login",
       verifyExpiredTitle: "Verification link expired",
       verifyExpiredText:
-        "This activation link is invalid, expired, or already used. Create a new account or ask support for a new verification email."
+        "This activation link is invalid, expired, or already used. Create a new account or ask support for a new verification email.",
+      handoffTitle: "Continue to ZidRun",
+      handoffLead: "You opened this from the ZidRun app. Confirm to continue in your browser.",
+      handoffAccount: "Signed in as",
+      handoffDestination: "Taking you to",
+      handoffConfirm: "Continue",
+      handoffNotMe: "This is not my account",
+      handoffSecurityNote: "This link works once and expires in five minutes.",
+      handoffDestSecurity: "Security and sign-in",
+      handoffDestSupport: "Support",
+      handoffDestSubscribe: "Coach subscription",
+      handoffDestAccount: "Your account",
+      handoffDestGpx: "Run export"
     },
     invite: {
       joinTitle: "Join {organization}",
@@ -1390,7 +1402,19 @@ export const dictionaries = {
       goToLogin: "Aller à la connexion",
       verifyExpiredTitle: "Lien de vérification expiré",
       verifyExpiredText:
-        "Ce lien d'activation est invalide, expiré ou déjà utilisé. Créez un nouveau compte ou demandez un nouvel e-mail de vérification au support."
+        "Ce lien d'activation est invalide, expiré ou déjà utilisé. Créez un nouveau compte ou demandez un nouvel e-mail de vérification au support.",
+      handoffTitle: "Continuer sur ZidRun",
+      handoffLead: "Vous arrivez depuis l'application ZidRun. Confirmez pour continuer dans votre navigateur.",
+      handoffAccount: "Connecté en tant que",
+      handoffDestination: "Destination",
+      handoffConfirm: "Continuer",
+      handoffNotMe: "Ce n'est pas mon compte",
+      handoffSecurityNote: "Ce lien fonctionne une seule fois et expire dans cinq minutes.",
+      handoffDestSecurity: "Sécurité et connexion",
+      handoffDestSupport: "Assistance",
+      handoffDestSubscribe: "Abonnement coach",
+      handoffDestAccount: "Votre compte",
+      handoffDestGpx: "Export de la course"
     },
     invite: {
       joinTitle: "Rejoindre {organization}",
@@ -2095,7 +2119,19 @@ export const dictionaries = {
       goToLogin: "الذهاب إلى تسجيل الدخول",
       verifyExpiredTitle: "انتهت صلاحية رابط التحقق",
       verifyExpiredText:
-        "رابط التفعيل هذا غير صالح أو منتهي أو مستخدم بالفعل. أنشئ حسابًا جديدًا أو اطلب بريد تحقق جديدًا من الدعم."
+        "رابط التفعيل هذا غير صالح أو منتهي أو مستخدم بالفعل. أنشئ حسابًا جديدًا أو اطلب بريد تحقق جديدًا من الدعم.",
+      handoffTitle: "كمّل على ZidRun",
+      handoffLead: "جيت من تطبيق ZidRun. أكّد باش تكمّل في المتصفح.",
+      handoffAccount: "داخل باسم",
+      handoffDestination: "رايح لـ",
+      handoffConfirm: "كمّل",
+      handoffNotMe: "ماشي حسابي",
+      handoffSecurityNote: "هذا الرابط يخدم مرة وحدة ويسقط بعد خمس دقايق.",
+      handoffDestSecurity: "الأمان وتسجيل الدخول",
+      handoffDestSupport: "الدعم",
+      handoffDestSubscribe: "اشتراك المدرّب",
+      handoffDestAccount: "حسابك",
+      handoffDestGpx: "تصدير الجري"
     },
     invite: {
       joinTitle: "انضمّ إلى {organization}",

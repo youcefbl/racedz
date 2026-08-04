@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -24,7 +26,7 @@ android {
             // emulator reaches the dev machine at 10.0.2.2, but a physical device on USB
             // tethering/Wi-Fi needs the host's LAN address. Release stays pinned to production —
             // the no-runtime-server-field rule above is untouched.
-            val debugApiBase = (project.findProperty("zidrun.debugApiBase") as String?) ?: "http://10.0.2.2:3003/"
+            val debugApiBase = resolveDebugApiBase(project.findProperty("zidrun.debugApiBase") as String?)
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBase\"")
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")
         }
@@ -52,4 +54,36 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+/**
+ * Validates and normalizes -Pzidrun.debugApiBase at CONFIGURATION time (review FDE-R02).
+ *
+ * The value is interpolated into a generated Kotlin string literal and handed to Retrofit, which
+ * rejects a base URL without a trailing slash at app startup — so a typo used to surface as a crash
+ * on the device or as unparseable generated source, long after the mistake. Failing here names the
+ * property and the problem instead.
+ */
+fun resolveDebugApiBase(raw: String?): String {
+    val value = raw?.trim().orEmpty()
+    if (value.isEmpty()) return "http://10.0.2.2:3003/"
+
+    // Anything that could break out of the generated "..." literal is refused outright rather than
+    // escaped: there is no legitimate URL containing these.
+    require(value.none { it == '"' || it == '\\' || it == '$' || it.isISOControl() }) {
+        "zidrun.debugApiBase contains characters that cannot appear in a URL: $value"
+    }
+
+    val uri = try {
+        URI(value)
+    } catch (error: Exception) {
+        throw IllegalArgumentException("zidrun.debugApiBase is not a valid URI: $value", error)
+    }
+    require(uri.isAbsolute && (uri.scheme == "http" || uri.scheme == "https")) {
+        "zidrun.debugApiBase must be an absolute http(s) URL (e.g. http://192.168.1.10:3003/), got: $value"
+    }
+    require(!uri.host.isNullOrBlank()) { "zidrun.debugApiBase has no host: $value" }
+
+    // Retrofit requires the trailing slash; adding it is unambiguous, so normalize rather than fail.
+    return if (value.endsWith("/")) value else "$value/"
 }

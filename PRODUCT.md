@@ -9,7 +9,7 @@ product
 
 ## Users
 
-Runners across Algeria — from first-time 5K entrants to regular racers — plus race organizers and platform admins. Runners are usually on a phone (the app ships as an Android/Capacitor build and the web is mobile-first), often on the go, sometimes on slower mobile connections. They speak Arabic, French, or English and may read right-to-left. The job to be done: **discover a race, register and pay with confidence, and manage their entries** — with organizers needing to publish/manage events and admins approving and moderating.
+Runners across Algeria — from first-time 5K entrants to regular racers — plus race organizers and platform admins. Runners are usually on a phone (the mobile app is the native Android client in `native-android/`, and the web is mobile-first), often on the go, sometimes on slower mobile connections. They speak Arabic, French, or English and may read right-to-left. The job to be done: **discover a race, register and pay with confidence, and manage their entries** — with organizers needing to publish/manage events and admins approving and moderating.
 
 ## Product Purpose
 
