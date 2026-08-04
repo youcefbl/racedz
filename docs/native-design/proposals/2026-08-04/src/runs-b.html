@@ -1,0 +1,137 @@
+<!doctype html>
+<html data-theme="light">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Variant B — sticky thumb-zone. Stats scroll; Record is pinned above the tab bar. */
+  .header { display: flex; align-items: flex-end; gap: 12px; }
+  .header .grow { flex: 1; }
+  .history-link { display: flex; align-items: center; gap: 4px; color: var(--primary); padding: 8px; min-height: 44px; align-self: center; }
+  .history-link svg { width: 16px; height: 16px; stroke: var(--primary); }
+
+  .hero-card .toprow { display: flex; align-items: center; justify-content: space-between; }
+  .hero-card .toprow .t { font-size: 14px; font-weight: 500; color: var(--hero-text-75); }
+  .hero-card .toprow svg { width: 20px; height: 20px; stroke: var(--accent); }
+  [data-theme="race"] .hero-card .toprow svg { stroke: var(--accent); }
+  .hero-card .big { display: flex; align-items: baseline; gap: 6px; margin-top: 12px; }
+  .hero-card .big .v { font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; color: var(--hero-text); font-variant-numeric: tabular-nums; }
+  .hero-card .big .u { font-size: 16px; color: var(--hero-text-65); }
+  .hero-card .sub { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 14px; line-height: 20px; color: var(--hero-text-65); }
+  .hero-card .sub .streak { display: flex; align-items: center; gap: 4px; }
+  .hero-card .sub svg { width: 14px; height: 14px; stroke: var(--accent); }
+  .hero-card .fillbar { margin-top: 20px; }
+
+  .latest .toprow { display: flex; justify-content: space-between; margin-bottom: 12px; }
+  .latest .kicker { font-size: 11px; font-weight: 500; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-muted); }
+  .latest .name { margin-top: 4px; }
+  .latest .row { display: flex; align-items: center; gap: 12px; }
+  .route-thumb { width: 64px; height: 64px; border-radius: 12px; background: var(--surface-muted); flex: none; display:flex; align-items:center; justify-content:center; }
+  .route-thumb svg { width: 44px; height: 44px; stroke: var(--primary); stroke-width: 3; }
+  .route-thumb .dot { fill: var(--danger); stroke: none; }
+
+  .bests .toprow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .bests .toprow svg { width: 20px; height: 20px; stroke: var(--accent); }
+
+  /* the pinned action */
+  .dock {
+    position: absolute; left: 0; right: 0; bottom: 72px; padding: 24px 16px 12px;
+    background: linear-gradient(to top, var(--background) 65%, transparent);
+  }
+  .dock .btn-primary { min-height: 56px; border-radius: 14px; font-size: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+  .dock .btn-primary svg { width: 18px; height: 18px; }
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; }
+  .scroll { padding-bottom: 96px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="scroll">
+    <div class="brandbar">
+      <img class="logo-light" src="../../../../../public/brand/zidrun-logo.svg" alt="">
+      <img class="logo-dark" src="../../../../../public/brand/zidrun-logo-dark.svg" alt="">
+      <img class="logo-race" src="../../../../../public/brand/zidrun-logo-race.svg" alt="">
+      <div class="iconbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16v-3"/><path d="M12 16V8"/><path d="M17 16v-5"/></svg></div>
+    </div>
+
+    <div class="header">
+      <div class="grow">
+        <div class="eyebrow">Runs</div>
+        <div class="headline-lg" style="margin-top:4px">Your running week</div>
+        <div class="body-md muted" style="margin-top:4px">A clear view of your momentum</div>
+      </div>
+      <div class="history-link label-lg">View history
+        <svg class="ic" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+      </div>
+    </div>
+
+    <!-- ONE week card: distance + count + streak merged (was two cards both titled "This week") -->
+    <div class="hero-card">
+      <div class="toprow">
+        <span class="t">This week</span>
+        <svg class="ic" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+      </div>
+      <div class="big"><span class="v num">9.2</span><span class="u">km</span></div>
+      <div class="sub">
+        <span>1 run</span><span>·</span>
+        <span class="streak">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M10 2h4"/><path d="m12 14 3-3"/><path d="M4 14a8 8 0 1 0 16 0a8 8 0 1 0-16 0"/></svg>
+          7 week streak
+        </span>
+      </div>
+      <div class="fillbar"><div style="width:37%"></div></div>
+    </div>
+
+    <div class="card latest">
+      <div class="toprow">
+        <div>
+          <div class="kicker">Latest run</div>
+          <div class="title-md name">Monday plan session</div>
+        </div>
+        <div class="body-sm muted num">3 Aug 2026, 17:30</div>
+      </div>
+      <div class="row">
+        <div class="route-thumb">
+          <svg class="ic" viewBox="0 0 48 48"><path d="M14 12 30 8l10 12-4 14-16 4-10-10z"/><circle class="dot" cx="36" cy="31" r="4"/></svg>
+        </div>
+        <div class="metric-row" style="flex:1">
+          <div class="metric"><div class="label">Distance</div><div class="value">9.20 km</div></div>
+          <div class="metric-div"></div>
+          <div class="metric"><div class="label">Pace</div><div class="value">6:11/km</div></div>
+          <div class="metric-div"></div>
+          <div class="metric"><div class="label">Time</div><div class="value">56:53</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bests">
+      <div class="toprow">
+        <div class="title-md">Personal bests</div>
+        <svg class="ic" viewBox="0 0 24 24"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><path d="M6 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0"/></svg>
+      </div>
+      <div class="metric-row">
+        <div class="metric"><div class="label">Total distance</div><div class="value">117.60 km</div></div>
+        <div class="metric-div"></div>
+        <div class="metric"><div class="label">Longest</div><div class="value">14.20 km</div></div>
+        <div class="metric-div"></div>
+        <div class="metric"><div class="label">Best pace</div><div class="value">4:58/km</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="btn-primary">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg>
+      Record run
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M16 2v4"/><path d="M21 11.75V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7.25"/><path d="m22 22-1.875-1.875"/><path d="M3 10h18"/><path d="M8 2v4"/><circle cx="18" cy="18" r="3"/></svg></div><div class="lbl">Races</div></div>
+    <div class="tab active"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg></div><div class="lbl">Runs</div></div>
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg></div><div class="lbl">Coach</div></div>
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M7 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></div><div class="lbl">Account</div></div>
+  </div>
+</div>
+</body>
+</html>

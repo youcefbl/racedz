@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZidRun — Runs + Coach redesign proposals · 2026-08-04</title>
+<style>
+  :root { --bg:#0F1117; --panel:#161A23; --ink:#E7EAF0; --mut:#98A1B3; --line:#262C3A; --green:#4ADE80; --lime:#A3E635; --orange:#F47A20; }
+  * { margin:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.55 "Manrope", system-ui, sans-serif; padding:32px 28px 80px; }
+  main { max-width:1480px; margin:0 auto; }
+  h1 { font-size:26px; letter-spacing:-.01em; }
+  h1 + p { color:var(--mut); margin-top:6px; max-width:72ch; }
+  .status { display:inline-block; margin-top:12px; padding:6px 12px; border-radius:999px; background:#2A1E0C; color:var(--orange); font-size:13px; font-weight:600; }
+  h2 { font-size:19px; margin:44px 0 6px; padding-top:20px; border-top:1px solid var(--line); }
+  h2 small { color:var(--mut); font-weight:400; font-size:14px; margin-left:8px; }
+  .note { color:var(--mut); max-width:88ch; margin-bottom:14px; }
+  .note b { color:var(--ink); }
+  .row { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }
+  figure { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; }
+  figure img { display:block; height:430px; width:auto; border-radius:8px; }
+  figure.wide img { height:520px; }
+  figcaption { color:var(--mut); font-size:12.5px; margin-top:8px; max-width:240px; }
+  figcaption b { color:var(--ink); }
+  a { color:var(--green); }
+  .rec { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--lime); border-radius:10px; padding:16px 18px; margin-top:16px; max-width:88ch; }
+  .rec b { color:var(--lime); }
+  table { border-collapse:collapse; margin-top:10px; }
+  td, th { border:1px solid var(--line); padding:8px 12px; font-size:14px; text-align:left; vertical-align:top; }
+  th { color:var(--mut); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Runs + Coach — redesign proposals</h1>
+  <p>Evidence-first pass, 2026-08-04. Captures are from the real connected phone (Samsung Galaxy M21,
+  1080×2340 @ 420 dpi) running <code>feat/coach-tier0</code> against the local dev stack with seeded
+  realistic data. Mockups are HTML/CSS built from the exact <code>core/design</code> tokens and
+  rendered at the same viewport and density — what is approved here is what can be built.</p>
+  <span class="status">Proposed design — pending owner approval · no Compose code changed</span>
+  <p style="margin-top:14px"><a href="DIAGNOSIS.md">Read the full diagnosis</a> ·
+     <a href="RECOMMENDATION.md">Read the recommendation</a> ·
+     raw captures in <a href="../../current/2026-08-04/">docs/native-design/current/2026-08-04/</a></p>
+
+  <h2>The problem, in one image</h2>
+  <p class="note">On any account with data, the Runs page leads with two stacked cards that both say
+  “This week”, and <b>Record run — the page’s primary action — is below the fold</b>. The proposal
+  merges the duplicate cards and pins the action in the thumb zone.</p>
+  <div class="row">
+    <figure class="wide"><img src="pair-runs-light.png" alt=""><figcaption><b>Before → after</b>, light. Same content, one week card, action always present.</figcaption></figure>
+    <figure class="wide"><img src="pair-runs-race.png" alt=""><figcaption><b>Before → after</b>, race theme.</figcaption></figure>
+  </div>
+
+  <h2>Variant A — hero-top <small>action leads the page</small></h2>
+  <p class="note">Trade-off: maximum prominence, worst thumb reach — the top of a 6.5&Prime; screen
+  needs a grip shift or a second hand (PRODUCT.md asks for thumb-reachable primary actions).</p>
+  <div class="row">
+    <figure><img src="runs-A-hero-top-light.png" alt=""><figcaption>Light</figcaption></figure>
+    <figure><img src="runs-A-hero-top-dark.png" alt=""><figcaption>Dark</figcaption></figure>
+    <figure><img src="runs-A-hero-top-race.png" alt=""><figcaption>Race</figcaption></figure>
+  </div>
+
+  <h2>Variant B — sticky thumb-zone <small>recommended</small></h2>
+  <p class="note">Stats scroll; Record is pinned above the tab bar — always visible <b>and</b> always
+  reachable. Trade-off: ~64 dp of scroll viewport is permanently spent on the dock.</p>
+  <div class="row">
+    <figure><img src="runs-B-sticky-light.png" alt=""><figcaption>Light</figcaption></figure>
+    <figure><img src="runs-B-sticky-dark.png" alt=""><figcaption>Dark</figcaption></figure>
+    <figure><img src="runs-B-sticky-race.png" alt=""><figcaption>Race</figcaption></figure>
+    <figure><img src="runs-B-sticky-ar-light.png" alt=""><figcaption><b>Arabic RTL</b> — mirrored layout, Western digits per Algerian convention (fixes the mixed-numeral capture).</figcaption></figure>
+    <figure><img src="runs-B-annotated-light.png" alt=""><figcaption><b>Annotated</b> — what changed and which finding/principle each change answers.</figcaption></figure>
+    <figure><img src="runs-B-sticky-fr-light.png" alt=""><figcaption><b>French</b> — expansion check ("Voir l’historique", "Meilleure allure", "Enregistrer une sortie").</figcaption></figure>
+    <figure><img src="runs-B-sticky-large-light.png" alt=""><figcaption><b>1.3× font scale</b> — text scales, layout holds; metric labels wrap instead of truncating (NDP-R08).</figcaption></figure>
+  </div>
+
+  <h2>Variant C — restructure <small>the page <em>is</em> “start a run”</small></h2>
+  <p class="note">Reuses the record screen’s press-and-hold language on the tab itself; momentum
+  compresses to one strip. Trade-off: strongest intent, but weekly momentum is demoted and it
+  duplicates the record screen’s job.</p>
+  <div class="row">
+    <figure><img src="runs-C-restructure-light.png" alt=""><figcaption>Light</figcaption></figure>
+    <figure><img src="runs-C-restructure-dark.png" alt=""><figcaption>Dark</figcaption></figure>
+    <figure><img src="runs-C-restructure-race.png" alt=""><figcaption>Race</figcaption></figure>
+  </div>
+
+  <h2>Empty state <small>where the energy is supposed to live</small></h2>
+  <p class="note">Current empty state: grey icon, the same sentence twice, and a progress bar showing
+  its 8% floor at 0.0 km. Proposal: the Z mark, one line, no fake progress — and <b>exactly one
+  primary action</b>: the same pinned dock as the populated overview (NDP-R07; the earlier
+  in-card CTA and Coach promotion row are removed).</p>
+  <div class="row">
+    <figure class="wide"><img src="pair-runs-empty-race.png" alt=""><figcaption><b>Before → after</b>, race theme.</figcaption></figure>
+    <figure><img src="runs-empty-light.png" alt=""><figcaption>Light</figcaption></figure>
+    <figure><img src="runs-empty-dark.png" alt=""><figcaption>Dark</figcaption></figure>
+  </div>
+
+  <h2>Coach overview <small>refinement, not redesign</small></h2>
+  <p class="note">The Coach page’s action-first shape is the model the Runs page converges on. Three
+  fixes: a reserved entitlement-pill slot (no pop-in), scope labels on both adherence counters
+  (“1 of 3 this week” vs “whole plan 3 of 6”), and orange kept to icons — orange text on white is
+  2.74:1 and fails AA in the light theme.</p>
+  <div class="row">
+    <figure class="wide"><img src="pair-coach-light.png" alt=""><figcaption><b>Before → after</b>, light.</figcaption></figure>
+    <figure><img src="coach-light.png" alt=""><figcaption>Light</figcaption></figure>
+    <figure><img src="coach-dark.png" alt=""><figcaption>Dark</figcaption></figure>
+    <figure><img src="coach-race.png" alt=""><figcaption>Race</figcaption></figure>
+    <figure><img src="coach-annotated-light.png" alt=""><figcaption><b>Annotated</b></figcaption></figure>
+  </div>
+
+  <h2>Round 2 — owner-requested additions <small>revised per review NDP-R01–R09</small></h2>
+  <p class="note"><b>Correction (NDP-R03):</b> the build already conditionally renders splits,
+  pace and elevation charts (<code>RunDetailScreen.kt:182-289</code>) from API-derived series —
+  the earlier "the build lacks charts" claim was wrong. The 2026-08-04 capture showed none only
+  because the seeded route points had no timestamps or elevation, so every series came back
+  empty. Round 2 is therefore a <b>refinement of existing charts</b> plus honest empty-series
+  states. There is <b>no cadence chart</b>: the recorder has no cadence source and the API
+  carries only a scalar average (NDP-R02/R04). The during-run surface keeps the trusted-route
+  map the flow doc requires. Draft rules live in
+  <a href="../../UI_RULES.md">docs/native-design/UI_RULES.md</a> — <b>pending owner approval</b>
+  of the four asks, not yet binding (NDP-R01).</p>
+  <div class="row">
+    <figure class="wide" style="max-width:100%"><img style="height:430px" src="run-start-hold-dark.png" alt=""><figcaption><b>Hold-to-start storyboard</b> (dark) — ready → holding ≈60% → complete; ~700 ms fill, one aura pulse, reduced-motion spec included in the frame.</figcaption></figure>
+    <figure class="wide" style="max-width:100%"><img style="height:430px" src="run-start-hold-race.png" alt=""><figcaption><b>Hold-to-start storyboard</b> (race) — neon via tokens, same geometry.</figcaption></figure>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <figure><img src="run-live-dark.png" alt=""><figcaption><b>During run, stable-GPS state</b> (dark) — distance &gt; time &gt; pace, the trusted-route map kept, honest tiles (no cadence), last-4 splits strip, thumb-zone controls.</figcaption></figure>
+    <figure><img src="run-live-race.png" alt=""><figcaption><b>During run</b> (race)</figcaption></figure>
+    <figure><img src="run-detail-light.png" alt=""><figcaption><b>Run detail — refinement of the existing screen</b> (light): splits, elevation and the existing pace chart restyled (pace line moves to green — orange fails 3:1 on white), every shipped control kept: Analyze, Export GPX, Visibility, Delete.</figcaption></figure>
+    <figure><img src="run-detail-dark.png" alt=""><figcaption><b>Run detail</b> (dark)</figcaption></figure>
+    <figure><img src="run-detail-race.png" alt=""><figcaption><b>Run detail</b> (race)</figcaption></figure>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <figure class="wide" style="max-width:100%"><img style="height:360px" src="run-live-states-dark.png" alt=""><figcaption><b>During-run state matrix</b> (NDP-R04) — acquiring (no stale map), stable GPS, auto-paused, paused, and stable at 1.3× font.</figcaption></figure>
+    <figure class="wide" style="max-width:100%"><img style="height:300px" src="dock-states-light.png" alt=""><figcaption><b>Stateful Record dock</b> (NDP-R05) — Record only when idle; Resume/Open during a recording; Save when a finished run is pending. Never a route-erasing restart; <code>RunRecorder.start()</code> guard is implementation acceptance.</figcaption></figure>
+  </div>
+
+  <h2>Recommendation</h2>
+  <div class="rec">
+    <b>Variant B</b>, plus the shared fixes (merged week card, AA-safe accent usage, energetic empty
+    state, plural resources). It answers the complaint directly — the action is never off-screen —
+    without giving up the page’s first job (“how is my week going?”), and it is the smallest honest
+    build: one card merge, one docked button, no new navigation. Variant C is the boldest and worth
+    keeping in the drawer for a later “start surface” experiment; A is the cheapest but puts the
+    action where thumbs aren’t.
+  </div>
+  <table>
+    <tr><th></th><th>Answers the complaint</th><th>Thumb reach</th><th>Keeps momentum first-glance</th><th>Build cost</th></tr>
+    <tr><td><b>A — hero-top</b></td><td>Yes</td><td>Poor (top of screen)</td><td>Demoted below action</td><td>Low</td></tr>
+    <tr><td><b>B — sticky</b> ★</td><td>Yes, at every scroll position</td><td>Best (bottom dock)</td><td>Yes</td><td>Low–medium</td></tr>
+    <tr><td><b>C — restructure</b></td><td>Yes, strongest</td><td>Good (centre-low hold)</td><td>Compressed to a strip</td><td>High</td></tr>
+  </table>
+</main>
+</body>
+</html>

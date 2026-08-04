@@ -7,6 +7,16 @@ audit-TODO, or progress files.
 
 - Do not commit `.env` files or uploaded user files.
 
+## UI rules (draft — pending owner approval)
+
+`docs/native-design/UI_RULES.md` is a **proposed** design-rules document; it becomes binding only
+once the owner answers the four approval asks in
+`docs/native-design/proposals/2026-08-04/RECOMMENDATION.md` (variant, empty-state direction,
+numerals, typography). Until then it is reference material, not policy. Two rules apply already
+because they restate existing authority (`PRODUCT.md`, `core/design` docs): colours come from
+tokens only, and visual changes are mocked token-accurately and owner-approved before
+Compose/React work.
+
 ## Mandatory app-review skill
 
 For any review, audit, comparison, acceptance, or strict UI/UX evaluation of ZidRun app work, load

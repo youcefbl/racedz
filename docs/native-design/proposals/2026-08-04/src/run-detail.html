@@ -1,0 +1,235 @@
+<!doctype html>
+<html data-theme="light">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Run detail — REFINEMENT of the existing screen, not a rebuild. The build already
+     conditionally renders splits, pace and elevation charts (RunDetailScreen.kt:182-289) from
+     API-derived series; the 2026-08-04 device capture showed none only because the seeded
+     route lacked per-point timestamps and elevation, so every series came back empty
+     (run-stats.ts needs `t` and `ele`). This mockup restyles those existing charts, keeps
+     every shipped runner control (analyze, export, privacy, delete), and adds nothing the
+     API does not already return. No cadence chart: the product has no cadence series
+     (scalar avgCadence only). One metric per chart; title names the metric; dataviz specs:
+     thin marks, rounded data ends, recessive 1px grid, muted 11px axis text, selective
+     direct labels. */
+  html, body { height: 1780px; }
+  .screen { height: 1780px; }
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 8px 4px; }
+  .topbar .back { width: 44px; height: 44px; border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+  .topbar .back svg { width: 22px; height: 22px; stroke: var(--text-strong); }
+  .topbar .t { flex: 1; font-size: 18px; font-weight: 600; color: var(--text-strong); }
+  .privchip { border: 1px solid var(--border-strong); border-radius: 999px; padding: 7px 14px;
+    font-size: 13px; font-weight: 500; color: var(--text); }
+
+  .map { height: 150px; border-radius: 12px; background: var(--surface-muted); position: relative; overflow: hidden; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map .cap { position: absolute; right: 8px; bottom: 6px; font-size: 10px; color: var(--text-muted); }
+
+  .heroms { display: flex; padding: 16px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+  .heroms .m { flex: 1; text-align: center; }
+  .heroms .v { font-size: 24px; font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+  .heroms .k { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .heroms .d { width: 1px; background: var(--border); }
+
+  .chart-card .hd { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .chart-card .hd .t { font-size: 16px; font-weight: 600; color: var(--text-strong); }
+  .chart-card .hd .s { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .chart-card svg text { font-family: inherit; font-size: 11px; fill: var(--text-muted); }
+  .gridline { stroke: var(--border); stroke-width: 1; }
+  .refline { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 4; }
+
+  .srow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .srow .km { width: 18px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .srow .bar { height: 10px; border-radius: 5px; background: var(--primary); }
+  .srow.fastest .bar { background: var(--accent-strong); }
+  .srow .p { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .srow .tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .srow.fastest .tag { background: var(--accent-soft); color: var(--text-strong); }
+  .srow.slowest .tag { background: var(--surface-muted); color: var(--text); }
+
+  .banner { display: flex; align-items: center; gap: 12px; border-radius: 16px; padding: 14px 16px; }
+  .banner.insight { background: var(--primary-soft); }
+  .banner.recover { background: var(--info-soft); }
+  .banner .ic-badge { width: 40px; height: 40px; border-radius: 999px; flex: none;
+    display: flex; align-items: center; justify-content: center; }
+  .banner.insight .ic-badge { background: var(--primary); }
+  .banner.recover .ic-badge { background: var(--info); }
+  .banner .ic-badge svg { width: 20px; height: 20px; stroke: #fff; }
+  .banner p { font-size: 14px; line-height: 20px; color: var(--text-strong); }
+
+  .actrow { display: flex; gap: 12px; }
+  .btn-outline { flex: 1; min-height: 48px; border-radius: 12px; border: 1px solid var(--border-strong);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--text); }
+  .switch { width: 52px; height: 30px; border-radius: 999px; background: var(--surface-muted);
+    border: 1px solid var(--border); position: relative; }
+  .switch .knob { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px;
+    border-radius: 999px; background: var(--surface); border: 1px solid var(--border-strong); }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="scroll" style="overflow:visible">
+    <div class="topbar">
+      <div class="back"><svg class="ic" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></div>
+      <div class="t">Monday plan session</div>
+      <div class="privchip">Private</div>
+    </div>
+
+    <div class="map">
+      <svg viewBox="0 0 393 150" preserveAspectRatio="none">
+        <path d="M30 110 C80 60 120 40 180 52 C240 64 250 100 300 96 C340 92 360 70 372 56"
+              fill="none" stroke="var(--primary)" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="30" cy="110" r="6" fill="var(--primary)"/>
+        <circle cx="372" cy="56" r="6" fill="var(--danger)"/>
+      </svg>
+      <span class="cap">© OpenStreetMap</span>
+    </div>
+
+    <div class="heroms">
+      <div class="m"><div class="v num">9.20</div><div class="k">km</div></div>
+      <div class="d"></div>
+      <div class="m"><div class="v num">56:53</div><div class="k">Time</div></div>
+      <div class="d"></div>
+      <div class="m"><div class="v num">6:11/km</div><div class="k">Pace</div></div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="hd"><span class="t">Splits</span><span class="s">avg 6:11/km</span></div>
+      <div id="splits"></div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="hd"><span class="t">Elevation</span><span class="s">+83 m gain</span></div>
+      <svg id="elev" width="329" height="120" viewBox="0 0 329 120"></svg>
+    </div>
+
+    <div class="card chart-card">
+      <div class="hd"><span class="t">Pace</span><span class="s">avg 6:11/km</span></div>
+      <svg id="pace" width="329" height="110" viewBox="0 0 329 110"></svg>
+    </div>
+
+    <div class="banner insight">
+      <div class="ic-badge"><svg class="ic" viewBox="0 0 24 24"><circle cx="13" cy="4" r="2" fill="#fff" stroke="none"/><path d="M4 17l5-1 1-4-3-2 3-4 3 2 3 1"/><path d="m10 12 2 5 4 1 2 4"/></svg></div>
+      <p>Steady effort — your pacing stayed controlled across the run, with km 9 the fastest.</p>
+    </div>
+    <div class="banner recover">
+      <div class="ic-badge"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2c3 4.5 6 7.5 6 11a6 6 0 1 1-12 0c0-3.5 3-6.5 6-11z"/></svg></div>
+      <p>Easy day next · hydrate and keep it conversational.</p>
+    </div>
+
+    <div class="heroms">
+      <div class="m"><div class="v num">—</div><div class="k">Heart rate</div></div>
+      <div class="d"></div>
+      <div class="m"><div class="v num">174 spm</div><div class="k">Cadence</div></div>
+      <div class="d"></div>
+      <div class="m"><div class="v num">6/10</div><div class="k">Effort</div></div>
+    </div>
+
+    <div class="actrow">
+      <div class="btn-outline">Export GPX</div>
+      <div class="btn-primary" style="flex:1.2">Analyze run</div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center">
+        <div style="flex:1">
+          <div class="title-md">Visibility</div>
+          <div class="body-sm muted" style="margin-top:2px">Only you can see this run.</div>
+        </div>
+        <div class="switch"><div class="knob"></div></div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:14px 0"></div>
+      <div style="text-align:center;padding:6px 0">
+        <span class="label-lg" style="color:var(--danger)">Delete this run</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // ---- Splits: horizontal bars, length ∝ speed. Direct labels only on fastest/slowest.
+  const paces = [384, 378, 365, 371, 358, 380, 374, 362, 349]; // 9 full km + partial ignored
+  const maxW = 236;
+  const fastest = paces.indexOf(Math.min(...paces));
+  const slowest = paces.indexOf(Math.max(...paces));
+  const maxSpeed = 1 / Math.min(...paces);
+  const fmt = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  const box = document.getElementById("splits");
+  paces.forEach((s, i) => {
+    const r = document.createElement("div");
+    r.className = "srow" + (i === fastest ? " fastest" : i === slowest ? " slowest" : "");
+    const tag = i === fastest ? '<span class="tag">Fastest</span>' : i === slowest ? '<span class="tag">Slowest</span>' : "";
+    r.innerHTML = `<span class="km">${i + 1}</span>
+      <span class="bar" style="width:${Math.round((1 / s) / maxSpeed * maxW)}px"></span>
+      <span class="p">${fmt(s)}</span>${tag}`;
+    box.appendChild(r);
+  });
+
+  // ---- Elevation: area profile, one hue (info), 0/40/80 m gridlines, km axis.
+  const elev = [12, 18, 30, 46, 41, 55, 72, 78, 64, 52, 48]; // metres at each km mark (0..10 samples)
+  const E = document.getElementById("elev");
+  const W = 329, H = 120, padL = 26, padB = 16, plotW = W - padL - 4, plotH = H - padB - 8;
+  const eMax = 80;
+  const ex = i => padL + i * plotW / (elev.length - 1);
+  const ey = v => 8 + plotH - v / eMax * plotH;
+  let ns = "http://www.w3.org/2000/svg";
+  [0, 40, 80].forEach(v => {
+    const l = document.createElementNS(ns, "line");
+    l.setAttribute("x1", padL); l.setAttribute("x2", W - 4);
+    l.setAttribute("y1", ey(v)); l.setAttribute("y2", ey(v));
+    l.setAttribute("class", "gridline"); E.appendChild(l);
+    const t = document.createElementNS(ns, "text");
+    t.setAttribute("x", 0); t.setAttribute("y", ey(v) + 4); t.textContent = v; E.appendChild(t);
+  });
+  const pts = elev.map((v, i) => `${ex(i)},${ey(v)}`).join(" ");
+  const area = document.createElementNS(ns, "polygon");
+  area.setAttribute("points", `${padL},${ey(0)} ${pts} ${W - 4},${ey(0)}`);
+  area.style.fill = "var(--info)"; area.setAttribute("opacity", "0.18"); E.appendChild(area);
+  const line = document.createElementNS(ns, "polyline");
+  line.setAttribute("points", pts); line.setAttribute("fill", "none");
+  line.style.stroke = "var(--info)"; line.setAttribute("stroke-width", "2");
+  line.setAttribute("stroke-linejoin", "round"); E.appendChild(line);
+  const peak = document.createElementNS(ns, "circle"); // emphasized endpoint: the high point
+  peak.setAttribute("cx", ex(7)); peak.setAttribute("cy", ey(78)); peak.setAttribute("r", "3.5");
+  peak.style.fill = "var(--info)"; E.appendChild(peak);
+  [0, 5, 10].forEach(km => {
+    const t = document.createElementNS(ns, "text");
+    t.setAttribute("x", ex(km) - 6); t.setAttribute("y", H - 2); t.textContent = km + (km === 10 ? " km" : "");
+    E.appendChild(t);
+  });
+
+  // ---- Pace: the EXISTING chart restyled (rolling pace, inverted so faster sits higher,
+  // dashed average reference — mirrors ChartWithAxes(invert=true, averageValue)). Line uses
+  // `primary`, not the shipped `accent`: orange is 2.74:1 on white and fails the 3:1 UI bar
+  // in the light theme.
+  const pace = [388, 381, 372, 376, 362, 356, 371, 383, 377, 366, 355, 349, 358, 364];
+  const P = document.getElementById("pace");
+  const pH = 110, pPlotH = pH - padB - 8, pMin = 340, pMax = 395; // seconds/km domain
+  const px = i => padL + i * plotW / (pace.length - 1);
+  const py = v => 8 + (v - pMin) / (pMax - pMin) * pPlotH; // inverted: faster (lower s/km) on top
+  [350, 370, 390].forEach(v => {
+    const l = document.createElementNS(ns, "line");
+    l.setAttribute("x1", padL); l.setAttribute("x2", W - 4);
+    l.setAttribute("y1", py(v)); l.setAttribute("y2", py(v));
+    l.setAttribute("class", "gridline"); P.appendChild(l);
+    const t = document.createElementNS(ns, "text");
+    t.setAttribute("x", 0); t.setAttribute("y", py(v) + 4);
+    t.textContent = fmt(v); P.appendChild(t);
+  });
+  const pref = document.createElementNS(ns, "line");
+  pref.setAttribute("x1", padL); pref.setAttribute("x2", W - 4);
+  pref.setAttribute("y1", py(371)); pref.setAttribute("y2", py(371));
+  pref.setAttribute("class", "refline"); P.appendChild(pref);
+  const pl = document.createElementNS(ns, "polyline");
+  pl.setAttribute("points", pace.map((v, i) => `${px(i)},${py(v)}`).join(" "));
+  pl.setAttribute("fill", "none"); pl.style.stroke = "var(--primary)";
+  pl.setAttribute("stroke-width", "2"); pl.setAttribute("stroke-linejoin", "round"); P.appendChild(pl);
+  const pend = document.createElementNS(ns, "circle");
+  pend.setAttribute("cx", px(pace.length - 1)); pend.setAttribute("cy", py(pace[pace.length - 1]));
+  pend.setAttribute("r", "3.5"); pend.style.fill = "var(--primary)"; P.appendChild(pend);
+</script>
+</body>
+</html>

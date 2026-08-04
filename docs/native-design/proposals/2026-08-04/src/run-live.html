@@ -1,0 +1,144 @@
+<!doctype html>
+<html data-theme="dark">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* During-run: glance-first hierarchy (distance > time > pace), the trusted-route map the
+     flow doc requires (this frame = stable-GPS state; acquiring/paused states in
+     run-live-states), honest secondary metrics (no cadence — the recorder has no cadence
+     source), and a live splits strip. Controls stay in the thumb zone. Dark surface always. */
+  .screen { background: var(--surface-strong); }
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 18px 16px 0; }
+  .recpill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary);
+    font-size: 14px; font-weight: 600; }
+  .recpill .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--primary); }
+  .gpschip { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; }
+  .gpschip .b { display: flex; gap: 2px; align-items: flex-end; }
+  .gpschip .b i { width: 3px; background: var(--primary); border-radius: 1px; }
+  .gpschip .b i:nth-child(1){height:5px} .gpschip .b i:nth-child(2){height:8px}
+  .gpschip .b i:nth-child(3){height:11px} .gpschip .b i:nth-child(4){height:14px; background: var(--surface-muted);}
+
+  .hero { text-align: center; margin-top: 18px; }
+  .hero .dist { font-size: 60px; line-height: 64px; font-weight: 600; letter-spacing: -0.02em;
+    color: var(--foreground); font-variant-numeric: tabular-nums; }
+  .hero .dist small { font-size: 24px; font-weight: 400; color: var(--text-muted); margin-left: 6px; letter-spacing: 0; }
+  .hero .time { margin-top: 4px; font-size: 26px; font-weight: 600; color: var(--text);
+    font-variant-numeric: tabular-nums; }
+
+  .pacerow { display: flex; margin: 18px 16px 0; }
+  .pacecell { flex: 1; text-align: center; }
+  .pacecell .v { font-size: 24px; font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
+  .pacecell .k { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; }
+  .pacediv { width: 1px; background: var(--border); }
+
+  .tiles { display: flex; margin: 16px 16px 0; }
+  .tile { flex: 1; text-align: center; }
+  .tile .v { font-size: 16px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .tile .k { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* live splits strip: bar length ∝ speed, current km hollow */
+  .splits { margin: 16px 16px 0; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; }
+  .splits .hd { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .splits .hd .fast { color: var(--primary); letter-spacing: 0; text-transform: none; font-weight: 600; }
+  .srow { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .srow .km { width: 18px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .srow .bar { height: 8px; border-radius: 4px; background: var(--primary); }
+  .srow.fastest .bar { background: var(--hero-accent); }
+  .srow.current .bar { background: transparent; border: 1.5px dashed var(--text-muted); }
+  .srow .p { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .srow.fastest .p { color: var(--hero-accent); font-weight: 600; }
+
+  .map { margin: 20px 16px 0; height: 150px; border-radius: 12px; background: var(--surface);
+    border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map .cap { position: absolute; right: 8px; bottom: 6px; font-size: 10px; color: var(--text-muted); }
+
+  .controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 16px 30px;
+    display: flex; align-items: center; gap: 12px; }
+  .pausebtn { flex: 1; min-height: 60px; border-radius: 16px; background: var(--primary);
+    color: var(--on-primary); display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-size: 17px; font-weight: 600; }
+  .pausebtn svg { width: 20px; height: 20px; stroke: var(--on-primary); fill: var(--on-primary); }
+  .finbtn { min-height: 60px; padding: 0 22px; border-radius: 16px; border: 1.5px solid var(--border-strong);
+    color: var(--text); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <div class="recpill"><span class="dot"></span>Recording</div>
+    <div class="gpschip"><span class="b"><i></i><i></i><i></i><i></i></span>GPS good</div>
+  </div>
+
+  <div class="hero">
+    <div class="dist num">8.34<small>km</small></div>
+    <div class="time num">51:42</div>
+  </div>
+
+  <div class="pacerow">
+    <div class="pacecell"><div class="v num">6:05</div><div class="k">Current /km</div></div>
+    <div class="pacediv"></div>
+    <div class="pacecell"><div class="v num">6:12</div><div class="k">Avg /km</div></div>
+  </div>
+
+  <div class="map">
+    <svg viewBox="0 0 361 150" preserveAspectRatio="none">
+      <path d="M28 112 C70 66 118 44 172 54 C226 64 238 100 288 96 C324 92 342 72 352 58"
+            fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="28" cy="112" r="5" fill="var(--primary)"/>
+      <circle cx="352" cy="58" r="5" fill="var(--danger)"/>
+    </svg>
+    <span class="cap">© OpenStreetMap</span>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="v num">50:58</div><div class="k">Moving</div></div>
+    <div class="tile"><div class="v num">+74 m</div><div class="k">Elevation</div></div>
+    <div class="tile"><div class="v num">512</div><div class="k">Calories</div></div>
+  </div>
+
+  <div class="splits">
+    <div class="hd"><span>Last splits · pace by km</span><span class="fast">km 5 fastest — 5:49</span></div>
+    <div id="strip"></div>
+  </div>
+
+  <div class="controls">
+    <div class="pausebtn">
+      <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1.5"/><rect x="14" y="4" width="4" height="16" rx="1.5"/></svg>
+      Pause
+    </div>
+    <div class="finbtn">Finish</div>
+  </div>
+</div>
+<script>
+  // Live splits: seconds per km so far; current km is the hollow in-progress row.
+  const all = [384, 378, 365, 371, 349, 380, 374, 362]; // km 1..8
+  const splits = all.slice(-4); // last four — the full list lives on the detail screen
+  const cur = 365; // provisional pace of the km in progress
+  const maxW = 250;
+  const maxSpeed = 1 / Math.min(...all);
+  const fastest = splits.indexOf(Math.min(...splits));
+  const fmt = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  const strip = document.getElementById("strip");
+  splits.forEach((s, i) => {
+    const km = all.length - splits.length + i + 1;
+    const row = document.createElement("div");
+    row.className = "srow" + (s === Math.min(...all) ? " fastest" : "");
+    row.innerHTML = `<span class="km">${km}</span>
+      <span class="bar" style="width:${Math.round((1 / s) / maxSpeed * maxW)}px"></span>
+      <span class="p">${fmt(s)}</span>`;
+    strip.appendChild(row);
+  });
+  const row = document.createElement("div");
+  row.className = "srow current";
+  row.innerHTML = `<span class="km">9</span>
+    <span class="bar" style="width:${Math.round((1 / cur) / maxSpeed * maxW * 0.34)}px"></span>
+    <span class="p">now</span>`;
+  strip.appendChild(row);
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html data-theme="light">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* The Record dock is STATEFUL (NDP-R05): it never offers "Record" while a recording exists,
+     so the pinned action can never become a route-erasing trap. RunRecorder.start() must also
+     refuse to replace a non-idle recording without an explicit discard confirmation —
+     that guard is implementation acceptance, not just this UI. */
+  html, body { width: 1720px; }
+  body { background: var(--surface-muted); }
+  .board { display: flex; gap: 20px; padding: 24px 20px; }
+  figure { width: 393px; }
+  .stage { width: 393px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border);
+    background: var(--background); position: relative; }
+  figcaption { margin-top: 12px; font-size: 13px; line-height: 19px; color: var(--text); text-align: center; }
+  figcaption b { color: var(--text-strong); }
+
+  .peek { height: 84px; padding: 10px 16px 0; opacity: .55; }
+  .peekcard { height: 74px; border-radius: 16px 16px 0 0; background: var(--surface); border: 1px solid var(--border); border-bottom: 0; padding: 12px 16px; }
+  .peekcard .a { font-size: 14px; font-weight: 600; color: var(--text-strong); }
+  .peekcard .b { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  .dock { padding: 20px 16px 12px; background: linear-gradient(to top, var(--background) 70%, transparent); }
+  .btn { min-height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    gap: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.14); }
+  .btn.record { background: var(--primary); color: var(--on-primary); }
+  .btn.resume { background: var(--primary-soft); color: var(--primary); border: 1.5px solid var(--primary); box-shadow: none; }
+  .btn.resume .live { width: 9px; height: 9px; border-radius: 999px; background: var(--primary); }
+  .btn.save { background: var(--accent-soft); color: var(--text-strong); border: 1.5px solid var(--accent-strong); box-shadow: none; }
+  .btn.save svg { stroke: var(--accent-strong); }
+  .btn svg { width: 18px; height: 18px; stroke: currentColor; }
+
+  .tabbar { position: static; }
+</style>
+</head>
+<body>
+<div class="board">
+
+  <figure>
+    <div class="stage">
+      <div class="peek"><div class="peekcard"><div class="a">Personal bests</div><div class="b">117.60 km · 14.20 km · 4:58/km</div></div></div>
+      <div class="dock"><div class="btn record">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg>
+        Record run</div></div>
+      <div class="tabbar">
+        <div class="tab"><div class="pill"></div><div class="lbl">Races</div></div>
+        <div class="tab active"><div class="pill"></div><div class="lbl">Runs</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Coach</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Account</div></div>
+      </div>
+    </div>
+    <figcaption><b>Idle.</b> No recording exists → Record. The only state that can start one.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage">
+      <div class="peek"><div class="peekcard"><div class="a">Personal bests</div><div class="b">117.60 km · 14.20 km · 4:58/km</div></div></div>
+      <div class="dock"><div class="btn resume"><span class="live"></span>Recording · 2.4 km — Open run</div></div>
+      <div class="tabbar">
+        <div class="tab"><div class="pill"></div><div class="lbl">Races</div></div>
+        <div class="tab active"><div class="pill"></div><div class="lbl">Runs</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Coach</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Account</div></div>
+      </div>
+    </div>
+    <figcaption><b>Recording / Acquiring.</b> The dock becomes the way back to the live run — it can never restart and wipe the route.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage">
+      <div class="peek"><div class="peekcard"><div class="a">Personal bests</div><div class="b">117.60 km · 14.20 km · 4:58/km</div></div></div>
+      <div class="dock"><div class="btn resume">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1.5"/><rect x="14" y="4" width="4" height="16" rx="1.5"/></svg>
+        Paused · 8.34 km — Resume</div></div>
+      <div class="tabbar">
+        <div class="tab"><div class="pill"></div><div class="lbl">Races</div></div>
+        <div class="tab active"><div class="pill"></div><div class="lbl">Runs</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Coach</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Account</div></div>
+      </div>
+    </div>
+    <figcaption><b>Paused.</b> Same rule: back to the run, never a fresh start.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage">
+      <div class="peek"><div class="peekcard"><div class="a">Personal bests</div><div class="b">117.60 km · 14.20 km · 4:58/km</div></div></div>
+      <div class="dock"><div class="btn save">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        Finish saving your run</div></div>
+      <div class="tabbar">
+        <div class="tab"><div class="pill"></div><div class="lbl">Races</div></div>
+        <div class="tab active"><div class="pill"></div><div class="lbl">Runs</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Coach</div></div>
+        <div class="tab"><div class="pill"></div><div class="lbl">Account</div></div>
+      </div>
+    </div>
+    <figcaption><b>Pending save.</b> A finished, unsaved recording (incl. after process death) routes to Save/Discard — nothing is lost silently.</figcaption>
+  </figure>
+
+</div>
+</body>
+</html>

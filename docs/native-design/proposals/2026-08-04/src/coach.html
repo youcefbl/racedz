@@ -1,0 +1,148 @@
+<!doctype html>
+<html data-theme="light">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Coach overview refinements: reserved entitlement slot (C2), scope-labelled adherence
+     ratios (C1), orange as icon rather than failing text (R3). Structure unchanged — the
+     Coach page's action-first shape is the model the Runs page converges on. */
+  .titlerow { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+  .pillslot {
+    display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+    background: var(--primary-soft); color: var(--primary); font-size: 12px; font-weight: 600;
+  }
+  .pillslot .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--primary); }
+
+  .goal { display: flex; align-items: center; gap: 12px; }
+  .goal .badge { width: 44px; height: 44px; border-radius: 999px; flex: none;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    display: flex; align-items: center; justify-content: center; }
+  .goal .badge svg { width: 22px; height: 22px; stroke: var(--primary); }
+  .goal .edit { margin-inline-start: auto; color: var(--primary); font-size: 14px; font-weight: 600; padding: 10px 8px; }
+
+  .today .kicker { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+  .today .wrow { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+  .today .badge { width: 52px; height: 52px; border-radius: 999px; flex: none;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    display: flex; align-items: center; justify-content: center; }
+  .today .badge svg { width: 26px; height: 26px; stroke: var(--primary); }
+  .today .sep { height: 1px; background: var(--border); margin: 14px 0; }
+  .today .kv { display: flex; align-items: center; justify-content: space-between; }
+  .today .kv .k { font-size: 14px; font-weight: 600; color: var(--primary); }
+  .today .chip { border: 1px solid var(--primary); color: var(--primary); border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; }
+  .today .what { margin-top: 12px; }
+  .today .what .k { font-size: 14px; font-weight: 600; color: var(--primary); }
+  .today .what .v { margin-top: 6px; }
+  .today .btn-primary { margin-top: 16px; }
+
+  .duo { display: flex; gap: 12px; }
+  .duo .card { flex: 1; padding: 14px; }
+  .ringwrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; }
+  .ring { position: relative; width: 96px; height: 96px; }
+  .ring svg { width: 96px; height: 96px; transform: rotate(-90deg); }
+  .ring .track { stroke: var(--surface-muted); }
+  .ring .val { stroke: var(--primary); stroke-linecap: round; }
+  .ring .txt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring .txt .n { font-size: 21px; font-weight: 600; color: var(--text-strong); line-height: 1; }
+  .ring .txt .of { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .scope { font-size: 12px; color: var(--text-muted); text-align: center; }
+  .scope b { color: var(--text-strong); font-weight: 600; }
+
+  .next .kicker { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+    letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); }
+  .next .kicker svg { width: 15px; height: 15px; stroke: var(--accent-strong); }
+  .next .date { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+  .next .t { margin-top: 6px; font-size: 15px; font-weight: 600; color: var(--text-strong); }
+  .next .s { margin-top: 4px; font-size: 13px; color: var(--text-muted); }
+
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; }
+  .scroll { padding-bottom: 84px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="scroll">
+    <div class="brandbar">
+      <img class="logo-light" src="../../../../../public/brand/zidrun-logo.svg" alt="">
+      <img class="logo-dark" src="../../../../../public/brand/zidrun-logo-dark.svg" alt="">
+      <img class="logo-race" src="../../../../../public/brand/zidrun-logo-race.svg" alt="">
+    </div>
+
+    <div class="titlerow">
+      <div class="display-lg" style="font-size:40px;line-height:46px">Coach</div>
+      <!-- Reserved slot: renders as skeleton while entitlement loads; never pops in and shifts -->
+      <div class="pillslot"><span class="dot"></span>Free trial · 5 days left</div>
+    </div>
+
+    <div class="card goal">
+      <div class="badge">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      </div>
+      <div>
+        <div class="body-sm muted">Goal</div>
+        <div class="title-md">10K</div>
+      </div>
+      <div class="edit">Edit goal</div>
+    </div>
+
+    <div class="card today">
+      <div class="kicker">Today’s workout</div>
+      <div class="wrow">
+        <div class="badge">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="M4 17l5-1 1-4-3-2 3-4 3 2 3 1"/><path d="m10 12 2 5 4 1 2 4"/><path d="M7 21l2-4"/></svg>
+        </div>
+        <div>
+          <div class="title-lg">Intervals 6 × 800 m</div>
+          <div class="body-md muted num" style="margin-top:2px">9.0 km · 55 min</div>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="kv">
+        <span class="k">Target effort</span>
+        <span class="chip">Hard but repeatable</span>
+      </div>
+      <div class="what">
+        <div class="k">What to do</div>
+        <div class="v body-md">6 × 800 m at 5K effort with 400 m jog recovery. Stop at the first sign of pain.</div>
+      </div>
+      <div class="btn-primary">Log this run</div>
+    </div>
+
+    <div class="duo">
+      <div class="card">
+        <div class="title-sm" style="color:var(--text-strong)">This week</div>
+        <div class="ringwrap">
+          <div class="ring">
+            <svg viewBox="0 0 96 96" fill="none">
+              <circle class="track" cx="48" cy="48" r="42" stroke-width="8"/>
+              <circle class="val" cx="48" cy="48" r="42" stroke-width="8"
+                stroke-dasharray="263.9" stroke-dashoffset="175.9"/>
+            </svg>
+            <div class="txt"><span class="n">1</span><span class="of">of 3</span></div>
+          </div>
+          <!-- Both counters now say what they count (was: bare "3 of 6" vs "1 of 3") -->
+          <div class="scope">sessions this week<br><b>Whole plan: 3 of 6</b></div>
+        </div>
+      </div>
+      <div class="card next">
+        <div class="kicker">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
+          Next workout
+        </div>
+        <div class="date">05 Aug 2026</div>
+        <div class="t">Intervals 6 × 800 m</div>
+        <div class="s num">9.0 km · 55 min</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M16 2v4"/><path d="M21 11.75V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7.25"/><path d="m22 22-1.875-1.875"/><path d="M3 10h18"/><path d="M8 2v4"/><circle cx="18" cy="18" r="3"/></svg></div><div class="lbl">Races</div></div>
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg></div><div class="lbl">Runs</div></div>
+    <div class="tab active"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg></div><div class="lbl">Coach</div></div>
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M7 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></div><div class="lbl">Account</div></div>
+  </div>
+</div>
+</body>
+</html>

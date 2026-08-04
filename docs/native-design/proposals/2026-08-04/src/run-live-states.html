@@ -1,0 +1,179 @@
+<!doctype html>
+<html data-theme="dark">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* During-run state matrix (NDP-R04): acquiring, stable GPS with the trusted-route map,
+     auto-paused, paused, and stable at 1.3× font scale. No cadence anywhere — the recorder
+     has no cadence source. Dark surface always. */
+  html, body { width: 2080px; }
+  body { background: var(--surface-strong); }
+  .board { display: flex; gap: 20px; padding: 24px 20px; }
+  figure { width: 393px; }
+  .stage { width: 393px; height: 700px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface-strong); position: relative; overflow: hidden; }
+  figcaption { margin-top: 12px; font-size: 13px; line-height: 19px; color: var(--text-muted); text-align: center; }
+  figcaption b { color: var(--foreground); }
+
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 0; }
+  .pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; }
+  .pill.rec { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); }
+  .pill.rec .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--primary); }
+  .pill.acq { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  .pill.acq .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--accent); }
+  .pill.pau { background: var(--surface-muted); color: var(--text); }
+  .pill.pau .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--text-muted); }
+  .gps { color: var(--text-muted); font-size: 13px; }
+  .gps.good { color: var(--primary); }
+
+  .hero { text-align: center; margin-top: 16px; }
+  .dist { font-size: 54px; line-height: 58px; font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
+  .dist small { font-size: 20px; font-weight: 400; color: var(--text-muted); margin-left: 5px; }
+  .time { margin-top: 3px; font-size: 24px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .paces { display: flex; margin: 14px 14px 0; }
+  .pc { flex: 1; text-align: center; }
+  .pc .v { font-size: 21px; font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
+  .pc .k { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+  .pdiv { width: 1px; background: var(--border); }
+
+  .map { margin: 14px 14px 0; height: 130px; border-radius: 12px; background: var(--surface);
+    border: 1px solid var(--border); position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; }
+  .map svg.route { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map .acqmsg { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text-muted); font-size: 13px; }
+  .map .acqmsg .ring { width: 28px; height: 28px; border-radius: 999px;
+    border: 3px solid var(--surface-muted); border-top-color: var(--accent); }
+
+  .banner { margin: 14px 14px 0; border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 18px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600;
+    display: flex; gap: 8px; align-items: center; }
+  .banner .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); flex: none; }
+
+  .controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 14px 20px; display: flex; gap: 10px; }
+  .main { flex: 1; min-height: 56px; border-radius: 14px; background: var(--primary); color: var(--on-primary);
+    display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; font-weight: 600; }
+  .sec { min-height: 56px; padding: 0 20px; border-radius: 14px; border: 1.5px solid var(--border-strong);
+    color: var(--text); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+
+  /* 1.3× frame: text scales, layout does not */
+  .fs130 .dist { font-size: 70px; line-height: 74px; }
+  .fs130 .dist small { font-size: 26px; }
+  .fs130 .time { font-size: 31px; }
+  .fs130 .pc .v { font-size: 27px; }
+  .fs130 .pc .k { font-size: 13px; }
+  .fs130 .pill { font-size: 18px; }
+  .fs130 .gps { font-size: 17px; }
+  .fs130 .main { font-size: 21px; }
+  .fs130 .sec { font-size: 18px; }
+  .fs130 .map { height: 110px; }
+</style>
+</head>
+<body>
+<div class="board">
+
+  <figure>
+    <div class="stage">
+      <div class="top"><div class="pill acq"><span class="dot"></span>Acquiring GPS</div><div class="gps">Searching…</div></div>
+      <div class="hero"><div class="dist num">0.00<small>km</small></div><div class="time num">0:12</div></div>
+      <div class="paces">
+        <div class="pc"><div class="v num">—</div><div class="k">Current /km</div></div>
+        <div class="pdiv"></div>
+        <div class="pc"><div class="v num">—</div><div class="k">Avg /km</div></div>
+      </div>
+      <div class="map"><div class="acqmsg"><div class="ring"></div>Waiting for a stable GPS fix — no stale map is shown</div></div>
+      <div class="controls"><div class="main">Pause</div><div class="sec">Finish</div></div>
+    </div>
+    <figcaption><b>Acquiring.</b> Em-dash paces, no invented location; distance stays 0 until trusted fixes arrive.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage">
+      <div class="top"><div class="pill rec"><span class="dot"></span>Recording</div><div class="gps good">GPS good</div></div>
+      <div class="hero"><div class="dist num">8.34<small>km</small></div><div class="time num">51:42</div></div>
+      <div class="paces">
+        <div class="pc"><div class="v num">6:05</div><div class="k">Current /km</div></div>
+        <div class="pdiv"></div>
+        <div class="pc"><div class="v num">6:12</div><div class="k">Avg /km</div></div>
+      </div>
+      <div class="map">
+        <svg class="route" viewBox="0 0 361 130" preserveAspectRatio="none">
+          <path d="M28 98 C70 56 118 38 172 46 C226 56 238 88 288 84 C324 80 342 62 352 50"
+                fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="28" cy="98" r="5" fill="var(--primary)"/><circle cx="352" cy="50" r="5" fill="var(--danger)"/>
+        </svg>
+      </div>
+      <div class="controls"><div class="main">Pause</div><div class="sec">Finish</div></div>
+    </div>
+    <figcaption><b>Stable GPS.</b> The trusted-route map appears only once real points exist (flow-doc requirement kept).</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage">
+      <div class="top"><div class="pill pau"><span class="dot"></span>Auto-paused</div><div class="gps good">GPS good</div></div>
+      <div class="hero"><div class="dist num">8.34<small>km</small></div><div class="time num">51:58</div></div>
+      <div class="paces">
+        <div class="pc"><div class="v num">—</div><div class="k">Current /km</div></div>
+        <div class="pdiv"></div>
+        <div class="pc"><div class="v num">6:12</div><div class="k">Avg /km</div></div>
+      </div>
+      <div class="banner"><span class="dot"></span>Auto-paused — movement stopped. Start moving to resume.</div>
+      <div class="map">
+        <svg class="route" viewBox="0 0 361 130" preserveAspectRatio="none">
+          <path d="M28 98 C70 56 118 38 172 46 C226 56 238 88 288 84 C324 80 342 62 352 50"
+                fill="none" stroke="var(--text-muted)" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="352" cy="50" r="5" fill="var(--text-muted)"/>
+        </svg>
+      </div>
+      <div class="controls"><div class="main">Resume</div><div class="sec">Finish</div></div>
+    </div>
+    <figcaption><b>Auto-paused.</b> Not colour-alone: pill label + banner explain; moving time freezes; route dims.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage">
+      <div class="top"><div class="pill pau"><span class="dot"></span>Paused</div><div class="gps good">GPS good</div></div>
+      <div class="hero"><div class="dist num">8.34<small>km</small></div><div class="time num">52:20</div></div>
+      <div class="paces">
+        <div class="pc"><div class="v num">—</div><div class="k">Current /km</div></div>
+        <div class="pdiv"></div>
+        <div class="pc"><div class="v num">6:12</div><div class="k">Avg /km</div></div>
+      </div>
+      <div class="map">
+        <svg class="route" viewBox="0 0 361 130" preserveAspectRatio="none">
+          <path d="M28 98 C70 56 118 38 172 46 C226 56 238 88 288 84 C324 80 342 62 352 50"
+                fill="none" stroke="var(--text-muted)" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="352" cy="50" r="5" fill="var(--text-muted)"/>
+        </svg>
+      </div>
+      <div class="controls"><div class="main">Resume</div><div class="sec">Finish</div></div>
+    </div>
+    <figcaption><b>Paused (manual).</b> Resume is primary; Finish stays deliberate and separated.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="stage fs130">
+      <div class="top"><div class="pill rec"><span class="dot"></span>Recording</div><div class="gps good">GPS good</div></div>
+      <div class="hero"><div class="dist num">8.34<small>km</small></div><div class="time num">51:42</div></div>
+      <div class="paces">
+        <div class="pc"><div class="v num">6:05</div><div class="k">Current /km</div></div>
+        <div class="pdiv"></div>
+        <div class="pc"><div class="v num">6:12</div><div class="k">Avg /km</div></div>
+      </div>
+      <div class="map">
+        <svg class="route" viewBox="0 0 361 110" preserveAspectRatio="none">
+          <path d="M28 84 C70 48 118 32 172 40 C226 48 238 76 288 72 C324 68 342 54 352 44"
+                fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="28" cy="84" r="5" fill="var(--primary)"/><circle cx="352" cy="44" r="5" fill="var(--danger)"/>
+        </svg>
+      </div>
+      <div class="controls"><div class="main">Pause</div><div class="sec">Finish</div></div>
+    </div>
+    <figcaption><b>Stable at 1.3× font.</b> Text scales, layout holds: the map cedes height, controls stay ≥56dp in the thumb zone.</figcaption>
+  </figure>
+
+</div>
+</body>
+</html>

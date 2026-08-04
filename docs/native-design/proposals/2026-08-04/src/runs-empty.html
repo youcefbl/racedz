@@ -1,0 +1,92 @@
+<!doctype html>
+<html data-theme="light">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Empty state — where the brand's energy is supposed to live (PRODUCT.md principle 4).
+     One message, once; exactly ONE primary action — the same pinned dock as the populated
+     overview (NDP-R07), so the screen teaches the pattern the runner will use forever.
+     No fake progress bar at zero kilometres, and no cross-tab promotion without a defined
+     destination/entitlement/offline spec. */
+  .header { margin-top: 4px; }
+
+  .empty-hero {
+    background: var(--surface-strong); border-radius: 16px; padding: 32px 24px 28px;
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0;
+  }
+  .empty-hero img.mark { height: 56px; margin-bottom: 20px; }
+  .empty-hero .big {
+    font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em;
+    color: var(--hero-accent); text-wrap: balance;
+  }
+  .empty-hero .sub { font-size: 14px; line-height: 20px; color: var(--hero-text-65); margin-top: 10px; max-width: 260px; }
+  .empty-hero .cta {
+    margin-top: 24px; display: flex; align-items: center; gap: 8px;
+    min-height: 56px; padding: 0 28px; border-radius: 14px;
+    background: var(--hero-accent); color: var(--on-hero-accent);
+    font-size: 16px; font-weight: 600;
+  }
+  .empty-hero .cta svg { width: 18px; height: 18px; stroke: var(--on-hero-accent); }
+
+  .hint { display: flex; align-items: center; gap: 12px; }
+  .hint .badge {
+    width: 40px; height: 40px; border-radius: 999px; flex: none;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hint .badge svg { width: 20px; height: 20px; stroke: var(--primary); }
+  .hint .chev { margin-inline-start: auto; }
+  .hint .chev svg { width: 20px; height: 20px; stroke: var(--text-muted); }
+
+  .dock {
+    position: absolute; left: 0; right: 0; bottom: 72px; padding: 24px 16px 12px;
+    background: linear-gradient(to top, var(--background) 65%, transparent);
+  }
+  .dock .btn-primary { min-height: 56px; border-radius: 14px; font-size: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+  .dock .btn-primary svg { width: 18px; height: 18px; }
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="scroll">
+    <div class="brandbar">
+      <img class="logo-light" src="../../../../../public/brand/zidrun-logo.svg" alt="">
+      <img class="logo-dark" src="../../../../../public/brand/zidrun-logo-dark.svg" alt="">
+      <img class="logo-race" src="../../../../../public/brand/zidrun-logo-race.svg" alt="">
+      <div class="iconbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16v-3"/><path d="M12 16V8"/><path d="M17 16v-5"/></svg></div>
+    </div>
+
+    <div class="header">
+      <div class="eyebrow">Runs</div>
+      <div class="headline-lg" style="margin-top:4px">Your running week</div>
+    </div>
+
+    <div class="empty-hero">
+      <img class="mark logo-light" src="../../../../../public/brand/zidrun-mark.svg" alt="">
+      <img class="mark logo-dark" src="../../../../../public/brand/zidrun-mark.svg" alt="">
+      <img class="mark logo-race" src="../../../../../public/brand/zidrun-mark-race.svg" alt="">
+      <div class="big">Your first run starts here</div>
+      <div class="sub">Record with GPS and watch this week fill up, kilometre by kilometre.</div>
+    </div>
+
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="btn-primary">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg>
+      Record your first run
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M16 2v4"/><path d="M21 11.75V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7.25"/><path d="m22 22-1.875-1.875"/><path d="M3 10h18"/><path d="M8 2v4"/><circle cx="18" cy="18" r="3"/></svg></div><div class="lbl">Races</div></div>
+    <div class="tab active"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg></div><div class="lbl">Runs</div></div>
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg></div><div class="lbl">Coach</div></div>
+    <div class="tab"><div class="pill"><svg class="ic" viewBox="0 0 24 24"><path d="M7 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></div><div class="lbl">Account</div></div>
+  </div>
+</div>
+</body>
+</html>

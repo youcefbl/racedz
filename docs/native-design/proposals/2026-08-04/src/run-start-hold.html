@@ -1,0 +1,151 @@
+<!doctype html>
+<html data-theme="dark">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Hold-to-start animation storyboard — three keyframes of one ~700 ms interaction,
+     in the spirit of 02-create-new-run-hold-complete.png (orange ambient glow behind the
+     foot, green outline, footprint ring) without copying it 1:1. The record surface is
+     always dark, in every theme; in race theme the greens go neon via tokens. */
+  html, body { width: 1275px; }
+  body { background: var(--surface-strong); }
+  .board { display: flex; gap: 24px; padding: 28px 24px 24px; }
+  .frame { width: 393px; display: flex; flex-direction: column; align-items: center; }
+  .stage {
+    width: 393px; height: 620px; border-radius: 20px; background: var(--surface-strong);
+    border: 1px solid var(--border); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .stage .title { margin-top: 36px; font-size: 21px; font-weight: 600; color: var(--foreground); }
+  .stage .chips { display: flex; gap: 16px; margin-top: 10px; font-size: 13px; color: var(--text-muted); }
+  .stage .chips .gps { color: var(--primary); }
+
+  .holdzone { position: relative; width: 300px; height: 300px; margin-top: 56px; }
+  /* orange ambient glow behind the foot — grows with progress */
+  .glow { position: absolute; inset: 30px; border-radius: 999px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 55%, transparent) 0%, transparent 70%);
+    filter: blur(6px); }
+  .f1 .glow { opacity: .45; }
+  .f2 .glow { opacity: .75; inset: 22px; }
+  .f3 .glow { opacity: 1; inset: 10px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 60%, transparent) 0%, color-mix(in srgb, var(--primary) 25%, transparent) 55%, transparent 75%); }
+
+  /* footprint ring (the dashed circle of footprints) + progress arc */
+  .ringtrack { position: absolute; inset: 0; }
+  .ringtrack circle { fill: none; }
+  .ringtrack .dots { stroke: color-mix(in srgb, var(--primary) 45%, transparent); stroke-width: 6; stroke-dasharray: 3 14; stroke-linecap: round; }
+  .ringtrack .prog { stroke: var(--primary); stroke-width: 6; stroke-linecap: round;
+    stroke-dasharray: 880; transform: rotate(-90deg); transform-origin: center; }
+  .f1 .prog { stroke-dashoffset: 880; }
+  .f2 .prog { stroke-dashoffset: 352; }   /* ~60% */
+  .f3 .prog { stroke-dashoffset: 0; }
+  /* success aura on completion */
+  .aura { display: none; }
+  .f3 .aura { display: block; position: absolute; inset: -14px; border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--primary) 65%, transparent);
+    box-shadow: 0 0 34px color-mix(in srgb, var(--primary) 55%, transparent); }
+
+  /* the foot silhouette with contour lines */
+  .foot { position: absolute; inset: 44px; display: flex; align-items: center; justify-content: center; }
+  .foot svg { width: 128px; height: 212px; }
+  .foot .outline { fill: color-mix(in srgb, var(--surface-strong) 55%, transparent); stroke: var(--primary); stroke-width: 3; }
+  .f3 .foot .outline { stroke-width: 4; filter: drop-shadow(0 0 8px var(--primary)); }
+  .foot .contour { fill: none; stroke: color-mix(in srgb, var(--primary) 35%, transparent); stroke-width: 1.4; }
+
+  .lbl { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .lbl .a { font-size: 26px; font-weight: 600; color: var(--primary); }
+  .lbl .b { font-size: 15px; color: var(--text); margin-top: 2px; }
+  .f3 .lbl .a { font-size: 30px; }
+
+  figcaption { margin-top: 14px; width: 360px; text-align: center; font-size: 13px; line-height: 19px; color: var(--text-muted); }
+  figcaption b { color: var(--foreground); }
+  .specs { padding: 4px 24px 0; color: var(--text-muted); font-size: 13px; line-height: 20px; max-width: 1180px; }
+  .specs b { color: var(--foreground); }
+</style>
+</head>
+<body>
+  <div class="board">
+    <figure class="frame f1">
+      <div class="stage f1">
+        <div class="title">Ready when you are</div>
+        <div class="chips"><span class="gps">● GPS ready</span><span>🔒 Private</span></div>
+        <div class="holdzone">
+          <div class="glow"></div>
+          <svg class="ringtrack" viewBox="0 0 300 300">
+            <circle class="dots" cx="150" cy="150" r="140"/>
+            <circle class="prog" cx="150" cy="150" r="140"/>
+          </svg>
+          <div class="foot">
+            <svg viewBox="0 0 128 212">
+              <path class="outline" d="M64 6 C96 6 108 42 106 78 C104 108 88 122 86 146 C84 172 96 178 92 194 C88 208 40 208 36 194 C32 178 44 172 42 146 C40 122 24 108 22 78 C20 42 32 6 64 6 Z"/>
+              <path class="contour" d="M64 26 C84 26 92 50 90 74 C88 94 76 106 74 126"/>
+              <path class="contour" d="M64 46 C76 46 82 60 80 76 C78 90 70 98 68 112"/>
+              <path class="contour" d="M52 168 C60 164 72 164 80 168"/>
+            </svg>
+          </div>
+          <div class="lbl"><span class="a">Hold</span><span class="b">to begin</span></div>
+        </div>
+      </div>
+      <figcaption><b>1 · Ready.</b> Green foot outline, faint footprint ring, soft orange glow breathing at ±4% opacity (2 s cycle).</figcaption>
+    </figure>
+
+    <figure class="frame f2">
+      <div class="stage f2">
+        <div class="title">Ready when you are</div>
+        <div class="chips"><span class="gps">● GPS ready</span><span>🔒 Private</span></div>
+        <div class="holdzone">
+          <div class="glow"></div>
+          <svg class="ringtrack" viewBox="0 0 300 300">
+            <circle class="dots" cx="150" cy="150" r="140"/>
+            <circle class="prog" cx="150" cy="150" r="140"/>
+          </svg>
+          <div class="foot">
+            <svg viewBox="0 0 128 212">
+              <path class="outline" d="M64 6 C96 6 108 42 106 78 C104 108 88 122 86 146 C84 172 96 178 92 194 C88 208 40 208 36 194 C32 178 44 172 42 146 C40 122 24 108 22 78 C20 42 32 6 64 6 Z"/>
+              <path class="contour" d="M64 26 C84 26 92 50 90 74 C88 94 76 106 74 126"/>
+              <path class="contour" d="M64 46 C76 46 82 60 80 76 C78 90 70 98 68 112"/>
+              <path class="contour" d="M52 168 C60 164 72 164 80 168"/>
+            </svg>
+          </div>
+          <div class="lbl"><span class="a">Keep holding</span><span class="b">starting…</span></div>
+        </div>
+      </div>
+      <figcaption><b>2 · Holding (~60%).</b> Progress ring fills clockwise over ~700 ms; glow tightens and brightens with it. Releasing early rewinds the ring in 150 ms — no start.</figcaption>
+    </figure>
+
+    <figure class="frame f3">
+      <div class="stage f3">
+        <div class="title">Ready when you are</div>
+        <div class="chips"><span class="gps">● GPS ready</span><span>🔒 Private</span></div>
+        <div class="holdzone">
+          <div class="glow"></div>
+          <div class="aura"></div>
+          <svg class="ringtrack" viewBox="0 0 300 300">
+            <circle class="dots" cx="150" cy="150" r="140"/>
+            <circle class="prog" cx="150" cy="150" r="140"/>
+          </svg>
+          <div class="foot">
+            <svg viewBox="0 0 128 212">
+              <path class="outline" d="M64 6 C96 6 108 42 106 78 C104 108 88 122 86 146 C84 172 96 178 92 194 C88 208 40 208 36 194 C32 178 44 172 42 146 C40 122 24 108 22 78 C20 42 32 6 64 6 Z"/>
+              <path class="contour" d="M64 26 C84 26 92 50 90 74 C88 94 76 106 74 126"/>
+              <path class="contour" d="M64 46 C76 46 82 60 80 76 C78 90 70 98 68 112"/>
+              <path class="contour" d="M52 168 C60 164 72 164 80 168"/>
+            </svg>
+          </div>
+          <div class="lbl"><span class="a">Go!</span><span class="b">recording</span></div>
+        </div>
+      </div>
+      <figcaption><b>3 · Complete.</b> Full green ring + one success aura pulse (300 ms, single flash — no loop), one short haptic tick, then a 200 ms crossfade into the live run screen.</figcaption>
+    </figure>
+  </div>
+  <div class="specs">
+    <b>Motion spec:</b> ring fill ≈700 ms ease-out driven by press progress (release rewinds, never
+    starts); completion aura flashes once; total ready→recording ≤1.2 s. <b>Reduced motion:</b> no
+    breathing glow, no aura — the ring jumps between 0/60/100% static states and completion is an
+    instant swap plus the same haptic. The label is always readable; the foot never becomes a spinner.
+    The orange glow stays <i>behind</i> the foot (ambient only); progress and outline stay green
+    (race theme: neon via tokens). Not a copy of the reference frame — same energy, simpler geometry.
+  </div>
+</body>
+</html>

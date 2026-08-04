@@ -1,0 +1,158 @@
+/* ZidRun design tokens — transcribed 1:1 from native-android/core/design/Color.kt,
+   Type.kt and Dimens.kt (which are themselves ported from src/app/globals.css).
+   No invented colours: every value below exists in the shipped token set. */
+
+@font-face {
+  font-family: "Manrope Variable";
+  src: url("../../../../../native-android/core/design/src/main/res/font/manrope_variable.ttf") format("truetype-variations");
+  font-weight: 200 800;
+}
+@font-face {
+  font-family: "Noto Sans Arabic";
+  src: url("/snap/kf6-core24/64/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf");
+  font-weight: 400;
+}
+@font-face {
+  font-family: "Noto Sans Arabic";
+  src: url("/snap/kf6-core24/64/usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf");
+  font-weight: 600 700;
+}
+
+:root, [data-theme="light"] {
+  --background: #F9FAFB; --foreground: #111827;
+  --surface: #FFFFFF; --surface-soft: #F9FAFB; --surface-muted: #F3F4F6; --surface-strong: #111827;
+  --text-strong: #111827; --text: #374151; --text-muted: #6B7280;
+  --border: #E5E7EB; --border-strong: #D1D5DB;
+  --primary: #15803D; --on-primary: #FFFFFF; --primary-strong: #166534; --primary-soft: #ECFDF3;
+  --accent: #F47A20; --on-accent: #FFFFFF; --accent-strong: #EA580C; --accent-soft: #FFF3E9;
+  --success: #16A34A; --danger: #DC2626; --info: #2563EB; --focus: #F47A20;
+  --hero-accent: #A3E635; --on-hero-accent: #0A1A05;
+  --hero-text: #FFFFFF; --hero-text-75: rgba(255,255,255,.75); --hero-text-65: rgba(255,255,255,.65);
+  --hero-track: rgba(255,255,255,.15);
+}
+[data-theme="dark"] {
+  --background: #0A0A0B; --foreground: #FAFAFA;
+  --surface: #151517; --surface-soft: #101012; --surface-muted: #1F1F22; --surface-strong: #000000;
+  --text-strong: #FAFAFA; --text: #D4D4D6; --text-muted: #9B9BA1;
+  --border: #2A2A2E; --border-strong: #3D3D42;
+  --primary: #4ADE80; --on-primary: #04240F; --primary-strong: #22C55E; --primary-soft: #0E2A18;
+  --accent: #FB923C; --on-accent: #431407; --accent-strong: #F47A20; --accent-soft: #2E1508;
+  --success: #22C55E; --danger: #F87171; --info: #60A5FA; --focus: #FB923C;
+  --hero-accent: #A3E635; --on-hero-accent: #0A1A05;
+  --hero-text: #FAFAFA; --hero-text-75: rgba(250,250,250,.75); --hero-text-65: rgba(250,250,250,.65);
+  --hero-track: rgba(255,255,255,.15);
+}
+[data-theme="race"] {
+  --background: #090511; --foreground: #FFF7FF;
+  --surface: #160B24; --surface-soft: #0F071A; --surface-muted: #251039; --surface-strong: #05020A;
+  --text-strong: #FFF7FF; --text: #F2DDFF; --text-muted: #CFB6DF;
+  --border: #45205E; --border-strong: #7133FF;
+  --primary: #39FF14; --on-primary: #0A1A05; --primary-strong: #20D40C; --primary-soft: #102B0A;
+  --accent: #FF2BD6; --on-accent: #FFFFFF; --accent-strong: #C026D3; --accent-soft: #3B0A34;
+  --success: #39FF14; --danger: #FF3864; --info: #9B5CFF; --focus: #39FF14;
+  --hero-accent: #39FF14; --on-hero-accent: #0A1A05;
+  --hero-text: #FFF7FF; --hero-text-75: rgba(255,247,255,.78); --hero-text-65: rgba(255,247,255,.66);
+  --hero-track: rgba(255,255,255,.15);
+}
+
+/* ---- base ---- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 393px; }
+body {
+  font-family: "Manrope Variable", "Noto Sans Arabic", sans-serif;
+  background: var(--background); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+[dir="rtl"] body, body[dir="rtl"] { font-family: "Manrope Variable", "Noto Sans Arabic", sans-serif; }
+
+.screen {
+  width: 393px; height: 851px; position: relative; overflow: hidden;
+  background: var(--background); display: flex; flex-direction: column;
+}
+.scroll { flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ---- type scale (Type.kt, 1sp = 1px here) ---- */
+.display-lg { font-size: 44px; line-height: 50px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); }
+.headline-lg { font-size: 24px; line-height: 30px; font-weight: 600; color: var(--text-strong); }
+.headline-md { font-size: 21px; line-height: 27px; font-weight: 600; color: var(--text-strong); }
+.title-lg { font-size: 18px; line-height: 24px; font-weight: 600; color: var(--text-strong); }
+.title-md { font-size: 16px; line-height: 22px; font-weight: 600; color: var(--text-strong); }
+.title-sm { font-size: 14px; line-height: 20px; font-weight: 500; }
+.body-lg { font-size: 16px; line-height: 24px; }
+.body-md { font-size: 14px; line-height: 20px; }
+.body-sm { font-size: 12px; line-height: 18px; }
+.label-lg { font-size: 14px; line-height: 20px; font-weight: 600; }
+.label-md { font-size: 12px; line-height: 16px; font-weight: 500; }
+.label-sm { font-size: 11px; line-height: 16px; font-weight: 500; }
+.eyebrow { font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 1.8px; text-transform: uppercase; color: var(--primary); }
+.muted { color: var(--text-muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---- shared components ---- */
+.brandbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+.brandbar img { height: 26px; }
+.iconbtn {
+  width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); display: flex; align-items: center; justify-content: center;
+}
+.iconbtn svg { width: 20px; height: 20px; stroke: var(--text-strong); }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px;
+}
+.hero-card { background: var(--surface-strong); border: none; border-radius: 16px; padding: 20px; }
+
+.fillbar { height: 8px; border-radius: 999px; background: var(--hero-track); overflow: hidden; }
+.fillbar > div { height: 100%; border-radius: 999px; background: var(--primary); }
+
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; border-radius: 12px; background: var(--primary); color: var(--on-primary);
+  font-size: 14px; font-weight: 600;
+}
+.btn-primary svg { width: 16px; height: 16px; stroke: var(--on-primary); }
+
+.metric-row { display: flex; }
+.metric { flex: 1; padding: 0 8px; min-width: 0; }
+.metric:first-child { padding-inline-start: 0; }
+.metric .label { font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric .value { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text-strong); margin-top: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.metric-div { width: 1px; background: var(--border); }
+
+svg.ic { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- bottom tab bar (as built) ---- */
+.tabbar {
+  display: flex; border-top: 1px solid var(--border); background: var(--surface);
+  padding: 10px 0 14px;
+}
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tab .pill { width: 64px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+.tab svg { width: 22px; height: 22px; stroke: var(--text-muted); }
+.tab .lbl { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-muted); }
+.tab.active .pill { background: var(--primary-soft); }
+[data-theme="dark"] .tab.active .pill, [data-theme="race"] .tab.active .pill { background: var(--primary); }
+.tab.active svg { stroke: var(--primary); }
+[data-theme="dark"] .tab.active svg, [data-theme="race"] .tab.active svg { stroke: var(--on-primary); }
+.tab.active .lbl { color: var(--primary); font-weight: 600; }
+
+/* logo swap per theme */
+.logo-light, .logo-dark, .logo-race { display: none; }
+[data-theme="light"] .logo-light { display: block; }
+[data-theme="dark"] .logo-dark { display: block; }
+[data-theme="race"] .logo-race { display: block; }
+
+/* annotation callouts */
+.callout {
+  position: absolute; z-index: 40; display: flex; align-items: flex-start; gap: 6px; max-width: 220px;
+}
+.callout .dot {
+  flex: none; width: 22px; height: 22px; border-radius: 999px; background: var(--accent-strong);
+  color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+}
+.callout .note {
+  background: var(--surface-strong); color: #FFFFFF; border-radius: 8px; padding: 6px 9px;
+  font-size: 11px; line-height: 15px; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+[data-theme="light"] .callout .note { background: #111827; }
