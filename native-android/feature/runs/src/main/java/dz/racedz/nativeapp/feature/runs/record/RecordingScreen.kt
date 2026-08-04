@@ -278,6 +278,10 @@ fun RecordingScreen(
         // Completed kilometres, newest first — the split just finished is the one being judged.
         val splits = state.splits
         if (splits.isNotEmpty()) {
+            // The fastest completed kilometre reads as the highlight chip. Its accessible name
+            // says "fastest" too, so the tinted fill is emphasis rather than the only signal.
+            val fastestPace = splits.minOf { it.paceSecondsPerKm }
+            val fastestLabel = stringResource(R.string.runs_split_fastest)
             Spacer(Modifier.height(ZidRunDimens.spaceSm))
             Row(
                 modifier = Modifier
@@ -286,20 +290,22 @@ fun RecordingScreen(
                 horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
             ) {
                 splits.reversed().forEach { split ->
+                    val isFastest = split.paceSecondsPerKm == fastestPace && splits.size > 1
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
-                            .background(ZidRunDarkColors.surfaceMuted)
+                            .background(if (isFastest) ZidRunDarkColors.primarySoft else ZidRunDarkColors.surfaceMuted)
                             .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm)
                             .semantics(mergeDescendants = true) {
-                                contentDescription = "km ${split.km} ${ZidRunFormat.pace(split.paceSecondsPerKm)}"
+                                contentDescription = "km ${split.km} ${ZidRunFormat.pace(split.paceSecondsPerKm)}" +
+                                    if (isFastest) ", $fastestLabel" else ""
                             },
                     ) {
                         Text(
                             "${stringResource(R.string.runs_split_km)} ${split.km}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = ZidRunDarkColors.textMuted,
+                            color = if (isFastest) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
                         )
                         Text(
                             ZidRunFormat.pace(split.paceSecondsPerKm),

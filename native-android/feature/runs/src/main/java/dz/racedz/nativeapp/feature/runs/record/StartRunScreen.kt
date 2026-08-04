@@ -366,6 +366,8 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     var holding by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
+    // 0 → 1 once the hold completes: one expanding, fading ring. Reduced motion skips it.
+    var aura by remember { mutableFloatStateOf(0f) }
 
     // Respect Android's animation scale for the decorative parts only.
     val animationsEnabled = remember(context) {
@@ -428,10 +430,19 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 progress = ((now - start).toFloat() / HOLD_TO_BEGIN_MS).coerceAtMost(1f)
             }
         }
-        // A distinct confirming tap, then a short beat so the completed ring is actually seen
-        // before the screen changes under it.
+        // A distinct confirming tap, then one success pulse (or a short beat under reduced
+        // motion) so the completed ring is actually seen before the screen changes under it.
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        delay(110L)
+        if (animationsEnabled) {
+            val auraStart = withFrameMillis { it }
+            while (aura < 1f) {
+                withFrameMillis { now ->
+                    aura = ((now - auraStart).toFloat() / AURA_MS).coerceAtMost(1f)
+                }
+            }
+        } else {
+            delay(110L)
+        }
         onTriggered()
     }
 
@@ -500,6 +511,25 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             )
         }
 
+        // The success aura: a single ring that expands from the sweep's radius toward the
+        // control's edge while fading. Drawn full-size (unpadded) so it has room to grow.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            if (aura <= 0f) return@Canvas
+            val stroke = 3.dp.toPx()
+            val margin = SWEEP_INSET.toPx()
+            val expand = aura * (margin - stroke)
+            val inset = margin - expand
+            drawArc(
+                color = sweepColor.copy(alpha = (1f - aura) * 0.85f),
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = Size(size.width - inset * 2, size.height - inset * 2),
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+        }
+
         Image(
             painter = painterResource(RunsR.drawable.zidrun_run_foot),
             contentDescription = null,
@@ -546,6 +576,9 @@ private val SWEEP_INSET = 26.dp
 
 /** How long an aborted hold takes to wind back to nothing. */
 private const val RELEASE_MS = 220f
+
+/** One success pulse on completion — a single flash, never a loop (UI_RULES §7). */
+private const val AURA_MS = 300f
 
 /** One full idle breath, and how far it travels. Slow and shallow enough to read as waiting. */
 private const val BREATH_MS = 3_400L
