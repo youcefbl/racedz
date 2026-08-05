@@ -38,6 +38,13 @@ jobs:
       # SEC-012: pinned to a commit SHA, not a mutable tag — a repointed @v4 tag would be a
       # supply-chain compromise vector (semgrep: yaml.github-actions.security.github-actions-mutable-action-tag).
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Commit-review coverage starts at a fixed historical commit and needs full ancestry.
+          fetch-depth: 0
+
+      - name: Check commit review coverage
+        # pull_request checks run on a synthetic merge commit; audit the contributor's real head.
+        run: node scripts/check-commit-review-coverage.mjs --head "${{ github.event.pull_request.head.sha || github.sha }}"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

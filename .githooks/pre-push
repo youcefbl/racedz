@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Check every non-deletion ref being pushed. The checker audits the complete tracked ancestry, so a
+# missed older commit cannot be hidden by reviewing only the branch tip.
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+zero_sha=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$zero_sha" ]; then
+    continue
+  fi
+  node "$repo_root/scripts/check-commit-review-coverage.mjs" --head "$local_sha" || exit 1
+done

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Report missing review evidence immediately after a commit, but never invalidate the commit that
+# was just created. The pre-push hook is the enforcement boundary.
+repo_root=$(git rev-parse --show-toplevel) || exit 0
+node "$repo_root/scripts/check-commit-review-coverage.mjs" --head HEAD --warn-only

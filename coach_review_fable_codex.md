@@ -416,6 +416,8 @@ upgrade before U-19/U-20 make its effect measurable.
 
 ## 9. Code review — `feat/coach-tier0`
 
+<!-- commit-review: a18e9b9db1f8921c6e2a5f21710dc4f65d8c13be -->
+
 ### Review boundary and verdict
 
 - **Base:** `main` at `abee6f1`.
@@ -490,6 +492,8 @@ release gate closes without the tests the acceptance conditions name:
 ---
 
 ## 10. Static code review — commit `b83a239`
+
+<!-- commit-review: b83a2391e25b8a9cac6d54dcb5f18ab601f67638 -->
 
 ### Review boundary and verdict
 
@@ -592,6 +596,8 @@ semantics (§7 Q9), escalation-copy review (§7 Q3).
 
 ## 11. Static code review — commit `19a58f3`
 
+<!-- commit-review: 19a58f3bc19a48b42e10b24e3865f8d4bf3c1c2b -->
+
 ### Review boundary and verdict
 
 - **Reviewed commit:** `19a58f3bc19a48b42e10b24e3865f8d4bf3c1c2b`
@@ -684,9 +690,122 @@ queued next), T0-R07 DB integration suites, R05 durable repair, R06 process-deat
 - The repository-required ZidRun app-review skill guided the review. The separately referenced
   `impeccable` skill was unavailable in this workspace.
 
+
+## 11A. Static proposal review — Runs + Coach design pass (2026-08-04)
+
+### Review boundary and verdict
+
+- **Reviewed proposal:** the uncommitted `docs/native-design/current/2026-08-04/` device captures,
+  `docs/native-design/proposals/2026-08-04/` diagnosis/recommendation/mockups, proposed
+  `docs/native-design/UI_RULES.md`, and their proposed `AGENTS.md` / `EXECUTION_PLAN.md` wiring.
+- **Code baseline:** `feat/coach-tier0` at `3b52d1e`; current Runs Compose screens, recorder state,
+  mobile run DTO, and `/api/v1/runs/[id]` response were inspected to distinguish visual gaps from
+  already-shipped behavior. The approved `docs/runs-design/RUNS_DESIGN_FLOW.md` and reference images
+  remain the acceptance authority.
+- **Verdict:** **Variant B is the best overview direction, but changes are requested before owner
+  approval or Compose implementation.** The fold diagnosis, duplicated week cards, empty-state bug,
+  plural defects, Coach counter ambiguity, and light-orange contrast complaint are well supported.
+  The round-two live/detail mockups are not additive refinements: they remove approved/shipped
+  behavior, present cadence series the product cannot collect, and are based on an incorrect claim
+  that the build has no charts. Pending product choices are also made binding in repository policy
+  before the recommendation's own approval asks have been answered.
+- **Status:** review evidence only. This section does not approve a variant, make product decisions,
+  or change progress/gate status; `EXECUTION_PLAN.md` remains the only tracker and `PRODUCT.md` the
+  stable product/design-decision source.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `NDP-R01` | **P1** | **A pending proposal is already installed as binding policy.** `RECOMMENDATION.md:3,55-62` says the work is pending owner approval and asks the owner to choose the variant, numeral convention, empty-state direction, and Audiowide/Manrope policy. Nevertheless `UI_RULES.md:3-8,46-48,54-58,81-82` calls the redesign approved and hard-codes Variant B, Manrope, and Western digits; `AGENTS.md:10-16` then applies it to every native and web UI change. `EXECUTION_PLAN.md:362` likewise says the owner approved round two, while the adjacent row at `:363` says approval is pending. | Future agents can treat disputed product choices as settled, and a Runs-specific sticky-dock decision becomes a universal web/native law. The repository's sole tracker and its stable product authority disagree about what the owner decided. | Keep `UI_RULES.md` explicitly draft/proposed and do not wire it into `AGENTS.md` until the owner answers the four approval asks. Reconcile the two evidence rows. After approval, promote only the accepted general rules; scope the sticky dock to Runs unless a separate flow justifies it elsewhere, and record durable typography/numeral decisions in `PRODUCT.md`. |
+| `NDP-R02` | **P1** | **The advertised full run-detail redesign removes the required pace profile and runner controls, while replacing them with invented cadence history.** The approved content order requires Pace plus Coach analysis, GPX export, privacy and Delete (`RUNS_DESIGN_FLOW.md:158-168`); current Compose renders the pace series and average line (`RunDetailScreen.kt:267-289`) and the export/analyse/privacy/delete surfaces (`:332-390` and below). The proposed full-scroll HTML ends after a cadence chart, insights, and three metrics (`src/run-detail.html:85-116`)—there is no pace chart or action/privacy/delete section. Its cadence array is a hard-coded mock (`:172-196`), while `RunDetailDto` has only scalar `avgCadence` and no cadence series (`Dtos.kt:411-437`), and the API returns splits, pace and elevation series only (`src/app/api/v1/runs/[id]/route.ts:24-35`). | Implementing the mockup literally would regress training analysis and privacy/data-control parity, while showing a graph that cannot be derived honestly from current data. It also contradicts the proposal's “richer” and “no data changes” claims. | Start from the existing detail screen, retain the pace chart and every existing action/privacy control, then refine splits/elevation styling. Remove the cadence chart until real timestamped cadence collection, storage, API, absence states, privacy, and performance rules are separately designed and approved. |
+| `NDP-R03` | **P1** | **“The build lacks charts” is false and misdiagnoses the device evidence.** The proposal repeats that claim in `src/run-detail.html:7-11`, the contact sheet, and `EXECUTION_PLAN.md:362`. Current source already conditionally renders split bars, elevation and pace charts (`RunDetailScreen.kt:182-289`), and the API/DTO already deliver those series. The captured run-detail image proves only that the captured seeded run returned empty series, not that chart support is absent. | A Compose pass can duplicate existing code and leave the real empty-data/route-series problem unfixed; the sole evidence tracker currently records a fact the source disproves. | Inspect the captured run's API payload and route points, determine why the conditional series were empty, and describe round two as refinement of existing charts. Correct the contact sheet, source comment, and tracker evidence before approval. |
+| `NDP-R04` | **P1** | **The proposed live screen drops the route map and invents live cadence.** The approved flow requires a map once a stable route exists (`RUNS_DESIGN_FLOW.md:96-122`) and the approved during-run reference includes it; current Compose conditionally shows the real route or GPS-acquiring state (`RecordingScreen.kt:316-338`). The proposed full viewport contains metrics, splits, and controls only (`src/run-live.html:64-100`). It displays cadence `172` (`:81-86`), but `RecordingState` has no cadence input or field (`RunRecorder.kt:12-28`); Android location fixes do not supply cadence. | Literal implementation loses spatial trust/recovery during a run and fabricates a health/performance metric. On the target low-end phone it also leaves unresolved how map, split strip, large text and thumb controls share the viewport. | Preserve the trusted-route map (or present an explicitly approved map/metrics toggle) and its acquiring/poor-GPS states. Omit cadence when unavailable; adding it requires an identified sensor/source and truthful unavailable behavior. Produce full-state layouts for acquiring, stable GPS, paused, auto-paused, and 1.3× text. |
+| `NDP-R05` | **P1** | **The permanent Record dock has no active-recording state and can expose a destructive reset path.** The current overview detects Recording/Acquiring/Paused and offers Resume (`RunsOverviewScreen.kt:143-177`), but the proposed B dock is always `Record run` (`src/runs-b.html:122-127`). Navigating to Start and completing the hold calls `RunRecorder.start()`, which unconditionally clears the route and replaces the recording state (`RunRecorder.kt:184-197`). The existing below-fold Record control is already unsafe during an active run; pinning it makes that conflict permanently prominent. | A runner can mistake Record for the way back to the live run and overwrite an in-progress route. The proposal's central ergonomic improvement would amplify a data-loss path. | Make the dock stateful: Resume/Open recording for Recording, Acquiring and Paused; Save/Review for Finished pending data; Record only when Idle. Guard `RunRecorder.start()` against replacing non-idle state without an explicit discard confirmation, and design process-restored/pending/offline states before implementation. |
+| `NDP-R06` | **P2** | **The proposed binding token table falsely says web and native are 1:1.** `UI_RULES.md:10-29` publishes the native dark values as universal and says `Color.kt` and `globals.css` are ported 1:1. `Color.kt:78-82` explicitly documents a deliberate native dark-palette divergence. For example native dark background/surface are `#0A0A0B`/`#151517` (`:83-94`), while web uses `#080D18`/`#101827` (`globals.css:35-47`). | Web work judged against this table can be incorrectly rejected or recolored, and contrast numbers computed for native cannot be claimed as web evidence. | Document semantic parity with platform-specific token tables and contrast calculations, or make the palettes genuinely identical through an explicit owner decision. Remove every 1:1 claim that is not true. |
+| `NDP-R07` | **P2** | **The empty-state proposal contradicts Variant B's own invariant and quietly adds navigation scope.** UI Rules say Runs always uses the pinned dock (`UI_RULES.md:54-66`), but `src/runs-empty.html:43-89` has only the in-card “Record your first run” CTA and no dock. It also adds a chevron Coach promotion (`:69-78`), although `RECOMMENDATION.md:41-42` promises no navigation changes and supplies no destination, entitlement, offline, or disabled behavior. | The implementation brief is ambiguous about whether an empty account gets one or two primary actions, and a visual-only one-day estimate hides a new interactive/entitlement path. | Specify populated, empty, loading, error, offline and active-recording dock behavior with exactly one primary action. Either remove the Coach chevron or define its destination and entitlement/offline behavior and include that scope in the estimate. |
+| `NDP-R08` | **P2** | **The artifacts do not yet pass the checklist they make mandatory.** `UI_RULES.md:130-142` requires light/dark/race × en/ar RTL × 1.3×, empty/loading/error/offline states and TalkBack labels for every change. Variant B has three themes and one Arabic render, but no French or 1.3× proposal render; the run live/detail and Coach refinements lack the stated locale/font/state matrix; mock HTML cannot prove TalkBack semantics. The normal-size B render already ellipsizes “TOTAL DISTANCE,” indicating the denser metrics row needs responsive treatment before large text. | Calling the pass complete or the checklist passed overstates the approval evidence, especially around accessibility and the device's bottom insets/navigation modes. | Separate mockup review from implementation/device acceptance. Before approval, add the affected French/RTL/1.3× and recovery/error states, including gesture and three-button navigation insets; keep TalkBack, focus order and semantics as implementation acceptance items rather than claims proven by PNGs. |
+| `NDP-R09` | **P2** | **The proposed light-orange exception is not proven AA-safe.** `UI_RULES.md:35-38` permits `accentStrong` at “≥18sp semibold” because 3.55:1 is treated as large text. The large-text exception is size/weight dependent; an Android `sp` value is not itself proof that rendered text meets the applicable large-text threshold, and semibold is not automatically the required bold case. | A binding rule intended to prevent one contrast defect can authorize another 3.55:1 text failure. | Use a ≥4.5:1 text token for ordinary headings by default. If a 3:1 exception is retained, document the exact rendered size/weight threshold per platform and validate that concrete typography pair rather than granting a blanket `18sp semibold` exception. |
+
+### What is ready to approve in principle
+
+- The measured diagnosis is credible: the current source order places Record after both week cards,
+  latest run, and personal bests (`RunsOverviewScreen.kt:230-269`), and the 8% zero-distance floor is
+  explicit (`:278-289`). Merging the weekly facts is the right correction.
+- Variant B is the strongest of A/B/C for the populated Runs overview because it keeps weekly
+  momentum while restoring persistent thumb reach. Approval should be conditional on `NDP-R05` and
+  on scoping the rule to this screen rather than every UI surface.
+- The energized empty-state art direction, plural-resource correction, scoped Coach counters,
+  reserved entitlement space, orange-icon treatment, one-series-per-chart rule, and reduced-motion
+  hold specification are sound directions once the governance and data-contract issues above are
+  reconciled.
+
+### Static-review limitations
+
+- No tests, build, lint, typecheck, browser render, emulator, device interaction, database query, or
+  runtime/API call was run, per instruction. Existing PNGs were inspected at original resolution;
+  device measurements and author-reported capture conditions were not independently reproduced.
+- Only representative proposal/current captures were visually inspected; the 64-image matrix was
+  counted and source/capture names were checked, not re-executed.
+- The mandatory ZidRun app-review skill guided this review. The separately requested `impeccable`
+  skill was unavailable; no `artifact-design` fallback skill was available in this session either.
+
+### Remediation re-review — current uncommitted worktree (2026-08-04)
+
+- **Boundary:** re-reviewed the revised proposal artifacts and the native Runs changes that appeared
+  in the worktree during this review, still at committed baseline `3b52d1e`. The code boundary now
+  includes `RunsOverviewScreen.kt`, `RunRecorder.kt`, `StartRunScreen.kt`, shell navigation,
+  `ZidRunFormat.currentLocale()`, the new EN/FR/AR strings, and the unexecuted in-memory start-guard
+  unit test.
+- **Verdict:** **changes requested.** The revised detail/live artifacts now preserve the shipped
+  charts, map and controls and no longer invent cadence; the in-memory start guard is also a real
+  code fix. “All nine findings remediated” is nevertheless not supported. One process-death path
+  can still replace an unsaved route, and Variant B plus two pending product choices are being
+  implemented before the four approval asks are answered. The evidence/state matrix remains partial.
+- **Status:** review evidence only. This subsection neither approves Variant B nor changes a release
+  gate. `EXECUTION_PLAN.md` remains the only status tracker and `PRODUCT.md` the durable-decision
+  authority.
+
+#### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `NDP2-R01` | **P1** | **The new start guard protects only the current process; an interrupted route on disk can still be silently replaced.** `RunRecorder.snapshot()` persists active recordings with `finished=false`, but `restorePending()` returns only finished records (`RunRecorder.kt:135-160`). After process death `_state` is Idle, so the new guard at `:188-202` accepts a fresh recording. `RunOutbox` has one `pending-run.json`, and the next snapshot replaces it (`RunOutbox.kt:26-47`). The shell likewise restores only a finished pending run (`ZidRunApp.kt:232-236`). The new `RunRecorderStartGuardTest` covers Idle/Acquiring/Paused/Finished in memory only (`:27-77`); it does not attach or restore an outbox. | A killed/backgrounded run can exist on disk, appear as Idle/Record after restart, and be overwritten by the next run's first snapshot. The in-memory guard closes the originally demonstrated route reset but not the process-restored data-loss case required by `NDP-R05`. | Resolve any pending outbox record before exposing Record. Restore an interrupted record as an explicit salvage/save-or-discard state (or otherwise block `start()` while the outbox is occupied), and never replace the single pending file without an explicit resolution. Add focused `finished=false` process-restoration/overwrite coverage; no test was run in this review. |
+| `NDP2-R02` | **P1** | **The proposal is now marked draft, but its unapproved choices are already implemented.** `UI_RULES.md:1-11` and `RECOMMENDATION.md:3,77-84` keep Variant B, the empty-state direction, Western Arabic digits and typography pending; `AGENTS.md:10-18` says token-accurate mockups must be owner-approved before Compose work. The worktree nevertheless identifies and implements Variant B and the energetic empty hero (`RunsOverviewScreen.kt:67-72,185-232,355-387`) and globally forces bare Arabic to `ar-DZ` for Western-number formatting (`Format.kt:117-126`). `EXECUTION_PLAN.md:362` still says no Compose code changed. | Pending product decisions have again become executable behavior without owner approval, and the numeral choice affects every native screen that calls `currentLocale()`, not only the Runs card. Review and tracker state no longer describe the worktree being reviewed. | Pause/revert the implementation until the owner answers the four asks, or obtain explicit approval and record durable numeral/typography choices in `PRODUCT.md` before proceeding. Then update the single tracker row to describe the actual implementation boundary and verification status. |
+| `NDP2-R03` | **P2** | **The stateful dock disappears in loading, initial error and offline-empty states.** `RunsOverviewScreen.kt:104-118` returns the loading/error surfaces before entering the `else` branch that owns `RecordDock` (`:120-232`). That means a local Recording/Acquiring/Paused/Finished state loses its Runs-tab route back whenever the remote runs request is loading or fails. The draft checklist explicitly requires loading/error/offline states (`UI_RULES.md:158-173`), but no matching proposal frame exists. | The central “visible at every state” promise fails at exactly the time a network-independent recorder must remain reachable; a runner may see only a remote-data error while a local run continues. | Overlay the recorder-aware dock independently of the remote overview load state, or define an equivalent local-run action on every loading/error/offline surface. Add those states to the proposal/acceptance matrix. |
+| `NDP2-R04` | **P2** | **The remediation evidence still contains mutually false claims.** `EXECUTION_PLAN.md:362` says the recorder clears unconditionally, all 1:1 claims are removed, labels wrap rather than truncate, and no Compose code changed; the current worktree contradicts the first and last claims. The superseded row at `:363` still describes absent charts, cadence and binding UI rules despite its correction prefix. `DIAGNOSIS.md:17-18` still says native tokens are ported 1:1 from web, even though the documented dark palettes deliberately diverge. The exact seeded capture payload/fixture is also absent, so the claimed no-`t`/no-`ele` cause is author-reported rather than reproducible from the checked-in artifacts. | The sole tracker and diagnosis remain unsafe pickup context: a future session can find both the disproven claim and its caveat, while the “all nine” closure statement hides partial items. | Consolidate the round-two/remediation evidence into one concise, current row; remove rather than preserve false details. Correct the diagnosis's 1:1 statement, describe the captured-route cause at its actual evidence level, and stop claiming all findings closed until the open rows below are satisfied. |
+| `NDP2-R05` | **P2** | **`NDP-R08` remains partial: the added renders expose truncation and do not cover the changed state strings.** Shared mock CSS still forces one-line ellipsis (`src/tokens.css:115-120`); the 1.3x override changes `white-space` but leaves overflow/ellipsis and cannot wrap a single word (`src/runs-b-large.html:48-63`). At original resolution `runs-B-sticky-large-light.png` still clips the latest-run DISTANCE label, while the French render truncates “DISTANCE TOTALE” and “MEILLEURE ALLURE.” Native `DockButton` likewise forces every localized recording/resume/save label to one ellipsized line (`RunsOverviewScreen.kt:322-353`), while its storyboard is English/light only. No honest empty-series chart render or overview loading/error/offline render exists despite `RECOMMENDATION.md:37-58` and `UI_RULES.md:164-171`. | French, Arabic and large text can hide the state/action distinction in the new primary control, and approval evidence does not establish the proposal's own recovery or empty-data behavior. | Use a responsive metric/action layout that remains intelligible for the affected FR/AR/1.3x strings, then attach the changed dock states in those conditions. Add empty-series and overview loading/error/offline frames; keep TalkBack/focus/insets as implementation/device acceptance as already documented. |
+| `NDP2-R06` | **P3** | **The revised empty-state HTML relies on browser error recovery.** `src/runs-empty.html:52-75` closes `.screen` before the dock and tab bar, then closes an unmatched `div` at `:90`; its removed CTA/promotion styles also remain dead at `:24-40`. | The PNG can look correct while no longer proving the intended screen-relative dock/container structure, making the mock source a misleading implementation reference. | Fix the element nesting so scroll content, dock and tab bar share one `.screen`, and remove the dead rules before using this artifact for approval. |
+
+#### Remediation status by original finding
+
+| Original finding | Static status after re-review |
+|---|---|
+| `NDP-R01` | **Reopened:** the documents say draft, but Variant B, the empty direction and Western digits are now in native code (`NDP2-R02`). |
+| `NDP-R02` | **Addressed in the proposal:** pace and all shipped actions are restored; cadence history is removed. |
+| `NDP-R03` | **Partial:** proposal/contact-sheet wording is corrected, but stale tracker text and the uncommitted captured-route evidence remain (`NDP2-R04`). |
+| `NDP-R04` | **Addressed in the proposal:** the trusted-route map is restored, cadence is removed, and the requested live state board exists. |
+| `NDP-R05` | **Partial:** stateful dock and in-memory `start()` guard are implemented; interrupted outbox data is still replaceable (`NDP2-R01`) and remote failure hides the dock (`NDP2-R03`). |
+| `NDP-R06` | **Partial:** `UI_RULES.md` is correctly native-scoped, but the diagnosis and tracker still make a false 1:1/removal claim (`NDP2-R04`). |
+| `NDP-R07` | **Addressed in the proposal/current patch:** the empty card has no second CTA or undefined Coach navigation. |
+| `NDP-R08` | **Partial:** French and 1.3x captures were added, but clipping and required state coverage remain (`NDP2-R03`, `NDP2-R05`). |
+| `NDP-R09` | **Addressed by static inspection:** the unsafe orange-text exception and revised light-theme orange labels are gone. |
+
+#### Re-review limitations
+
+- No tests, build, lint, typecheck, render command, emulator/device interaction, database query, or
+  runtime/API call was run, per instruction. Findings are from the stable uncommitted diff, source,
+  and original-resolution PNG inspection.
+- The worktree changed concurrently during review. The boundary above reflects the settled native
+  diff observed after the files stopped changing; unrelated dirty files were preserved.
+- The mandatory ZidRun app-review skill guided this re-review. The referenced `impeccable` skill was
+  still unavailable in this workspace.
+
 ---
 
 ## 12. Static code review — commit `fa191d4`
+
+<!-- commit-review: fa191d417a4625fe8e55ad6435da5c767fac66e8 -->
 
 ### Review boundary and verdict
 
@@ -746,6 +865,8 @@ queued next), T0-R07 DB integration suites, R05 durable repair, R06 process-deat
 ---
 
 ## 13. Static code review — unreviewed commits after `fa191d4`
+
+<!-- commit-review: dd64e00f7b4c7eeaad4213ea31a1b994ab78f1b8 -->
 
 ### Review boundary and verdict
 
@@ -856,6 +977,9 @@ live in `PRODUCT.md` ("Product decisions — AI coach and native app").
 ---
 
 ## 14. Static code review — last two commits at `fd1c62b`
+
+<!-- commit-review: fde3d793645e06b444c6a8f5f33faeb72d2d3c4d -->
+<!-- commit-review: fd1c62b421cf861a5b7766c2ae688ad47634a6da -->
 
 ### Review boundary and verdict
 
@@ -985,6 +1109,8 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions live i
 
 ## 15. Static code review — commit `f2343d4`
 
+<!-- commit-review: f2343d437e2db85ff20e2d1f8db64ef9156b86c3 -->
+
 ### Review boundary and verdict
 
 - **Reviewed commit:** `f2343d437e2db85ff20e2d1f8db64ef9156b86c3`
@@ -1050,6 +1176,8 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions live i
 ---
 
 ## 16. Static code review — commit `e0093b6`
+
+<!-- commit-review: e0093b653291f13e2388e8d8918e90e3f38de4e5 -->
 
 ### Review boundary and verdict
 
@@ -1176,3 +1304,226 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions in `PR
 - **Still unverified:** no device run this round (the phone was disconnected); the confirmation
   page's theme/large-text/TalkBack matrix; a real provider call anywhere; production purge and
   Caddy-reload evidence.
+
+## 17. Retrospective static code review — commit `e586def`
+
+<!-- commit-review: e586defbab34b73d4fe15f3b6570a0eda641fed0 -->
+
+### Review boundary and verdict
+
+- **Reviewed commit:** `e586defbab34b73d4fe15f3b6570a0eda641fed0` against parent
+  `b83a2391e25b8a9cac6d54dcb5f18ab601f67638`.
+- **Reason for retrospective review:** this commit previously appeared only as remediation evidence
+  inside §10. It did not have its own findings-first commit review, so it was the one uncovered code
+  commit in the requested `a18e9b9..HEAD` history.
+- **Scope:** native Coach memory/privacy UI and API, remote Runs/Coach flags, and the Runs control
+  cleanup. The approved Coach Overview image and the Coach design flow were used where applicable;
+  there is no approved standalone memory screenshot.
+- **Verdict:** **changes requested.** The commit adds a useful, entitlement-independent memory
+  surface and removes controls for features that did not exist. Three P2 gaps keep the advertised
+  memory parity and “real kill switch” claims partial. These paths are unchanged at current head.
+- **Release status:** dated review evidence only. This section changes no progress or gate status;
+  `EXECUTION_PLAN.md` remains the only tracker.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `E586-R01` | **P2** | **The native memory surface omits the promised export control even though its new API implements export.** `GET /api/v1/coach/memory?export=1` returns the full raw memory set with provenance and timestamps (`e586def:src/app/api/v1/coach/memory/route.ts:14-44`), but `CoachRepository` exposes only list, per-item action, and delete-all calls, and `CoachMemoryScreen` renders only confirm, forget, and delete-all (`e586def:native-android/core/auth/.../Repositories.kt:281-304`; `CoachMemoryScreen.kt:118-172`). The approved flow requires runners to “confirm, forget one item, export, or delete all memory” (`docs/coach-design/COACH_DESIGN_FLOW.md:184-187`). | A native-only runner can inspect and erase memory but cannot exercise the data-access/export path the surface and parity item promise. The server capability is effectively unreachable from the native product. | Add a localized Export action backed by the existing authenticated endpoint, define a safe Android destination/share flow and failure state, and verify the exported artifact contains the full scoped data without exposing it to other apps by default. |
+| `E586-R02` | **P2** | **The remote flags hide bottom-bar buttons once per process; they do not behave as an operational kill switch.** Config is fetched only by `LaunchedEffect(Unit)` and fails open while null (`e586def:native-android/app/.../ZidRunApp.kt:97-103`). `AppShell` always registers the Runs and Coach destinations and filters only the bottom-bar list (`e586def:native-android/app/.../ui/shell/AppShell.kt:136-181,210-236`). A runner can enter a tab during the fail-open first frame; when a false flag arrives, the selected destination stays rendered with its selected tab removed. A server-side flag change is also invisible until the app process is recreated, and the feature APIs remain callable. | During an incident, an operator cannot reliably remove an already-open or long-lived misbehaving feature “without a new binary,” despite the code and evidence describing that behavior. It is navigation visibility, not a complete disable boundary. | Model flags as live shell state: gate destination entry and feature actions, redirect an active disabled destination to a safe tab, and refresh config on foreground/session refresh with bounded caching. Define whether the server must also refuse disabled feature APIs, then verify true→false while the app is open, cold/offline launch, stale config, and direct/deferred navigation. |
+| `E586-R03` | **P2** | **Memory mutations expose untranslated server text and busy rows remain enabled to accessibility services.** Mutation failures copy `result.error.message` directly into UI state and render it verbatim (`e586def:.../CoachMemoryViewModel.kt:58-90`; `CoachMemoryScreen.kt:109`), so French/Arabic users can receive English backend sentences. `ZidRunTextButton` has no enabled state; while another action is active, every other Confirm/Forget button keeps its normal label and enabled semantics but silently ignores taps through `if (!anyBusy)` (`CoachMemoryScreen.kt:180-220`). | Errors break the three-locale contract, while TalkBack and sighted users encounter controls that announce and look actionable but do nothing. Repeated taps have no truthful progress or disabled feedback. | Map stable API error codes to localized strings, retain a generic localized fallback, and give the shared text button a real disabled/loading semantic state. Disable all conflicting actions visibly and accessibly while a mutation is pending; verify en/fr/ar/RTL and TalkBack focus/announcement behavior. |
+
+### Static-review limitations
+
+- No tests, build, lint, typecheck, emulator, device, network/provider, or runtime feature-flag
+  exercise was performed, per instruction. Findings are from the exact committed diff and current
+  source only.
+- The standalone memory surface has no approved screenshot; hierarchy and interaction states were
+  checked against the written Coach design flow and repository UI rules.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+## 18. Static code review — commits `09ad87f` and `cffa228`
+
+<!-- commit-review: 09ad87f528f7e1afb5e91f2e2d5d8f13088721f1 -->
+<!-- commit-review: cffa228258f57667a6c2f0e0783fdda948827681 -->
+
+### Review boundary and verdict
+
+- **Reviewed range:** `09ad87f528f7e1afb5e91f2e2d5d8f13088721f1` and
+  `cffa228258f57667a6c2f0e0783fdda948827681`, against parent
+  `e0093b653291f13e2388e8d8918e90e3f38de4e5`.
+- **Scope:** F234 remediation code/evidence and the follow-up `EXECUTION_PLAN.md` evidence row. The
+  unchanged COACHPAR-001 findings in §16 were not re-attributed to these commits.
+- **Verdict:** **changes requested.** The commits improve row locking, atomic cache publication,
+  quota recovery, native consent guidance, handoff privacy/localization, operations documentation,
+  and production-path testability. The security lock still ends before browser-session issuance,
+  re-consent destroys the pending failed turn, and a post-provider bookkeeping failure remains
+  classified as provider failure. The follow-up tracker row therefore overstates full closure.
+- **Release status:** no release, security, privacy, cost, native-parity, or `SEC-*` gate closes from
+  this static review. `EXECUTION_PLAN.md` remains the only status tracker.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `09AD-R01` | **P1** | **`FOR UPDATE` protects token validation, not the browser session that validation authorizes.** `consumeNativeAuthToken()` locks `User`/`MobileSession`, validates, returns a user, and commits at the end of its Prisma transaction (`src/lib/native-auth.ts:135-205`). Auth.js then continues through the native-bridge provider and JWT callback outside that transaction (`src/auth.ts:85-107,151-205`). A fresh bridge JWT has no `token.securityStamp`; if an invalidation commits after consume releases its locks but before JWT/cookie issuance, the callback sets `revoked=false` because the old stamp is absent and adopts the new live stamp (`src/auth.ts:189-201`). The new race case covers only the opposite ordering: invalidation owns the User lock first and consume waits, then correctly observes the new stamp (`scripts/test-mobile-api.ts:970-1019`). | A password/MFA/block/session invalidation can still race after credential validation and produce a fresh browser session bound to the post-invalidation stamp. The exact “credentials invalid by the time [the session] landed” invariant and `F234-R01` closure claim are not established. | Carry the validated stamp/session identity into Auth.js issuance and reject if it differs at the final session-mint boundary, or make issuance consume a database-backed grant whose validity is atomically bound to invalidation. Add the missing ordering: pause after successful consume/transaction commit, invalidate, then resume JWT/cookie issuance and prove no session cookie is emitted. |
+| `09AD-R02` | **P2** | **The re-consent action abandons the failed logical turn it is meant to preserve.** The consent button navigates from Coach Chat to `coachSetup(true)` (`native-android/app/.../ZidRunApp.kt:315-334`). Saving setup pops all the way back to `RootDestinations.SHELL`, removing the Chat destination (`ZidRunApp.kt:362-377`). The retained idempotency key, pending question, and `pendingRunAnalysis` are private in-memory fields of that Chat `ConversationViewModel` (`ConversationViewModel.kt:96-135,178-213`), so its destruction loses the retry type and request ID. | The runner can grant consent but is returned to the shell instead of the refused turn; retrying requires reconstructing the action manually and may use a new request ID. `F234-R04` required preserving a real POST_RUN/chat retry after re-consent, not merely linking to the consent form. | Navigate back to the originating Chat after a successful consent edit and preserve the pending operation plus idempotency key across the setup round trip (saved state or an explicit result/operation contract). Automatically retry only if product policy says so; otherwise restore an actionable Retry. Cover CHAT and POST_RUN through refusal → consent → return/retry, including process recreation. |
+| `09AD-R03` | **P2** | **A successful, billed TTS provider call is still inside the catch block labelled as provider failure.** After synthesis, `synthesized=true`, then the SUCCEEDED usage update runs inside the same `try` (`src/lib/coach/tts.ts:159-175`). If that accounting write fails, the catch assigns `OPENAI_TTS_FAILED`, attempts to mark the row FAILED, discards the already-produced buffer, and returns a 502; the cache key also remains held because synthesis succeeded but publication never ran (`:181-190`). The transcription path has the same provider-success-then-accounting coupling (`src/lib/coach/service.ts:430-441`). | A transient accounting/database error after provider success can charge money, return no audio/transcript, misreport a provider outage, and throttle same-key retries until the claim lease expires. The stale-PENDING lease repairs quota later but cannot recover the paid output or classify it correctly. | Separate provider outcome from terminal bookkeeping, make terminal accounting idempotently retryable, and never relabel a successful provider response as an OpenAI failure. Define a recoverable publication/response path for already-produced bytes and exercise terminal-update failure after provider success for both TTS and transcription. |
+| `CFFA-R01` | **P2** | **The committed evidence row says “All eight addressed” although two advertised acceptance conditions remain partial.** The row states that row locks prevent invalidation between validation and consume and that the consent action fixes POST_RUN retry (`EXECUTION_PLAN.md:359`). `09AD-R01` shows the unprotected consume→JWT/cookie interval, and `09AD-R02` shows the pending operation is destroyed on successful re-consent. The row also reports test results that this review did not independently reproduce. | The sole progress tracker presents closure-grade evidence for security and native consent behavior that the source does not support, making later release decisions and multi-device pickup misleading. | Amend the evidence row to mark `F234-R01` and `F234-R04` partial/open with the exact remaining boundaries and distinguish author-reported validation from independent review. Keep the detailed reasoning here and status only in `EXECUTION_PLAN.md`. |
+
+### Static status of the advertised remediation
+
+| Prior finding / claim | Static status after `cffa228` |
+|---|---|
+| `F234-R01` invalidation-versus-handoff race | **Partial:** invalidation committed before/while validation is rejected; invalidation after consume commits but before JWT/cookie issuance is still accepted (`09AD-R01`). |
+| `F234-R02` atomic publication and stale reservations | **Mostly implemented:** temp-file + rename prevents partial reads and stale PENDING rows are reconciled; post-provider terminal-accounting failure still loses/misclassifies paid output (`09AD-R03`). |
+| `F234-R03`, `R05`, `R07`, `R08` | **Implemented by static inspection:** referrer policy, operations procedure, locale/destination mapping, and stricter debug-base validation are present. Runtime/production/device evidence was not reproduced. |
+| `F234-R04` native consent remediation | **Partial:** the action reaches goal setup and inert consent Retry is suppressed, but successful re-consent discards the logical turn instead of preserving its retry (`09AD-R02`). |
+| `F234-R06` test-evidence shape | **Improved:** the foreign-family fixture reaches ownership and production TTS is injectable. The added auth race still covers only invalidation-first ordering. |
+| `EXECUTION_PLAN.md` evidence | **Correction required:** “All eight addressed” is inconsistent with the source findings above (`CFFA-R01`). |
+
+### Static-review limitations
+
+- No tests, build, lint, typecheck, migrations, browser, emulator, device, provider, database-race, or
+  production checks were run, per instruction. Committed validation totals are author evidence only.
+- Auth.js callback/cookie timing, PostgreSQL lock ordering, disk durability, provider billing, Android
+  saved-state behavior, and the re-consent navigation round trip were reasoned about from source.
+- Light/dark/race, en/fr/Arabic RTL, large text, TalkBack, offline behavior, and physical-device
+  behavior remain unverified.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+## 19. Static code review — redesign commits `ced709d` through `69b85a2`
+
+<!-- commit-review: ced709d88ce990bc3600cd5eb470b578480d2453 -->
+<!-- commit-review: afa20e73eb7340688f86ececfc3b40461b1a0ebf -->
+<!-- commit-review: 2528bf24687fe6ebb20712383d135803dea834d7 -->
+<!-- commit-review: f333b29993706948955f59b55d6e8e64921287ac -->
+<!-- commit-review: d1496f36eda37a8524aac0d8f55519fe379e6111 -->
+<!-- commit-review: 7bcabb30dec27c1cb3766f609db06a3af2da1c7c -->
+<!-- commit-review: 69b85a2bce2244c9aa0d70292e32b872f1b7bdb3 -->
+
+### Review boundary and verdict
+
+- **Reviewed range:** the seven previously unmarked commits from
+  `ced709d88ce990bc3600cd5eb470b578480d2453` through
+  `69b85a2bce2244c9aa0d70292e32b872f1b7bdb3`, against parent `3b52d1e`.
+- **Scope:** the Runs/Coach diagnosis and proposed artifacts, native Phase 1–4 implementation,
+  Phase 1 device captures, evidence rows, and the owner-requested session handoff. The exact commits
+  supersede the uncommitted-worktree snapshot reviewed in §11A; still-open `NDP2-*` issues are
+  revalidated below rather than assumed closed.
+- **Visual comparison:** the approved Variant-B, Coach and run-detail proposal renders were compared
+  with the committed Phase-1 Samsung captures at original resolution. Phase 1 broadly matches the
+  intended hierarchy and puts the stateful action above the tab bar. No implementation/device
+  captures for Phases 2–4 are committed; `7bcabb3` and `69b85a2` correctly disclose that the device
+  pass was blocked by USB authorization.
+- **Verdict:** **changes requested.** The redesign materially improves action reach, duplicate-card
+  density, zero-progress honesty, scoped Coach counters, chart contrast, and visible recorder state.
+  Three P1 paths remain: disk-backed runs can bypass the new start guard, saved-state restoration can
+  suppress hydration of a finished run, and releasing after the completion haptic cancels the new
+  hold-to-start pulse before navigation. The repository also still records the implemented visual
+  and numeral choices as pending approval.
+- **Release/status boundary:** dated review evidence only. This section changes no roadmap or gate;
+  `EXECUTION_PLAN.md` remains the only progress tracker and `PRODUCT.md` the durable-decision source.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `RED-R01` | **P1** | **The Phase-1 start guard still ignores an interrupted run already on disk.** Active recordings are snapshotted with `finished=false`, while `restorePending()` returns only finished records (`RunRecorder.kt:135-160`). After process death the singleton is Idle, so `start()` accepts a new run (`:162-202`); the one-file outbox then replaces the old snapshot on the next save (`RunOutbox.kt:26-47`). The five new tests cover only in-memory Idle/Acquiring/Paused/Finished states (`RunRecorderStartGuardTest.kt:27-77`). This is the exact `NDP2-R01` boundary, unchanged in `afa20e7`. | A background/process-killed route can appear as Record-ready and be silently overwritten by the next recording, despite the commit and evidence describing the guard as the protection against route loss. | Resolve every occupied outbox before exposing Record. Restore `finished=false` as an explicit salvage/save/discard state, or block `start()` while any pending file exists; never replace a different pending `clientId` without explicit resolution. Add process-restoration/overwrite coverage for the disk state. |
+| `RED-R02` | **P1** | **The new “surface once” flag can prevent even a finished outbox record from being hydrated after process recreation.** `pendingSurfaced` is `rememberSaveable`; when restored as `true`, the shell returns before calling both `restorePending()` and `resumeFinished()` (`ZidRunApp.kt:229-247`). `RunRecorder` is an in-memory singleton and restarts Idle, so the dock then offers Record even though `pending-run.json` still holds the finished run. The captured `am force-stop` path proves a cold flag (`false`), not Android saved-instance-state restoration with the flag already true. | An OS kill after the summary was surfaced once can strand a finished run, hide Save, and expose the same eventual overwrite path as `RED-R01`. The navigation-loop fix conflates “do not auto-open twice” with “do not hydrate.” | Always hydrate the recorder from disk when the singleton is empty. Gate only automatic navigation, using a pending-run identity/event rather than a saved Boolean; the dock must reflect the hydrated Finished state even when auto-navigation is suppressed. Verify cold launch, saved-state process recreation from shell and summary, back navigation, and a second distinct pending run. |
+| `RED-R03` | **P1** | **The Phase-4 success pulse makes a completed 700 ms hold cancellable for another 300 ms.** The hold coroutine reaches `progress == 1`, emits the confirming haptic, then awaits the aura loop before `onTriggered()` (`StartRunScreen.kt:407-446`). Releasing in that interval sets `holding=false` (`:455-463`), which changes the `LaunchedEffect` key, cancels the completion coroutine, and starts the wind-back branch. The new `aura` value is not reset on that aborted branch either. `d1496f3` expanded the post-haptic cancellation window from the old 110 ms beat to 300 ms. | A runner naturally releasing when the UI/haptic says “complete” can get no run start; in practice the advertised 700 ms action requires holding through roughly 1 second and may leave a partial aura behind. This is a failure in the core Record flow, not decorative polish. | Latch success the instant progress reaches 100%. After that point release must not enter the abort branch; invoke start independently of the decorative pulse (or transition immediately and run the pulse without blocking). Reset transient visual state on every abort/disposal. Gesture-check release before 700 ms, exactly at completion, during the aura, and under reduced motion/TalkBack. |
+| `RED-R04` | **P1** | **The commits implement choices that their own authority files still mark unapproved.** `RECOMMENDATION.md:3,77-84` says nothing is implemented and keeps the variant, empty-state direction, Western Arabic digits and typography pending; `UI_RULES.md:1-11,67-75,102-103,140-146` and `AGENTS.md` repeat that gate and require owner-approved mockups before Compose. `afa20e7` nevertheless implements Variant B, the lime empty hero, and globally normalizes bare Arabic to `ar-DZ` (`Format.kt:116-126`). `HANDOFF.md:48-51` confirms those durable decisions remain formally open. | Repository policy and product behavior disagree, and the numeral change affects every native screen using `currentLocale()`, not only Runs. A later session cannot distinguish an owner decision from an implementation assumption. | Obtain and record the four decisions, putting durable numeral/typography decisions in `PRODUCT.md`, then update the proposal status; otherwise revert/pause the pending-choice implementation. Do not treat “owner saw it” or approval to work in phases as answers to the four recorded asks. |
+| `RED-R05` | **P2** | **The stateful dock is absent whenever remote overview data is loading or initially unavailable.** Loading and empty-error/offline branches return before the `else` branch that owns `RecordDock` (`RunsOverviewScreen.kt:103-120,224-230`). Local recorder state is independent of that request. | A Recording/Acquiring/Paused/Finished run loses its Runs-tab route back during a slow or failed fetch, contradicting the central “visible at every state/scroll position” promise. | Render the recorder-aware action above all remote-data branches, or provide the equivalent local action on loading/error/offline states. Add those combinations to the proposal and device acceptance matrix. |
+| `RED-R06` | **P2** | **The trial “days left” value is one day low for almost the entire trial.** Phase 2 floors `Duration.between(now, endsAt).toDays()` and hides zero (`CoachScreen.kt:491-520`). The server defines a seven-day trial as signup time plus exactly seven 24-hour periods (`src/lib/coach/entitlement.ts:18,61-62`), so even seconds after signup the UI shows 6 days; with less than 24 hours it drops the count entirely. The web correctly uses `ceil` and a last-day state (`coach-dashboard.tsx:430-432`). The `remember(trialEndsAt)` value also does not advance while the screen remains composed. | Payment-adjacent status understates a new runner's entitlement immediately and becomes less informative on the final day, undermining the accuracy the reserved pill was meant to add. | Match the established entitlement semantics: ceil positive remaining time (or an explicitly approved calendar-day rule), show a localized last-day state, and recompute at an appropriate clock/lifecycle boundary. Cover just-created, 6d23h, 24h, under-24h, expiry, and malformed timestamps. |
+| `RED-R07` | **P2** | **The new localization/large-text paths still contain literal plural grammar and deliberate information loss.** The week hero concatenates a count with one fixed `runs_overview_streak` string (`RunsOverviewScreen.kt:444-470`), producing French `1 semaines de série` and invalid singular Arabic. Phase 2 adds `%1$d séance(s)` rather than a plural resource (`values-fr/strings.xml:344`; `PlanWeekScreen.kt:206-210`). Separately, `OverviewMetric` and every dock state force one-line ellipsis (`RunsOverviewScreen.kt:619-640,323-351`); the committed 1.3× screenshot visibly renders `TOTAL DISTAN…`, and there is no French device capture for the longer dock/counter strings. | The commits fix one “1 runs” class bug while adding/retaining the same class in prominent momentum and Coach counters. Large text and longer locales can hide metric or action meaning in the primary surface. | Use locale plural resources for streak and weekly-session grammar (including Arabic categories); redesign metric/dock layouts so the action/state and metric label remain intelligible at target font scale instead of relying on ellipsis. Verify 0/1/2/many in en/fr/ar RTL and all dock states in French/Arabic at 1.3×. |
+| `RED-R08` | **P2** | **The new “no timing” card infers a specific cause from derived-series emptiness and still hides elevation absence.** It claims the route has no per-point timing whenever splits are empty, pace has at most one point, and a route has more than one point (`RunDetailScreen.kt:223-233`). But timed short/stationary/filtered routes can also produce that shape: splits discard a remainder below 150 m and pace emits only after 250 m (`run-stats.ts:62-106,197-217`). The DTO already carries point-level `t`/`ele` (`Dtos.kt:330-345,411-436`), yet the screen does not inspect them. Elevation still disappears silently whenever its series has at most one point (`RunDetailScreen.kt:235-279`), contrary to the proposed “honest placeholder” rule. | Some runners receive a false technical explanation; others get no explanation for the missing elevation chart. The phase/evidence claim “honest empty series” is broader than the implementation. | Derive explicit availability/reason states from route data or, preferably, server-provided reason codes. Give timing/splits, pace, and elevation their own accurate absence states; do not equate an empty derived list with missing timestamps. Cover untimed, no-elevation, short timed, stationary/invalid-segment, manual, and fully populated routes. |
+| `RED-R09` | **P2** | **The committed pickup documents retain claims contradicted by the same commits and captures.** `DIAGNOSIS.md:17-18` still says native tokens were ported 1:1 from web despite the documented dark-palette divergence. `EXECUTION_PLAN.md:364` says all 1:1 claims were removed and large labels wrap instead of truncate, while the diagnosis remains and the committed large capture/code ellipsize them. `RECOMMENDATION.md:3` still says “Nothing here is implemented”; the Phase-1 evidence calls the process-death route verified without covering `RED-R02`; and `HANDOFF.md:13-22` repeats these closure/gate claims as pickup context. The empty-state HTML also still closes `.screen` before the dock and ends with an unmatched `div` (`src/runs-empty.html:52-92`), relying on browser error recovery for its render. | The sole tracker, proposal status, handoff, and mock source do not describe one coherent state. A different-device pickup can trust the wrong approval, responsive behavior, or recovery boundary. | Reconcile the current evidence into `EXECUTION_PLAN.md`, mark the process-restoration boundary open, correct/remove the 1:1 and wrapping claims, and update the proposal from “nothing implemented.” Keep `HANDOFF.md` as context only by linking to current tracker rows instead of duplicating closure status. Fix the mock HTML nesting before treating it as implementation evidence. |
+
+### Commit-by-commit static status
+
+| Commit | Status after review |
+|---|---|
+| `ced709d` design pass | **Partial / changes requested:** strong measured diagnosis and useful artifacts, but formal decisions remain pending and the diagnosis/mock source retain `RED-R04`/`RED-R09`. |
+| `afa20e7` Runs Phase 1 | **Changes requested:** hierarchy and in-memory state guard improve, while disk restoration, saved-state hydration, remote-error dock reach, plurals and responsive labels remain open (`RED-R01`, `R02`, `R05`, `R07`). |
+| `2528bf2` Coach Phase 2 | **Changes requested:** scoped labels and orange-icon treatment are sound; trial arithmetic and localized weekly grammar are not (`RED-R06`, `R07`). |
+| `f333b29` Runs Phase 3 | **Changes requested:** chart hues preserve the shipped chart/action structure; the empty-series explanation is not reliably truthful or complete (`RED-R08`). |
+| `d1496f3` Runs Phase 4 | **Changes requested:** fastest-split secondary encoding is useful; the blocking aura introduces a core start-gesture race (`RED-R03`). |
+| `7bcabb3` evidence | **Correction required:** it honestly leaves device verification open, but overstates “honest empty series” and inherits the implementation boundaries above. |
+| `69b85a2` handoff | **Useful but stale as status:** it clearly lists the pending device/owner work, but should not duplicate closure claims that conflict with source; status belongs in `EXECUTION_PLAN.md` (`RED-R09`). |
+
+### Static-review limitations
+
+- Per instruction, no tests, build, lint, typecheck, render command, emulator/device interaction,
+  database query, or runtime/API call was run. Validation totals in commit messages, the tracker and
+  handoff remain author-reported evidence.
+- The approved/proposed renders and all ten Phase-1 captures were inspected; the screenshots prove
+  appearance at captured moments, not recorder process restoration, gesture timing, focus order,
+  TalkBack, or navigation semantics. Phases 2–4 have no committed implementation captures.
+- Android saved-state restoration, coroutine cancellation timing, process death, background GPS,
+  locale grammar, dynamic font layout and offline behavior were reasoned about from committed source.
+- The repository-required ZidRun app-review skill guided the review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
+
+## 20. Static code review — commits `942bbc4` and `d9843ee`
+
+<!-- commit-review: 942bbc438bcaa07cb9711e62c738a7acd94c135e -->
+<!-- commit-review: d9843ee3d48cbce02a940c0cf9e08a0259c911f2 -->
+
+### Review boundary and verdict
+
+- **Reviewed commits, oldest first:**
+  `942bbc438bcaa07cb9711e62c738a7acd94c135e` and
+  `d9843ee3d48cbce02a940c0cf9e08a0259c911f2`, against parent
+  `69b85a2bce2244c9aa0d70292e32b872f1b7bdb3`.
+- **Scope:** the §19 `RED-R01`–`R09` remediation, recorder/outbox recovery, hold completion,
+  Runs/Coach plural and responsive changes, run-detail absence states, product/proposal authority,
+  and the 20 new Samsung M21 device captures. The current Runs/Coach flow documents, proposed UI
+  rules, and relevant approved reference images were used for comparison.
+- **Visual comparison:** all 20 new device captures and the relevant approved Runs/Coach references
+  were inspected at original resolution. The captures support the improved Runs hierarchy, dock
+  reach, Coach scope labels, three-theme chart hues, French singular, and the valid untimed-route
+  explanation. They also expose mixed Arabic numerals and unreadable light-theme system-bar icons.
+- **Verdict:** **changes requested.** The original same-account happy paths for `RED-R01`, `R02`,
+  `R03`, `R05`, `R06` and the specific new plurals are materially improved. Recovery is not yet a
+  safe account or storage boundary, chart absence remains incomplete, and the device/tracker claims
+  overstate the numeral and visual-acceptance result.
+- **Release/status boundary:** review evidence only. No release or acceptance gate closes here;
+  `EXECUTION_PLAN.md` remains the sole progress tracker and should be corrected rather than this
+  review being treated as one.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `P234-R01` | **P1** | **Recovered routes are not bound to the account that recorded them.** `PendingRun` persists only the request, finished flag and timestamp (`RunOutbox.kt:84-89`). The new shell path restores and auto-opens any pending file whenever *any* user reaches the signed-in shell (`ZidRunApp.kt:230-258`). Sign-out clears tokens and appearance only (`SessionManager.kt:155-166`; `AccountViewModel.kt:134-147`; `ZidRunApp.kt:557-567`), and the summary reconstructs the request and posts it through the currently authenticated repository (`RecordRunViewModel.kt:33-69`). | On a shared phone, account B can be shown account A's precise route after A signs out and can save a free run under B. A foreign `workoutId` may instead make the route unsaveable, but the location disclosure has already happened. Broadening recovery to interrupted snapshots makes this cross-account path cover live-route remnants too. | Persist an immutable owner user ID with every snapshot and enforce it before hydration, display, discard and upload. On voluntary sign-out, require an explicit save/discard decision or keep the record inaccessible until that owner returns; on revocation/account deletion follow an explicit purge policy. Verify A-records → sign out/revoke → B-signs-in, including finished and interrupted records and process recreation. |
+| `P234-R02` | **P1** | **Outbox I/O failures are swallowed, and the new disk guard turns an unreadable or undeletable file into a permanent false-Idle trap.** `save()`, `load()` and `clear()` discard every exception; `save()` also ignores a failed `renameTo` (`RunOutbox.kt:42-68`). `load()` can therefore return null while `hasPending()` remains true. The shell then hydrates nothing (`ZidRunApp.kt:246-249`), the dock advertises Record from the Idle singleton (`RunsOverviewScreen.kt:255-281`), but `start()` refuses solely because the file exists (`RunRecorder.kt:192-195`). `beginRecording()` interprets every refusal as an active recording and navigates to the live screen (`StartRunScreen.kt:254-268`), even though state is still Idle. A failed snapshot also silently removes the durability the recovery claim depends on. | A corrupt/old snapshot, full disk, permission/I/O failure, failed rename, or failed discard can either lose the run on process death or leave Record visibly available but non-functional until app data is cleared. The UI provides neither an explanation nor a safe repair path. | Make outbox operations return explicit states/results such as Empty, Valid, Corrupt and I/O failure; verify atomic publication/rename and deletion. Surface a localized recovery action that preserves/quarantines recoverable bytes and allows an explicit discard when necessary. `start()` and navigation must distinguish an active run from a blocked outbox, and durability failures during recording must be visible. Cover corrupt JSON, incompatible schema, write/rename/delete failure and retry. |
+| `P234-R03` | **P2** | **`RED-R08` remains partial because splits and pace still share one absence predicate and manual/invalid routes still get no truthful reason.** The new card is considered only when a route has more than one point, and timing copy appears only when *both* splits are empty and pace has at most one point (`RunDetailScreen.kt:223-262`). A short timed run can have a trailing split but no two-point pace series, so the pace section disappears silently. Manual/no-route and one-point runs skip the absence card entirely. Routes with two timestamps but only stationary, non-positive-time, or ≥15-second-gap segments are labelled “too short,” although the server filters those segments for different reasons (`run-stats.ts:40-58,62-106,197-217`). | The seeded untimed capture is now honest, but other supported run shapes still hide a metric or give a false cause. The implementation and evidence therefore do not satisfy the prior requirement for separate splits, pace and elevation availability. | Model availability per metric, preferably with server reason codes shared by web/native. Render independent truthful states for splits, pace and elevation, including manual/no-route, one-point, timed-short, stationary/invalid-gap, no-elevation and fully populated routes. Do not suppress one metric's explanation merely because another metric rendered. |
+| `P234-R04` | **P2** | **The Western-digit remediation fixes four new plurals, not the recorded app-wide numeral policy.** `ZidRunFormat.count()` is used by the new week/streak/trial plurals, but Arabic resources still contain many `%d` placeholders, including `coach_of_n`, `runs_step_minutes`, `runs_overview_count_summary`, setup steps and race/run values (`values-ar/strings.xml:39,83-99,211,228-233,302,340,353-356,366,407,436,488,565-567`). `SessionsRing` itself renders `completed.toString()` beside `stringResource(coach_of_n, planned)` (`CoachScreen.kt:450-480`). The new `p234-coach-overview-ar.png` visibly shows Western `3` over Arabic-Indic `٦`, and its workout target mixes Western `9,0` with Arabic-Indic `٥٥`. This contradicts the one-system-per-surface rule and `PRODUCT.md:74-80`'s statement that the provisional choice is app-wide. | Arabic remains internally inconsistent in prominent Coach/Run surfaces even though the follow-up commit and tracker describe the mixed-numeral regression as fixed. Screen-reader output and visual alignment can also vary between ad-hoc integer paths. | Centralize all displayed numeric formatting through the chosen locale/numbering system, replacing resource-locale `%d` formatting where the provisional Western-digit policy applies; localize matching semantics strings too. Audit every Arabic `%d` call site and verify representative 0/1/2/many counts, times, distances, setup steps and the Coach ring in one captured surface before claiming app-wide consistency. |
+| `P234-R05` | **P2** | **The light app theme does not drive system-bar icon appearance, and every newly committed light capture shows near-invisible status information.** `MainActivity` calls parameterless `enableEdgeToEdge()` once (`MainActivity.kt:33-52`), whose automatic light/dark choice follows the system configuration. ZidRun independently selects Light/Dark/Race inside Compose through `AppearanceController.themeMode` (`AppearanceController.kt:24-48`; `ZidRunApp.kt:127`). On the captured dark-system/light-app combination, the clock, connectivity and battery icons are white on the `#F9FAFB` background in the light Coach, Runs and run-detail images. | Time, connectivity and battery state are effectively unreadable in light mode—the exact outdoor/mobile context this feature targets. Theme switching can leave platform chrome inconsistent with the app surface even when in-app contrast is correct. | Drive edge-to-edge `SystemBarStyle`/window-insets-controller appearance from the active ZidRun theme: dark foreground icons for Light and light icons for Dark/Race, updated immediately on theme changes. Verify status and navigation bars in all three app themes while the OS itself is in both light and dark mode. |
+| `P234-R06` | **P2** | **The committed “phases 2–4 verified” evidence is still a sampling pass and overstates closure.** The 2026-08-05 tracker row says the numeral regression is fixed, while its own Arabic Coach capture proves `P234-R04`; it also leaves `EXECUTION_PLAN.md`'s `Last updated` at 2026-08-04 (`:7,360-363`). The new set contains only an acquiring/zero-distance live screen—no fastest split, stable GPS, auto-paused, paused or 1.3× live state—and 1.3× evidence only for the Runs overview, not the changed Coach header or detail/live surfaces. No run-detail/live French or Arabic capture is present. `PRODUCT.md` also duplicates mutable closure status (“five P1 conditions ... remediated”) inside a file whose header says status/evidence never live there (`PRODUCT.md:3-4,68-80`). | A later release/pickup can treat a partial capture set as completion evidence and miss exactly the numeral/system-chrome defects visible in those artifacts. Stable product authority can also go stale as review findings reopen implementation boundaries. | Amend the 2026-08-05 evidence row to distinguish the cases actually observed from the still-open matrix, record `P234-R01`–`R05`, update the tracker date, and remove remediation status from `PRODUCT.md` while retaining only the Variant-B decision and clearly provisional choices. Add the missing phase-specific theme/locale/font/state evidence before calling phases 2–4 device-accepted. |
+
+### Static status of the advertised §19 remediation
+
+| Prior finding / claim | Static status after `d9843ee` |
+|---|---|
+| `RED-R01` / `RED-R02` valid same-account process recovery | **Implemented for a readable outbox:** interrupted and finished snapshots hydrate without the saved-navigation flag suppressing them. Account ownership and explicit storage-failure states remain open (`P234-R01`, `P234-R02`). |
+| `RED-R03` hold-release race | **Implemented by source inspection:** completion is latched before the decorative aura, so release no longer cancels the owed start. Permission-denial retry remains available through the separate Grant permission action. |
+| `RED-R04` proposal authority | **Improved:** Variant B is recorded as decided and the other three choices remain explicitly provisional. Mutable remediation status should not live in `PRODUCT.md` (`P234-R06`). |
+| `RED-R05` dock under loading/error | **Implemented by source inspection:** the local recorder dock now renders outside the remote-data branch. |
+| `RED-R06` trial arithmetic | **Implemented by source inspection:** positive remaining seconds use ceiling semantics and the final partial day has localized copy. Boundary/runtime behavior was not executed in this review. |
+| `RED-R07` new plural/large-label cases | **Implemented for the four changed plurals and captured Runs label:** the wider app-level numeral claim remains false (`P234-R04`). |
+| `RED-R08` honest metric absence | **Partial:** the untimed/no-elevation fixture is correctly explained; independent metric and invalid/manual route states remain (`P234-R03`). |
+| `RED-R09` documentation consistency | **Partial:** the proposal is more current, but tracker/product evidence still overclaims and duplicates status (`P234-R06`). |
+
+### Static-review limitations
+
+- Per instruction, no tests, build, lint, typecheck, render command, emulator/device interaction,
+  database query, or runtime/API call was run. Validation totals and gesture/device observations in
+  the commit messages and tracker remain author-reported.
+- The 20 committed phase-2–4 captures and relevant approved reference images were inspected at
+  original resolution. PNGs prove only their captured state; they do not prove touch timing,
+  TalkBack/focus order, process/account transitions, outbox I/O behavior or system-inset semantics.
+- The repository-required ZidRun app-review skill guided this review. The separately referenced
+  `impeccable` skill was unavailable in this workspace.
