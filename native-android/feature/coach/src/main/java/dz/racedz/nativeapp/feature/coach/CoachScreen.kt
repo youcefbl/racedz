@@ -490,6 +490,7 @@ private fun SessionsRing(completed: Int, planned: Int) {
 @Composable
 private fun TrialPill(trialEndsAt: String?, modifier: Modifier = Modifier) {
     val colors = ZidRunTheme.colors
+    val locale = currentLocale()
     // Ceiling, matching the server's and web's entitlement semantics (RED-R06): seconds after
     // signup a 7-day trial shows "7 days left", not 6; the final partial day is its own state.
     // Deliberately NOT remembered: the value recomputes on every recomposition, and the screen
@@ -516,7 +517,7 @@ private fun TrialPill(trialEndsAt: String?, modifier: Modifier = Modifier) {
                 daysLeft <= 1 -> stringResource(R.string.coach_trial) + " · " +
                     stringResource(R.string.coach_trial_last_day)
                 else -> stringResource(R.string.coach_trial) + " · " +
-                    pluralStringResource(R.plurals.coach_trial_days_left, daysLeft, daysLeft)
+                    pluralStringResource(R.plurals.coach_trial_days_left, daysLeft, ZidRunFormat.count(daysLeft, locale))
             },
             style = MaterialTheme.typography.labelMedium,
             color = colors.primary,

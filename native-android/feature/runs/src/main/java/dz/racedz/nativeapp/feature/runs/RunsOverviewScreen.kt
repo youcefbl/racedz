@@ -454,7 +454,7 @@ private fun WeekHeroCard(distanceKm: Double, runCount: Int, streakWeeks: Int) {
             modifier = Modifier.padding(top = ZidRunDimens.spaceXs),
         ) {
             Text(
-                text = pluralStringResource(R.plurals.runs_overview_count, runCount, runCount),
+                text = pluralStringResource(R.plurals.runs_overview_count, runCount, ZidRunFormat.count(runCount, locale)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.65f),
             )
@@ -473,7 +473,11 @@ private fun WeekHeroCard(distanceKm: Double, runCount: Int, streakWeeks: Int) {
                 Text(
                     // A real plural resource, not "$n $noun" concatenation — that produced
                     // "1 semaines de série" in French and invalid singular Arabic (RED-R07).
-                    text = pluralStringResource(R.plurals.runs_overview_streak_weeks, streakWeeks, streakWeeks),
+                    text = pluralStringResource(
+                        R.plurals.runs_overview_streak_weeks,
+                        streakWeeks,
+                        ZidRunFormat.count(streakWeeks, locale),
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.65f),
                 )

@@ -253,20 +253,20 @@
     <string name="runs_series_unavailable">This run\u2019s route has no per-point timing, so splits and pace can\u2019t be charted.</string>
     <string name="runs_split_fastest">fastest</string>
     <plurals name="coach_plan_sessions_week">
-        <item quantity="one">%1$d of %2$d sessions this week</item>
-        <item quantity="other">%1$d of %2$d sessions this week</item>
+        <item quantity="one">%1$s of %2$s sessions this week</item>
+        <item quantity="other">%1$s of %2$s sessions this week</item>
     </plurals>
     <plurals name="runs_overview_streak_weeks">
-        <item quantity="one">%1$d week streak</item>
-        <item quantity="other">%1$d week streak</item>
+        <item quantity="one">%1$s week streak</item>
+        <item quantity="other">%1$s week streak</item>
     </plurals>
     <string name="coach_trial_last_day">last day</string>
     <string name="runs_series_too_short">This run is too short for splits and pace charts.</string>
     <string name="runs_elevation_no_data">No elevation data was recorded on this route.</string>
     <string name="runs_record">Record run</string>
     <plurals name="runs_overview_count">
-        <item quantity="one">%1$d run</item>
-        <item quantity="other">%1$d runs</item>
+        <item quantity="one">%1$s run</item>
+        <item quantity="other">%1$s runs</item>
     </plurals>
     <string name="runs_dock_paused">Paused · %1$s km</string>
     <string name="runs_empty_hero_title">Your first run starts here</string>
@@ -372,8 +372,8 @@
     <string name="coach_trial">Free trial</string>
     <string name="coach_sessions_done_plan">Sessions completed — whole plan</string>
     <plurals name="coach_trial_days_left">
-        <item quantity="one">%1$d day left</item>
-        <item quantity="other">%1$d days left</item>
+        <item quantity="one">%1$s day left</item>
+        <item quantity="other">%1$s days left</item>
     </plurals>
     <string name="coach_locked_title">Your AI running coach</string>
     <string name="coach_locked_body">Get a training plan built around your goal, with feedback after every run.</string>

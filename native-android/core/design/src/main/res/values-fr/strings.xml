@@ -232,23 +232,23 @@
     <string name="runs_series_unavailable">Le tracé de cette sortie n\u2019a pas d\u2019horodatage point par point, donc les fractionnés et l\u2019allure ne peuvent pas être tracés.</string>
     <string name="runs_split_fastest">le plus rapide</string>
     <plurals name="coach_plan_sessions_week">
-        <item quantity="one">%1$d séance sur %2$d cette semaine</item>
-        <item quantity="many">%1$d séances sur %2$d cette semaine</item>
-        <item quantity="other">%1$d séances sur %2$d cette semaine</item>
+        <item quantity="one">%1$s séance sur %2$s cette semaine</item>
+        <item quantity="many">%1$s séances sur %2$s cette semaine</item>
+        <item quantity="other">%1$s séances sur %2$s cette semaine</item>
     </plurals>
     <plurals name="runs_overview_streak_weeks">
-        <item quantity="one">série de %1$d semaine</item>
-        <item quantity="many">série de %1$d semaines</item>
-        <item quantity="other">série de %1$d semaines</item>
+        <item quantity="one">série de %1$s semaine</item>
+        <item quantity="many">série de %1$s semaines</item>
+        <item quantity="other">série de %1$s semaines</item>
     </plurals>
     <string name="coach_trial_last_day">dernier jour</string>
     <string name="runs_series_too_short">Cette sortie est trop courte pour les fractionnés et la courbe d’allure.</string>
     <string name="runs_elevation_no_data">Aucune donnée d’altitude n’a été enregistrée sur ce tracé.</string>
     <string name="runs_record">Enregistrer</string>
     <plurals name="runs_overview_count">
-        <item quantity="one">%1$d sortie</item>
-        <item quantity="many">%1$d sorties</item>
-        <item quantity="other">%1$d sorties</item>
+        <item quantity="one">%1$s sortie</item>
+        <item quantity="many">%1$s sorties</item>
+        <item quantity="other">%1$s sorties</item>
     </plurals>
     <string name="runs_dock_paused">En pause · %1$s km</string>
     <string name="runs_empty_hero_title">Votre première sortie commence ici</string>
@@ -354,9 +354,9 @@
     <string name="coach_trial">Essai gratuit</string>
     <string name="coach_sessions_done_plan">Séances terminées — plan complet</string>
     <plurals name="coach_trial_days_left">
-        <item quantity="one">%1$d jour restant</item>
-        <item quantity="many">%1$d jours restants</item>
-        <item quantity="other">%1$d jours restants</item>
+        <item quantity="one">%1$s jour restant</item>
+        <item quantity="many">%1$s jours restants</item>
+        <item quantity="other">%1$s jours restants</item>
     </plurals>
     <string name="coach_locked_title">Votre coach IA</string>
     <string name="coach_locked_body">Un plan bâti autour de votre objectif, avec un retour après chaque sortie.</string>

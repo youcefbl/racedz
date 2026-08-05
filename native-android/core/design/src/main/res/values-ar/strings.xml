@@ -238,32 +238,32 @@
     <string name="runs_series_unavailable">مسار هذي الجَرية ما فيهش توقيت لكل نقطة، لهذا ما نقدروش نرسمو السبليتات والإيقاع.</string>
     <string name="runs_split_fastest">الأسرع</string>
     <plurals name="coach_plan_sessions_week">
-        <item quantity="zero">%1$d من %2$d حصص هذا الأسبوع</item>
-        <item quantity="one">حصة وحدة من %2$d هذا الأسبوع</item>
-        <item quantity="two">حصتين من %2$d هذا الأسبوع</item>
-        <item quantity="few">%1$d حصص من %2$d هذا الأسبوع</item>
-        <item quantity="many">%1$d حصة من %2$d هذا الأسبوع</item>
-        <item quantity="other">%1$d حصة من %2$d هذا الأسبوع</item>
+        <item quantity="zero">%1$s من %2$s حصص هذا الأسبوع</item>
+        <item quantity="one">حصة وحدة من %2$s هذا الأسبوع</item>
+        <item quantity="two">حصتين من %2$s هذا الأسبوع</item>
+        <item quantity="few">%1$s حصص من %2$s هذا الأسبوع</item>
+        <item quantity="many">%1$s حصة من %2$s هذا الأسبوع</item>
+        <item quantity="other">%1$s حصة من %2$s هذا الأسبوع</item>
     </plurals>
     <plurals name="runs_overview_streak_weeks">
-        <item quantity="zero">%1$d أسابيع متتابعة</item>
+        <item quantity="zero">%1$s أسابيع متتابعة</item>
         <item quantity="one">أسبوع واحد متتابع</item>
         <item quantity="two">أسبوعين متتابعين</item>
-        <item quantity="few">%1$d أسابيع متتابعة</item>
-        <item quantity="many">%1$d أسبوع متتابع</item>
-        <item quantity="other">%1$d أسبوع متتابع</item>
+        <item quantity="few">%1$s أسابيع متتابعة</item>
+        <item quantity="many">%1$s أسبوع متتابع</item>
+        <item quantity="other">%1$s أسبوع متتابع</item>
     </plurals>
     <string name="coach_trial_last_day">آخر يوم</string>
     <string name="runs_series_too_short">هذي الجَرية قصيرة بزاف باش نرسمو السبليتات والإيقاع.</string>
     <string name="runs_elevation_no_data">ما تسجّلتش بيانات الارتفاع فهذا المسار.</string>
     <string name="runs_record">سجّل</string>
     <plurals name="runs_overview_count">
-        <item quantity="zero">%1$d جَريات</item>
+        <item quantity="zero">%1$s جَريات</item>
         <item quantity="one">جَرية وحدة</item>
         <item quantity="two">جَريتين</item>
-        <item quantity="few">%1$d جَريات</item>
-        <item quantity="many">%1$d جَرية</item>
-        <item quantity="other">%1$d جَرية</item>
+        <item quantity="few">%1$s جَريات</item>
+        <item quantity="many">%1$s جَرية</item>
+        <item quantity="other">%1$s جَرية</item>
     </plurals>
     <string name="runs_dock_paused">موقّفة · %1$s كم</string>
     <string name="runs_empty_hero_title">أول جَرية تاعك تبدا من هنا</string>
@@ -369,12 +369,12 @@
     <string name="coach_trial">تجربة مجانية</string>
     <string name="coach_sessions_done_plan">حصص كمّلتها — البرنامج كامل</string>
     <plurals name="coach_trial_days_left">
-        <item quantity="zero">باقي %1$d يوم</item>
+        <item quantity="zero">باقي %1$s يوم</item>
         <item quantity="one">باقي يوم واحد</item>
         <item quantity="two">باقي يومين</item>
-        <item quantity="few">باقي %1$d أيام</item>
-        <item quantity="many">باقي %1$d يوم</item>
-        <item quantity="other">باقي %1$d يوم</item>
+        <item quantity="few">باقي %1$s أيام</item>
+        <item quantity="many">باقي %1$s يوم</item>
+        <item quantity="other">باقي %1$s يوم</item>
     </plurals>
     <string name="coach_locked_title">المدرب الذكي تاعك</string>
     <string name="coach_locked_body">برنامج مبني على هدفك، مع ملاحظات بعد كل سورتي.</string>

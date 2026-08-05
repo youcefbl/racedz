@@ -45,6 +45,18 @@ object ZidRunFormat {
     fun money(amount: Int, locale: Locale): String =
         NumberFormat.getIntegerInstance(locale).format(amount)
 
+    /**
+     * A plain whole number for a plural's placeholder.
+     *
+     * Plural resources take `%1$s` and are handed this, rather than `%1$d`: Android formats a
+     * `%d` argument with the *resource configuration* locale, which for Arabic is bare `ar` and
+     * renders Arabic-Indic digits (٧) — beside a [decimal] value formatted through
+     * [currentLocale]'s `ar-DZ` normalisation, that put two numeral systems in one card, which is
+     * exactly the defect the numeral rule exists to prevent.
+     */
+    fun count(value: Int, locale: Locale): String =
+        NumberFormat.getIntegerInstance(locale).format(value)
+
     fun distance(km: Double, locale: Locale): String {
         // Whole kilometres are by far the common case (5K, 10K, 21K) and "10 km" reads better
         // than "10.0 km"; fractional distances keep one decimal.

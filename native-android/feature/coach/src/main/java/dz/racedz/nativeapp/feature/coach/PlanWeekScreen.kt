@@ -206,7 +206,12 @@ fun PlanWeekScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = pluralStringResource(R.plurals.coach_plan_sessions_week, done, done, total),
+                            text = pluralStringResource(
+                                R.plurals.coach_plan_sessions_week,
+                                done,
+                                ZidRunFormat.count(done, locale),
+                                ZidRunFormat.count(total, locale),
+                            ),
                             style = MaterialTheme.typography.titleSmall,
                             color = colors.textMuted,
                         )
