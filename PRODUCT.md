@@ -69,13 +69,15 @@ Durable owner decisions; status and evidence live in `EXECUTION_PLAN.md`, never 
 
 - **Runs overview uses Variant B** (sticky thumb-zone dock; stats scroll, the stateful Record
   action stays pinned above the tab bar). Decided by the owner in review: "Variant B is the best
-  overview direction"; the five P1 conditions attached to that approval were remediated
-  (`coach_review_fable_codex.md` §11A, §19).
+  overview direction". Implementation and review status for that decision live in
+  `EXECUTION_PLAN.md`, never here.
 - **Still OPEN — implemented provisionally, awaiting explicit ratification** (the owner approved
   building the reviewed mockups in phases, which is not an answer to these recorded asks):
   1. the empty-state art direction (Z mark + lime headline on the dark hero surface);
-  2. **Western digits for Arabic (ar-DZ)** — note this is app-wide: `currentLocale()` normalizes
-     bare `ar` to `ar-DZ` on every native screen, not only Runs;
+  2. **Western digits for Arabic (ar-DZ)** — intended app-wide: `currentLocale()` normalizes bare
+     `ar` to `ar-DZ`, but Android formats `%d` resource arguments with the raw `ar` config locale,
+     so every such call site must be converted individually; the conversion is in progress, not
+     complete (tracked in `EXECUTION_PLAN.md`);
   3. the display-typography question — PRODUCT.md's brand section names Audiowide, the shipped
      token system is deliberately Manrope-only; Manrope is what ships until this is decided.
   A "no" on any of these is a cheap revert; record the answers here when given.

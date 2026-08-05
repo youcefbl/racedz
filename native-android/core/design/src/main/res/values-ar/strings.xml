@@ -256,6 +256,8 @@
     <string name="coach_trial_last_day">آخر يوم</string>
     <string name="runs_series_too_short">هذي الجَرية قصيرة بزاف باش نرسمو السبليتات والإيقاع.</string>
     <string name="runs_elevation_no_data">ما تسجّلتش بيانات الارتفاع فهذا المسار.</string>
+    <string name="runs_series_no_route">هذي الجَرية ما فيهاش مسار GPS، ما كاين والو باش نرسموه.</string>
+    <string name="runs_outbox_blocked">كاين جَرية محفوظة ما نقدروش نقراوها — كليكي باش تمسحها</string>
     <string name="runs_record">سجّل</string>
     <plurals name="runs_overview_count">
         <item quantity="zero">%1$s جَريات</item>
@@ -363,7 +365,7 @@
     <string name="coach_log_run">سجّل هذي السورتي</string>
     <string name="coach_this_week">هذا الأسبوع</string>
     <string name="coach_sessions_done">حصص كمّلتها</string>
-    <string name="coach_of_n">من %1$d</string>
+    <string name="coach_of_n">من %1$s</string>
     <string name="coach_next_workout">الحصة الجاية</string>
     <string name="coach_latest_review">آخر ملاحظة من المدرب</string>
     <string name="coach_trial">تجربة مجانية</string>

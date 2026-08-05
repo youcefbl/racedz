@@ -255,6 +255,10 @@ private fun RecordDock(
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
     val recording by RunRecorder.state.collectAsStateWithLifecycle()
+    // An unreadable snapshot blocks recording. Offering Record anyway produced a button that did
+    // nothing and navigated to an empty live screen (P234-R02); the runner is told instead, and
+    // given the one action that clears it.
+    val outboxBlocked by RunRecorder.outboxBlocked.collectAsStateWithLifecycle()
 
     Box(
         modifier = modifier
@@ -272,7 +276,16 @@ private fun RecordDock(
                 bottom = ZidRunDimens.spaceMd,
             ),
     ) {
-        when (recording.status) {
+        when {
+            recording.status == RecordingStatus.Idle && outboxBlocked -> DockButton(
+                label = stringResource(R.string.runs_outbox_blocked),
+                container = colors.dangerSoft,
+                content = colors.textStrong,
+                border = colors.danger,
+                onClick = { RunRecorder.resolveUnreadableOutbox() },
+            )
+
+            else -> when (recording.status) {
             RecordingStatus.Idle -> DockButton(
                 label = stringResource(if (firstRun) R.string.runs_record_first else R.string.runs_record),
                 container = colors.primary,
@@ -320,6 +333,7 @@ private fun RecordDock(
                 border = colors.accentStrong,
                 onClick = onOpenPendingSave,
             )
+            }
         }
     }
 }

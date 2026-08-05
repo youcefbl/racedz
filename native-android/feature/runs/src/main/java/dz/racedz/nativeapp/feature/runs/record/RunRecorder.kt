@@ -122,8 +122,59 @@ object RunRecorder {
     private var outbox: RunOutbox? = null
     private var lastSnapshotMs = 0L
 
+    /**
+     * The account whose runs this process may record and recover (P234-R01). Set on sign-in and
+     * cleared on sign-out; a snapshot belonging to anyone else is never hydrated, shown or saved.
+     */
+    private var ownerUserId: String? = null
+
+    /** True when a snapshot exists that this device cannot read — recording stays blocked until
+     * the runner resolves it, and the UI must say so rather than offering a dead Record button. */
+    private val _outboxBlocked = MutableStateFlow(false)
+    val outboxBlocked: StateFlow<Boolean> = _outboxBlocked.asStateFlow()
+
+    /** True when the last snapshot attempt failed, so the run in progress is not durable. */
+    private val _snapshotFailing = MutableStateFlow(false)
+    val snapshotFailing: StateFlow<Boolean> = _snapshotFailing.asStateFlow()
+
     fun attachOutbox(outbox: RunOutbox) {
         this.outbox = outbox
+    }
+
+    /** Called when the signed-in account changes. Passing null (sign-out) drops the live state. */
+    fun setOwner(userId: String?) {
+        if (ownerUserId == userId) return
+        ownerUserId = userId
+        // A recording belongs to the person who started it. Switching accounts must not carry a
+        // live run — or its route — into the new session; the snapshot stays on disk for its
+        // owner to resolve when they sign back in.
+        if (_state.value.status != RecordingStatus.Idle) {
+            route.clear()
+            lastFix = null
+            _state.value = RecordingState()
+        }
+        refreshOutboxBlocked()
+    }
+
+    /**
+     * The pending run for an account, or null. Storage is per-account, and the owner recorded
+     * inside the snapshot is checked as well — a file copied or restored into the wrong slot is
+     * still refused rather than shown to the wrong person.
+     */
+    fun pendingFor(userId: String?): PendingRun? {
+        if (userId.isNullOrBlank()) return null
+        val state = outbox?.read(userId) ?: return null
+        return (state as? OutboxState.Present)?.run?.takeIf { it.ownerUserId == userId }
+    }
+
+    /** Moves this account's unreadable snapshot aside so recording can resume. */
+    fun resolveUnreadableOutbox() {
+        outbox?.quarantineUnreadable(ownerUserId)
+        refreshOutboxBlocked()
+    }
+
+    private fun refreshOutboxBlocked() {
+        _outboxBlocked.value = outbox?.read(ownerUserId) is OutboxState.Unreadable
     }
 
     /**
@@ -141,13 +192,17 @@ object RunRecorder {
         if (!force && now - lastSnapshotMs < SNAPSHOT_INTERVAL_MS) return
         lastSnapshotMs = now
 
-        box.save(
+        val written = box.save(
             PendingRun(
                 request = current.toCreateRequest(),
                 finished = current.status == RecordingStatus.Finished,
                 updatedAtEpochMs = now,
+                ownerUserId = ownerUserId,
             )
         )
+        // A failed write means the run is no longer backed by anything — the runner is told, rather
+        // than discovering it only after a process kill (P234-R02).
+        _snapshotFailing.value = !written
     }
 
     /**
@@ -159,7 +214,7 @@ object RunRecorder {
      * invisible on disk while the Idle singleton offered Record — and the one-file outbox would
      * then overwrite it on the next recording's first snapshot.
      */
-    fun restorePending(): PendingRun? = outbox?.load()
+    fun restorePending(): PendingRun? = pendingFor(ownerUserId)
 
     private val _state = MutableStateFlow(RecordingState())
     val state: StateFlow<RecordingState> = _state.asStateFlow()
@@ -191,7 +246,17 @@ object RunRecorder {
      */
     fun start(workoutId: String? = null): Boolean {
         if (_state.value.status != RecordingStatus.Idle) return false
-        if (outbox?.hasPending() == true) return false
+        // Only a *resolvable* snapshot blocks a new run. An unreadable one also blocks — but the
+        // caller learns which through [outboxBlocked], instead of Record silently doing nothing
+        // and the app navigating to an empty live screen (P234-R02).
+        when (outbox?.read(ownerUserId)) {
+            is OutboxState.Present -> return false
+            OutboxState.Unreadable -> {
+                _outboxBlocked.value = true
+                return false
+            }
+            else -> Unit
+        }
         route.clear()
         lastFix = null
         lastAcceptedTimeMs = 0
@@ -245,7 +310,11 @@ object RunRecorder {
         route.clear()
         lastFix = null
         lastSnapshotMs = 0L
-        outbox?.clear()
+        _snapshotFailing.value = false
+        // A delete that fails would otherwise leave the file blocking every future recording with
+        // no way out; quarantining it keeps the bytes for support while unblocking the runner.
+        if (outbox?.clear(ownerUserId) == false) outbox?.quarantineUnreadable(ownerUserId)
+        refreshOutboxBlocked()
         _state.value = RecordingState()
     }
 

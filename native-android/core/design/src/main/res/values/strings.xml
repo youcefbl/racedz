@@ -263,6 +263,8 @@
     <string name="coach_trial_last_day">last day</string>
     <string name="runs_series_too_short">This run is too short for splits and pace charts.</string>
     <string name="runs_elevation_no_data">No elevation data was recorded on this route.</string>
+    <string name="runs_series_no_route">This run has no GPS route, so there is nothing to chart.</string>
+    <string name="runs_outbox_blocked">A saved run can\u2019t be read — tap to clear it</string>
     <string name="runs_record">Record run</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$s run</item>
@@ -366,7 +368,7 @@
     <string name="coach_log_run">Log this run</string>
     <string name="coach_this_week">This week</string>
     <string name="coach_sessions_done">Sessions completed</string>
-    <string name="coach_of_n">of %1$d</string>
+    <string name="coach_of_n">of %1$s</string>
     <string name="coach_next_workout">Next workout</string>
     <string name="coach_latest_review">Latest coach review</string>
     <string name="coach_trial">Free trial</string>

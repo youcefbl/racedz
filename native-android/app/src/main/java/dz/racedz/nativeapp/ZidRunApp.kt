@@ -11,6 +11,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,6 +27,7 @@ import dz.racedz.nativeapp.core.auth.SignOutReason
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AppFeaturesDto
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunThemeMode
 import dz.racedz.nativeapp.feature.account.AccountViewModel
 import dz.racedz.nativeapp.feature.account.PrivacyDataScreen
 import dz.racedz.nativeapp.feature.account.ProfilePreferencesScreen
@@ -88,6 +91,13 @@ fun ZidRunApp(
     // than shown and then refused — offering something that answers "subscribe first" is worse than
     // not offering it. Read once per signed-in session; a tier change mid-session is rare enough
     // that a relaunch picking it up is acceptable.
+    // The recorder must know whose runs it may record and recover: a snapshot is bound to its
+    // owner, and switching accounts drops any live state rather than carrying one person's route
+    // into another person's session (P234-R01).
+    LaunchedEffect(authState) {
+        RunRecorder.setOwner((authState as? AuthState.SignedIn)?.userId)
+    }
+
     var coachEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(authState) {
         coachEnabled = if (authState is AuthState.SignedIn) {
@@ -123,6 +133,22 @@ fun ZidRunApp(
     // destination with it. Park the slug and open it once the splash has handed over.
     var splashResolved by remember { mutableStateOf(false) }
     var pendingRaceSlug by remember { mutableStateOf<String?>(null) }
+
+    // System bars follow the *app's* theme, not the OS configuration (P234-R05). `enableEdgeToEdge()`
+    // in MainActivity picks icon appearance from the system's own light/dark setting, so a light
+    // ZidRun theme on a dark-mode phone drew white clock/battery/signal icons onto the light
+    // `#F9FAFB` background — unreadable exactly where this app is used, outdoors.
+    val view = LocalView.current
+    val lightAppTheme = appearance.themeMode == ZidRunThemeMode.Light
+    if (!view.isInEditMode) {
+        LaunchedEffect(lightAppTheme) {
+            val window = (view.context as? android.app.Activity)?.window ?: return@LaunchedEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = lightAppTheme
+                isAppearanceLightNavigationBars = lightAppTheme
+            }
+        }
+    }
 
     ZidRunTheme(mode = appearance.themeMode) {
         val navController = rememberNavController()
@@ -243,8 +269,10 @@ fun ZidRunApp(
                 // then the shell stays reachable and the dock is the way back. A different pending
                 // run (a new death) surfaces itself again.
                 var surfacedPendingId by rememberSaveable { mutableStateOf<String?>(null) }
-                LaunchedEffect(Unit) {
-                    val pending = RunRecorder.restorePending() ?: return@LaunchedEffect
+                LaunchedEffect(authState) {
+                    val userId = (authState as? AuthState.SignedIn)?.userId ?: return@LaunchedEffect
+                    // Owner-scoped: another account's snapshot is neither hydrated nor shown.
+                    val pending = RunRecorder.pendingFor(userId) ?: return@LaunchedEffect
                     if (RunRecorder.state.value.status == RecordingStatus.Idle) {
                         RunRecorder.resumeFinished(pending)
                     }

@@ -220,36 +220,60 @@ fun RunDetailScreen(
                     }
                 }
 
-                // Honest absence states, derived from what the route actually carries rather than
-                // inferred from an empty series (RED-R08): a timed route can still be too short for
-                // splits (remainder under 150 m) or pace (first point at 250 m), and elevation has
-                // its own availability independent of timing.
+                // Availability is answered per metric (P234-R03): one chart rendering must not
+                // suppress another's explanation, and the reason must match the actual cause —
+                // no route at all, a route without timing, or a route too short for the server's
+                // windows (splits drop a sub-150 m remainder; pace needs 250 m).
                 val routePoints = run.route.orEmpty()
-                if (routePoints.size > 1) {
-                    val timedPoints = routePoints.count { it.t != null }
-                    val elevatedPoints = routePoints.count { it.ele != null }
-                    val reasons = buildList {
-                        if (run.splits.isEmpty() && run.paceSeries.size <= 1) {
-                            add(
-                                stringResource(
-                                    if (timedPoints < 2) R.string.runs_series_unavailable
-                                    else R.string.runs_series_too_short
-                                )
+                val timedPoints = routePoints.count { it.t != null }
+                val elevatedPoints = routePoints.count { it.ele != null }
+                val hasRoute = routePoints.size > 1
+
+                val missing = buildList {
+                    if (run.splits.isEmpty()) {
+                        add(
+                            stringResource(R.string.runs_splits) to stringResource(
+                                when {
+                                    !hasRoute -> R.string.runs_series_no_route
+                                    timedPoints < 2 -> R.string.runs_series_unavailable
+                                    else -> R.string.runs_series_too_short
+                                }
                             )
-                        }
-                        if (run.elevationSeries.size <= 1) {
-                            add(
-                                stringResource(
-                                    if (elevatedPoints < 2) R.string.runs_elevation_no_data
-                                    else R.string.runs_series_too_short
-                                )
+                        )
+                    }
+                    if (run.paceSeries.size <= 1) {
+                        add(
+                            stringResource(R.string.runs_pace_chart) to stringResource(
+                                when {
+                                    !hasRoute -> R.string.runs_series_no_route
+                                    timedPoints < 2 -> R.string.runs_series_unavailable
+                                    else -> R.string.runs_series_too_short
+                                }
                             )
-                        }
-                    }.distinct()
-                    if (reasons.isNotEmpty()) {
-                        ZidRunCard {
-                            Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
-                                reasons.forEach { reason ->
+                        )
+                    }
+                    if (run.elevationSeries.size <= 1) {
+                        add(
+                            stringResource(R.string.runs_elevation) to stringResource(
+                                when {
+                                    !hasRoute -> R.string.runs_series_no_route
+                                    elevatedPoints < 2 -> R.string.runs_elevation_no_data
+                                    else -> R.string.runs_series_too_short
+                                }
+                            )
+                        )
+                    }
+                }
+                if (missing.isNotEmpty()) {
+                    ZidRunCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                            missing.forEach { (metric, reason) ->
+                                Column {
+                                    Text(
+                                        text = metric,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = colors.textStrong,
+                                    )
                                     Text(
                                         text = reason,
                                         style = MaterialTheme.typography.bodySmall,

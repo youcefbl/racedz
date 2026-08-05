@@ -44,10 +44,10 @@ class RunOutboxTest {
 
     @Test
     fun `a saved run is readable by a fresh instance`() {
-        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 123))
+        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 123, ownerUserId = TEST_OWNER))
 
         // A new instance stands in for a new process: this is the whole point.
-        val restored = RunOutbox(FakeContext(root)).load()
+        val restored = RunOutbox(FakeContext(root)).load(TEST_OWNER)
 
         assertNotNull(restored)
         assertEquals("c-1", restored!!.request.clientId)
@@ -57,9 +57,9 @@ class RunOutboxTest {
 
     @Test
     fun `the route survives the round trip`() {
-        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 1))
+        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 1, ownerUserId = TEST_OWNER))
 
-        val route = outbox.load()!!.request.route
+        val route = outbox.load(TEST_OWNER)!!.request.route
 
         assertEquals(2, route!!.size)
         // Timestamps are what splits are derived from; losing them silently would produce a run
@@ -70,46 +70,48 @@ class RunOutboxTest {
 
     @Test
     fun `the clientId is preserved so a retry cannot duplicate the run`() {
-        outbox.save(PendingRun(request(clientId = "stable-id"), finished = true, updatedAtEpochMs = 1))
+        outbox.save(PendingRun(request(clientId = "stable-id"), finished = true, updatedAtEpochMs = 1, ownerUserId = TEST_OWNER))
 
         // Reusing this id is what makes a resend safe; regenerating it on retry would create a
         // second run for the same effort.
-        assertEquals("stable-id", outbox.load()!!.request.clientId)
+        assertEquals("stable-id", outbox.load(TEST_OWNER)!!.request.clientId)
     }
 
     @Test
     fun `saving again replaces rather than accumulates`() {
-        outbox.save(PendingRun(request(km = 1.0), finished = false, updatedAtEpochMs = 1))
-        outbox.save(PendingRun(request(km = 9.0), finished = true, updatedAtEpochMs = 2))
+        outbox.save(PendingRun(request(km = 1.0), finished = false, updatedAtEpochMs = 1, ownerUserId = TEST_OWNER))
+        outbox.save(PendingRun(request(km = 9.0), finished = true, updatedAtEpochMs = 2, ownerUserId = TEST_OWNER))
 
-        assertEquals(9.0, outbox.load()!!.request.distanceKm, 0.001)
+        assertEquals(9.0, outbox.load(TEST_OWNER)!!.request.distanceKm, 0.001)
     }
 
     @Test
     fun `clear removes the pending run`() {
-        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 1))
-        assertTrue(outbox.hasPending())
+        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 1, ownerUserId = TEST_OWNER))
+        assertTrue(outbox.hasPending(TEST_OWNER))
 
-        outbox.clear()
+        outbox.clear(TEST_OWNER)
 
-        assertFalse(outbox.hasPending())
-        assertNull(outbox.load())
+        assertFalse(outbox.hasPending(TEST_OWNER))
+        assertNull(outbox.load(TEST_OWNER))
     }
 
     @Test
     fun `a corrupt snapshot reads as empty instead of crashing`() {
-        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 1))
-        File(root, "run-outbox/pending-run.json").writeText("{ this is not json")
+        outbox.save(PendingRun(request(), finished = true, updatedAtEpochMs = 1, ownerUserId = TEST_OWNER))
+        File(root, "run-outbox/pending-run-$TEST_OWNER.json").writeText("{ this is not json")
 
         // A truncated write must not take the app down on every launch — the run is already lost at
-        // that point, and crash-looping would lose the app too.
-        assertNull(outbox.load())
+        // that point, and crash-looping would lose the app too. It reads as Unreadable rather than
+        // Empty, so the app can say so and offer a way out instead of silently doing nothing.
+        assertNull(outbox.load(TEST_OWNER))
+        assertTrue(outbox.read(TEST_OWNER) is OutboxState.Unreadable)
     }
 
     @Test
     fun `an empty outbox has nothing pending`() {
-        assertFalse(outbox.hasPending())
-        assertNull(outbox.load())
+        assertFalse(outbox.hasPending(TEST_OWNER))
+        assertNull(outbox.load(TEST_OWNER))
     }
 }
 
@@ -117,3 +119,5 @@ class RunOutboxTest {
 private class FakeContext(private val files: File) : android.content.ContextWrapper(null) {
     override fun getFilesDir(): File = files
 }
+
+private const val TEST_OWNER = "user-a"

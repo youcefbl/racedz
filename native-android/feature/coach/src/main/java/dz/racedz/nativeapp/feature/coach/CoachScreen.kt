@@ -471,10 +471,18 @@ private fun SessionsRing(completed: Int, planned: Int) {
                 )
             }
         }
+        // Both numbers go through the normalised locale. `completed.toString()` is always Western
+        // while a `%d` resource renders Arabic-Indic, so the ring used to show "3" above "من ٦" —
+        // two numeral systems inside one 96dp circle (P234-R04).
+        val locale = currentLocale()
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(completed.toString(), style = MaterialTheme.typography.titleMedium, color = colors.textStrong)
             Text(
-                stringResource(R.string.coach_of_n, planned),
+                ZidRunFormat.count(completed, locale),
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.textStrong,
+            )
+            Text(
+                stringResource(R.string.coach_of_n, ZidRunFormat.count(planned, locale)),
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.textMuted,
             )

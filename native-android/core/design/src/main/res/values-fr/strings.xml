@@ -244,6 +244,8 @@
     <string name="coach_trial_last_day">dernier jour</string>
     <string name="runs_series_too_short">Cette sortie est trop courte pour les fractionnés et la courbe d’allure.</string>
     <string name="runs_elevation_no_data">Aucune donnée d’altitude n’a été enregistrée sur ce tracé.</string>
+    <string name="runs_series_no_route">Cette sortie n\u2019a pas de tracé GPS, il n\u2019y a donc rien à afficher.</string>
+    <string name="runs_outbox_blocked">Une sortie enregistrée est illisible — appuyez pour l\u2019effacer</string>
     <string name="runs_record">Enregistrer</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$s sortie</item>
@@ -348,7 +350,7 @@
     <string name="coach_log_run">Enregistrer cette sortie</string>
     <string name="coach_this_week">Cette semaine</string>
     <string name="coach_sessions_done">Séances terminées</string>
-    <string name="coach_of_n">sur %1$d</string>
+    <string name="coach_of_n">sur %1$s</string>
     <string name="coach_next_workout">Prochaine séance</string>
     <string name="coach_latest_review">Dernier retour du coach</string>
     <string name="coach_trial">Essai gratuit</string>

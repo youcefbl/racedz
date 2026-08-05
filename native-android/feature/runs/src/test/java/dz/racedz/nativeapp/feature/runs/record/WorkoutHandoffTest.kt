@@ -35,7 +35,7 @@ class WorkoutHandoffTest {
     }
 
     private fun pending(request: CreateRunRequest) =
-        PendingRun(request = request, finished = true, updatedAtEpochMs = 1_785_000_100_000)
+        PendingRun(request = request, finished = true, updatedAtEpochMs = 1_785_000_100_000, ownerUserId = TEST_OWNER)
 
     private fun recording(workoutId: String?) = RecordingState(
         status = RecordingStatus.Finished,
@@ -77,7 +77,7 @@ class WorkoutHandoffTest {
         val request = with(RunRecorder) { recording("w-456").toCreateRequest() }
         outbox.save(pending(request))
 
-        val restored = outbox.load()
+        val restored = outbox.load(TEST_OWNER)
         assertEquals("w-456", restored?.request?.workoutId)
 
         RunRecorder.resumeFinished(restored!!)
@@ -97,7 +97,7 @@ class WorkoutHandoffTest {
             workoutId = "w-789",
         )
         outbox.save(pending(request))
-        assertEquals("w-789", outbox.load()?.request?.workoutId)
+        assertEquals("w-789", outbox.load(TEST_OWNER)?.request?.workoutId)
     }
 }
 
@@ -105,3 +105,5 @@ class WorkoutHandoffTest {
 private class HandoffContext(private val files: File) : android.content.ContextWrapper(null) {
     override fun getFilesDir(): File = files
 }
+
+private const val TEST_OWNER = "user-a"
