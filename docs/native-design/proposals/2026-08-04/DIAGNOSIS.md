@@ -14,8 +14,10 @@ rule-based plan week with completed and skipped sessions, 3 coach interactions).
 - **Captures:** `docs/native-design/current/2026-08-04/` — every Runs/Coach surface in
   light / dark / race, plus a full Arabic RTL pass, a 1.3× font-scale pass, empty states,
   and the trial vs subscribed Coach states.
-- Contrast ratios below are computed from the exact `core/design/Color.kt` token values
-  (ported 1:1 from `globals.css`), not eyeballed.
+- Contrast ratios below are computed from the exact `core/design/Color.kt` token values, not
+  eyeballed. (Native light/race match `globals.css`; the native **dark** palette deliberately
+  diverges from the web's — see `Color.kt`'s own comment and UI_RULES §1 — so dark ratios here
+  are native-only claims.)
 
 ## Findings — Runs
 

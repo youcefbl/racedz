@@ -1,8 +1,11 @@
 # Session handoff — Runs/Coach redesign, 2026-08-04
 
-> Owner-requested handoff for the next session/device. Status, gates and priorities live only in
-> `EXECUTION_PLAN.md` (see its four 2026-08-04 redesign rows); this file is the practical "pick it
-> back up" sheet and should be deleted once the open items below are done.
+> Owner-requested handoff for the next session/device. **This file carries no status authority:**
+> status, gates, evidence and priorities live only in `EXECUTION_PLAN.md` (see its 2026-08-04
+> redesign rows, including the §19 `RED-R01`–`R09` remediation row), and durable product decisions
+> live in `PRODUCT.md` ("Product decisions — Runs/Coach redesign"). What follows is orientation and
+> traps only; where it names a commit or a gate, the tracker row is the authoritative record.
+> Delete this file once the open items below are done.
 
 ## Where things stand
 
@@ -16,10 +19,9 @@ All on `feat/coach-tier0`:
 | `f333b29` | **Phase 3** — Run detail: pace chart accent→primary (light AA), elevation→info, fastest-split accent bar, honest "route has no per-point timing" card. |
 | `d1496f3` | **Phase 4** — Hold-to-start success pulse (300 ms single flash, frame-timed, reduced-motion safe), fastest-chip highlight on live splits. |
 
-**Gates, all green at `7bcabb3`:** `assembleDebug`; `:feature:{runs,coach}:testDebugUnitTest`;
-`:feature:{runs,coach}:lintDebug` + `:app:lintDebug`; `check:native-i18n` 514 keys en/fr/ar;
-`test:coach-mobile` 165/165; `test:mobile-api` 111/111; `test:coach` (evals + 68/68 + 42/42);
-`test:tts-claim` 13/13.
+Gate status: see the corresponding `EXECUTION_PLAN.md` rows — do not trust this file for
+closure claims. Review §19 (`coach_review_fable_codex.md`) found 4 P1 + 5 P2 against these
+commits; the remediation state is recorded in the tracker.
 
 ## Open items, in order
 
@@ -60,5 +62,6 @@ All on `feat/coach-tier0`:
   in `currentLocale()` — don't "fix" Arabic digits back.
 - The save screen's Discard is a two-step button; uiautomator text match hits the in-prose
   "Discard" first — tap the **last** match.
-- `RunRecorder.start()` now returns `Boolean` and refuses when non-idle — new callers must
-  handle `false` (route to the live run), never force a reset.
+- `RunRecorder.start()` now returns `Boolean` and refuses when non-idle **or when any run —
+  finished or interrupted — sits unresolved in the outbox** (RED-R01); new callers must handle
+  `false` (route to the live run / summary), never force a reset.

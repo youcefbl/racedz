@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -205,7 +206,7 @@ fun PlanWeekScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = stringResource(R.string.coach_plan_sessions_week, done, total),
+                            text = pluralStringResource(R.plurals.coach_plan_sessions_week, done, done, total),
                             style = MaterialTheme.typography.titleSmall,
                             color = colors.textMuted,
                         )

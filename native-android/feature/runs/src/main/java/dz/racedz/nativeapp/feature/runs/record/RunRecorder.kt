@@ -151,13 +151,15 @@ object RunRecorder {
     }
 
     /**
-     * Restores a recording left behind by a previous process.
+     * Restores a recording left behind by a previous process — finished or not (RED-R01).
      *
-     * Only a FINISHED run is restored: an interrupted in-progress recording has no reliable way to
-     * resume its GPS stream, and presenting a partial run as though it were still live would be
-     * worse than handing the runner what was measured and letting them save or discard it.
+     * An interrupted in-progress recording has no reliable way to resume its GPS stream, so it is
+     * salvaged the same way as a finished one: [resumeFinished] presents what was measured for an
+     * explicit save or discard. Filtering to `finished` here used to leave an interrupted run
+     * invisible on disk while the Idle singleton offered Record — and the one-file outbox would
+     * then overwrite it on the next recording's first snapshot.
      */
-    fun restorePending(): PendingRun? = outbox?.load()?.takeIf { it.finished }
+    fun restorePending(): PendingRun? = outbox?.load()
 
     private val _state = MutableStateFlow(RecordingState())
     val state: StateFlow<RecordingState> = _state.asStateFlow()
@@ -180,13 +182,16 @@ object RunRecorder {
      * @param workoutId the planned session this run is being logged for, when the runner arrived
      *   from the coach's plan. It rides in the recording state so it survives the app being killed
      *   mid-run: the outbox restores the request, and the request is where the link lives.
-     * @return false when a recording already exists (recording, paused, or finished-unsaved), in
-     *   which case nothing is touched. Starting used to clear the previous run unconditionally,
-     *   which turned any stray "start" into silent route loss (NDP-R05); replacing a non-idle
-     *   recording now requires the runner to discard it first via [reset].
+     * @return false when a recording already exists — in memory (recording, paused, or
+     *   finished-unsaved) or as an unresolved snapshot on disk — in which case nothing is touched.
+     *   Starting used to clear the previous run unconditionally, which turned any stray "start"
+     *   into silent route loss (NDP-R05); and an Idle singleton alone is not proof of a clean
+     *   slate, because a killed process leaves its run only in the outbox (RED-R01). Replacing
+     *   either requires the runner to resolve it first (save, or discard via [reset]).
      */
     fun start(workoutId: String? = null): Boolean {
         if (_state.value.status != RecordingStatus.Idle) return false
+        if (outbox?.hasPending() == true) return false
         route.clear()
         lastFix = null
         lastAcceptedTimeMs = 0

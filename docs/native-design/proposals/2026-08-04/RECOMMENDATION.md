@@ -1,6 +1,11 @@
 # Recommendation — Runs + Coach redesign (2026-08-04)
 
-**Status: proposed, pending owner approval. Nothing here is implemented.**
+**Status (2026-08-04, end of day): Phases 1–4 are implemented on `feat/coach-tier0`** — see the
+dated rows in `EXECUTION_PLAN.md`, the only status tracker. Of the four asks below: **#1 is
+decided (Variant B**, owner: "Variant B is the best overview direction", conditions remediated);
+**#2–#4 remain open** and their implementations are provisional — recorded as such in
+`PRODUCT.md` ("Product decisions — Runs/Coach redesign"). This file stays as the dated proposal
+record; it no longer reflects current status.
 
 ## Which variant
 

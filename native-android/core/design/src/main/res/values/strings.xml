@@ -239,7 +239,6 @@
     <string name="runs_overview_title">Your running week</string>
     <string name="runs_overview_sub">A clear view of your momentum</string>
     <string name="runs_overview_empty">Your first run will appear here.</string>
-    <string name="runs_overview_streak">week streak</string>
     <string name="runs_overview_records">Personal bests</string>
     <string name="runs_overview_longest">Longest</string>
     <string name="runs_overview_best_pace">Best pace</string>
@@ -253,6 +252,17 @@
     <string name="runs_stat_distance">Distance</string>
     <string name="runs_series_unavailable">This run\u2019s route has no per-point timing, so splits and pace can\u2019t be charted.</string>
     <string name="runs_split_fastest">fastest</string>
+    <plurals name="coach_plan_sessions_week">
+        <item quantity="one">%1$d of %2$d sessions this week</item>
+        <item quantity="other">%1$d of %2$d sessions this week</item>
+    </plurals>
+    <plurals name="runs_overview_streak_weeks">
+        <item quantity="one">%1$d week streak</item>
+        <item quantity="other">%1$d week streak</item>
+    </plurals>
+    <string name="coach_trial_last_day">last day</string>
+    <string name="runs_series_too_short">This run is too short for splits and pace charts.</string>
+    <string name="runs_elevation_no_data">No elevation data was recorded on this route.</string>
     <string name="runs_record">Record run</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$d run</item>
@@ -361,7 +371,6 @@
     <string name="coach_latest_review">Latest coach review</string>
     <string name="coach_trial">Free trial</string>
     <string name="coach_sessions_done_plan">Sessions completed — whole plan</string>
-    <string name="coach_plan_sessions_week">%1$d of %2$d sessions this week</string>
     <plurals name="coach_trial_days_left">
         <item quantity="one">%1$d day left</item>
         <item quantity="other">%1$d days left</item>

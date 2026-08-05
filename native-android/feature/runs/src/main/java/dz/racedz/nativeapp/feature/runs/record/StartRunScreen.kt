@@ -366,6 +366,11 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     var holding by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
+    // Latched the instant the hold reaches 100% (RED-R03). From that moment the start is owed:
+    // the completion work runs in its own effect keyed on this flag, so releasing the finger —
+    // which is the natural reaction to the confirming haptic — can no longer cancel the
+    // coroutine that was about to call onTriggered().
+    var completed by remember { mutableStateOf(false) }
     // 0 → 1 once the hold completes: one expanding, fading ring. Reduced motion skips it.
     var aura by remember { mutableFloatStateOf(0f) }
 
@@ -405,9 +410,13 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
     val startLabel = stringResource(R.string.runs_start_run)
 
     LaunchedEffect(holding) {
+        // Once completed, the start is owed regardless of the finger: no wind-back, no restart.
+        if (completed) return@LaunchedEffect
+
         if (!holding) {
             // Wind back rather than snap: an aborted hold should look like it was let go, not like
-            // it never happened.
+            // it never happened. Any partial decoration is cleared with it.
+            aura = 0f
             if (!animationsEnabled || progress == 0f) {
                 progress = 0f
                 return@LaunchedEffect
@@ -430,8 +439,13 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 progress = ((now - start).toFloat() / HOLD_TO_BEGIN_MS).coerceAtMost(1f)
             }
         }
-        // A distinct confirming tap, then one success pulse (or a short beat under reduced
-        // motion) so the completed ring is actually seen before the screen changes under it.
+        completed = true
+    }
+
+    // Completion work, uncancellable by the gesture: the confirming haptic, one success pulse
+    // (or a short beat under reduced motion) so the completed ring is actually seen, then start.
+    LaunchedEffect(completed) {
+        if (!completed) return@LaunchedEffect
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         if (animationsEnabled) {
             val auraStart = withFrameMillis { it }

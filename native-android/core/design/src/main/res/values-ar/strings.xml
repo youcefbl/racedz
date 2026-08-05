@@ -219,7 +219,6 @@
     <string name="runs_overview_title">أسبوعك فالريتم</string>
     <string name="runs_overview_sub">شوف التقدّم تاعك بلا تعقيد</string>
     <string name="runs_overview_empty">أول جَرية تاعك تبان هنا.</string>
-    <string name="runs_overview_streak">أسابيع متتابعة</string>
     <string name="runs_overview_records">أحسن أرقامك</string>
     <string name="runs_overview_longest">الأطول</string>
     <string name="runs_overview_best_pace">أحسن ريتم</string>
@@ -238,6 +237,25 @@
     <string name="runs_stat_distance">المسافة</string>
     <string name="runs_series_unavailable">مسار هذي الجَرية ما فيهش توقيت لكل نقطة، لهذا ما نقدروش نرسمو السبليتات والإيقاع.</string>
     <string name="runs_split_fastest">الأسرع</string>
+    <plurals name="coach_plan_sessions_week">
+        <item quantity="zero">%1$d من %2$d حصص هذا الأسبوع</item>
+        <item quantity="one">حصة وحدة من %2$d هذا الأسبوع</item>
+        <item quantity="two">حصتين من %2$d هذا الأسبوع</item>
+        <item quantity="few">%1$d حصص من %2$d هذا الأسبوع</item>
+        <item quantity="many">%1$d حصة من %2$d هذا الأسبوع</item>
+        <item quantity="other">%1$d حصة من %2$d هذا الأسبوع</item>
+    </plurals>
+    <plurals name="runs_overview_streak_weeks">
+        <item quantity="zero">%1$d أسابيع متتابعة</item>
+        <item quantity="one">أسبوع واحد متتابع</item>
+        <item quantity="two">أسبوعين متتابعين</item>
+        <item quantity="few">%1$d أسابيع متتابعة</item>
+        <item quantity="many">%1$d أسبوع متتابع</item>
+        <item quantity="other">%1$d أسبوع متتابع</item>
+    </plurals>
+    <string name="coach_trial_last_day">آخر يوم</string>
+    <string name="runs_series_too_short">هذي الجَرية قصيرة بزاف باش نرسمو السبليتات والإيقاع.</string>
+    <string name="runs_elevation_no_data">ما تسجّلتش بيانات الارتفاع فهذا المسار.</string>
     <string name="runs_record">سجّل</string>
     <plurals name="runs_overview_count">
         <item quantity="zero">%1$d جَريات</item>
@@ -350,7 +368,6 @@
     <string name="coach_latest_review">آخر ملاحظة من المدرب</string>
     <string name="coach_trial">تجربة مجانية</string>
     <string name="coach_sessions_done_plan">حصص كمّلتها — البرنامج كامل</string>
-    <string name="coach_plan_sessions_week">%1$d من %2$d حصص هذا الأسبوع</string>
     <plurals name="coach_trial_days_left">
         <item quantity="zero">باقي %1$d يوم</item>
         <item quantity="one">باقي يوم واحد</item>

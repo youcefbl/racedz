@@ -218,7 +218,6 @@
     <string name="runs_overview_title">Votre semaine de course</string>
     <string name="runs_overview_sub">Une vue claire de votre élan</string>
     <string name="runs_overview_empty">Votre première sortie apparaîtra ici.</string>
-    <string name="runs_overview_streak">semaines de série</string>
     <string name="runs_overview_records">Records personnels</string>
     <string name="runs_overview_longest">Plus longue</string>
     <string name="runs_overview_best_pace">Meilleure allure</string>
@@ -232,6 +231,19 @@
     <string name="runs_stat_distance">Distance</string>
     <string name="runs_series_unavailable">Le tracé de cette sortie n\u2019a pas d\u2019horodatage point par point, donc les fractionnés et l\u2019allure ne peuvent pas être tracés.</string>
     <string name="runs_split_fastest">le plus rapide</string>
+    <plurals name="coach_plan_sessions_week">
+        <item quantity="one">%1$d séance sur %2$d cette semaine</item>
+        <item quantity="many">%1$d séances sur %2$d cette semaine</item>
+        <item quantity="other">%1$d séances sur %2$d cette semaine</item>
+    </plurals>
+    <plurals name="runs_overview_streak_weeks">
+        <item quantity="one">série de %1$d semaine</item>
+        <item quantity="many">série de %1$d semaines</item>
+        <item quantity="other">série de %1$d semaines</item>
+    </plurals>
+    <string name="coach_trial_last_day">dernier jour</string>
+    <string name="runs_series_too_short">Cette sortie est trop courte pour les fractionnés et la courbe d’allure.</string>
+    <string name="runs_elevation_no_data">Aucune donnée d’altitude n’a été enregistrée sur ce tracé.</string>
     <string name="runs_record">Enregistrer</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$d sortie</item>
@@ -341,7 +353,6 @@
     <string name="coach_latest_review">Dernier retour du coach</string>
     <string name="coach_trial">Essai gratuit</string>
     <string name="coach_sessions_done_plan">Séances terminées — plan complet</string>
-    <string name="coach_plan_sessions_week">%1$d séance(s) sur %2$d cette semaine</string>
     <plurals name="coach_trial_days_left">
         <item quantity="one">%1$d jour restant</item>
         <item quantity="many">%1$d jours restants</item>

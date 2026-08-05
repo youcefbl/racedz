@@ -50,6 +50,7 @@ import dz.racedz.nativeapp.feature.coach.SleepScreen
 import dz.racedz.nativeapp.feature.coach.SleepViewModel
 import dz.racedz.nativeapp.feature.coach.PlanWeekViewModel
 import dz.racedz.nativeapp.feature.coach.CoachOnboardingViewModel
+import dz.racedz.nativeapp.feature.runs.record.RecordingStatus
 import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
@@ -227,21 +228,32 @@ fun ZidRunApp(
             }
 
             composable(RootDestinations.SHELL) {
-                // A run finished but never saved — the app was killed, or the save failed and the
-                // runner backed out. Surfaced once, on the first shell entry, rather than left
-                // sitting silently on disk where it would look like the run simply vanished.
+                // A run left on disk but not on the server — the app was killed mid-run or before a
+                // save, or the runner backed out. Two separate concerns, deliberately (RED-R02):
                 //
-                // Genuinely once: LaunchedEffect(Unit) re-runs every time back-navigation returns
-                // to this destination, which used to re-open the summary forever — the shell was
-                // unreachable while a pending run existed, and the runner could not browse before
-                // deciding. After the first surfacing, the Runs tab's pinned dock shows
-                // "Save run" instead, so the pending run stays one tap away without a trap.
-                var pendingSurfaced by rememberSaveable { mutableStateOf(false) }
+                // HYDRATION is unconditional: whenever the in-memory recorder is empty and the
+                // outbox holds a run (finished or interrupted — RED-R01), the run is loaded as a
+                // salvageable Finished state, so the Runs dock reads "Save run" and start() stays
+                // refused. A saved navigation flag must never suppress this — after saved-state
+                // process recreation the flag survives but the singleton restarts empty, and
+                // skipping hydration would strand the run invisible on disk.
+                //
+                // AUTO-NAVIGATION is once per pending run, keyed on its clientId rather than a
+                // Boolean: the summary opens by itself the first time this particular run is seen,
+                // then the shell stays reachable and the dock is the way back. A different pending
+                // run (a new death) surfaces itself again.
+                var surfacedPendingId by rememberSaveable { mutableStateOf<String?>(null) }
                 LaunchedEffect(Unit) {
-                    if (pendingSurfaced) return@LaunchedEffect
-                    RunRecorder.restorePending()?.let { pending ->
-                        pendingSurfaced = true
+                    val pending = RunRecorder.restorePending() ?: return@LaunchedEffect
+                    if (RunRecorder.state.value.status == RecordingStatus.Idle) {
                         RunRecorder.resumeFinished(pending)
+                    }
+                    // Only a settled (Finished) run is auto-surfaced. A live recording also keeps a
+                    // snapshot on disk; navigating away from it into the save screen would be wrong.
+                    if (RunRecorder.state.value.status == RecordingStatus.Finished &&
+                        surfacedPendingId != pending.request.clientId
+                    ) {
+                        surfacedPendingId = pending.request.clientId
                         navController.navigate(RootDestinations.RUN_SUMMARY)
                     }
                 }

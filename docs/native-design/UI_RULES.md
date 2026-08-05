@@ -67,9 +67,11 @@ Hard colour rules, measured (WCAG ratios computed from these exact values):
 ## 3 · Layout rules (from the proposed redesign)
 
 - **The page's primary action is visible without scrolling at every scroll position**, in the
-  lower thumb zone. **Scope: the Runs overview** (the pinned Record dock, Variant B,
-  **[pending ask #1]**); extending the pinned-dock pattern to another screen needs its own flow
-  justification — this is not a universal law. Top-of-screen hero buttons are not a substitute.
+  lower thumb zone — including while remote data is loading or failed: the dock reflects local
+  recorder state and renders above every fetch branch (RED-R05). **Scope: the Runs overview**
+  (the pinned Record dock, Variant B — decided, see `PRODUCT.md`); extending the pinned-dock
+  pattern to another screen needs its own flow justification — this is not a universal law.
+  Top-of-screen hero buttons are not a substitute.
 - **The dock is stateful and never destructive** (NDP-R05): it shows *Record* only when the
   recorder is Idle; *Resume — recording · X km* for Recording/Acquiring/Paused; *Save your run*
   when a finished recording is pending. `RunRecorder.start()` must refuse to replace a non-idle

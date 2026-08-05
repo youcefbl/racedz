@@ -490,14 +490,17 @@ private fun SessionsRing(completed: Int, planned: Int) {
 @Composable
 private fun TrialPill(trialEndsAt: String?, modifier: Modifier = Modifier) {
     val colors = ZidRunTheme.colors
-    val daysLeft = remember(trialEndsAt) {
-        trialEndsAt?.let {
-            runCatching {
-                java.time.Duration.between(java.time.Instant.now(), java.time.Instant.parse(it))
-                    .toDays().toInt()
-            }.getOrNull()?.takeIf { days -> days > 0 }
-        }
-    }
+    // Ceiling, matching the server's and web's entitlement semantics (RED-R06): seconds after
+    // signup a 7-day trial shows "7 days left", not 6; the final partial day is its own state.
+    // Deliberately NOT remembered: the value recomputes on every recomposition, and the screen
+    // re-fetches (and so recomposes) on every lifecycle resume — flooring it into a remember
+    // both understated the trial and froze it while composed.
+    val secondsLeft = trialEndsAt?.let {
+        runCatching {
+            java.time.Duration.between(java.time.Instant.now(), java.time.Instant.parse(it)).seconds
+        }.getOrNull()
+    }?.takeIf { it > 0 }
+    val daysLeft = secondsLeft?.let { ((it + 86_399) / 86_400).toInt() }
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
@@ -508,11 +511,12 @@ private fun TrialPill(trialEndsAt: String?, modifier: Modifier = Modifier) {
     ) {
         Box(Modifier.size(7.dp).clip(CircleShape).background(colors.primary))
         Text(
-            text = if (daysLeft != null) {
-                stringResource(R.string.coach_trial) + " · " +
+            text = when {
+                daysLeft == null -> stringResource(R.string.coach_trial)
+                daysLeft <= 1 -> stringResource(R.string.coach_trial) + " · " +
+                    stringResource(R.string.coach_trial_last_day)
+                else -> stringResource(R.string.coach_trial) + " · " +
                     pluralStringResource(R.plurals.coach_trial_days_left, daysLeft, daysLeft)
-            } else {
-                stringResource(R.string.coach_trial)
             },
             style = MaterialTheme.typography.labelMedium,
             color = colors.primary,

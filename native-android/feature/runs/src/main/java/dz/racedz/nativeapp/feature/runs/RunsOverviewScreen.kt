@@ -104,6 +104,7 @@ fun RunsOverviewScreen(
         when {
             state.loading -> ZidRunLoading(label = stringResource(R.string.common_loading))
 
+
             state.error != null && state.runs.isEmpty() -> ZidRunErrorView(
                 title = if (state.isOffline) {
                     stringResource(R.string.common_offline_title)
@@ -221,15 +222,19 @@ fun RunsOverviewScreen(
                 Spacer(Modifier.height(96.dp))
               }
 
-              RecordDock(
-                  firstRun = state.latestRun == null,
-                  onRecordRun = onRecordRun,
-                  onResumeRecording = onResumeRecording,
-                  onOpenPendingSave = onOpenPendingSave,
-                  modifier = Modifier.align(Alignment.BottomCenter),
-              )
             }
         }
+
+        // The dock is outside the remote-data `when` deliberately (RED-R05): the recorder is local
+        // state, and a live or pending run must keep its way back — and Record must stay reachable —
+        // even while the overview fetch is loading, failing, or offline.
+        RecordDock(
+            firstRun = !state.loading && state.error == null && state.latestRun == null,
+            onRecordRun = onRecordRun,
+            onResumeRecording = onResumeRecording,
+            onOpenPendingSave = onOpenPendingSave,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -346,7 +351,9 @@ private fun DockButton(
             style = MaterialTheme.typography.titleMedium,
             color = content,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            // Two lines before ellipsis: the dock is the page's action, and French/Arabic state
+            // labels at 1.3× font must stay intelligible rather than truncate (RED-R07).
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -464,7 +471,9 @@ private fun WeekHeroCard(distanceKm: Double, runCount: Int, streakWeeks: Int) {
                     modifier = Modifier.size(14.dp),
                 )
                 Text(
-                    text = "$streakWeeks ${stringResource(R.string.runs_overview_streak)}",
+                    // A real plural resource, not "$n $noun" concatenation — that produced
+                    // "1 semaines de série" in French and invalid singular Arabic (RED-R07).
+                    text = pluralStringResource(R.plurals.runs_overview_streak_weeks, streakWeeks, streakWeeks),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.65f),
                 )
@@ -619,15 +628,16 @@ private fun PersonalBestsCard(
 private fun OverviewMetric(label: String, value: String, modifier: Modifier = Modifier) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
-    // Three cells share ~180dp beside the thumbnail on a 320dp screen, so the type is a step down
-    // from the website's and both lines ellipsize. Truncation here is deliberate and visible — a
-    // hard clip silently ate the "E" of DISTANCE and the "km" of a pace.
+    // Three cells share ~180dp beside the thumbnail on a 320dp screen, so the type is a step
+    // down from the website's. Labels may wrap to a second line rather than ellipsize — at 1.3×
+    // font "TOTAL DISTANCE" was truncating to "TOTAL DISTAN…" (RED-R07); values stay one-line
+    // tabular figures.
     Column(modifier = modifier.padding(horizontal = 2.dp)) {
         Text(
             text = label.uppercase(locale),
             style = MaterialTheme.typography.labelSmall,
             color = colors.textMuted,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
