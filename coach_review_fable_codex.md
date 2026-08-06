@@ -1527,3 +1527,121 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions in `PR
   TalkBack/focus order, process/account transitions, outbox I/O behavior or system-inset semantics.
 - The repository-required ZidRun app-review skill guided this review. The separately referenced
   `impeccable` skill was unavailable in this workspace.
+
+## 21. Physical-device UX review — Runs, race registration and Coach (2026-08-05)
+
+<!-- commit-review: 0295eae073aac60f01bfb462e2c5778a42b83423 -->
+<!-- commit-review: 67bc6749d38c074a615310734cbd6726ab728891 -->
+<!-- commit-review: 35761e66ccb33c3083541e013ab26e1818283adf -->
+<!-- commit-review: b03232b8a104f05b5f6c63294dc2c0d608e9ac16 -->
+<!-- commit-review: 38d65b4bd87adfc21087332b91457b85e77948ce -->
+<!-- commit-review: 43075843da44cc5465bee89fb70428218a3cce10 -->
+<!-- commit-review: 9ecb58e1aa3877ec224e4511c449f91acd80f590 -->
+<!-- commit-review: a504549d3af547485e3342598e32c5d6027e9327 -->
+<!-- commit-review: 999a7e2af7b3629cc7a6ec45ed21211a9af583ee -->
+<!-- commit-review: d411429ecc6b2ba4075e9ccfb4413342d17b1670 -->
+<!-- commit-review: e330ec867386d345a347e04c0efc80c0316e27f9 -->
+<!-- commit-review: 6f6ed04682f862d7ce2491aa1f18a02debd46a86 -->
+<!-- commit-review: a043d724b85d59d7b3e6bcd9876fb9133f383179 -->
+<!-- commit-review: f07068388a65afd376d3cf3770c7f4a1a754e7c9 -->
+<!-- commit-review: 7433372ac185a9cd6381f5bbd5cd2ea0c6f501a0 -->
+<!-- commit-review: 8c15d7f215c60aff4e1243b2ac521b9787a640a7 -->
+<!-- commit-review: d9f391ad8334378e543d6c0190004258f8f591c8 -->
+<!-- commit-review: 7885b1d72a1e5ec809f3ce920a925b3d59b5531c -->
+<!-- commit-review: d9a7d0153fc2ce636c6bc8ddd6de0235d6236a1b -->
+<!-- commit-review: 3653a4fe2d11732dc68a2f667c94c6eb0429b380 -->
+<!-- commit-review: 6dba58999319cd7ada718bcc179d3739807d58f4 -->
+<!-- commit-review: cdb4f34bb8d8a221c892442f7456cd8761232e1e -->
+<!-- commit-review: f734a9c42990432c2748735fceaa11133e83f2f7 -->
+<!-- commit-review: eb3f01601f87591ec473e08b2394adec39099f4b -->
+<!-- commit-review: 5f134c3ecf9e38d90246f686e9bbf51b690720a8 -->
+<!-- commit-review: 7c3e10a8593fc1497059a9c540b2bdf9bb648a31 -->
+<!-- commit-review: ebe21766dfa4d58628b1dcdf95650c94b967bcba -->
+
+### Rewritten-history reconciliation (2026-08-06)
+
+- The feature branch was rewritten after the earlier reviews, changing commit IDs without changing
+  the reviewed trees. For 21 commits, each current commit has the same subject and exact Git tree as
+  its previously marked counterpart, and the parent sequence is tree-equivalent. Their current IDs
+  above therefore inherit the existing commit-by-commit findings; the older markers remain as
+  historical evidence rather than being deleted.
+- Three current-history commits had no standalone marker before this reconciliation and were
+  reviewed directly against their diffs and the approved Coach/Races references:
+
+| Commit | Review result |
+|---|---|
+| `8c15d7f` | **No new finding.** The Coach consent review now echoes each non-empty free-text health answer before consent, and the unfiltered Races empty state gains a Retry action. This closes the two dead ends recorded by its device pass; the broader pull-to-refresh and conditional empty-copy gap remains `NATPAR-008`. |
+| `d9f391a` | **No new finding.** Documentation-only evidence narrows `COACHPAR-001` to what the Galaxy M21 actually proved and leaves the remaining voice states open; it does not close a release gate. |
+| `7885b1d` | **No new finding.** Documentation-only change promotes the surviving device observations to `NATPAR-008`, `NATPAR-009` and `COACHPAR-007` in `EXECUTION_PLAN.md`, preserving that file as the sole tracker. |
+
+- The review-coverage baseline is migrated from the pre-rewrite `a18e9b9` to its exact current-tree
+  counterpart `b03232b8`. The checker now fails closed when that baseline is not an ancestor instead
+  of silently reporting success (`DEV-R09`).
+- This reconciliation used source and original-resolution approved references only; no test suite,
+  build, emulator, device rerun or live API request was performed.
+
+### Review boundary and verdict
+
+- **Reviewed commits:** the current-history P234 remediation commit `0295eae073aac60f01bfb462e2c5778a42b83423`,
+  the wireless-debugging runbook `67bc6749d38c074a615310734cbd6726ab728891`, and the later review-hook/CI
+  commit `35761e66ccb33c3083541e013ab26e1818283adf`. The installed APK was assembled from the tree at
+  `67bc674`; that tree is byte-for-byte identical to the earlier `08e9e20` runbook commit from before
+  the local history rewrite. `35761e6` changes review/CI files only, so it does not make the APK stale.
+- **Device/runtime:** Samsung Galaxy M21 (`SM-M215G`), Android 13, 1080×2340, density 420, connected
+  through Wi-Fi ADB to the local seeded backend with `adb reverse tcp:3003 tcp:3003`. The debug APK
+  was `0.8.0-debug` (version code 8).
+- **Exercised:** open and closed race detail, category selection, the complete details→registration→
+  payment path, keyboard focus, Runs overview/start/live/pause/finish/zero-distance discard, Coach
+  overview/plan/chat and Coach→run handoff, light/dark/race themes, English/French/Arabic RTL, and
+  1.3× font scale. The temporary zero-distance run was discarded; the seeded test registration was
+  intentionally created in the local database. Locale, Light theme and 1.0 font scale were restored.
+- **Verdict:** **changes requested.** Variant B makes recording much easier to start and the main
+  Runs/Coach hierarchy is strong, but four P1 product paths remain: registration can submit without
+  its approved review step, the keyboard and unexplained required fields can block submission,
+  payment can be offered with no destination, and LTR Coach instructions are reordered in Arabic
+  RTL. Five P2 implementation/operational defects are recorded below.
+- **Status boundary:** this is review evidence, not a progress tracker and not a release acceptance.
+  No gate closes here; `EXECUTION_PLAN.md` remains the sole tracker.
+
+### Findings
+
+| ID | Severity | Finding and evidence | Impact | Acceptance condition |
+|---|---|---|---|---|
+| `DEV-R01` | **P2** | **The P234 system-bar fix is app-theme-aware but not route-surface-aware.** With the app in Light, both the always-dark pre-run screen and always-dark live screen draw black clock/battery/signal icons on black; the pre-run Back arrow is also nearly black. The device captures reproduced this on both routes. `ZidRunApp.kt:137-149` derives platform icon appearance only from `appearance.themeMode`, while `StartRunScreen.kt:91-96,138-144` and `RecordingScreen.kt:179-185` deliberately force dark surfaces independent of that mode. | Platform status and the only visible in-app Back affordance become effectively invisible at the exact outdoor moment when the runner is starting or controlling a run. The light-shell screenshots added by `0295eae` do not cover these forced-dark destinations. | Make system-bar appearance destination/surface-aware and give the pre-run top bar explicit dark-surface colors. Verify start, acquiring, stable, paused and summary routes in all three app themes while the OS is independently light and dark. |
+| `DEV-R02` | **P1** | **The native registration path discards the category already selected on Race Detail and skips the approved review step before creating the entry.** On-device, selecting 5K and tapping Register reopened an unselected 5K/10K choice. `RaceDetailScreen.kt:156-162,222-230,330-335` owns the selection, but `ZidRunApp.kt:498-502` ignores it and `Destinations.registration()` carries only the race ID. `RegistrationStep` contains only Distance, Details, Payment and Done, and `submit()` posts immediately from Details (`RegistrationViewModel.kt:26-31,149-186`). This contradicts the approved `details → review → submitted` sequence and review contents in `docs/races-design/RACE_DESIGN_FLOW.md:56-63`. The selected-category price is also labelled “From” (`RaceDetailScreen.kt:237-247`) instead of as the exact selected price. | Runners repeat a decision, see no step progress, and can create a consequential registration without one final chance to catch the race, distance, personal data, price or sharing scope. | Carry the selected category into registration, show a visible/announced 1-of-3 progression, add the approved review screen, and create the registration only from its final Confirm action. Repeat race, category, runner, exact price/status and organizer-sharing scope; preserve state across Back and recreation. |
+| `DEV-R03` | **P1** | **Required-field and IME behavior can leave the registration form apparently impossible to submit.** Emergency name and phone are required only inside `canSubmitDetails` (`RegistrationViewModel.kt:59-65`), but the screen labels neither as required and gives no reason when Confirm is disabled (`RegistrationScreen.kt:242-271`). On the Galaxy M21, tabbing from Emergency contact name focused the phone field at y=1363–1531 while the keyboard began at about y=1349, hiding the focused control completely. Root `imePadding()` exists (`RegistrationScreen.kt:95-102`), but no field requests bring-into-view on focus. | A runner who filled every visibly required item can accept the rules and still face a dead disabled CTA; keyboard users and TalkBack/physical-keyboard users lose the field they are editing. This blocks the core registration task. | Mark required versus optional fields explicitly, validate on blur/submit, and show a localized CTA-level or inline explanation for every unmet condition. Bring the focused field above the IME (including Next actions), then verify narrow screen, 1.3× text, TalkBack and English/French/Arabic keyboards. |
+| `DEV-R04` | **P1** | **The Payment state can ask for proof without telling the runner where to pay.** The seeded paid race returned no BaridiMob/CCP values; the device still showed BaridiMob, CCP and Bank transfer, selected BaridiMob by default, and enabled “Choose a screenshot.” Native code conditionally prints nullable details but has no empty-instructions state, then always renders all three choices (`RegistrationScreen.kt:283-337`). The DTO explicitly permits all fields to be null (`Dtos.kt:145-151`); web parity already handles that valid state with `noDetails` copy (`src/app/account/registrations/payment-panel.tsx:52-81`). | The runner's place is held but payment cannot be completed with confidence: there is no account, recipient, reference or recovery/contact instruction, and Bank transfer is offered without a bank destination in the contract. | Render only payment methods backed by usable instructions. When none exist, state that the organizer has not supplied payment details and expose the organizer contact/recovery path; do not preselect a fictional method or invite proof upload. Add a contract for any genuinely supported bank-transfer destination. |
+| `DEV-R05` | **P2** | **Coach overview presents plan-wide and same-day data as weekly/next data.** The device shows “This week · 3 of 6” followed by “Sessions completed — whole plan,” while Plan says “1 of 3 sessions this week.” `CoachScreen.kt:222-253` combines a `coach_this_week` heading with active-plan adherence. The adjacent “Next workout” is the exact same 05 Aug interval session as Today's workout because the API says “after today's” but queries `scheduledFor > date_trunc('day', NOW())`, which still includes every workout later than midnight today (`src/app/api/v1/coach/route.ts:47-60`). | The two most prominent progress/schedule cards contradict each other and reduce trust in the coach's plan: a runner cannot tell whether 3/6 is this week or the whole plan, nor what actually comes next. | Either calculate genuine weekly adherence or title the card “Whole plan” consistently. Define next as strictly after the current/today workout (exclude its ID or start at the next day), and cover today, multiple same-day workouts, timezone boundaries and no-next-session states. |
+| `DEV-R06` | **P2** | **“Log this run” carries the workout ID but opens in Free run, so the planned guidance is off by default.** The physical handoff displayed Free run as selected; Guided had to be tapped manually before the interval steps appeared. `StartRunScreen.kt:107-117` receives the explicit workout ID but initializes `RunMode.Free`; `beginRecording()` still associates the ID while deliberately starts no `GuidedSessionController` in Free mode (`:254-273`). | The run can count against the plan, but the runner who launched an interval session from Coach gets no step changes or workout cues unless they notice and switch modes. That breaks the expected Coach→guided-run continuity. | When a non-null workout ID opens the screen, default to Guided, show the selected workout/steps immediately, and keep an explicit “record without guidance” escape hatch. Preserve the workout association in both modes and verify offline/no-session fallback copy. |
+| `DEV-R07` | **P1** | **Cross-language Coach content is not bidi-isolated, and Arabic RTL changes the meaning/order of the workout instruction.** The test goal's Coach language is English by design while the app locale was Arabic. On-device, `6 × 800 m … Stop …` was visually reordered into a sentence beginning with the trailing `m at 5K...` and ending with `800 × 6`; the Runs date also rendered in a confusing `17:30 ,2026 أوت 3` order. The product intentionally stores a separate plan language (`Dtos.kt:768-773`), but `CoachScreen.kt:365-420` inserts title/intensity/instructions as raw text into an RTL paragraph, and `ZidRunFormat.dateTime()` returns an unisolated bidi-neutral date/time string (`Format.kt:20-43`). The same Arabic Coach surface still mixes Western distances/counts with Arabic-Indic minute values, confirming the provisional app-wide numeral audit is incomplete. | Reordered interval quantities are not cosmetic: a runner can misread the prescribed work/recovery structure. Dates and mixed digits also fail the equal-locale readability requirement in `NATIVE_APP_DESIGN_FLOW.md:118-127`. | Carry or infer content language/direction for server Coach text, render English/French plan strings as isolated LTR blocks inside RTL chrome, and isolate date/time/pace/phone tokens without mirroring them. Make the current Coach language visible/editable. Finish the selected numeral-system audit after owner ratification and capture mixed app-language/Coach-language combinations. |
+| `DEV-R08` | **P2** | **No-route states spend most of the live/save viewport on an empty map and promise a photo action that does not exist.** While GPS was acquiring, `RecordingScreen` gave a flexible, minimum-144dp map box all remaining height and overlaid only “Searching” (`RecordingScreen.kt:320-344`), making a large near-blank panel look broken. The zero-distance summary always reserves a 1.5:1 map (`RunSummaryScreen.kt:90-103`) even when there are fewer than two points, pushing Discard two screens down. The finish dialog says title and photos can be added next (`values/strings.xml:338`), but Summary offers only title, notes and effort (`RunSummaryScreen.kt:130-148`). | Acquiring feedback is weak outdoors, core controls compete with dead space, and the post-run promise is false. A failed-fix run requires unnecessary scrolling just to discard safely. | Replace the untrusted/acquiring map with a compact signal/status panel and actionable permission/GPS guidance; show the map only after a trusted route exists. Collapse the summary map to a compact “No route captured” state, keep save/discard reachable, and either add the promised photo flow or remove that copy. |
+| `DEV-R09` | **P1** | **The new commit-review enforcement silently disables itself on the current branch.** Running `node scripts/check-commit-review-coverage.mjs --head HEAD` at `35761e6` prints that HEAD is outside the history starting at `a18e9b9` and exits 0. The script explicitly returns success when the fixed start is not an ancestor (`scripts/check-commit-review-coverage.mjs:76-82`). Because the current history was rewritten, this is the normal branch state, so both pre-push and CI can report success without checking a single commit. | The hook/CI mechanism added to guarantee every commit is reviewed currently guarantees nothing on `feat/coach-tier0`; rewritten/unfetched history is treated as approval instead of a configuration failure. | Fail closed when the configured baseline exists but is not an ancestor, or require an explicit reviewed baseline/migration for rewritten history. CI should fetch history, establish the exact intended range, and demonstrate one covered, one missing, metadata-only, rewritten-history and shallow-clone case. Keep review-only commits exempt without exempting workflow changes. |
+
+### What worked well on the physical device
+
+- Variant B solves the original Runs complaint: Record run stays visible and thumb-reachable in
+  Light, Dark and Race, in English/French/Arabic RTL, and at 1.3×. The stats scroll behind it without
+  truncating the metric values.
+- The zero-distance guard is honest and safe: Save stays disabled, explanatory copy is present, and
+  the two-tap Discard returned cleanly to Runs. The local state did not get stuck after the exercise.
+- Coach keeps Today's workout and Log this run above the fold at 1.0× and 1.3×. The chat composer is
+  brought above the keyboard correctly, unlike registration.
+- The Light shell system-bar fix from `0295eae` is effective on normal Light Runs/Coach screens; Dark
+  and Race overview contrast is also strong. `DEV-R01` is specifically the forced-dark route gap.
+
+### Runtime evidence and limitations
+
+- The debug APK cold-start measurement was 3,456 ms. A short `gfxinfo` sample reported 189 frames,
+  15.34% janky (legacy 22.75%), 50th percentile 19 ms and 90th percentile 36 ms. Debug startup,
+  localhost networking and the small sample make this a profiling lead, not release-performance
+  acceptance; repeat on a signed/profileable build before setting a performance finding.
+- The current debug APK assembled successfully with JDK 17. No lint, unit, instrumentation,
+  Playwright, production build or full automated suite was run as part of this device-focused pass.
+- No real outdoor movement/stable route, auto-pause, background/process-death recovery, payment-proof
+  upload, organizer payment account, account switch, offline transition, TalkBack audio pass or
+  release-signed build was exercised. No captured precise route was produced.
+- Device screenshots and UI hierarchy dumps remain temporary under `/tmp`; none are committed because
+  they contain seeded account/registration data. Findings above record the durable observable state
+  and exact source boundary.
+- The repository-required ZidRun app-review skill guided the pass. The separately referenced
+  `impeccable` skill was unavailable in this workspace.

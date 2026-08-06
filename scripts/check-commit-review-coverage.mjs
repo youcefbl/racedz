@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 
-const DEFAULT_START = "a18e9b9db1f8921c6e2a5f21710dc4f65d8c13be";
+const DEFAULT_START = "b03232b8a104f05b5f6c63294dc2c0d608e9ac16";
 const EVIDENCE_FILE = "coach_review_fable_codex.md";
 
 // These files implement or store the review protocol itself. A commit that changes only this set is
@@ -80,7 +80,17 @@ function main() {
   const fullStart = git(["rev-parse", "--verify", `${start}^{commit}`]);
 
   if (!isAncestor(fullStart, fullHead)) {
-    console.log(`Commit review coverage: ${fullHead.slice(0, 7)} is outside the tracked history starting at ${fullStart.slice(0, 7)}; skipped.`);
+    // Fail closed (DEV-R09). Skipping here meant a rewritten branch — the normal state after any
+    // rebase or amend — reported success without checking a single commit, so the mechanism added
+    // to guarantee review guaranteed nothing exactly when history changed most. A baseline that
+    // exists but is not an ancestor is a configuration problem, not an approval.
+    console.error(
+      `Commit review coverage: ${fullHead.slice(0, 7)} does not descend from the configured baseline ` +
+      `${fullStart.slice(0, 7)}. History was rewritten or is incomplete.\n` +
+      "Fix by fetching the full history, or pass --start <reviewed-baseline-sha> naming the commit " +
+      "from which this branch's reviews should be counted."
+    );
+    process.exitCode = warnOnly ? 0 : 1;
     return;
   }
 
