@@ -1651,24 +1651,26 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions in `PR
 <!-- commit-review: 4a5dd757ef4c923e01d2633c1bf0d58715e34f73 -->
 <!-- commit-review: b3b469e5f70a616459def743bc336c333dc09295 -->
 <!-- commit-review: 6e61926be23762f0cdd4bc26aedeac5a01970dd5 -->
+<!-- commit-review: fac193b14ca574030153181d6dad83469b5a4019 -->
 
 ### Review boundary and verdict
 
 - **Reviewed commits:** `4a5dd757ef4c923e01d2633c1bf0d58715e34f73`, its focused structured-list
-  follow-up `b3b469e5f70a616459def743bc336c333dc09295`, and the payment-destination fix
-  `6e61926be23762f0cdd4bc26aedeac5a01970dd5`, against the §21 device findings, the approved
+  follow-up `b3b469e5f70a616459def743bc336c333dc09295`, the payment-destination fix
+  `6e61926be23762f0cdd4bc26aedeac5a01970dd5`, and the required-field/IME follow-up
+  `fac193b14ca574030153181d6dad83469b5a4019`, against the §21 device findings, the approved
   Coach/Races references and the current native design flow.
 - **Verdict:** **no new standalone finding; partial remediation accepted by source inspection.** The
   commit fixes the source causes observed for `DEV-R01`, `DEV-R05`, `DEV-R06` and the safety-critical
   workout-instruction portion of `DEV-R07`, plus the missing-destination path in `DEV-R04`.
-  Device/runtime acceptance remains open, and these commits do not touch `DEV-R02`, `DEV-R03` or
-  `DEV-R08`.
+  Device/runtime acceptance remains open, and these commits do not touch `DEV-R02` or `DEV-R08`.
 
 ### Remediation status
 
 | Finding | Source-review result |
 |---|---|
 | `DEV-R01` | **Implemented, device matrix pending.** The forced-dark start and live routes now request light platform icons for their lifetime, restore the shell theme on exit, and the pre-run top bar explicitly uses the dark palette. Route-transition ordering and all theme × OS-theme states were not rerun on hardware. |
+| `DEV-R03` | **Primary dead end addressed; detailed validation and device acceptance pending.** Every field that gates registration now carries a localized Required label, the disabled Confirm action explains that required fields and rules consent are still missing, and the shared field waits for the IME inset before requesting bring-into-view on focus. Field-specific phone/date errors, blur/submit validation, TalkBack and the en/fr/ar keyboard matrix remain open. |
 | `DEV-R04` | **Implemented, payment runtime pending.** The payment screen now lists only BaridiMob/CCP methods backed by an actual destination, never offers unsupported bank transfer, derives a valid default when only CCP exists, and hides proof upload when no usable destination exists. The localized empty state says the held entry remains recoverable under My registrations. No organizer-details or proof-upload path was rerun. |
 | `DEV-R05` | **Observed contradiction fixed; boundary cases pending.** The active-plan ratio is titled “Whole plan” in en/fr/ar, and the API selects the first planned running workout from tomorrow onward rather than returning today’s workout twice. Multiple-same-day policy, database/runner timezone boundaries and the no-next state were not executed. |
 | `DEV-R06` | **Implemented, runtime fallback pending.** A non-null Coach workout ID initializes Guided mode while Free remains selectable. Session-loading, missing-session and offline behavior were not executed. |
