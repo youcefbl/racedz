@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -60,6 +61,7 @@ import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunStepIndicator
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 
 /**
  * The auth surface: sign in, create account, MFA code, and the "check your email" confirmation.
@@ -211,6 +213,7 @@ private fun ColumnScope.SignInForm(
         value = state.email,
         onValueChange = viewModel::onEmailChange,
         label = stringResource(R.string.auth_email_label),
+        modifier = Modifier.testTag(ZidRunTestTags.AuthEmail),
         leadingIcon = Icons.Filled.Email,
         keyboardType = KeyboardType.Email,
         errorText = state.fieldErrors["email"],
@@ -220,6 +223,7 @@ private fun ColumnScope.SignInForm(
         value = state.password,
         onValueChange = viewModel::onPasswordChange,
         label = stringResource(R.string.auth_password_label),
+        modifier = Modifier.testTag(ZidRunTestTags.AuthPassword),
         leadingIcon = Icons.Filled.Lock,
         keyboardType = KeyboardType.Password,
         isPassword = true,
@@ -244,6 +248,7 @@ private fun ColumnScope.SignInForm(
     ZidRunButton(
         text = stringResource(R.string.auth_sign_in),
         onClick = { viewModel.signIn(onSignedIn) },
+        modifier = Modifier.testTag(ZidRunTestTags.AuthSignIn),
         enabled = state.canSubmitSignIn,
         loading = state.submitting,
         leadingIcon = Icons.AutoMirrored.Filled.DirectionsRun,

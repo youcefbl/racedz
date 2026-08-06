@@ -20,6 +20,7 @@ android {
         // never disagree. Do not reuse a number that has already left this machine.
         versionCode = 8
         versionName = "0.8.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -32,6 +33,19 @@ android {
             // on the launcher which one is which.
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+        }
+
+        // Local-only performance target. It uses release-like, non-debuggable app code while its
+        // library fallbacks stay on the debug/local API configuration, so benchmarks never read or
+        // mutate production. The separate id preserves the normal debug app and its test session.
+        create("benchmark") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".benchmark"
+            versionNameSuffix = "-benchmark"
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            isMinifyEnabled = false
+            matchingFallbacks += listOf("debug")
         }
 
         // Physical-device test build wired to production (https://zidrun.com), for internal
@@ -123,6 +137,8 @@ dependencies {
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)

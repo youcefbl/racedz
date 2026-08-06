@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -57,6 +58,7 @@ import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.RunDto
 import dz.racedz.nativeapp.feature.runs.record.RecordingStatus
@@ -122,6 +124,7 @@ fun RunsOverviewScreen(
               Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .testTag(ZidRunTestTags.RunsOverviewScroll)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = ZidRunDimens.spaceLg),
                 verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
@@ -233,7 +236,9 @@ fun RunsOverviewScreen(
             onRecordRun = onRecordRun,
             onResumeRecording = onResumeRecording,
             onOpenPendingSave = onOpenPendingSave,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .testTag(ZidRunTestTags.RunsRecordDock),
         )
     }
 }
@@ -678,4 +683,3 @@ private fun MetricDivider() {
             .background(ZidRunTheme.colors.border),
     )
 }
-

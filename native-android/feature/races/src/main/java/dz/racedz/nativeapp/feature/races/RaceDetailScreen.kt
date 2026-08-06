@@ -53,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -74,6 +75,7 @@ import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.resolveMediaUrl
@@ -164,6 +166,7 @@ private fun RaceDetailContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .testTag(ZidRunTestTags.RaceDetailScroll)
             .verticalScroll(rememberScrollState())
             .navigationBarsPadding(),
     ) {
@@ -330,7 +333,9 @@ private fun RaceDetailContent(
             RegistrationCallToAction(
                 race = race,
                 isSignedIn = isSignedIn,
-                onRegister = { onRegister(race.id, race.title) },
+                // Carry the runner's selected category, not the race title. Both are Strings, so
+                // the bad handoff compiled and silently reopened the distance chooser (G-01).
+                onRegister = { onRegister(race.id, selectedCategory?.id.orEmpty()) },
                 onViewRegistration = onViewRegistration,
                 onSignIn = onSignIn,
             )
@@ -502,7 +507,11 @@ private fun RegistrationCallToAction(
 
         race.registrationStatus == "OPEN" && (placesLeft == null || placesLeft > 0) -> {
             Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-                ZidRunButton(text = stringResource(R.string.race_register), onClick = onRegister)
+                ZidRunButton(
+                    text = stringResource(R.string.race_register),
+                    onClick = onRegister,
+                    modifier = Modifier.testTag(ZidRunTestTags.RaceRegister),
+                )
                 placesLeft?.let {
                     ZidRunLabel(
                         text = stringResource(R.string.race_places_left, it),

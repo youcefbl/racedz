@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -65,6 +66,7 @@ import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.currentLocale
 
 /**
@@ -102,6 +104,7 @@ fun RegistrationScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .testTag(ZidRunTestTags.RegistrationScroll)
             .background(colors.background)
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
@@ -178,7 +181,10 @@ fun RegistrationScreen(
 @Composable
 private fun DistanceStep(state: RegistrationUiState, viewModel: RegistrationViewModel, locale: java.util.Locale) {
     val colors = ZidRunTheme.colors
-    ZidRunSectionTitle(stringResource(R.string.registration_step_distance))
+    ZidRunSectionTitle(
+        stringResource(R.string.registration_step_distance),
+        modifier = Modifier.testTag(ZidRunTestTags.RegistrationDistance),
+    )
 
     state.race?.categories?.forEach { category ->
         val selected = state.selectedCategoryId == category.id
@@ -276,7 +282,10 @@ private fun RegistrationProgress(step: RegistrationStep) {
 @Composable
 private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewModel) {
     val colors = ZidRunTheme.colors
-    ZidRunSectionTitle(stringResource(R.string.registration_step_details))
+    ZidRunSectionTitle(
+        stringResource(R.string.registration_step_details),
+        modifier = Modifier.testTag(ZidRunTestTags.RegistrationDetails),
+    )
 
     ZidRunTextField(state.firstName, viewModel::onFirstName, stringResource(R.string.registration_first_name), required = true)
     ZidRunTextField(state.lastName, viewModel::onLastName, stringResource(R.string.registration_last_name), required = true)
@@ -291,6 +300,7 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
         state.dateOfBirth,
         viewModel::onDateOfBirth,
         stringResource(R.string.registration_dob),
+        modifier = Modifier.testTag(ZidRunTestTags.RegistrationDateOfBirth),
         keyboardType = KeyboardType.Number,
         required = true,
         // Digits only: the hyphens are inserted as they type, because a numeric keyboard has none.

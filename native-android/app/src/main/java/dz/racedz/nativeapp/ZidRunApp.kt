@@ -12,6 +12,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +78,7 @@ import dz.racedz.nativeapp.core.design.R as DesignR
  * reason — user sign-out, expiry, or a server-side revocation — the auth screen replaces the whole
  * back stack, so pressing Back cannot return to a signed-in screen holding stale data.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ZidRunApp(
     container: AppContainer,
@@ -211,7 +216,14 @@ fun ZidRunApp(
             }
         }
 
-        NavHost(navController = navController, startDestination = RootDestinations.SPLASH) {
+        NavHost(
+            navController = navController,
+            startDestination = RootDestinations.SPLASH,
+            // Exposes the small, stable ZidRunTestTags contract to black-box UI Automator and
+            // Macrobenchmark tests. Visible copy remains the accessibility name; tags are only
+            // resource identifiers and do not change what TalkBack announces.
+            modifier = Modifier.semantics { testTagsAsResourceId = true },
+        ) {
 
             composable(RootDestinations.SPLASH) {
                 SplashRoute(

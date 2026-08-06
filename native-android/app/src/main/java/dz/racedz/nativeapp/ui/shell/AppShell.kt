@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -57,6 +58,7 @@ import dz.racedz.nativeapp.R
 import dz.racedz.nativeapp.core.design.R as DesignR
 import dz.racedz.nativeapp.SimpleViewModelFactory
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.network.AppFeaturesDto
 import dz.racedz.nativeapp.feature.account.AccountScreen
 import dz.racedz.nativeapp.feature.races.RacesScreen
@@ -257,6 +259,14 @@ private fun ShellBottomBar(navController: NavHostController, features: AppFeatur
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .testTag(
+                            when (spec.tab) {
+                                ShellTab.Races -> ZidRunTestTags.TabRaces
+                                ShellTab.Runs -> ZidRunTestTags.TabRuns
+                                ShellTab.Coach -> ZidRunTestTags.TabCoach
+                                ShellTab.Account -> ZidRunTestTags.TabAccount
+                            }
+                        )
                         .heightIn(min = ZidRunDimens.minTouchTarget)
                         .selectable(
                             selected = selected,

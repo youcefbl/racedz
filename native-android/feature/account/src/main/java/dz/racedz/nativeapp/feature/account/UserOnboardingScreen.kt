@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,7 @@ import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.core.network.ProfileRequest
 
@@ -172,7 +174,11 @@ fun UserOnboardingScreen(
                 loading = state.saving,
             )
 
-            ZidRunTextButton(text = stringResource(R.string.onboarding_skip), onClick = onSkip)
+            ZidRunTextButton(
+                text = stringResource(R.string.onboarding_skip),
+                onClick = onSkip,
+                modifier = Modifier.testTag(ZidRunTestTags.OnboardingSkip),
+            )
 
             Spacer(Modifier.height(ZidRunDimens.spaceXxl))
         }

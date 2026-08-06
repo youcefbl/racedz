@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -62,6 +63,7 @@ import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.CoachWorkoutDto
 import kotlin.math.min
@@ -125,6 +127,7 @@ fun CoachScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .testTag(ZidRunTestTags.CoachOverviewScroll)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = ZidRunDimens.spaceLg),
                     verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
