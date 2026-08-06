@@ -50,6 +50,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -339,21 +341,38 @@ fun RecordingScreen(
                 RunMap(route = state.route, modifier = Modifier.fillMaxSize())
             }
         } else {
+            // Two distinct states, because they are two distinct situations (device review):
+            // with no usable fix yet the app is still ACQUIRING, but once a fix lands the recorder
+            // is already Recording with good GPS and a single point — saying "Searching" beside a
+            // "Recording · Strong GPS" pill contradicted itself, and promising that distance was
+            // already counting was untrue until an accepted segment exists.
+            val acquiring = !state.hasUsableFix || state.route.orEmpty().isEmpty()
+            val title = stringResource(
+                if (acquiring) R.string.runs_gps_searching else R.string.runs_gps_ready_title
+            )
+            val help = stringResource(
+                if (acquiring) R.string.runs_gps_searching_help else R.string.runs_gps_ready_help
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
                     .background(ZidRunDarkColors.surface)
-                    .padding(ZidRunDimens.spaceLg),
+                    .padding(ZidRunDimens.spaceLg)
+                    // Announced politely as the state changes, without stealing focus mid-run.
+                    .semantics(mergeDescendants = true) {
+                        liveRegion = LiveRegionMode.Polite
+                        contentDescription = "$title. $help"
+                    },
                 verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
             ) {
                 Text(
-                    text = stringResource(R.string.runs_gps_searching),
+                    text = title,
                     style = MaterialTheme.typography.titleSmall,
                     color = ZidRunDarkColors.textStrong,
                 )
                 Text(
-                    text = stringResource(R.string.runs_gps_searching_help),
+                    text = help,
                     style = MaterialTheme.typography.bodySmall,
                     color = ZidRunDarkColors.textMuted,
                 )

@@ -137,6 +137,9 @@
     <string name="registration_need_location">Ajoutez votre wilaya et votre ville.</string>
     <string name="registration_need_emergency">Ajoutez un contact d\u2019urgence (nom et téléphone) — obligatoire le jour de la course.</string>
     <string name="registration_need_terms">Acceptez le règlement pour continuer.</string>
+    <string name="registration_dob_help">Chiffres uniquement — les tirets sont ajoutés automatiquement (ex. 1996 05 21).</string>
+    <string name="registration_dob_invalid">Cette date n\u2019existe pas. Vérifiez le jour et le mois.</string>
+    <string name="registration_progress">Étape %1$d sur %2$d</string>
     <string name="registration_submit">Confirmer l\'inscription</string>
     <string name="registration_incomplete">Remplissez tous les champs obligatoires et acceptez le règlement pour continuer.</string>
     <string name="registration_success_title">Vous êtes inscrit</string>
@@ -266,7 +269,9 @@
     <string name="runs_series_no_route">Cette sortie n\u2019a pas de tracé GPS, il n\u2019y a donc rien à afficher.</string>
     <string name="runs_outbox_blocked">Une sortie enregistrée est illisible — appuyez pour l\u2019effacer</string>
     <string name="runs_no_route_captured">Aucun tracé n\u2019a été enregistré pour cette sortie.</string>
-    <string name="runs_gps_searching_help">Votre tracé apparaît dès que le signal est stable. La distance et le temps sont déjà comptés.</string>
+    <string name="runs_gps_searching_help">En attente d’un signal exploitable. Le temps défile ; la distance démarre dès que le signal est bon.</string>
+    <string name="runs_gps_ready_title">GPS prêt</string>
+    <string name="runs_gps_ready_help">Commencez à bouger et votre tracé se dessinera ici.</string>
     <string name="runs_record">Enregistrer</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$s sortie</item>

@@ -522,16 +522,23 @@ fun ZidRunApp(
                 val categoryId = entry.arguments?.getString("categoryId")
                 val registrationViewModel: RegistrationViewModel = viewModel(
                     key = "registration-$raceId",
-                    factory = SimpleViewModelFactory {
+                    // Saved-state factory: the form survives process recreation (a backgrounded
+                    // app used to come back with every typed field emptied).
+                    factory = SavedStateViewModelFactory(entry) { handle ->
                         RegistrationViewModel(
                             container.racesRepository,
                             container.registrationRepository,
                             container.accountRepository,
                             raceId,
                             categoryId,
+                            handle,
                         )
                     },
                 )
+                // Android Back follows the visible flow before leaving it, matching the top bar.
+                androidx.activity.compose.BackHandler {
+                    if (!registrationViewModel.backStep()) navController.popBackStack()
+                }
                 RegistrationScreen(
                     onCompleteProfile = { navController.navigate(RootDestinations.ONBOARDING) },
                     viewModel = registrationViewModel,

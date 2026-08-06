@@ -2,6 +2,8 @@ package dz.racedz.nativeapp.feature.registration
 
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dz.racedz.nativeapp.core.auth.AccountRepository
@@ -64,12 +66,17 @@ data class RegistrationUiState(
      * A runner who filled every visible field could still face a dead button because the emergency
      * contact was required only here, with nothing on screen saying so (DEV-R03).
      */
+    /** True when the typed date is a real calendar date, not merely the right shape. */
+    val dateOfBirthValid: Boolean
+        get() = DATE_PATTERN.matches(dateOfBirth) &&
+            runCatching { java.time.LocalDate.parse(dateOfBirth) }.isSuccess
+
     val unmetRequirement: RegistrationRequirement?
         get() = when {
             selectedCategoryId == null -> RegistrationRequirement.Category
             firstName.isBlank() || lastName.isBlank() -> RegistrationRequirement.Name
             phone.length < 6 -> RegistrationRequirement.Phone
-            !DATE_PATTERN.matches(dateOfBirth) -> RegistrationRequirement.DateOfBirth
+            !dateOfBirthValid -> RegistrationRequirement.DateOfBirth
             wilaya.isBlank() || city.isBlank() -> RegistrationRequirement.Location
             emergencyName.isBlank() || emergencyPhone.length < 6 -> RegistrationRequirement.Emergency
             !acceptedTerms -> RegistrationRequirement.Terms
@@ -79,7 +86,7 @@ data class RegistrationUiState(
     val canSubmitDetails: Boolean
         get() = selectedCategoryId != null &&
             firstName.isNotBlank() && lastName.isNotBlank() &&
-            phone.length >= 6 && DATE_PATTERN.matches(dateOfBirth) &&
+            phone.length >= 6 && dateOfBirthValid &&
             wilaya.isNotBlank() && city.isNotBlank() &&
             emergencyName.isNotBlank() && emergencyPhone.length >= 6 &&
             acceptedTerms && !submitting
@@ -106,14 +113,57 @@ class RegistrationViewModel(
     private val raceIdOrSlug: String,
     /** The distance already chosen on Race Detail, when registration was opened from there. */
     private val preselectedCategoryId: String? = null,
+    /** Survives process recreation so a half-filled form is not silently lost. */
+    private val savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
     private val idempotencyKey: String = registrationRepository.newIdempotencyKey()
 
-    private val _state = MutableStateFlow(RegistrationUiState())
+    private val _state = MutableStateFlow(
+        // Restored after process recreation: a runner who backgrounded the app mid-form used to
+        // return to an empty one, having typed a birth date, an address and an emergency contact.
+        savedState?.get<Bundle>(SAVED_FORM)?.let { bundle ->
+            RegistrationUiState(
+                step = runCatching { RegistrationStep.valueOf(bundle.getString(KEY_STEP).orEmpty()) }
+                    .getOrDefault(RegistrationStep.Distance),
+                selectedCategoryId = bundle.getString(KEY_CATEGORY),
+                firstName = bundle.getString(KEY_FIRST).orEmpty(),
+                lastName = bundle.getString(KEY_LAST).orEmpty(),
+                phone = bundle.getString(KEY_PHONE).orEmpty(),
+                dateOfBirth = bundle.getString(KEY_DOB).orEmpty(),
+                gender = bundle.getString(KEY_GENDER).orEmpty(),
+                wilaya = bundle.getString(KEY_WILAYA).orEmpty(),
+                city = bundle.getString(KEY_CITY).orEmpty(),
+                emergencyName = bundle.getString(KEY_EMERGENCY_NAME).orEmpty(),
+                emergencyPhone = bundle.getString(KEY_EMERGENCY_PHONE).orEmpty(),
+                clubName = bundle.getString(KEY_CLUB).orEmpty(),
+                acceptedTerms = bundle.getBoolean(KEY_TERMS),
+            )
+        } ?: RegistrationUiState()
+    )
     val state: StateFlow<RegistrationUiState> = _state.asStateFlow()
 
     init {
+        // Saved on every state change rather than only at onCleared: process death gives no
+        // reliable later chance to write.
+        savedState?.setSavedStateProvider(SAVED_FORM) {
+            val snapshot = _state.value
+            Bundle().apply {
+                putString(KEY_STEP, snapshot.step.name)
+                putString(KEY_CATEGORY, snapshot.selectedCategoryId)
+                putString(KEY_FIRST, snapshot.firstName)
+                putString(KEY_LAST, snapshot.lastName)
+                putString(KEY_PHONE, snapshot.phone)
+                putString(KEY_DOB, snapshot.dateOfBirth)
+                putString(KEY_GENDER, snapshot.gender)
+                putString(KEY_WILAYA, snapshot.wilaya)
+                putString(KEY_CITY, snapshot.city)
+                putString(KEY_EMERGENCY_NAME, snapshot.emergencyName)
+                putString(KEY_EMERGENCY_PHONE, snapshot.emergencyPhone)
+                putString(KEY_CLUB, snapshot.clubName)
+                putBoolean(KEY_TERMS, snapshot.acceptedTerms)
+            }
+        }
         load()
     }
 
@@ -168,7 +218,25 @@ class RegistrationViewModel(
     fun onFirstName(value: String) = _state.update { it.copy(firstName = value) }
     fun onLastName(value: String) = _state.update { it.copy(lastName = value) }
     fun onPhone(value: String) = _state.update { it.copy(phone = value) }
-    fun onDateOfBirth(value: String) = _state.update { it.copy(dateOfBirth = value) }
+    /**
+     * Accepts digits and inserts the hyphens itself.
+     *
+     * The field asks for a numeric keyboard, and Android's numeric keyboards commonly have no "-",
+     * so a runner without a prefilled birth date could type 8 correct digits and still face a
+     * disabled Confirm because the validator wanted literal YYYY-MM-DD. Formatting as they type
+     * makes the requirement satisfiable with the keyboard actually shown.
+     */
+    fun onDateOfBirth(value: String) = _state.update {
+        val digits = value.filter(Char::isDigit).take(8)
+        val formatted = buildString {
+            append(digits.take(4))
+            if (digits.length > 4) {
+                append('-').append(digits.drop(4).take(2))
+                if (digits.length > 6) append('-').append(digits.drop(6))
+            }
+        }
+        it.copy(dateOfBirth = formatted)
+    }
     fun onGender(value: String) = _state.update { it.copy(gender = value) }
     fun onWilaya(value: String) = _state.update { it.copy(wilaya = value) }
     fun onCity(value: String) = _state.update { it.copy(city = value) }
@@ -179,6 +247,24 @@ class RegistrationViewModel(
     fun onPaymentMethod(value: String) = _state.update { it.copy(paymentMethod = value) }
 
     fun goToStep(step: RegistrationStep) = _state.update { it.copy(step = step, error = null) }
+
+    /**
+     * Steps back one screen, or reports that there is nowhere left to go.
+     *
+     * Back used to pop the whole registration route from any step, so returning from Review threw
+     * away a completed form. Payment and Done are deliberately terminal: the entry exists by then,
+     * and walking back into the form would invite a second one.
+     */
+    fun backStep(): Boolean {
+        val current = _state.value.step
+        val previous = when (current) {
+            RegistrationStep.Review -> RegistrationStep.Details
+            RegistrationStep.Details -> RegistrationStep.Distance.takeIf { preselectedCategoryId == null }
+            else -> null
+        } ?: return false
+        _state.update { it.copy(step = previous, error = null) }
+        return true
+    }
 
     fun submit() {
         val snapshot = _state.value
@@ -284,4 +370,21 @@ class RegistrationViewModel(
     }.getOrNull()
 
     fun dismissError() = _state.update { it.copy(error = null) }
+
+    private companion object {
+        const val SAVED_FORM = "registration-form"
+        const val KEY_STEP = "step"
+        const val KEY_CATEGORY = "categoryId"
+        const val KEY_FIRST = "firstName"
+        const val KEY_LAST = "lastName"
+        const val KEY_PHONE = "phone"
+        const val KEY_DOB = "dateOfBirth"
+        const val KEY_GENDER = "gender"
+        const val KEY_WILAYA = "wilaya"
+        const val KEY_CITY = "city"
+        const val KEY_EMERGENCY_NAME = "emergencyName"
+        const val KEY_EMERGENCY_PHONE = "emergencyPhone"
+        const val KEY_CLUB = "clubName"
+        const val KEY_TERMS = "acceptedTerms"
+    }
 }

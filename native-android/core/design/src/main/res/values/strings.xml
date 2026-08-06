@@ -150,6 +150,9 @@
     <string name="registration_need_location">Add your wilaya and city.</string>
     <string name="registration_need_emergency">Add an emergency contact name and phone — required for race day.</string>
     <string name="registration_need_terms">Accept the race rules to continue.</string>
+    <string name="registration_dob_help">Digits only — we add the dashes (e.g. 1996 05 21).</string>
+    <string name="registration_dob_invalid">That is not a real date. Check the day and month.</string>
+    <string name="registration_progress">Step %1$d of %2$d</string>
     <string name="registration_submit">Confirm registration</string>
     <string name="registration_incomplete">Complete every required field and accept the race rules to continue.</string>
     <string name="registration_success_title">You are registered</string>
@@ -285,7 +288,9 @@
     <string name="runs_series_no_route">This run has no GPS route, so there is nothing to chart.</string>
     <string name="runs_outbox_blocked">A saved run can\u2019t be read — tap to clear it</string>
     <string name="runs_no_route_captured">No route was captured for this run.</string>
-    <string name="runs_gps_searching_help">Your route appears once the signal is steady. Distance and time are already counting.</string>
+    <string name="runs_gps_searching_help">Waiting for a usable signal. Time is counting; distance starts once the signal is good.</string>
+    <string name="runs_gps_ready_title">GPS ready</string>
+    <string name="runs_gps_ready_help">Start moving and your route will draw here.</string>
     <string name="runs_record">Record run</string>
     <plurals name="runs_overview_count">
         <item quantity="one">%1$s run</item>

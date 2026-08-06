@@ -138,6 +138,9 @@
     <string name="registration_need_location">زيد الولاية والمدينة.</string>
     <string name="registration_need_emergency">زيد اسم ورقم للطوارئ — ضروري نهار السباق.</string>
     <string name="registration_need_terms">وافق على قانون السباق باش تكمّل.</string>
+    <string name="registration_dob_help">أرقام برك — الشرطات نزيدوهم حنا (مثال 1996 05 21).</string>
+    <string name="registration_dob_invalid">هذا التاريخ ما كاينش. شوف النهار والشهر.</string>
+    <string name="registration_progress">المرحلة %1$d من %2$d</string>
     <string name="registration_submit">أكّد التسجيل</string>
     <string name="registration_incomplete">كمّل المعلومات المطلوبة ووافق على قوانين السباق باش تواصل.</string>
     <string name="registration_success_title">راك مسجّل</string>
@@ -278,7 +281,9 @@
     <string name="runs_series_no_route">هذي الجَرية ما فيهاش مسار GPS، ما كاين والو باش نرسموه.</string>
     <string name="runs_outbox_blocked">كاين جَرية محفوظة ما نقدروش نقراوها — كليكي باش تمسحها</string>
     <string name="runs_no_route_captured">ما تسجّل حتى مسار لهذي الجَرية.</string>
-    <string name="runs_gps_searching_help">المسار يبان كي يستقرّ الإشارة. المسافة والوقت راهم يحسبو من دروك.</string>
+    <string name="runs_gps_searching_help">مستنّي إشارة مليحة. الوقت راه يحسب؛ المسافة تبدا كي تولّي الإشارة مليحة.</string>
+    <string name="runs_gps_ready_title">الـGPS واجد</string>
+    <string name="runs_gps_ready_help">ابدا تتحرّك والمسار يتّرسم هنا.</string>
     <string name="runs_record">سجّل</string>
     <plurals name="runs_overview_count">
         <item quantity="zero">%1$s جَريات</item>

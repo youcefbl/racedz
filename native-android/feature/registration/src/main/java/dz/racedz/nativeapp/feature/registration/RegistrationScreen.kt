@@ -42,6 +42,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
@@ -107,7 +111,7 @@ fun RegistrationScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
-                onClick = onBack,
+                onClick = { if (!viewModel.backStep()) onBack() },
                 modifier = Modifier.sizeIn(minWidth = ZidRunDimens.minTouchTarget, minHeight = ZidRunDimens.minTouchTarget),
             ) {
                 Icon(
@@ -149,6 +153,8 @@ fun RegistrationScreen(
                 modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
                 verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
             ) {
+                RegistrationProgress(state.step)
+
                 state.error?.let { ZidRunInlineError(it.message, offline = state.isOffline) }
 
                 when (state.step) {
@@ -206,6 +212,53 @@ private fun DistanceStep(state: RegistrationUiState, viewModel: RegistrationView
     )
 }
 
+/**
+ * The visible, announced step counter the approved flow requires (RACE_DESIGN_FLOW: "a short,
+ * visible sequence"). Steps are counted as details → review → submitted; the distance choice is
+ * excluded because arriving from Race Detail answers it before the flow starts.
+ *
+ * The dots are decorative: the "Step N of 3" line beside them is what TalkBack reads, and it is
+ * merged into one announcement so the counter is heard as a unit rather than four fragments.
+ */
+@Composable
+private fun RegistrationProgress(step: RegistrationStep) {
+    val colors = ZidRunTheme.colors
+    val index = when (step) {
+        RegistrationStep.Distance, RegistrationStep.Details -> 1
+        RegistrationStep.Review -> 2
+        RegistrationStep.Payment, RegistrationStep.Done -> 3
+    }
+    val label = stringResource(R.string.registration_progress, index, 3)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) { contentDescription = label },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textMuted,
+        )
+        Row(
+            modifier = Modifier.weight(1f).clearAndSetSemantics { },
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+        ) {
+            repeat(3) { position ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
+                        .background(if (position < index) colors.primary else colors.border),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewModel) {
     val colors = ZidRunTheme.colors
@@ -226,6 +279,11 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
         stringResource(R.string.registration_dob),
         keyboardType = KeyboardType.Number,
         required = true,
+        // Digits only: the hyphens are inserted as they type, because a numeric keyboard has none.
+        supportingText = stringResource(R.string.registration_dob_help),
+        errorText = state.dateOfBirth
+            .takeIf { it.isNotEmpty() && it.length == 10 && !state.dateOfBirthValid }
+            ?.let { stringResource(R.string.registration_dob_invalid) },
     )
 
     ZidRunLabel(stringResource(R.string.registration_gender))
