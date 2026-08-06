@@ -122,6 +122,7 @@
     <string name="registration_shirt">Taille de t-shirt (facultatif)</string>
     <string name="registration_accept">J\'accepte le règlement de la course</string>
     <string name="registration_submit">Confirmer l\'inscription</string>
+    <string name="registration_incomplete">Remplissez tous les champs obligatoires et acceptez le règlement pour continuer.</string>
     <string name="registration_success_title">Vous êtes inscrit</string>
     <string name="registration_success_body">Votre place est réservée. Payez et envoyez votre preuve pour que l\'organisateur confirme.</string>
     <string name="registration_already">Vous êtes déjà inscrit à cette distance.</string>
@@ -391,6 +392,7 @@
     <string name="coach_goal_edit_title">Modifier votre objectif</string>
     <string name="coach_goal_edit">Modifier</string>
     <string name="common_optional">Facultatif</string>
+    <string name="common_required">Obligatoire</string>
     <string name="coach_setup_step_of">Étape %1$d sur %2$d</string>
     <string name="coach_setup_step1_title">Votre objectif</string>
     <string name="coach_setup_step1_intro">Ce que vous préparez, et pour quand.</string>

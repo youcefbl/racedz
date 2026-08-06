@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Search
@@ -37,9 +39,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -55,6 +59,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardOptions
 import kotlin.math.roundToInt
 import androidx.compose.material3.SliderDefaults
@@ -166,6 +172,7 @@ fun ZidRunOutlinedButton(
  * [errorText] is rendered below AND wired into the field's error state, so TalkBack announces the
  * problem instead of a sighted-only red outline.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ZidRunTextField(
     value: String,
@@ -185,15 +192,28 @@ fun ZidRunTextField(
     singleLine: Boolean = true,
     showPasswordLabel: String = "Show password",
     hidePasswordLabel: String = "Hide password",
+    /**
+     * Marks the field as required, in the label and to TalkBack. Fields that gate a submit button
+     * must say so: the registration form silently required an emergency contact, so a runner who
+     * filled everything they could see met a permanently disabled Confirm (DEV-R03).
+     */
+    required: Boolean = false,
 ) {
     val colors = ZidRunTheme.colors
     var passwordVisible by remember { mutableStateOf(false) }
+    // Keeps the focused field visible when the keyboard opens over it. imePadding() alone only
+    // insets the scroll container; on a 1080×2340 phone the phone field still landed underneath
+    // the IME after a Tab/Next from the field above it (DEV-R03).
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            label = { Text(label) },
+            label = {
+                Text(if (required) "$label · ${stringResource(R.string.common_required)}" else label)
+            },
             singleLine = singleLine,
             minLines = if (singleLine) 1 else 3,
             enabled = enabled,
@@ -225,7 +245,17 @@ fun ZidRunTextField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = 60.dp),
+                .defaultMinSize(minHeight = 60.dp)
+                .bringIntoViewRequester(bringIntoView)
+                .onFocusEvent { focus ->
+                    if (focus.isFocused) scope.launch {
+                        // Wait for the IME inset to be applied; requesting against the old viewport
+                        // can leave the field covered as soon as the keyboard finishes opening.
+                        delay(250)
+                        bringIntoView.bringIntoView()
+                    }
+                },
+
             shape = RoundedCornerShape(ZidRunDimens.cornerMd),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = colors.primary,

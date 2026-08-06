@@ -123,6 +123,7 @@
     <string name="registration_shirt">قياس التي-شيرت (اختياري)</string>
     <string name="registration_accept">نوافق على قوانين السباق</string>
     <string name="registration_submit">أكّد التسجيل</string>
+    <string name="registration_incomplete">كمّل المعلومات المطلوبة ووافق على قوانين السباق باش تواصل.</string>
     <string name="registration_success_title">راك مسجّل</string>
     <string name="registration_success_body">البلاصة ديالك محجوزة. خلّص وصيفط الإثبات باش المنظّم يأكّد.</string>
     <string name="registration_already">راك مسجّل من قبل في هاذ المسافة.</string>
@@ -409,6 +410,7 @@
     <string name="coach_goal_edit_title">بدّل الهدف تاعك</string>
     <string name="coach_goal_edit">بدّل</string>
     <string name="common_optional">اختياري</string>
+    <string name="common_required">مطلوب</string>
     <string name="coach_setup_step_of">الخطوة %1$d من %2$d</string>
     <string name="coach_setup_step1_title">الهدف تاعك</string>
     <string name="coach_setup_step1_intro">واش راك تحضّر، ووقتاش.</string>

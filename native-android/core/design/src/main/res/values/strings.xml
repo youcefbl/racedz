@@ -135,6 +135,7 @@
     <string name="registration_shirt">T-shirt size (optional)</string>
     <string name="registration_accept">I accept the race rules</string>
     <string name="registration_submit">Confirm registration</string>
+    <string name="registration_incomplete">Complete every required field and accept the race rules to continue.</string>
     <string name="registration_success_title">You are registered</string>
     <string name="registration_success_body">Your place is held. Pay and upload your proof so the organizer can confirm it.</string>
     <string name="registration_already">You are already registered for this distance.</string>
@@ -408,6 +409,7 @@
     <string name="coach_goal_edit_title">Update your goal</string>
     <string name="coach_goal_edit">Edit goal</string>
     <string name="common_optional">Optional</string>
+    <string name="common_required">Required</string>
     <string name="coach_setup_step_of">Step %1$d of %2$d</string>
     <string name="coach_setup_step1_title">Your goal</string>
     <string name="coach_setup_step1_intro">What you are training for, and when.</string>

@@ -209,19 +209,21 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
     val colors = ZidRunTheme.colors
     ZidRunSectionTitle(stringResource(R.string.registration_step_details))
 
-    ZidRunTextField(state.firstName, viewModel::onFirstName, stringResource(R.string.registration_first_name))
-    ZidRunTextField(state.lastName, viewModel::onLastName, stringResource(R.string.registration_last_name))
+    ZidRunTextField(state.firstName, viewModel::onFirstName, stringResource(R.string.registration_first_name), required = true)
+    ZidRunTextField(state.lastName, viewModel::onLastName, stringResource(R.string.registration_last_name), required = true)
     ZidRunTextField(
         state.phone,
         viewModel::onPhone,
         stringResource(R.string.registration_phone),
         keyboardType = KeyboardType.Phone,
+        required = true,
     )
     ZidRunTextField(
         state.dateOfBirth,
         viewModel::onDateOfBirth,
         stringResource(R.string.registration_dob),
         keyboardType = KeyboardType.Number,
+        required = true,
     )
 
     ZidRunLabel(stringResource(R.string.registration_gender))
@@ -239,14 +241,15 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
         }
     }
 
-    ZidRunTextField(state.wilaya, viewModel::onWilaya, stringResource(R.string.registration_wilaya))
-    ZidRunTextField(state.city, viewModel::onCity, stringResource(R.string.registration_city))
-    ZidRunTextField(state.emergencyName, viewModel::onEmergencyName, stringResource(R.string.registration_emergency_name))
+    ZidRunTextField(state.wilaya, viewModel::onWilaya, stringResource(R.string.registration_wilaya), required = true)
+    ZidRunTextField(state.city, viewModel::onCity, stringResource(R.string.registration_city), required = true)
+    ZidRunTextField(state.emergencyName, viewModel::onEmergencyName, stringResource(R.string.registration_emergency_name), required = true)
     ZidRunTextField(
         state.emergencyPhone,
         viewModel::onEmergencyPhone,
         stringResource(R.string.registration_emergency_phone),
         keyboardType = KeyboardType.Phone,
+        required = true,
     )
     ZidRunTextField(state.clubName, viewModel::onClubName, stringResource(R.string.registration_club))
 
@@ -261,6 +264,14 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
             style = MaterialTheme.typography.bodyMedium,
             color = colors.text,
             modifier = Modifier.weight(1f),
+        )
+    }
+
+    if (!state.canSubmitDetails && !state.submitting) {
+        Text(
+            stringResource(R.string.registration_incomplete),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textMuted,
         )
     }
 
