@@ -152,7 +152,7 @@
     <string name="registration_need_terms">Accept the race rules to continue.</string>
     <string name="registration_dob_help">Digits only — we add the dashes (e.g. 1996 05 21).</string>
     <string name="registration_dob_invalid">That is not a real date. Check the day and month.</string>
-    <string name="registration_progress">Step %1$d of %2$d</string>
+    <string name="registration_progress">Step %1$s of %2$s</string>
     <string name="registration_submit">Confirm registration</string>
     <string name="registration_incomplete">Complete every required field and accept the race rules to continue.</string>
     <string name="registration_success_title">You are registered</string>

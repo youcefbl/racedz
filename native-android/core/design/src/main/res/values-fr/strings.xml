@@ -139,7 +139,7 @@
     <string name="registration_need_terms">Acceptez le règlement pour continuer.</string>
     <string name="registration_dob_help">Chiffres uniquement — les tirets sont ajoutés automatiquement (ex. 1996 05 21).</string>
     <string name="registration_dob_invalid">Cette date n\u2019existe pas. Vérifiez le jour et le mois.</string>
-    <string name="registration_progress">Étape %1$d sur %2$d</string>
+    <string name="registration_progress">Étape %1$s sur %2$s</string>
     <string name="registration_submit">Confirmer l\'inscription</string>
     <string name="registration_incomplete">Remplissez tous les champs obligatoires et acceptez le règlement pour continuer.</string>
     <string name="registration_success_title">Vous êtes inscrit</string>

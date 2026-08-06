@@ -117,15 +117,30 @@ class RegistrationViewModel(
     private val savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
-    private val idempotencyKey: String = registrationRepository.newIdempotencyKey()
+    /**
+     * Stable for the life of this registration attempt, **including across process death**.
+     *
+     * Regenerating it on view-model recreation defeated the entire mechanism: a runner whose app
+     * was killed during an uncertain submit would retry under a new key, so the server would treat
+     * it as a different registration instead of replaying the first result.
+     */
+    private val idempotencyKey: String =
+        savedState?.get<String>(KEY_IDEMPOTENCY)
+            ?: registrationRepository.newIdempotencyKey().also { savedState?.set(KEY_IDEMPOTENCY, it) }
 
     private val _state = MutableStateFlow(
         // Restored after process recreation: a runner who backgrounded the app mid-form used to
         // return to an empty one, having typed a birth date, an address and an emergency contact.
         savedState?.get<Bundle>(SAVED_FORM)?.let { bundle ->
             RegistrationUiState(
+                // Post-submit steps are deliberately NOT restored. `registration` lives only in
+                // memory, so a restored Payment step rendered a blank screen; the runner is put
+                // back on Review instead, where the retained idempotency key makes Confirm replay
+                // the original request rather than create a second entry. Done is terminal and
+                // safe to keep.
                 step = runCatching { RegistrationStep.valueOf(bundle.getString(KEY_STEP).orEmpty()) }
-                    .getOrDefault(RegistrationStep.Distance),
+                    .getOrDefault(RegistrationStep.Distance)
+                    .let { if (it == RegistrationStep.Payment) RegistrationStep.Review else it },
                 selectedCategoryId = bundle.getString(KEY_CATEGORY),
                 firstName = bundle.getString(KEY_FIRST).orEmpty(),
                 lastName = bundle.getString(KEY_LAST).orEmpty(),
@@ -177,19 +192,32 @@ class RegistrationViewModel(
                     // because a one-option choice screen is a step with no decision in it. Only an
                     // id the race actually offers is honoured, so a stale link cannot select a
                     // category from another race.
-                    val carried = preselectedCategoryId
-                        ?.takeIf { id -> race.value.categories.any { it.id == id } }
-                    val resolved = carried ?: race.value.categories.singleOrNull()?.id
+                    fun offered(id: String?) = id?.takeIf { candidate ->
+                        race.value.categories.any { it.id == candidate }
+                    }
+                    // Precedence matters. A selection already in state — restored after process
+                    // death, or made by the runner before the race finished loading — outranks the
+                    // navigation argument, which outranks a single-distance race preselecting
+                    // itself. Resolving the argument first silently erased a restored choice, so a
+                    // multi-distance registration could come back on Review with no category and a
+                    // Confirm that could never enable.
+                    val resolved = offered(current.selectedCategoryId)
+                        ?: offered(preselectedCategoryId)
+                        ?: race.value.categories.singleOrNull()?.id
                     current.copy(
                         race = race.value,
                         loading = false,
                         selectedCategoryId = resolved,
                         // Arriving with the distance already chosen means that step is answered —
                         // reopening it unselected made the runner repeat themselves (DEV-R02).
-                        step = if (resolved != null && current.step == RegistrationStep.Distance) {
-                            RegistrationStep.Details
-                        } else {
-                            current.step
+                        // If nothing valid survived, the only honest place to be is the chooser,
+                        // never a later step that cannot be completed.
+                        step = when {
+                            resolved == null && current.step != RegistrationStep.Done ->
+                                RegistrationStep.Distance
+                            resolved != null && current.step == RegistrationStep.Distance ->
+                                RegistrationStep.Details
+                            else -> current.step
                         },
                     )
                 }
@@ -227,7 +255,15 @@ class RegistrationViewModel(
      * makes the requirement satisfiable with the keyboard actually shown.
      */
     fun onDateOfBirth(value: String) = _state.update {
-        val digits = value.filter(Char::isDigit).take(8)
+        // Char.isDigit() accepts every Unicode decimal digit, so an Arabic keyboard's ١٩٩٦٠٥٢١
+        // formatted happily and then failed ISO parsing — the same dead-end this fix exists to
+        // remove, just one locale further along. Character.digit() maps any of them to 0-9.
+        val digits = value
+            .filter(Char::isDigit)
+            .map { Character.digit(it, 10) }
+            .filter { it >= 0 }
+            .joinToString("")
+            .take(8)
         val formatted = buildString {
             append(digits.take(4))
             if (digits.length > 4) {
@@ -386,5 +422,6 @@ class RegistrationViewModel(
         const val KEY_EMERGENCY_PHONE = "emergencyPhone"
         const val KEY_CLUB = "clubName"
         const val KEY_TERMS = "acceptedTerms"
+        const val KEY_IDEMPOTENCY = "idempotencyKey"
     }
 }

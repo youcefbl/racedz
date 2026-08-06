@@ -39,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -228,12 +230,24 @@ private fun RegistrationProgress(step: RegistrationStep) {
         RegistrationStep.Review -> 2
         RegistrationStep.Payment, RegistrationStep.Done -> 3
     }
-    val label = stringResource(R.string.registration_progress, index, 3)
+    // Formatted through the app's locale, not the resource's: a `%d` argument renders
+    // Arabic-Indic digits under bare `ar`, which would put two numeral systems on one screen.
+    val locale = currentLocale()
+    val label = stringResource(
+        R.string.registration_progress,
+        ZidRunFormat.count(index, locale),
+        ZidRunFormat.count(3, locale),
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = label },
+            // Polite live region so each step transition is announced once, without interrupting
+            // whatever the runner is already hearing.
+            .semantics(mergeDescendants = true) {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = label
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
