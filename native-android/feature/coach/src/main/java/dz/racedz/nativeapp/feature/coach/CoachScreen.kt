@@ -227,7 +227,10 @@ fun CoachScreen(
                             ZidRunCard(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
                                     Text(
-                                        stringResource(R.string.coach_this_week),
+                                        // The ring counts the ACTIVE PLAN, so the heading says so.
+                                        // "This week" over a plan-wide ratio contradicted the
+                                        // plan screen's genuine weekly count (DEV-R05).
+                                        stringResource(R.string.coach_whole_plan),
                                         style = MaterialTheme.typography.titleSmall,
                                         color = colors.primary,
                                     )
@@ -245,7 +248,7 @@ fun CoachScreen(
                                             planned = adherence.plannedSessions,
                                         )
                                         Text(
-                                            stringResource(R.string.coach_sessions_done_plan),
+                                            stringResource(R.string.coach_sessions_done),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colors.textMuted,
                                             textAlign = TextAlign.Center,
@@ -281,7 +284,7 @@ fun CoachScreen(
                                         )
                                     }
                                     Text(
-                                        next.title,
+                                        ZidRunFormat.isolate(next.title),
                                         style = MaterialTheme.typography.titleSmall,
                                         color = colors.textStrong,
                                     )
@@ -315,7 +318,7 @@ fun CoachScreen(
                                     Text(
                                         // Trimmed: the full reply belongs in the conversation view,
                                         // not squeezed into a summary card.
-                                        text = review.take(240),
+                                        text = ZidRunFormat.isolate(review.take(240)),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = colors.text,
                                     )
@@ -385,7 +388,7 @@ private fun TodayWorkoutCard(workout: CoachWorkoutDto, onLogRun: (String?) -> Un
                 }
                 Spacer(Modifier.width(ZidRunDimens.spaceMd))
                 Column(Modifier.weight(1f)) {
-                    Text(workout.title, style = MaterialTheme.typography.titleLarge, color = colors.textStrong)
+                    Text(ZidRunFormat.isolate(workout.title), style = MaterialTheme.typography.titleLarge, color = colors.textStrong)
                     Text(
                         workoutTargetLabel(workout, locale),
                         style = MaterialTheme.typography.bodyMedium,
@@ -403,7 +406,7 @@ private fun TodayWorkoutCard(workout: CoachWorkoutDto, onLogRun: (String?) -> Un
                     color = colors.primary,
                     modifier = Modifier.weight(1f),
                 )
-                ZidRunPill(text = workout.intensity, color = colors.primary)
+                ZidRunPill(text = ZidRunFormat.isolate(workout.intensity), color = colors.primary)
             }
 
             if (workout.instructions.isNotBlank()) {
@@ -413,7 +416,7 @@ private fun TodayWorkoutCard(workout: CoachWorkoutDto, onLogRun: (String?) -> Un
                         style = MaterialTheme.typography.titleSmall,
                         color = colors.primary,
                     )
-                    Text(workout.instructions, style = MaterialTheme.typography.bodyMedium, color = colors.text)
+                    Text(ZidRunFormat.isolate(workout.instructions), style = MaterialTheme.typography.bodyMedium, color = colors.text)
                 }
             }
 

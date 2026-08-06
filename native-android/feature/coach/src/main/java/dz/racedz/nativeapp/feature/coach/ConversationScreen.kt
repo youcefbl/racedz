@@ -49,6 +49,7 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
+import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
@@ -523,7 +524,7 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
         }
 
         if (reply.summary.isNotBlank()) {
-            Text(reply.summary, style = MaterialTheme.typography.bodyMedium, color = colors.text)
+            Text(ZidRunFormat.isolate(reply.summary), style = MaterialTheme.typography.bodyMedium, color = colors.text)
         }
         reply.progressAssessment?.takeIf { it.isNotBlank() }?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)

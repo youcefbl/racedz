@@ -368,6 +368,7 @@
     <string name="coach_of_n">من %1$s</string>
     <string name="coach_next_workout">الحصة الجاية</string>
     <string name="coach_latest_review">آخر ملاحظة من المدرب</string>
+    <string name="coach_whole_plan">البرنامج كامل</string>
     <string name="coach_trial">تجربة مجانية</string>
     <string name="coach_sessions_done_plan">حصص كمّلتها — البرنامج كامل</string>
     <plurals name="coach_trial_days_left">

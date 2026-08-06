@@ -353,6 +353,7 @@
     <string name="coach_of_n">sur %1$s</string>
     <string name="coach_next_workout">Prochaine séance</string>
     <string name="coach_latest_review">Dernier retour du coach</string>
+    <string name="coach_whole_plan">Plan complet</string>
     <string name="coach_trial">Essai gratuit</string>
     <string name="coach_sessions_done_plan">Séances terminées — plan complet</string>
     <plurals name="coach_trial_days_left">

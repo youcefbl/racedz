@@ -443,7 +443,7 @@ private fun WorkoutDetailCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.primary,
             )
-            Text(workout.title, style = MaterialTheme.typography.displaySmall, color = colors.textStrong)
+            Text(ZidRunFormat.isolate(workout.title), style = MaterialTheme.typography.displaySmall, color = colors.textStrong)
             Text(
                 text = listOfNotNull(
                     workout.targetDistanceKm?.let { ZidRunFormat.kilometres(it, locale) },
@@ -471,7 +471,7 @@ private fun WorkoutDetailCard(
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.primary,
                 )
-                Text(workout.instructions, style = MaterialTheme.typography.bodyMedium, color = colors.text)
+                Text(ZidRunFormat.isolate(workout.instructions), style = MaterialTheme.typography.bodyMedium, color = colors.text)
             }
 
             // Only offered for a session that has not been decided yet — a completed or already

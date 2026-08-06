@@ -339,8 +339,14 @@ fun ZidRunTopBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
+    /**
+     * Forces the dark-surface palette regardless of the app theme, for the record screens that are
+     * always dark. Without it, a Light app drew a near-black back arrow onto the black pre-run
+     * surface — the only visible way out of that screen (DEV-R01).
+     */
+    onDarkSurface: Boolean = false,
 ) {
-    val colors = ZidRunTheme.colors
+    val colors = if (onDarkSurface) ZidRunDarkColors else ZidRunTheme.colors
     val backLabel = androidx.compose.ui.res.stringResource(R.string.common_back)
     Row(
         modifier = modifier

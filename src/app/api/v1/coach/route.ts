@@ -44,8 +44,13 @@ export const GET = withApi(async (request) => {
     getPlanAdherence(viewer.id),
   ]);
 
-  // The next PLANNED session after today's, so the card can say what is coming without pulling the
+  // The next PLANNED session AFTER today, so the card can say what is coming without pulling the
   // whole plan down.
+  //
+  // `> date_trunc('day', NOW())` looked right but matched anything later than midnight *today*, so a
+  // runner whose session was scheduled for this morning saw the very same workout as both "Today's
+  // workout" and "Next workout" (DEV-R05). Starting at tomorrow's midnight is what "next" means to
+  // a runner reading the two cards side by side.
   const upcoming = await prisma.$queryRaw<
     Array<{ id: string; title: string; targetDistanceKm: number | null; targetDurationMin: number | null; scheduledFor: Date }>
   >`
@@ -54,7 +59,7 @@ export const GET = withApi(async (request) => {
     INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
     WHERE plan."userId" = ${viewer.id} AND plan."status" = 'ACTIVE' AND workout."status" = 'PLANNED'
       AND workout."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
-      AND workout."scheduledFor" > date_trunc('day', NOW())
+      AND workout."scheduledFor" >= date_trunc('day', NOW()) + INTERVAL '1 day'
     ORDER BY workout."scheduledFor" ASC
     LIMIT 1
   `;

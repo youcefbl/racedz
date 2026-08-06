@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunDarkColors
+import dz.racedz.nativeapp.core.design.ZidRunDarkSurfaceSystemBars
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.currentLocale
@@ -101,6 +102,9 @@ fun RecordingScreen(
     onMinimize: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // This screen is dark in every theme, so the system bars must be too (DEV-R01).
+    ZidRunDarkSurfaceSystemBars()
+
     val state by RunRecorder.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val locale = currentLocale()

@@ -371,6 +371,7 @@
     <string name="coach_of_n">of %1$s</string>
     <string name="coach_next_workout">Next workout</string>
     <string name="coach_latest_review">Latest coach review</string>
+    <string name="coach_whole_plan">Whole plan</string>
     <string name="coach_trial">Free trial</string>
     <string name="coach_sessions_done_plan">Sessions completed — whole plan</string>
     <plurals name="coach_trial_days_left">

@@ -38,8 +38,13 @@ object ZidRunFormat {
             .uppercase(locale)
     }.getOrDefault("")
 
+    /**
+     * Isolated for the same reason as [pace]: "3 أوت 2026, 17:30" contains bidi-neutral "," and ":"
+     * that an RTL paragraph reorders into "17:30 ,2026 أوت 3" (DEV-R07). First-strong keeps the
+     * Arabic month leading in Arabic and the Latin month leading in en/fr.
+     */
     fun dateTime(iso: String, locale: Locale): String = runCatching {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(dateTimeFormat.withLocale(locale))
+        isolate(Instant.parse(iso).atZone(ZoneId.systemDefault()).format(dateTimeFormat.withLocale(locale)))
     }.getOrDefault("")
 
     fun money(amount: Int, locale: Locale): String =
@@ -120,6 +125,19 @@ object ZidRunFormat {
         if (secondsPerKm <= 0) return "—"
         return ltr(String.format(Locale.ROOT, "%d:%02d/km", secondsPerKm / 60, secondsPerKm % 60))
     }
+
+    /**
+     * Wraps text whose language is not necessarily the UI's in a *first-strong* isolate.
+     *
+     * The coach writes in the goal's language, which can be English or French while the app is in
+     * Arabic. Dropping that Latin text raw into an RTL paragraph let the bidi algorithm reorder it:
+     * on device, "6 × 800 m at 5K effort … Stop at the first sign of pain." rendered starting from
+     * "m at 5K…" and ending with "800 × 6" — a runner can misread the prescribed work structure,
+     * so this is a safety issue, not a cosmetic one (DEV-R07). U+2068 lets the run's own first
+     * strong character pick the direction, so English stays LTR and Arabic replies stay RTL.
+     */
+    fun isolate(value: String): String =
+        if (value.isEmpty()) value else "\u2068$value\u2069"
 
     /** U+2066 LEFT-TO-RIGHT ISOLATE … U+2069 POP DIRECTIONAL ISOLATE. */
     private fun ltr(value: String): String = "\u2066$value\u2069"

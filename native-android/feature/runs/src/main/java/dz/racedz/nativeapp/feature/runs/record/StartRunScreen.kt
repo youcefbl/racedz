@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunDarkColors
+import dz.racedz.nativeapp.core.design.ZidRunDarkSurfaceSystemBars
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.feature.runs.R as RunsR
@@ -110,10 +111,19 @@ fun StartRunScreen(
      */
     workoutId: String? = null,
 ) {
+    // This screen is dark in every theme, so the system bars must be too (DEV-R01).
+    ZidRunDarkSurfaceSystemBars()
+
     val context = LocalContext.current
     val session by viewModel.state.collectAsStateWithLifecycle()
     var permissionDenied by remember { mutableStateOf(false) }
-    var mode by rememberSaveable { mutableStateOf(RunMode.Free) }
+    // Arriving from the coach's "Log this run" means the runner already chose a planned session, so
+    // Guided is the mode they asked for (DEV-R06). Starting in Free associated the workout but ran
+    // no cues or steps unless they noticed the tabs and switched — the guidance simply never came.
+    // Free remains one tap away as the "record without guidance" escape hatch.
+    var mode by rememberSaveable {
+        mutableStateOf(if (workoutId != null) RunMode.Guided else RunMode.Free)
+    }
     var audioCues by rememberSaveable { mutableStateOf(true) }
 
     // Notifications are requested alongside location: the foreground service needs a visible
@@ -141,7 +151,7 @@ fun StartRunScreen(
             .background(ZidRunDarkColors.background)
             .navigationBarsPadding(),
     ) {
-        ZidRunTopBar(title = "", onBack = onBack)
+        ZidRunTopBar(title = "", onBack = onBack, onDarkSurface = true)
 
         Column(
             modifier = Modifier

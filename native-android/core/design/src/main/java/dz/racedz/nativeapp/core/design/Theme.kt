@@ -105,3 +105,30 @@ fun ZidRunTheme(
         )
     }
 }
+
+/**
+ * Pins the platform status/navigation bar icons to their light (white) form for as long as the
+ * caller is on screen, restoring the app theme's own choice on the way out.
+ *
+ * The record screens deliberately render on a dark surface in every theme. Driving system-bar
+ * appearance from the app theme alone therefore drew black clock, battery and signal icons onto a
+ * black screen whenever the app was in Light — precisely while a run was being started or
+ * controlled outdoors (DEV-R01). Appearance has to follow the *surface underneath the bars*, not
+ * the theme setting.
+ */
+@Composable
+fun ZidRunDarkSurfaceSystemBars() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (view.isInEditMode) return
+    val restoreToLight = ZidRunTheme.mode == ZidRunThemeMode.Light
+    androidx.compose.runtime.DisposableEffect(restoreToLight) {
+        val window = (view.context as? android.app.Activity)?.window
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        controller?.isAppearanceLightStatusBars = false
+        controller?.isAppearanceLightNavigationBars = false
+        onDispose {
+            controller?.isAppearanceLightStatusBars = restoreToLight
+            controller?.isAppearanceLightNavigationBars = restoreToLight
+        }
+    }
+}
