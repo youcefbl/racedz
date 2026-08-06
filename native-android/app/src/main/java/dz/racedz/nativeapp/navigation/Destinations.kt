@@ -10,7 +10,7 @@ object RootDestinations {
     const val SHELL = "shell"
 
     const val RACE_DETAIL = "race/{raceId}"
-    const val REGISTRATION = "register/{raceId}"
+    const val REGISTRATION = "register/{raceId}?categoryId={categoryId}"
     const val REGISTRATIONS = "account/registrations"
     const val PROFILE = "account/profile"
     const val PRIVACY = "account/privacy"
@@ -46,7 +46,12 @@ object RootDestinations {
 
     fun runDetail(runId: String) = "runs/$runId"
     fun raceDetail(idOrSlug: String) = "race/$idOrSlug"
-    fun registration(idOrSlug: String) = "register/$idOrSlug"
+    /**
+     * [categoryId] carries the distance the runner already chose on Race Detail, so registration
+     * does not reopen that decision unselected (DEV-R02).
+     */
+    fun registration(idOrSlug: String, categoryId: String? = null) =
+        if (categoryId.isNullOrBlank()) "register/$idOrSlug" else "register/$idOrSlug?categoryId=$categoryId"
 }
 
 /** Bottom-navigation tabs inside the shell. Mirrors the web nav order (races/runs/coach/account)

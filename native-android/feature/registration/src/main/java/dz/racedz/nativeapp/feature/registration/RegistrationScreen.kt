@@ -56,6 +56,7 @@ import dz.racedz.nativeapp.core.design.ZidRunLabel
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
+import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
@@ -153,6 +154,7 @@ fun RegistrationScreen(
                 when (state.step) {
                     RegistrationStep.Distance -> DistanceStep(state, viewModel, locale)
                     RegistrationStep.Details -> DetailsStep(state, viewModel)
+                    RegistrationStep.Review -> ReviewStep(state, viewModel, locale)
                     RegistrationStep.Payment -> PaymentStep(state, viewModel, locale) {
                         pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
@@ -275,12 +277,108 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
         )
     }
 
+    // A disabled CTA must say what is missing (DEV-R03).
+    state.unmetRequirement?.let { requirement ->
+        Text(
+            text = stringResource(
+                when (requirement) {
+                    RegistrationRequirement.Category -> R.string.registration_need_category
+                    RegistrationRequirement.Name -> R.string.registration_need_name
+                    RegistrationRequirement.Phone -> R.string.registration_need_phone
+                    RegistrationRequirement.DateOfBirth -> R.string.registration_need_dob
+                    RegistrationRequirement.Location -> R.string.registration_need_location
+                    RegistrationRequirement.Emergency -> R.string.registration_need_emergency
+                    RegistrationRequirement.Terms -> R.string.registration_need_terms
+                }
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textMuted,
+        )
+    }
+
+    ZidRunButton(
+        // Review comes before the entry exists (DEV-R02): this advances, it does not register.
+        text = stringResource(R.string.common_continue),
+        onClick = { viewModel.goToStep(RegistrationStep.Review) },
+        enabled = state.canSubmitDetails,
+    )
+}
+
+/**
+ * The approved `details → review → submitted` middle step (RACE_DESIGN_FLOW).
+ *
+ * The native flow used to post straight from Details, so a runner could create a consequential
+ * entry — with a price, personal data and organizer sharing — without one last look at what they
+ * were committing to (DEV-R02). Nothing here is editable; Back returns to Details.
+ */
+@Composable
+private fun ReviewStep(state: RegistrationUiState, viewModel: RegistrationViewModel, locale: java.util.Locale) {
+    val colors = ZidRunTheme.colors
+    val race = state.race ?: return
+    val category = state.selectedCategory
+
+    ZidRunSectionTitle(stringResource(R.string.registration_step_review))
+
+    ZidRunCard {
+        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+            ReviewRow(stringResource(R.string.registration_review_race), race.title)
+            category?.let {
+                ReviewRow(stringResource(R.string.registration_review_category), it.name)
+                ReviewRow(
+                    stringResource(R.string.registration_review_price),
+                    it.priceDzd?.takeIf { price -> price > 0 }
+                        ?.let { price -> stringResource(R.string.payment_amount, ZidRunFormat.money(price, locale)) }
+                        ?: stringResource(R.string.race_free),
+                )
+            }
+            ReviewRow(
+                stringResource(R.string.registration_review_runner),
+                "${state.firstName} ${state.lastName}".trim(),
+            )
+            ReviewRow(stringResource(R.string.registration_review_phone), state.phone)
+            ReviewRow(
+                stringResource(R.string.registration_review_emergency),
+                "${state.emergencyName} · ${state.emergencyPhone}",
+            )
+        }
+    }
+
+    // What the organizer will receive, stated before the entry is created rather than after.
+    Text(
+        text = stringResource(R.string.registration_review_sharing),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.textMuted,
+    )
+
     ZidRunButton(
         text = stringResource(R.string.registration_submit),
         onClick = viewModel::submit,
         enabled = state.canSubmitDetails,
         loading = state.submitting,
     )
+    ZidRunTextButton(
+        text = stringResource(R.string.registration_review_edit),
+        onClick = { viewModel.goToStep(RegistrationStep.Details) },
+    )
+}
+
+@Composable
+private fun ReviewRow(label: String, value: String) {
+    val colors = ZidRunTheme.colors
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textMuted,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = ZidRunFormat.isolate(value),
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.textStrong,
+            modifier = Modifier.weight(1.4f),
+        )
+    }
 }
 
 @Composable

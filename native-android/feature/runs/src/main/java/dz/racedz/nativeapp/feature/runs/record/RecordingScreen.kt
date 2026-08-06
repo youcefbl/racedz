@@ -323,28 +323,42 @@ fun RecordingScreen(
 
         Spacer(Modifier.height(ZidRunDimens.spaceMd))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .heightIn(min = 144.dp)
-                .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                .border(1.dp, ZidRunDarkColors.border, RoundedCornerShape(ZidRunDimens.cornerLg)),
-        ) {
-            RunMap(route = state.route, modifier = Modifier.fillMaxSize())
-            if (state.route.orEmpty().size < 2) {
+        // The map appears only once a trusted route exists. While acquiring, a full-height empty
+        // panel with a small "Searching" pill read as a broken screen outdoors; a compact status
+        // strip says the same thing honestly and leaves the controls where the thumb expects them
+        // (DEV-R08).
+        if (state.route.orEmpty().size > 1) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .heightIn(min = 144.dp)
+                    .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                    .border(1.dp, ZidRunDarkColors.border, RoundedCornerShape(ZidRunDimens.cornerLg)),
+            ) {
+                RunMap(route = state.route, modifier = Modifier.fillMaxSize())
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                    .background(ZidRunDarkColors.surface)
+                    .padding(ZidRunDimens.spaceLg),
+                verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+            ) {
                 Text(
                     text = stringResource(R.string.runs_gps_searching),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.titleSmall,
                     color = ZidRunDarkColors.textStrong,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = ZidRunDimens.spaceMd)
-                        .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
-                        .background(ZidRunDarkColors.surface.copy(alpha = 0.88f))
-                        .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                )
+                Text(
+                    text = stringResource(R.string.runs_gps_searching_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ZidRunDarkColors.textMuted,
                 )
             }
+            Spacer(Modifier.weight(1f))
         }
 
         if (state.autoPaused) {

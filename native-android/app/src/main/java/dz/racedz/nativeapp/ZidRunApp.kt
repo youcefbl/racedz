@@ -498,7 +498,7 @@ fun ZidRunApp(
                 RaceDetailScreen(
                     viewModel = detailViewModel,
                     onBack = { navController.popBackStack() },
-                    onRegister = { id, _ -> navController.navigate(RootDestinations.registration(id)) },
+                    onRegister = { id, categoryId -> navController.navigate(RootDestinations.registration(id, categoryId)) },
                     onViewRegistration = { navController.navigate(RootDestinations.REGISTRATIONS) },
                     isSignedIn = authState is AuthState.SignedIn,
                     onSignIn = { navController.navigate(RootDestinations.AUTH) },
@@ -507,9 +507,19 @@ fun ZidRunApp(
 
             composable(
                 route = RootDestinations.REGISTRATION,
-                arguments = listOf(navArgument("raceId") { type = NavType.StringType }),
+                arguments = listOf(
+                    navArgument("raceId") { type = NavType.StringType },
+                    navArgument("categoryId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
             ) { entry ->
                 val raceId = entry.arguments?.getString("raceId").orEmpty()
+                // The distance chosen on Race Detail (DEV-R02); null when registration was opened
+                // from somewhere that has no selection to carry.
+                val categoryId = entry.arguments?.getString("categoryId")
                 val registrationViewModel: RegistrationViewModel = viewModel(
                     key = "registration-$raceId",
                     factory = SimpleViewModelFactory {
@@ -518,6 +528,7 @@ fun ZidRunApp(
                             container.registrationRepository,
                             container.accountRepository,
                             raceId,
+                            categoryId,
                         )
                     },
                 )

@@ -23,7 +23,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class RegistrationStep { Distance, Details, Payment, Done }
+enum class RegistrationStep { Distance, Details, Review, Payment, Done }
+
+/** Why the details step cannot be submitted yet. Mapped to localized copy by the screen. */
+enum class RegistrationRequirement { Category, Name, Phone, DateOfBirth, Location, Emergency, Terms }
 
 data class RegistrationUiState(
     val race: RaceDetailDto? = null,
@@ -56,6 +59,23 @@ data class RegistrationUiState(
     val selectedCategory: RaceCategoryDto?
         get() = race?.categories?.firstOrNull { it.id == selectedCategoryId }
 
+    /**
+     * The first unmet condition, so a disabled Confirm can say WHY instead of just sitting there.
+     * A runner who filled every visible field could still face a dead button because the emergency
+     * contact was required only here, with nothing on screen saying so (DEV-R03).
+     */
+    val unmetRequirement: RegistrationRequirement?
+        get() = when {
+            selectedCategoryId == null -> RegistrationRequirement.Category
+            firstName.isBlank() || lastName.isBlank() -> RegistrationRequirement.Name
+            phone.length < 6 -> RegistrationRequirement.Phone
+            !DATE_PATTERN.matches(dateOfBirth) -> RegistrationRequirement.DateOfBirth
+            wilaya.isBlank() || city.isBlank() -> RegistrationRequirement.Location
+            emergencyName.isBlank() || emergencyPhone.length < 6 -> RegistrationRequirement.Emergency
+            !acceptedTerms -> RegistrationRequirement.Terms
+            else -> null
+        }
+
     val canSubmitDetails: Boolean
         get() = selectedCategoryId != null &&
             firstName.isNotBlank() && lastName.isNotBlank() &&
@@ -84,6 +104,8 @@ class RegistrationViewModel(
     private val registrationRepository: RegistrationRepository,
     private val accountRepository: AccountRepository,
     private val raceIdOrSlug: String,
+    /** The distance already chosen on Race Detail, when registration was opened from there. */
+    private val preselectedCategoryId: String? = null,
 ) : ViewModel() {
 
     private val idempotencyKey: String = registrationRepository.newIdempotencyKey()
@@ -101,12 +123,24 @@ class RegistrationViewModel(
 
             when (val race = racesRepository.detail(raceIdOrSlug)) {
                 is ApiResult.Success -> _state.update { current ->
+                    // The runner's own choice wins; a single-distance race preselects itself,
+                    // because a one-option choice screen is a step with no decision in it. Only an
+                    // id the race actually offers is honoured, so a stale link cannot select a
+                    // category from another race.
+                    val carried = preselectedCategoryId
+                        ?.takeIf { id -> race.value.categories.any { it.id == id } }
+                    val resolved = carried ?: race.value.categories.singleOrNull()?.id
                     current.copy(
                         race = race.value,
                         loading = false,
-                        // Preselect when the race has exactly one distance — a one-option choice
-                        // screen is a step with no decision in it.
-                        selectedCategoryId = race.value.categories.singleOrNull()?.id,
+                        selectedCategoryId = resolved,
+                        // Arriving with the distance already chosen means that step is answered —
+                        // reopening it unselected made the runner repeat themselves (DEV-R02).
+                        step = if (resolved != null && current.step == RegistrationStep.Distance) {
+                            RegistrationStep.Details
+                        } else {
+                            current.step
+                        },
                     )
                 }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = race.error) }

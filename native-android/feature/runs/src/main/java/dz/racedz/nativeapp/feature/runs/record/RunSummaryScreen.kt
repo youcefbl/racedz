@@ -94,13 +94,23 @@ fun RunSummaryScreen(
                 .padding(horizontal = ZidRunDimens.spaceLg),
             verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
         ) {
-            RunMap(
-                route = state.route,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1.5f)
-                    .clip(RoundedCornerShape(ZidRunDimens.cornerLg)),
-            )
+            // A failed-fix run has nothing to draw, and a full 1.5:1 empty panel pushed Save and
+            // Discard two screens down — exactly when the runner most wants to discard (DEV-R08).
+            if (state.route.orEmpty().size > 1) {
+                RunMap(
+                    route = state.route,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.5f)
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg)),
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.runs_no_route_captured),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ZidRunTheme.colors.textMuted,
+                )
+            }
 
             ZidRunCard {
                 Row(
