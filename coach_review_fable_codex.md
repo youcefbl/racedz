@@ -1645,3 +1645,39 @@ Dated evidence only. Status lives in `EXECUTION_PLAN.md`; owner decisions in `PR
   and exact source boundary.
 - The repository-required ZidRun app-review skill guided the pass. The separately referenced
   `impeccable` skill was unavailable in this workspace.
+
+## 22. Merge-time remediation review (2026-08-06)
+
+<!-- commit-review: 4a5dd757ef4c923e01d2633c1bf0d58715e34f73 -->
+<!-- commit-review: b3b469e5f70a616459def743bc336c333dc09295 -->
+<!-- commit-review: 6e61926be23762f0cdd4bc26aedeac5a01970dd5 -->
+
+### Review boundary and verdict
+
+- **Reviewed commits:** `4a5dd757ef4c923e01d2633c1bf0d58715e34f73`, its focused structured-list
+  follow-up `b3b469e5f70a616459def743bc336c333dc09295`, and the payment-destination fix
+  `6e61926be23762f0cdd4bc26aedeac5a01970dd5`, against the §21 device findings, the approved
+  Coach/Races references and the current native design flow.
+- **Verdict:** **no new standalone finding; partial remediation accepted by source inspection.** The
+  commit fixes the source causes observed for `DEV-R01`, `DEV-R05`, `DEV-R06` and the safety-critical
+  workout-instruction portion of `DEV-R07`, plus the missing-destination path in `DEV-R04`.
+  Device/runtime acceptance remains open, and these commits do not touch `DEV-R02`, `DEV-R03` or
+  `DEV-R08`.
+
+### Remediation status
+
+| Finding | Source-review result |
+|---|---|
+| `DEV-R01` | **Implemented, device matrix pending.** The forced-dark start and live routes now request light platform icons for their lifetime, restore the shell theme on exit, and the pre-run top bar explicitly uses the dark palette. Route-transition ordering and all theme × OS-theme states were not rerun on hardware. |
+| `DEV-R04` | **Implemented, payment runtime pending.** The payment screen now lists only BaridiMob/CCP methods backed by an actual destination, never offers unsupported bank transfer, derives a valid default when only CCP exists, and hides proof upload when no usable destination exists. The localized empty state says the held entry remains recoverable under My registrations. No organizer-details or proof-upload path was rerun. |
+| `DEV-R05` | **Observed contradiction fixed; boundary cases pending.** The active-plan ratio is titled “Whole plan” in en/fr/ar, and the API selects the first planned running workout from tomorrow onward rather than returning today’s workout twice. Multiple-same-day policy, database/runner timezone boundaries and the no-next state were not executed. |
+| `DEV-R06` | **Implemented, runtime fallback pending.** A non-null Coach workout ID initializes Guided mode while Free remains selectable. Session-loading, missing-session and offline behavior were not executed. |
+| `DEV-R07` | **Safety-critical rendering fixed; broader acceptance remains open.** First-strong isolation now wraps date/time tokens, workout titles/intensity/instructions across overview and plan detail, the next-workout title, latest review summary, conversation summary, recovery advice and data-gap lists. This directly protects the `6 × 800 m` instruction that reordered on the M21. Other structured reply fields, current-language visibility and the app-wide numeral audit remain outside these commits. |
+| `DEV-R09` | **Implemented by the preceding review-metadata commit `2fce70f`.** The current-tree baseline is explicit and rewritten/non-ancestor history fails closed. The coverage checker reports all 27 prior reviewable commits covered; its own review-metadata commit is exempt. |
+
+### Limitations
+
+- Per the merge instruction, no app test, build, lint, typecheck, emulator/device run, database query
+  or live API call was performed. Review was against the exact committed diff only.
+- `EXECUTION_PLAN.md` remains the sole progress/release tracker; this section is review evidence and
+  closes no gate.
