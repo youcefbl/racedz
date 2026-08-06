@@ -128,6 +128,8 @@
 
     <string name="payment_title">Paiement</string>
     <string name="payment_amount">Montant : %1$s DZD</string>
+    <string name="payment_no_details">L\u2019organisateur n\u2019a pas encore publié de coordonnées de paiement pour cette course.</string>
+    <string name="payment_no_details_next">Votre inscription est retenue. Vous pourrez payer dès que l\u2019organisateur publiera ses coordonnées — retrouvez cette course dans Mes inscriptions.</string>
     <string name="payment_method">Comment avez-vous payé ?</string>
     <string name="payment_method_baridimob">BaridiMob</string>
     <string name="payment_method_ccp">CCP</string>

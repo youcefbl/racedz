@@ -129,6 +129,8 @@
 
     <string name="payment_title">الدفع</string>
     <string name="payment_amount">المبلغ: %1$s دج</string>
+    <string name="payment_no_details">المنظّم مازال ما نشرش معلومات الدفع تاع هذا السباق.</string>
+    <string name="payment_no_details_next">تسجيلك محفوظ. تقدر تخلّص كي المنظّم ينشر المعلومات — تلقى السباق في تسجيلاتي.</string>
     <string name="payment_method">كيفاش خلّصت؟</string>
     <string name="payment_method_baridimob">بريدي موب</string>
     <string name="payment_method_ccp">CCP</string>

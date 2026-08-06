@@ -282,6 +282,8 @@ private fun PaymentStep(
     val colors = ZidRunTheme.colors
     val registration = state.registration ?: return
     val instructions = registration.paymentInstructions
+    val hasPaymentDetails = !instructions?.baridiMobNumber.isNullOrBlank() ||
+        !instructions?.ccpAccount.isNullOrBlank()
 
     ZidRunSectionTitle(stringResource(R.string.payment_title))
 
@@ -318,39 +320,77 @@ private fun PaymentStep(
             instructions?.note?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
             }
+            // Every field in PaymentInstructionsDto is nullable and a seeded paid race really can
+            // return none of them. Saying so is the honest state; the old screen listed BaridiMob,
+            // CCP and Bank transfer, preselected BaridiMob and invited a proof upload with no
+            // account, recipient or reference anywhere on screen (DEV-R04). Web parity already
+            // shows a "no details" line here.
+            if (!hasPaymentDetails) {
+                Text(
+                    stringResource(R.string.payment_no_details),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textStrong,
+                )
+                // No organizer contact exists in the registration contract, so the recovery path
+                // is the one that does: the entry is held and reachable from My registrations.
+                Text(
+                    stringResource(R.string.payment_no_details_next),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+            }
         }
     }
 
-    ZidRunLabel(stringResource(R.string.payment_method))
-    Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-        listOf(
-            "BARIDIMOB" to stringResource(R.string.payment_method_baridimob),
-            "CCP" to stringResource(R.string.payment_method_ccp),
-            "BANK_TRANSFER" to stringResource(R.string.payment_method_transfer),
-        ).forEach { (value, label) ->
-            ZidRunChoiceChip(
-                label = label,
-                selected = state.paymentMethod == value,
-                onClick = { viewModel.onPaymentMethod(value) },
+    // Bank transfer is deliberately absent: the contract carries no bank destination, so offering
+    // it would be inviting a payment to nowhere.
+    val methods = buildList {
+        if (!instructions?.baridiMobNumber.isNullOrBlank()) {
+            add("BARIDIMOB" to stringResource(R.string.payment_method_baridimob))
+        }
+        if (!instructions?.ccpAccount.isNullOrBlank()) {
+            add("CCP" to stringResource(R.string.payment_method_ccp))
+        }
+    }
+    val selectedMethod = state.paymentMethod.takeIf { current ->
+        methods.any { (value, _) -> value == current }
+    } ?: methods.firstOrNull()?.first
+
+    if (methods.isNotEmpty()) {
+        ZidRunLabel(stringResource(R.string.payment_method))
+        Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+            methods.forEach { (value, label) ->
+                ZidRunChoiceChip(
+                    label = label,
+                    selected = selectedMethod == value,
+                    onClick = { viewModel.onPaymentMethod(value) },
+                )
+            }
+        }
+    }
+
+    selectedMethod?.let { method ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Lock, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(ZidRunDimens.spaceXs))
+            Text(
+                stringResource(R.string.payment_proof_private),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textMuted,
             )
         }
-    }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.Lock, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(ZidRunDimens.spaceXs))
-        Text(
-            stringResource(R.string.payment_proof_private),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.textMuted,
+        ZidRunButton(
+            text = stringResource(R.string.payment_choose_proof),
+            onClick = {
+                // Keep upload state consistent when CCP is the only available destination but the
+                // view-model default is BaridiMob.
+                viewModel.onPaymentMethod(method)
+                onPickImage()
+            },
+            loading = state.uploading,
         )
     }
-
-    ZidRunButton(
-        text = stringResource(R.string.payment_choose_proof),
-        onClick = onPickImage,
-        loading = state.uploading,
-    )
 
     ZidRunOutlinedButton(
         text = stringResource(R.string.common_close),

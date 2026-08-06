@@ -142,6 +142,8 @@
     <!-- payment -->
     <string name="payment_title">Payment</string>
     <string name="payment_amount">Amount: %1$s DZD</string>
+    <string name="payment_no_details">The organizer has not published payment details for this race yet.</string>
+    <string name="payment_no_details_next">Your entry is held. You can pay once the organizer publishes their details — find this race under My registrations.</string>
     <string name="payment_method">How did you pay?</string>
     <string name="payment_method_baridimob">BaridiMob</string>
     <string name="payment_method_ccp">CCP</string>
