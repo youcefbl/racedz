@@ -543,7 +543,7 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
                 color = colors.primary,
             )
             reply.recoveryAdvice.forEach {
-                Text("• $it", style = MaterialTheme.typography.bodySmall, color = colors.text)
+                Text("• " + ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodySmall, color = colors.text)
             }
         }
 
@@ -557,7 +557,7 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
                 color = colors.textMuted,
             )
             reply.dataGaps.forEach {
-                Text("• $it", style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
+                Text("• " + ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
             }
         }
 
