@@ -277,6 +277,49 @@ JIT-only, no baseline profile) that is expected and is a lead to re-measure on t
 not a finding on its own. The Runs overview is not scrollable at this fixture size, so it has no
 capture — recorded here rather than silently omitted.
 
+## Re-verification on one immutable artifact
+
+Review finding BATCH-R05 was right that the original evidence names no single build: it records
+`0f7f4e3` plus a working tree that was rebuilt seven times during the session, so nothing maps the
+pass claims to one artifact. **The tables above are therefore an exploratory, multi-build session**,
+useful as diagnostic history and as the record of how each defect was found, not as a pass baseline.
+
+One artifact now exists and the fixed behaviour was re-observed on it:
+
+| Field | Value |
+|---|---|
+| Commit | `f034e8d6114cccec229537fe7a6541a210954a9c` (clean tree, `git status` empty) |
+| APK | `app-debug.apk`, 25 785 876 bytes |
+| SHA-256 | `610f308070faf7015f5dcd564fb3db72d41c84b625a4038bff35d25958356ff5` |
+| Version | versionCode 8, versionName `0.8.0-debug` |
+| Verified installed | digest re-read back off the device with `adb exec-out cat $(pm path)` — identical |
+| Device / conditions | SM-M215G, Android 13, en / light / 1.0× / three-button, battery 58 % |
+
+Re-run on that artifact, after a clean `uninstall` + `install` (so the app started from no state):
+
+| Case | Result on `610f3080…` | Evidence |
+|---|---|---|
+| `G-09` date of birth on the keypad | **pass** — renders `1996-05-21` | `RV-G09-keypad.png`, `RV-G09-typed.png` |
+| `G-12` focused field clears the IME | **pass** — field fully above the keyboard | `RV-G12-ime.png` |
+| `L-11` system bars on the live run | **pass** — clock/battery/signal light on the dark surface | `RV-L11-live-systembars.png` |
+| `X-03` one numeral system in Arabic | **pass** — `⁦13,0 km⁩ · 75 د`, Western throughout | `RV-X03-arabic-coach.png`, `RV-X03-arabic-duration.png` |
+| `C-04` today vs next workout | **pass** — the 08 Aug session is "Today's workout"; no contradictory Next card | `RV-C04-today-and-next.png` |
+| `D-02` deep link after process death | **pass** — opens the race both cold and after `am kill` | dump transcript |
+| `D-04` race detail after registering | **pass** — "You are registered" on return, not a stale Register CTA | `RV-D04-detail-after-register.png` |
+| `BATCH-R07` async prefill caret | **pass** — prefilled date of birth carries the caret at its end | `RV-G09-keypad.png` |
+
+`X-03`'s duration string needed a workout that actually has one, so the current session was given
+`targetDurationMin = 75` for the check and set back to null afterwards.
+
+**Still not a full acceptance pass.** Only the previously-failing cases and the two off-matrix
+defects were re-run on this artifact; the other 40 passes remain evidenced by the multi-build session
+above. Full matrix acceptance is owed on the signed candidate, per §8 of the runbook.
+
+**Fixture note.** `adb uninstall` cleared the app's stored session, and the fixture password is not in
+the repo, so `device.tester@zidrun.test` had its `passwordHash` reset locally to sign back in. This is
+the strand-the-fixture risk recorded against `R-10`, reached by a different route. Location and
+notification grants were also reset by the uninstall and re-granted.
+
 ## Companion automated gates (§8)
 
 Re-run after every change in this session, all green: `assembleDebug`, `:feature:runs` and
