@@ -840,6 +840,14 @@ data class CreateRunRequest(
     val isPublic: Boolean? = null,
     val source: String? = null,
     /**
+     * Average step cadence (steps per minute) over the run's moving time, when the device has a
+     * step counter and the runner granted activity recognition. The server uses it to tell running
+     * from riding: a GPS pace that only a runner could hold, at a cadence no runner produces, marks
+     * the run SUSPECT rather than letting a bus ride set a personal best (see motion-check). Absent
+     * on devices without the sensor or permission, in which case the server falls back to speed.
+     */
+    val avgCadence: Int? = null,
+    /**
      * The planned session this run was logged for, carried from "Log this run" all the way through
      * the save. Without it the server's matcher has to guess afterwards whether the run counted
      * toward the plan, and the runner's adherence quietly depends on that guess.

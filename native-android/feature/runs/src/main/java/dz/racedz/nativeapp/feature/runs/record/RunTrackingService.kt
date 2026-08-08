@@ -10,6 +10,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -38,10 +42,13 @@ import kotlinx.coroutines.launch
  * Uses the platform LocationManager rather than Play Services' fused provider so the app carries no
  * Google Play dependency for its core feature and runs on a device without Play Services.
  */
-class RunTrackingService : Service(), LocationListener {
+class RunTrackingService : Service(), LocationListener, SensorEventListener {
 
     private var scope: CoroutineScope? = null
     private var ticker: Job? = null
+
+    /** Held while the step counter is registered, so it can be unregistered on stop. */
+    private var sensorManager: SensorManager? = null
 
     /** One-time setup, kept so the per-second ticker does not redo it 3,600 times an hour. */
     private var channelReady = false
@@ -96,6 +103,8 @@ class RunTrackingService : Service(), LocationListener {
             return
         }
 
+        startStepCounter()
+
         val serviceScope = CoroutineScope(Dispatchers.Main).also { scope = it }
         ticker = serviceScope.launch {
             // Fixes can be seconds apart; the clock on screen has to keep moving between them.
@@ -116,6 +125,7 @@ class RunTrackingService : Service(), LocationListener {
         runCatching {
             (getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(this)
         }
+        stopStepCounter()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -125,12 +135,48 @@ class RunTrackingService : Service(), LocationListener {
         runCatching {
             (getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(this)
         }
+        stopStepCounter()
         super.onDestroy()
     }
 
     override fun onLocationChanged(location: Location) {
         RunRecorder.onLocation(location)
     }
+
+    /**
+     * Subscribes to the hardware step counter so the recorder can measure cadence.
+     *
+     * Best-effort: a device with no step counter, or a runner who declined activity recognition,
+     * simply records a run with no cadence — the server then falls back to speed alone. The
+     * ACTIVITY_RECOGNITION runtime permission only exists on API 29+; below that the sensor needs
+     * none. Never a reason to fail the run, so every branch here just returns quietly.
+     */
+    private fun startStepCounter() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val manager = getSystemService(SensorManager::class.java) ?: return
+        val counter = manager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return
+        manager.registerListener(this, counter, SensorManager.SENSOR_DELAY_NORMAL)
+        sensorManager = manager
+    }
+
+    private fun stopStepCounter() {
+        runCatching { sensorManager?.unregisterListener(this) }
+        sensorManager = null
+    }
+
+    override fun onSensorChanged(event: SensorEvent) {
+        if (event.sensor.type != Sensor.TYPE_STEP_COUNTER) return
+        // values[0] is the cumulative step count since the device last booted.
+        val cumulative = event.values.firstOrNull()?.toLong() ?: return
+        RunRecorder.onSteps(cumulative)
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
     /** Required by LocationListener on older API levels; the modern callbacks are no-ops here. */
     @Deprecated("Deprecated in Java")

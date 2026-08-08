@@ -25,8 +25,25 @@ data class RecordingState(
     val autoPaused: Boolean = false,
     /** The planned session this run is being logged for, or null for a free run. */
     val workoutId: String? = null,
+    /** Steps counted while actually recording, from the device step counter. 0 with no sensor. */
+    val stepCount: Long = 0,
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
+
+    /**
+     * Average step cadence in steps per minute over moving time, or null.
+     *
+     * Null until there is enough of a run to mean something — a stray handful of steps over ten
+     * seconds is noise, not a cadence — and null on devices with no step counter. The server reads
+     * this to distinguish a genuine run from a ride at running pace; capped at 300 to stay inside
+     * the wire contract's range.
+     */
+    val avgCadenceSpm: Int?
+        get() = if (stepCount > 0 && movingSeconds >= 60) {
+            (stepCount / (movingSeconds / 60.0)).toInt().coerceIn(0, 300)
+        } else {
+            null
+        }
 
     /** Average pace over moving time, which is what runners compare against. */
     val averagePaceSecondsPerKm: Int?
@@ -227,6 +244,15 @@ object RunRecorder {
     private val route = mutableListOf<RoutePointDto>()
 
     /**
+     * Step-counter bookkeeping. The sensor reports steps cumulatively since boot, so a run counts
+     * the delta between readings while it is recording. [lastStepCounter] is reset to -1 whenever
+     * recording is not live (start, pause, resume) so steps taken while paused — or before the run —
+     * never land in [recordedSteps].
+     */
+    private var recordedSteps: Long = 0
+    private var lastStepCounter: Long = -1
+
+    /**
      * The id this recording will be saved under. Generated at start and kept for the life of the
      * recording so that a save which times out can be retried without creating a second run — it is
      * the idempotency key the server dedupes on.
@@ -263,6 +289,8 @@ object RunRecorder {
         pausedAccumMs = 0
         pauseStartedMs = 0
         highSpeedSeconds = 0.0
+        recordedSteps = 0
+        lastStepCounter = -1
         _state.value = RecordingState(
             status = RecordingStatus.Acquiring,
             clientId = UUID.randomUUID().toString(),
@@ -287,6 +315,8 @@ object RunRecorder {
         // whole break into one enormous segment.
         lastFix = null
         highSpeedSeconds = 0.0
+        // Re-baseline the step counter so steps taken during the pause are not counted on resume.
+        lastStepCounter = -1
         _state.update { it.copy(status = RecordingStatus.Recording, autoPaused = false) }
     }
 
@@ -310,6 +340,8 @@ object RunRecorder {
         route.clear()
         lastFix = null
         lastSnapshotMs = 0L
+        recordedSteps = 0
+        lastStepCounter = -1
         _snapshotFailing.value = false
         // A delete that fails would otherwise leave the file blocking every future recording with
         // no way out; quarantining it keeps the bytes for support while unblocking the runner.
@@ -322,6 +354,11 @@ object RunRecorder {
     fun resumeFinished(pending: PendingRun) {
         route.clear()
         pending.request.route?.let { route += it }
+        val movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds
+        // Rebuild the step total from the saved cadence so that re-saving this restored run posts the
+        // same avgCadence rather than losing it — the request carries cadence, not the raw steps.
+        recordedSteps = pending.request.avgCadence?.let { (it.toLong() * movingSeconds) / 60 } ?: 0
+        lastStepCounter = -1
         _state.value = RecordingState(
             status = RecordingStatus.Finished,
             clientId = pending.request.clientId,
@@ -329,10 +366,11 @@ object RunRecorder {
                 .getOrDefault(pending.updatedAtEpochMs),
             distanceMeters = pending.request.distanceKm * 1000.0,
             elapsedSeconds = pending.request.durationSeconds,
-            movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds,
+            movingSeconds = movingSeconds,
             elevationGainM = (pending.request.elevationGainM ?: 0).toDouble(),
             route = route.toList(),
             workoutId = pending.request.workoutId,
+            stepCount = recordedSteps,
         )
     }
 
@@ -348,6 +386,7 @@ object RunRecorder {
         route = route.takeIf { it.size >= 2 },
         source = "GPS",
         workoutId = workoutId,
+        avgCadence = avgCadenceSpm,
     )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */
@@ -355,6 +394,27 @@ object RunRecorder {
         val status = _state.value.status
         if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) return
         _state.update { it.copy(elapsedSeconds = elapsedSeconds()) }
+    }
+
+    /**
+     * Records a step-counter reading. [cumulativeSinceBoot] is the sensor's running total since the
+     * device booted; the difference between consecutive readings, taken only while recording, is the
+     * steps this run has accumulated. A reading arriving while paused or idle re-baselines instead of
+     * counting, so a break — or steps before the run — never inflates the cadence.
+     */
+    fun onSteps(cumulativeSinceBoot: Long) {
+        val status = _state.value.status
+        if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) {
+            lastStepCounter = -1
+            return
+        }
+        // A reboot mid-run resets the sensor to a smaller total; treat that as a new baseline rather
+        // than subtracting into the negatives.
+        if (lastStepCounter in 0..cumulativeSinceBoot) {
+            recordedSteps += cumulativeSinceBoot - lastStepCounter
+        }
+        lastStepCounter = cumulativeSinceBoot
+        _state.update { it.copy(stepCount = recordedSteps) }
     }
 
     fun onLocation(location: Location) {
