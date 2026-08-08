@@ -89,18 +89,19 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
     /**
      * Sends a typed (or reviewed-transcribed) question and, on success, buffers its id onto the run.
      *
-     * The question is prefixed with a compact live snapshot of the run — distance, elapsed, average
-     * pace, cadence — so the coach answers about *this* run rather than the last saved one. Only these
-     * bounded numbers are shared; never the route or raw GPS.
+     * Only the runner's own words are sent. An earlier version prefixed a bracketed live snapshot to
+     * the message, but that is stored/shown as runner-authored text, leaks technical English into
+     * every locale, and is spoofable (ALL-R09) — and the server still could not use it for safety. A
+     * proper mid-run request with a typed, provenance-tagged live snapshot is a Coach-contract change
+     * tracked for later; until then the coach answers as general CHAT rather than misattributing text.
      */
     fun ask(message: String, speak: (String) -> Unit) {
         val trimmed = message.trim()
         if (trimmed.isEmpty() || _state.value.asking) return
         _state.update { it.copy(asking = true, error = null, reply = null) }
         val requestId = requestIdFor(trimmed)
-        val grounded = liveContextPrefix()?.let { "$it\n\n$trimmed" } ?: trimmed
         viewModelScope.launch {
-            val request = AskCoachRequest(type = "CHAT", message = grounded, requestId = requestId)
+            val request = AskCoachRequest(type = "CHAT", message = trimmed, requestId = requestId)
             when (val result = coach.ask(request)) {
                 is ApiResult.Success -> {
                     RunRecorder.recordCoachInteraction(result.value.id)
@@ -142,21 +143,6 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
                 file.delete()
                 if (pendingVoiceFile === file) pendingVoiceFile = null
             }
-        }
-    }
-
-    /** A one-line snapshot of the live run for the coach, or null before a run is measuring. */
-    private fun liveContextPrefix(): String? {
-        val s = RunRecorder.state.value
-        if (s.status == RecordingStatus.Idle || s.status == RecordingStatus.Finished) return null
-        val elapsed = "%d:%02d".format(s.elapsedSeconds / 60, s.elapsedSeconds % 60)
-        return buildString {
-            append("[Live run so far: ")
-            append("%.2f km".format(java.util.Locale.US, s.distanceKm))
-            append(", $elapsed elapsed")
-            s.averagePaceSecondsPerKm?.let { append(", avg pace %d:%02d/km".format(it / 60, it % 60)) }
-            s.avgCadenceSpm?.let { append(", cadence $it spm") }
-            append("]")
         }
     }
 

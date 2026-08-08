@@ -171,7 +171,10 @@ fun StartRunScreen(
             // Guided mode runs the plan; Free mode runs the chosen workout type's structure (or
             // nothing, for a plain free run).
             val guidingSession = if (mode == RunMode.Guided) session.session else session.freeStructure
-            beginRecording(context, audioCues, guidingSession, workoutId, onStarted)
+            // Only attach the planned workout when the runner is actually running it (Guided). If they
+            // switched to Free/custom, the run must NOT complete the planned session (adherence bug).
+            val effectiveWorkoutId = workoutId.takeIf { mode == RunMode.Guided }
+            beginRecording(context, audioCues, guidingSession, effectiveWorkoutId, onStarted)
         } else {
             permissionDenied = true
         }
@@ -316,7 +319,13 @@ fun StartRunScreen(
                 TtsInstallNotice()
             }
 
+            // Hold waits while a chosen workout structure is still loading, so a run can never start
+            // on an older structure than the one shown (or on no structure when one was picked).
+            val awaitingStructure = mode == RunMode.Free &&
+                (session.selectedType?.takeIf { it != FREE_RUN_TYPE } != null) &&
+                (session.structureLoading || session.freeStructure == null)
             HoldToBegin(
+                enabled = !awaitingStructure,
                 onTriggered = { launcher.launch(permissions) },
             )
 
@@ -685,28 +694,39 @@ private fun WorkoutParamControls(type: String, values: Map<String, Int>, onChang
                     color = ZidRunDarkColors.text,
                     modifier = Modifier.weight(1f),
                 )
-                StepperButton(symbol = "−", enabled = value > spec.min) { onChange(spec.key, -1) }
+                val label = stringResource(paramLabel(spec.key))
+                val valueText = paramValueText(spec.key, value)
+                StepperButton(
+                    symbol = "−",
+                    enabled = value > spec.min,
+                    contentDescription = stringResource(R.string.runs_param_decrease, label, valueText),
+                ) { onChange(spec.key, -1) }
                 Text(
-                    text = paramValueText(spec.key, value),
+                    text = valueText,
                     style = MaterialTheme.typography.titleSmall,
                     color = ZidRunDarkColors.textStrong,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.widthIn(min = 64.dp).padding(horizontal = ZidRunDimens.spaceXs),
                 )
-                StepperButton(symbol = "+", enabled = value < spec.max) { onChange(spec.key, +1) }
+                StepperButton(
+                    symbol = "+",
+                    enabled = value < spec.max,
+                    contentDescription = stringResource(R.string.runs_param_increase, label, valueText),
+                ) { onChange(spec.key, +1) }
             }
         }
     }
 }
 
 @Composable
-private fun StepperButton(symbol: String, enabled: Boolean, onClick: () -> Unit) {
+private fun StepperButton(symbol: String, enabled: Boolean, contentDescription: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(44.dp)
             .clip(CircleShape)
             .background(ZidRunDarkColors.primary.copy(alpha = if (enabled) 0.16f else 0.05f))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -824,7 +844,7 @@ private fun ReadyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
  * it reads at any font scale without needing the artwork redrawn.
  */
 @Composable
-private fun HoldToBegin(onTriggered: () -> Unit) {
+private fun HoldToBegin(onTriggered: () -> Unit, enabled: Boolean = true) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     var holding by remember { mutableStateOf(false) }
@@ -947,8 +967,11 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
         modifier = Modifier
             .size(CONTROL_SIZE)
             .graphicsLayer { scaleX = appliedScale; scaleY = appliedScale }
+            // Dimmed and inert while a chosen workout structure is still loading.
+            .alpha(if (enabled) 1f else 0.5f)
             .clip(CircleShape)
-            .pointerInput(Unit) {
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
                 detectTapGestures(
                     onPress = {
                         holding = true
@@ -963,7 +986,7 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             .semantics {
                 contentDescription = startLabel
                 role = Role.Button
-                onClick(label = startLabel) { onTriggered(); true }
+                if (enabled) onClick(label = startLabel) { onTriggered(); true }
             },
     ) {
         // Layer order matches the reference build: orange backlight, the muted orbit, the clockwise

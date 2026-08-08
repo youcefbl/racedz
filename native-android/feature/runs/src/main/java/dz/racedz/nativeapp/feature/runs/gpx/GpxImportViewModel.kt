@@ -56,8 +56,31 @@ data class GpxImportUiState(
     val saveError: String? = null,
 )
 
-/** Bytes over this are refused before parsing — a real run's GPX is a few hundred KB (NATRUN-02). */
+/** Bytes over this are refused — a real run's GPX is a few hundred KB (NATRUN-02). Enforced while
+ * streaming, not just from provider metadata, so an unknown-size or point-bomb file cannot exhaust
+ * memory before the check. */
 private const val MAX_GPX_BYTES = 5L * 1024 * 1024
+
+/** Hard cap on points retained during parse — a runaway/point-bomb file is rejected, not OOMed. */
+private const val MAX_TRACK_POINTS = 50_000
+
+/** The server's route cap; a longer track is thinned to this for the payload (distance uses all). */
+private const val MAX_ROUTE_POINTS = 5_000
+
+/** Wraps a stream and fails past [limit] bytes, so parse memory is bounded regardless of metadata. */
+private class LimitedInputStream(private val delegate: InputStream, private val limit: Long) : InputStream() {
+    private var read = 0L
+    private fun count(n: Int): Int {
+        if (n > 0) {
+            read += n
+            if (read > limit) throw java.io.IOException("gpx exceeds byte limit")
+        }
+        return n
+    }
+    override fun read(): Int = delegate.read().also { if (it >= 0) count(1) }
+    override fun read(b: ByteArray, off: Int, len: Int): Int = count(delegate.read(b, off, len))
+    override fun close() = delegate.close()
+}
 
 /**
  * Parses a GPX chosen from the system file picker on-device and, on Save, creates it as an IMPORTED
@@ -72,9 +95,14 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
     private val _state = MutableStateFlow(GpxImportUiState())
     val state: StateFlow<GpxImportUiState> = _state.asStateFlow()
 
+    /** One import identity, minted per picked file and reused on every Save retry so a lost response
+     * replays the same run instead of duplicating it. A new file picked mints a new id. */
+    private var clientId: String = UUID.randomUUID().toString()
+
     /** Reads and parses the picked file off the main thread, then publishes a preview or an error. */
     fun parse(resolver: ContentResolver, uri: Uri) {
         if (_state.value.parsing) return
+        clientId = UUID.randomUUID().toString()
         _state.update { it.copy(parsing = true, parsed = null, error = null, saveError = null) }
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -86,9 +114,15 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
                 size != null && size > MAX_GPX_BYTES -> Result.Err(GpxImportError.TOO_BIG)
                 else -> runCatching {
                     resolver.openInputStream(uri).use { input ->
-                        if (input == null) Result.Err(GpxImportError.UNREADABLE) else parseGpx(input)
+                        // Bound the read to MAX_GPX_BYTES even when the provider reports no size.
+                        if (input == null) Result.Err(GpxImportError.UNREADABLE)
+                        else parseGpx(LimitedInputStream(input, MAX_GPX_BYTES))
                     }
-                }.getOrElse { Result.Err(GpxImportError.UNREADABLE) }
+                }.getOrElse {
+                    // The byte-limit tripwire and any other read failure surface as size/unreadable.
+                    if (it is java.io.IOException && it.message == "gpx exceeds byte limit") Result.Err(GpxImportError.TOO_BIG)
+                    else Result.Err(GpxImportError.UNREADABLE)
+                }
             }
 
             _state.update {
@@ -108,7 +142,7 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
 
         viewModelScope.launch {
             val request = CreateRunRequest(
-                clientId = UUID.randomUUID().toString(),
+                clientId = clientId,
                 startedAt = Instant.ofEpochMilli(parsed.startedAtEpochMs).toString(),
                 distanceKm = parsed.distanceKm,
                 durationSeconds = parsed.durationSeconds,
@@ -117,7 +151,9 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
                 perceivedEffort = 5,
                 route = parsed.route.takeIf { it.size >= 2 },
                 source = "IMPORTED",
-                title = parsed.name ?: "Imported run",
+                // Null rather than an English literal, so a French/Arabic history localizes the
+                // fallback title itself rather than showing "Imported run".
+                title = parsed.name,
             )
 
             when (val result = repository.create(request)) {
@@ -189,6 +225,8 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
                             val ln = lng
                             if (la != null && ln != null && abs(la) <= 90.0 && abs(ln) <= 180.0) {
                                 points.add(RoutePointDto(lat = la, lng = ln, ele = ele, t = t))
+                                // A runaway file is rejected here rather than parsed into an OOM.
+                                if (points.size > MAX_TRACK_POINTS) return Result.Err(GpxImportError.TOO_BIG)
                             }
                             inTrkpt = false
                         }
@@ -226,13 +264,29 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
 
         return Result.Ok(
             ParsedGpx(
-                route = points,
+                // Distance/duration used every point above; the stored route is thinned to the
+                // server's cap so a long but valid track imports instead of being rejected at Save.
+                route = downsample(points, MAX_ROUTE_POINTS),
                 distanceKm = distanceKm,
                 durationSeconds = durationSeconds,
                 startedAtEpochMs = startTs,
                 name = name,
             ),
         )
+    }
+
+    /** Evenly thins a route to at most [max] points, always keeping the first and last. */
+    private fun downsample(route: List<RoutePointDto>, max: Int): List<RoutePointDto> {
+        if (route.size <= max) return route
+        val kept = ArrayList<RoutePointDto>(max + 1)
+        val step = route.size.toDouble() / max
+        var i = 0.0
+        while (i < route.size) {
+            kept.add(route[i.toInt()])
+            i += step
+        }
+        if (kept.last() != route.last()) kept.add(route.last())
+        return kept
     }
 
     private fun displayName(resolver: ContentResolver, uri: Uri): String? =
