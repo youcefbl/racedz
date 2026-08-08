@@ -73,12 +73,12 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
         if (trimmed.isEmpty() || _state.value.asking) return
         _state.update { it.copy(asking = true, error = null, reply = null) }
         viewModelScope.launch {
-            // Idempotency key is the question itself: a double-tap or a dropped-response retry of the
-            // same words replays the one interaction instead of asking (and charging quota) twice.
+            // The server's requestId is a UUID-charset idempotency key (^[A-Za-z0-9_-]+$); a fresh
+            // one per ask is enough here, since concurrent asks are already blocked above.
             val request = AskCoachRequest(
                 type = "CHAT",
                 message = trimmed,
-                requestId = "RUN_CHAT|${trimmed.hashCode()}",
+                requestId = java.util.UUID.randomUUID().toString(),
             )
             when (val result = coach.ask(request)) {
                 is ApiResult.Success -> {
