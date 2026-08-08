@@ -62,27 +62,52 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
         }
     }
 
+    // One idempotency key per pending question, retained across a failed attempt so that re-sending
+    // the same words replays the one interaction (and quota charge) the server may already have
+    // committed but whose response was lost — the whole point of the key on a flaky run connection. A
+    // new question mints a new key; a completed ask clears it.
+    private var retainedPayload: String? = null
+    private var retainedRequestId: String? = null
+
+    // The voice note currently being transcribed, held so it can be deleted even if the screen leaves
+    // and cancels the coroutine before the delete runs.
+    private var pendingVoiceFile: File? = null
+
+    private fun requestIdFor(payload: String): String {
+        retainedRequestId?.let { if (retainedPayload == payload) return it }
+        val fresh = java.util.UUID.randomUUID().toString()
+        retainedPayload = payload
+        retainedRequestId = fresh
+        return fresh
+    }
+
     fun open() = _state.update { it.copy(open = true, error = null) }
     fun close() = _state.update { it.copy(open = false, error = null) }
     fun setDraft(text: String) = _state.update { it.copy(draft = text) }
     fun setRecording(active: Boolean) = _state.update { it.copy(recording = active) }
 
-    /** Sends a typed or transcribed question and, on success, buffers its id onto the run. */
+    /**
+     * Sends a typed (or reviewed-transcribed) question and, on success, buffers its id onto the run.
+     *
+     * The question is prefixed with a compact live snapshot of the run — distance, elapsed, average
+     * pace, cadence — so the coach answers about *this* run rather than the last saved one. Only these
+     * bounded numbers are shared; never the route or raw GPS.
+     */
     fun ask(message: String, speak: (String) -> Unit) {
         val trimmed = message.trim()
         if (trimmed.isEmpty() || _state.value.asking) return
         _state.update { it.copy(asking = true, error = null, reply = null) }
+        val requestId = requestIdFor(trimmed)
+        val grounded = liveContextPrefix()?.let { "$it\n\n$trimmed" } ?: trimmed
         viewModelScope.launch {
-            // The server's requestId is a UUID-charset idempotency key (^[A-Za-z0-9_-]+$); a fresh
-            // one per ask is enough here, since concurrent asks are already blocked above.
-            val request = AskCoachRequest(
-                type = "CHAT",
-                message = trimmed,
-                requestId = java.util.UUID.randomUUID().toString(),
-            )
+            val request = AskCoachRequest(type = "CHAT", message = grounded, requestId = requestId)
             when (val result = coach.ask(request)) {
                 is ApiResult.Success -> {
                     RunRecorder.recordCoachInteraction(result.value.id)
+                    // Terminal result: the key has served its purpose, so a later identical question
+                    // is a genuinely new one.
+                    retainedPayload = null
+                    retainedRequestId = null
                     val reply = result.value.response
                     val spoken = reply?.spokenText().orEmpty()
                     _state.update {
@@ -90,25 +115,56 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
                     }
                     if (spoken.isNotBlank()) speak(spoken)
                 }
+                // Keep the retained key so a retry of the same words replays rather than re-charges.
                 is ApiResult.Failure -> _state.update { it.copy(asking = false, error = result.error.message) }
             }
         }
     }
 
-    /** Transcribes a captured voice note and, if it produced words, asks them straight away. */
-    fun transcribeAndAsk(file: File, mimeType: String, speak: (String) -> Unit) {
+    /**
+     * Transcribes a captured voice note into the composer for the runner to read and Send — it never
+     * auto-sends. Speech recognition mishears (Darija especially), being in motion makes it worse, and
+     * a wrong send spends quota and could store an unintended health statement; the same no-auto-send
+     * rule the main Coach composer follows. The audio file is deleted in a finally so it never lingers.
+     */
+    fun transcribeToDraft(file: File, mimeType: String) {
         _state.update { it.copy(transcribing = true, error = null) }
+        pendingVoiceFile = file
         viewModelScope.launch {
-            when (val result = coach.transcribe(file, mimeType)) {
-                is ApiResult.Success -> {
-                    val transcript = result.value.transcript.trim()
-                    _state.update { it.copy(transcribing = false, draft = transcript) }
-                    if (transcript.isNotEmpty()) ask(transcript, speak)
+            try {
+                when (val result = coach.transcribe(file, mimeType)) {
+                    is ApiResult.Success ->
+                        _state.update { it.copy(transcribing = false, draft = result.value.transcript.trim()) }
+                    is ApiResult.Failure ->
+                        _state.update { it.copy(transcribing = false, error = result.error.message) }
                 }
-                is ApiResult.Failure -> _state.update { it.copy(transcribing = false, error = result.error.message) }
+            } finally {
+                file.delete()
+                if (pendingVoiceFile === file) pendingVoiceFile = null
             }
-            file.delete()
         }
+    }
+
+    /** A one-line snapshot of the live run for the coach, or null before a run is measuring. */
+    private fun liveContextPrefix(): String? {
+        val s = RunRecorder.state.value
+        if (s.status == RecordingStatus.Idle || s.status == RecordingStatus.Finished) return null
+        val elapsed = "%d:%02d".format(s.elapsedSeconds / 60, s.elapsedSeconds % 60)
+        return buildString {
+            append("[Live run so far: ")
+            append("%.2f km".format(java.util.Locale.US, s.distanceKm))
+            append(", $elapsed elapsed")
+            s.averagePaceSecondsPerKm?.let { append(", avg pace %d:%02d/km".format(it / 60, it % 60)) }
+            s.avgCadenceSpm?.let { append(", cadence $it spm") }
+            append("]")
+        }
+    }
+
+    override fun onCleared() {
+        // A transcription in flight when the screen closes must not leave its audio behind.
+        pendingVoiceFile?.delete()
+        pendingVoiceFile = null
+        super.onCleared()
     }
 }
 
@@ -128,24 +184,41 @@ class RunCoachVoiceRecorder(private val context: Context) {
     fun start() {
         stopSilently()
         val file = File.createTempFile("run-coach-", ".m4a", context.cacheDir)
+        // Track the file and recorder BEFORE prepare()/start() so a setup failure is cleaned up here
+        // rather than leaving an orphan recording (with possible health context) in the cache.
+        output = file
         val created = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(context)
         } else {
             @Suppress("DEPRECATION")
             MediaRecorder()
         }
-        created.apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setAudioSamplingRate(22_050)
-            setAudioEncodingBitRate(48_000)
-            setOutputFile(file.absolutePath)
-            prepare()
-            start()
-        }
         recorder = created
-        output = file
+        try {
+            created.apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioSamplingRate(22_050)
+                setAudioEncodingBitRate(48_000)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+        } catch (error: Exception) {
+            runCatching { created.release() }
+            recorder = null
+            output = null
+            file.delete()
+            throw error
+        }
+    }
+
+    /** Deletes any orphaned voice notes left in the cache by a killed process or a past failure. */
+    fun cleanupStale() {
+        runCatching {
+            context.cacheDir.listFiles { f -> f.name.startsWith("run-coach-") }?.forEach { it.delete() }
+        }
     }
 
     /** Stops and returns the recording, or null when nothing usable was captured. */

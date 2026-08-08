@@ -94,14 +94,17 @@ fun MidRunCoachSheet(
 
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val recorder = remember { RunCoachVoiceRecorder(context) }
+    // Also sweeps any orphaned voice notes a prior killed process may have left behind.
+    val recorder = remember { RunCoachVoiceRecorder(context).also { it.cleanupStale() } }
     // A sheet dismissed mid-recording must not leave the mic open.
     DisposableEffect(Unit) { onDispose { recorder.cancel() } }
 
-    fun stopAndAsk() {
+    fun stopAndTranscribe() {
         viewModel.setRecording(false)
         val file = recorder.stop()
-        if (file != null) viewModel.transcribeAndAsk(file, RunCoachVoiceRecorder.MIME_TYPE, speak)
+        // Fills the composer for the runner to read and Send — never auto-sent (mishearing spends
+        // quota and could store an unintended statement).
+        if (file != null) viewModel.transcribeToDraft(file, RunCoachVoiceRecorder.MIME_TYPE)
     }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -113,7 +116,7 @@ fun MidRunCoachSheet(
 
     fun toggleMic() {
         if (state.recording) {
-            stopAndAsk()
+            stopAndTranscribe()
             return
         }
         val hasMic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==

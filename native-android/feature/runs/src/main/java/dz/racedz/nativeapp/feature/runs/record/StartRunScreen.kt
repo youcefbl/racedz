@@ -342,12 +342,16 @@ private fun lastKnownLocation(context: Context): Location? {
 @Composable
 private fun WeatherCard(weather: WeatherDto) {
     val locale = currentLocale()
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
             .background(ZidRunDarkColors.surface)
             .padding(ZidRunDimens.spaceMd),
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -373,6 +377,16 @@ private fun WeatherCard(weather: WeatherDto) {
                 arrowDegrees = weather.windDirectionDegrees?.let { it.toFloat() + 180f },
             )
         }
+      }
+      // When the reading is only the wilaya centroid (no GPS fix), say so — on a large wilaya these
+      // conditions can be far from the runner, and it should not read as street-level local weather.
+      if (weather.source == "wilaya") {
+          Text(
+              text = stringResource(R.string.runs_weather_region),
+              style = MaterialTheme.typography.labelSmall,
+              color = ZidRunDarkColors.textMuted,
+          )
+      }
     }
 }
 
