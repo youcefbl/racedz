@@ -39,7 +39,13 @@ const REDACTED = "[redacted]";
 // context object — matched case-insensitively by substring since call sites pass ad hoc objects.
 // Covers credentials/tokens, financial-proof URLs, precise GPS, and health-adjacent free text.
 const SENSITIVE_KEY_PATTERN =
-  /password|secret|token|totp|backupcode|proof|route|gps|coordinate|latitude|longitude|\blat\b|\blng\b|symptom|painlevel|fatiguelevel|nationalid|dateofbirth|authorization|\bcookie\b/i;
+  /password|secret|token|totp|backupcode|proof|route|gps|coordinate|latitude|longitude|\blat\b|\blng\b|symptom|painlevel|fatiguelevel|nationalid|dateofbirth|authorization|\bcookie\b|injurynotes|injuryhistory|healthnotes|chronicconditions|\bphone\b|emergencyphone/i;
+
+// Emails are masked rather than dropped: "which account" is the first question in any security
+// triage, but a log that accumulates plaintext addresses becomes a harvestable list. Matched at
+// any depth — logSecurityEvent used to mask only a top-level `email`, so a nested
+// `{ user: { email } }`, and every error routed through sentry-scrub, kept the address in clear.
+const EMAIL_KEY_PATTERN = /email/i;
 
 export function redactForLogging(value: unknown, depth = 0): unknown {
   if (depth > 4) return "[truncated]";
@@ -47,7 +53,13 @@ export function redactForLogging(value: unknown, depth = 0): unknown {
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      out[key] = SENSITIVE_KEY_PATTERN.test(key) ? REDACTED : redactForLogging(nested, depth + 1);
+      if (SENSITIVE_KEY_PATTERN.test(key)) {
+        out[key] = REDACTED;
+      } else if (EMAIL_KEY_PATTERN.test(key) && typeof nested === "string") {
+        out[key] = maskEmail(nested);
+      } else {
+        out[key] = redactForLogging(nested, depth + 1);
+      }
     }
     return out;
   }
@@ -63,10 +75,8 @@ export function maskEmail(email: string): string {
 }
 
 export function logSecurityEvent(type: SecurityEventType, context: Record<string, unknown> = {}): void {
+  // Masking happens inside redactForLogging at any depth, so nothing extra is needed here.
   const safeContext = redactForLogging(context) as Record<string, unknown>;
-  if (typeof safeContext.email === "string") {
-    safeContext.email = maskEmail(safeContext.email);
-  }
 
   const event = { type, ts: new Date().toISOString(), ...safeContext };
   console.log(`[security] ${JSON.stringify(event)}`);
