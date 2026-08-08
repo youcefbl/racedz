@@ -538,9 +538,10 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    // Low and soft: a faint ember at rest, a gentle warm wash by completion —
-                    // never a bright disc that competes with the sole or the orbit.
-                    alpha = 0.06f + progress * 0.40f
+                    // A warm orange lamp-shadow behind the sole: present even at rest, glowing to a
+                    // full ambient wash by completion. Heavily blurred in the asset, so more opacity
+                    // reads as soft lamplight rather than a hard disc.
+                    alpha = 0.18f + progress * 0.62f
                     scaleX = glowScale
                     scaleY = glowScale
                 },

@@ -33,9 +33,10 @@ ACCENT = (251, 146, 60)  # #FB923C
 MUTED = (120, 132, 150)  # muted blue-grey orbit
 
 
-# A footprint sits ~16 deg clockwise of top in the source ring; rotating the art by +16 deg brings
-# it to 12 o'clock so the clockwise reveal begins on a footprint rather than on a track dash.
-ORBIT_ROTATE_DEG = 16
+# A footprint's heel sits a few degrees clockwise of top in the source ring; rotating the art by
+# +6 deg brings that heel to 12 o'clock so the clockwise reveal begins at a footprint's start
+# (its heel) rather than on a track dash or mid-footprint.
+ORBIT_ROTATE_DEG = 6
 
 def alpha_of(name):
     return np.asarray(Image.open(os.path.join(SRC, name)).convert("RGBA"))[:, :, 3].astype(np.float32)
@@ -66,9 +67,9 @@ cov = rotated_alpha("orbit_ring.png")
 save(np.clip(grey_dilation(cov, size=3) * 0.9, 0, 190), MUTED, "zidrun_hold_orbit_inactive.png")
 
 # Orange backlight: warm, soft, clean alpha, no pale/white core (gamma pulls the centre down).
-lum = gaussian_filter(alpha_of("orange_glow.png"), sigma=13)  # heavy blur = soft ambient
+lum = gaussian_filter(alpha_of("orange_glow.png"), sigma=22)  # lamp-shadow: very soft
 lum = lum / lum.max()
-save(np.clip((lum ** 1.5) * 255, 0, 210), ACCENT, "zidrun_hold_orange_glow.png")
+save(np.clip((lum ** 1.15) * 255, 0, 255), ACCENT, "zidrun_hold_orange_glow.png")
 
 # Sole base: the foot as-is, but its baked yellow rim recoloured to lime. "warmth" isolates the
 # warm rim/glow (high G, low B) from the cyan interior contours, and only those pixels shift.
@@ -76,8 +77,10 @@ foot = np.asarray(Image.open(os.path.join(SRC, "foot.png")).convert("RGBA")).ast
 r, g, b, a = (foot[:, :, i] for i in range(4))
 warmth = np.clip((np.clip(np.minimum(r, g) - b, 0, 255) / 255.0) * 1.4, 0, 1) * (a / 255.0)
 base = foot.copy()
+NAVY_RIM = np.array([12, 22, 36], np.float32)
 for i in range(3):
-    base[:, :, i] = foot[:, :, i] * (1 - warmth) + HERO[i] * warmth
+    # suppress the foot's own bright rim toward navy — the edge-glow layer is the single lit edge
+    base[:, :, i] = foot[:, :, i] * (1 - warmth) + NAVY_RIM[i] * warmth
 # Premium sole: deepen the interior toward a rich navy, and lift the cyan contour lines so they
 # read as crisp topographic tread rather than a murky wash. "coolness" isolates the cyan interior.
 coolness = np.clip((np.clip(b - g, 0, 255) / 255.0) * 2.0, 0, 1) * (a / 255.0) * (1 - warmth)
@@ -92,7 +95,7 @@ Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), "RGBA").save(
 
 # Sole edge glow: a bright lime rim hugging the foot silhouette (outer blur minus inner blur).
 sil = (a > 40).astype(np.float32) * 255
-rim = np.clip(gaussian_filter(sil, sigma=8) - gaussian_filter(sil, sigma=2) * 0.9, 0, 255) * 3.2
+rim = np.clip(gaussian_filter(sil, sigma=6) - gaussian_filter(sil, sigma=2) * 0.95, 0, 255) * 3.4
 save(rim, HERO, "zidrun_hold_sole_edge_glow.png")
 
 print("regenerated zidrun_hold_* into", os.path.relpath(OUT, HERE))
