@@ -333,6 +333,8 @@
     <string name="runs_coach_listening">Écoute…</string>
     <string name="runs_coach_transcribing">Transcription…</string>
     <string name="runs_coach_thinking">Le coach réfléchit…</string>
+    <string name="runs_tts_missing">Les indications vocales nécessitent une voix pour votre langue. Installez-en une pour les entendre.</string>
+    <string name="runs_tts_install">Installer une voix</string>
     <string name="runs_hold">Maintenez</string>
     <string name="runs_hold_to_begin">pour démarrer</string>
     <string name="runs_start_run">Démarrer</string>

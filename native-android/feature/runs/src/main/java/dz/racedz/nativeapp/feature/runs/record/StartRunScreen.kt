@@ -46,6 +46,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -272,6 +273,14 @@ fun StartRunScreen(
                 )
             }
 
+            // Cues are useless if the device has no voice for the runner's language — a common case
+            // for Arabic on many phones. Say so, with a one-tap route to install one, only when cues
+            // are on and the language is actually missing.
+            val ttsMissing = rememberTtsMissing(currentLocale(), audioCues)
+            if (audioCues && ttsMissing) {
+                TtsInstallNotice()
+            }
+
             HoldToBegin(
                 onTriggered = { launcher.launch(permissions) },
             )
@@ -356,6 +365,77 @@ private suspend fun cityName(context: Context, lat: Double, lng: Double): String
             address?.locality ?: address?.subAdminArea ?: address?.adminArea
         }.getOrNull()
     }
+
+/**
+ * True when spoken cues are wanted but the device's text-to-speech has no voice for [locale].
+ *
+ * Spins up a short-lived engine, asks whether the language is available, then releases it. Returns
+ * false while it is still checking and whenever cues are off, so the notice never flashes in.
+ */
+@Composable
+private fun rememberTtsMissing(locale: java.util.Locale, enabled: Boolean): Boolean {
+    val context = LocalContext.current
+    var missing by remember { mutableStateOf(false) }
+    DisposableEffect(locale, enabled) {
+        if (!enabled) {
+            missing = false
+            return@DisposableEffect onDispose {}
+        }
+        var engine: android.speech.tts.TextToSpeech? = null
+        engine = android.speech.tts.TextToSpeech(context.applicationContext) { status ->
+            if (status == android.speech.tts.TextToSpeech.SUCCESS) {
+                val availability = runCatching { engine?.isLanguageAvailable(locale) }.getOrNull()
+                    ?: android.speech.tts.TextToSpeech.LANG_NOT_SUPPORTED
+                // < LANG_AVAILABLE (0) means MISSING_DATA (-1) or NOT_SUPPORTED (-2).
+                missing = availability < android.speech.tts.TextToSpeech.LANG_AVAILABLE
+            }
+        }
+        onDispose { engine?.shutdown() }
+    }
+    return missing
+}
+
+/** A card prompting the runner to install a TTS voice, with a one-tap route to the system installer. */
+@Composable
+private fun TtsInstallNotice() {
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(ZidRunDarkColors.accent.copy(alpha = 0.12f))
+            .padding(ZidRunDimens.spaceMd),
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        Text(
+            text = stringResource(R.string.runs_tts_missing),
+            style = MaterialTheme.typography.bodyMedium,
+            color = ZidRunDarkColors.textStrong,
+        )
+        Text(
+            text = stringResource(R.string.runs_tts_install),
+            style = MaterialTheme.typography.titleSmall,
+            color = ZidRunDarkColors.accent,
+            modifier = Modifier
+                .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
+                .clickable(role = Role.Button) {
+                    // The platform "install voice data" prompt; fall back to the TTS settings screen.
+                    val install = android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    val ok = runCatching { context.startActivity(install) }.isSuccess
+                    if (!ok) {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent("com.android.settings.TTS_SETTINGS")
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+                }
+                .padding(vertical = ZidRunDimens.spaceXs),
+        )
+    }
+}
 
 /** Live conditions where the run will happen: place, temperature, humidity, and wind. */
 @Composable

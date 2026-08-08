@@ -351,6 +351,8 @@
     <string name="runs_coach_listening">Listening…</string>
     <string name="runs_coach_transcribing">Transcribing…</string>
     <string name="runs_coach_thinking">Coach is thinking…</string>
+    <string name="runs_tts_missing">Spoken cues need a voice for your language. Install one to hear warm-up, splits and coaching.</string>
+    <string name="runs_tts_install">Install voice</string>
     <string name="runs_hold">Hold</string>
     <string name="runs_hold_to_begin">to begin</string>
     <string name="runs_start_run">Start run</string>
