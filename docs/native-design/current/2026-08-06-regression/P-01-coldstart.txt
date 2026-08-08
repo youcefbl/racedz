@@ -1,0 +1,17 @@
+P-01 cold start — 2026-08-07 01:36:14 CET
+device SM-M215G / Android 13 | build debug dz.racedz.nativeapp.debug 0.8.0-debug (vc 8) | three-button nav | en / light / 1.0x
+battery level:85 temp temperature:319
+--- warm-up (unrecorded) ---
+TotalTime: 2326
+WaitTime: 2333
+--- 5 measured samples ---
+sample 1: TotalTime: 2441
+sample 2: TotalTime: 2317
+sample 3: TotalTime: 2298
+sample 4: TotalTime: 2312
+sample 5: TotalTime: 2250
+--- summary ---
+samples: [2441, 2317, 2298, 2312, 2250]
+median: 2312 ms   min: 2250 ms   max: 2441 ms   range: 191 ms
+Debug build, JIT-only, no baseline profile applied at install — a regression lead only,
+never signed-release acceptance. Compare only against the same package/build/device/method.

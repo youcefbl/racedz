@@ -124,7 +124,7 @@ specifically affects them.
 | `G-08` | Background process death | On Details with fields typed: note `adb shell pidof "$PKG"`; press Home; run `adb shell am kill "$PKG"`; confirm the old PID is gone; relaunch with `adb shell am start -n "$PKG/$ACTIVITY"` | Typed fields and current step are restored. If the PID did not die, the precondition failed and this case is **not run**, not passed. Do not substitute `force-stop`: it changes task/package state and does not test the same lifecycle path |
 | `G-09` | Date of birth, numeric keyboard | Clear DOB, type `19960521` **using only the on-screen numeric keypad** | Renders `1996-05-21`; Confirm becomes enabled. Repeat with fr and **Arabic** keyboards |
 | `G-10` | Impossible date refused | Type `20260231` | Inline "not a real date" error; Confirm stays disabled |
-| `G-11` | Required markers + reason | Clear emergency name | Field shows `*`; disabled Confirm states the emergency-contact reason |
+| `G-11` | Required markers + reason | Clear emergency name | Field label ends `· Required` (the implementation's marker, chosen over `*` because a screen reader reads it); disabled Confirm states the emergency-contact reason, and the reason updates as each requirement is met |
 | `G-12` | IME does not hide the field | Tab/Next from emergency name to phone | Focused field scrolls above the keyboard and stays visible |
 | `G-13` | Payment with no destination | Register for a paid race whose organizer published no BaridiMob/CCP | "organizer has not published payment details" + held-entry line; **no method chips, no proof upload, no Bank transfer** |
 | `G-14` | Payment with details | Race with BaridiMob and/or CCP | Only the backed methods appear; proof upload enabled |
@@ -136,7 +136,7 @@ specifically affects them.
 | ID | Case | Steps | Expected |
 |---|---|---|---|
 | `R-01` | Dock reach | Runs tab, scroll to bottom | Record dock pinned above the tab bar at every scroll position; metric values not truncated |
-| `R-02` | Dock while loading/offline | Enable airplane mode, open Runs | Dock still present and usable; loading/error state does not remove it |
+| `R-02` | Dock while loading/offline | **Over USB:** enable airplane mode, open Runs. **Over wireless ADB:** airplane mode severs the only link to the device and needs the owner to re-enable Wireless debugging by hand — use `adb reverse --remove tcp:3003` instead and say so in the result, because that proves the dock survives the error state without exercising airplane mode | Dock still present and usable; loading/error state does not remove it |
 | `R-03` | Recording state | Start a run → system Back to shell | Dock reads "Recording · X km — Open"; tapping returns to the live run |
 | `R-04` | Paused state | Pause → back to shell | Dock reads "Paused · X km — Resume" |
 | `R-05` | Pending save | Finish → back out of summary | Dock reads "Save run"; tapping reopens the summary |
