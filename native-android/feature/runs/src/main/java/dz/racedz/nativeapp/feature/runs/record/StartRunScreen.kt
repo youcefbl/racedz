@@ -538,7 +538,9 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    alpha = 0.12f + progress * 0.73f
+                    // Low and soft: a faint ember at rest, a gentle warm wash by completion —
+                    // never a bright disc that competes with the sole or the orbit.
+                    alpha = 0.06f + progress * 0.40f
                     scaleX = glowScale
                     scaleY = glowScale
                 },
@@ -588,9 +590,10 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 .alpha(0.35f + progress * 0.65f),
         )
 
-        // 5. The sole itself: dark navy, internal contour lines, never washed out by the glow.
+        // 5. The sole itself: dark navy, internal contour lines, and a lime (not yellow) rim, never
+        //    washed out by the glow.
         Image(
-            painter = painterResource(RunsR.drawable.zidrun_run_foot),
+            painter = painterResource(RunsR.drawable.zidrun_hold_sole_base),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
@@ -650,11 +653,15 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
 }
 
 /** The hold control's overall diameter — dominant on screen, as in the reference. */
-private val CONTROL_SIZE = 320.dp
+private val CONTROL_SIZE = 344.dp
 
-/** The sole silhouette inside the control. Its ratio matches the exported foot art (≈1:2). */
-private val SOLE_HEIGHT = 250.dp
-private val SOLE_WIDTH = 125.dp
+/**
+ * The sole silhouette inside the control. Kept well inside the orbit so the footprint ring reads as
+ * a separate element with clear breathing room, not a frame the sole touches. Ratio ≈1:2, matching
+ * the exported foot art.
+ */
+private val SOLE_HEIGHT = 208.dp
+private val SOLE_WIDTH = 104.dp
 
 /** How long an aborted hold takes to wind back to nothing. */
 private const val RELEASE_MS = 220f
