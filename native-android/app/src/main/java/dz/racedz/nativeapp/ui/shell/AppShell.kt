@@ -115,6 +115,10 @@ fun AppShell(
     onResumeRecording: () -> Unit,
     /** Opens the save/discard summary for a finished recording that was never saved. */
     onOpenPendingSave: () -> Unit,
+    /** Opens the hand-entry form for a run with no GPS (NATRUN-01). */
+    onAddManual: () -> Unit,
+    /** Opens the GPX import flow (NATRUN-02). */
+    onImportGpx: () -> Unit,
     onOpenSubscribe: () -> Unit,
     /** [editing] distinguishes first-time setup from editing an existing goal. */
     onOpenCoachSetup: (Boolean) -> Unit,
@@ -172,6 +176,8 @@ fun AppShell(
                     onOpenRun = onOpenRun,
                     onRecordRun = { onRecordRun(null) },
                     onOpenPendingSave = onOpenPendingSave,
+                    onAddManual = onAddManual,
+                    onImportGpx = onImportGpx,
                     contentPadding = innerPadding,
                 )
             }

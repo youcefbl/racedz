@@ -623,4 +623,38 @@
         <item quantity="one">%1$s jour restant</item>
         <item quantity="other">%1$s jours restants</item>
     </plurals>
+
+    <!-- Manual run entry (NATRUN-01) -->
+    <string name="runs_manual_entry">Ajouter une sortie manuellement</string>
+    <string name="runs_manual_entry_sub">Pas de GPS ? Saisis la distance et le temps toi-même.</string>
+    <string name="runs_manual_title">Ajouter une sortie</string>
+    <string name="runs_manual_datetime_label">Date et heure</string>
+    <string name="runs_manual_change_date">Changer la date</string>
+    <string name="runs_manual_change_time">Changer l\'heure</string>
+    <string name="runs_manual_distance_label">Distance (km)</string>
+    <string name="runs_manual_minutes_label">Minutes</string>
+    <string name="runs_manual_seconds_label">Secondes</string>
+    <string name="runs_manual_error_distance">La distance doit être entre 0,1 et 500 km.</string>
+    <string name="runs_manual_error_duration">La durée doit être entre 1 minute et 48 heures.</string>
+    <string name="runs_manual_error_future">L\'heure de départ ne peut pas être dans le futur.</string>
+
+    <!-- GPX import (NATRUN-02) -->
+    <string name="runs_import_entry">Importer depuis un GPX</string>
+    <string name="runs_import_entry_sub">Importe une sortie d\'une montre ou d\'une autre appli.</string>
+    <string name="runs_import_title">Importer une sortie</string>
+    <string name="runs_import_pick">Choisir un fichier GPX</string>
+    <string name="runs_import_hint">Choisis un fichier .gpx exporté depuis ta montre ou une autre appli de course.</string>
+    <string name="runs_import_preview_title">Prêt à importer</string>
+    <string name="runs_import_points_label">Points du tracé</string>
+    <string name="runs_import_start_label">Départ</string>
+    <string name="runs_import_default_title">Sortie importée</string>
+    <string name="runs_import_error_not_gpx">Ce fichier ne ressemble pas à un fichier GPX.</string>
+    <string name="runs_import_error_no_track">Ce GPX n\'a pas de tracé exploitable — il faut au moins deux points.</string>
+    <string name="runs_import_error_too_short">Ce tracé GPX est trop court pour être importé comme sortie.</string>
+    <string name="runs_import_error_no_time">Ce GPX n\'a pas d\'horodatage, le temps ne peut pas être calculé.</string>
+    <string name="runs_import_error_short_time">Cette sortie GPX dure moins d\'une minute.</string>
+    <string name="runs_import_error_long">Cette sortie GPX dépasse 48 heures, ce qui semble faux.</string>
+    <string name="runs_import_error_future">L\'heure de départ du GPX est dans le futur.</string>
+    <string name="runs_import_error_too_big">Ce fichier est trop volumineux — les GPX doivent faire moins de 5 Mo.</string>
+    <string name="runs_import_error_unreadable">Impossible de lire ce fichier. Essaie-en un autre.</string>
 </resources>

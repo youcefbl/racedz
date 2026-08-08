@@ -653,4 +653,38 @@
         <item quantity="many">باقي %1$s يوم</item>
         <item quantity="other">باقي %1$s يوم</item>
     </plurals>
+
+    <!-- Manual run entry (NATRUN-01) -->
+    <string name="runs_manual_entry">زيد سورتي باليد</string>
+    <string name="runs_manual_entry_sub">ما كاش GPS؟ دخّل المسافة والوقت بيدك.</string>
+    <string name="runs_manual_title">زيد سورتي</string>
+    <string name="runs_manual_datetime_label">النهار والوقت</string>
+    <string name="runs_manual_change_date">بدّل النهار</string>
+    <string name="runs_manual_change_time">بدّل الوقت</string>
+    <string name="runs_manual_distance_label">المسافة (كم)</string>
+    <string name="runs_manual_minutes_label">دقايق</string>
+    <string name="runs_manual_seconds_label">ثواني</string>
+    <string name="runs_manual_error_distance">المسافة لازم تكون بين 0.1 و500 كم.</string>
+    <string name="runs_manual_error_duration">الوقت لازم يكون بين دقيقة و48 ساعة.</string>
+    <string name="runs_manual_error_future">وقت البداية ما يقدرش يكون في المستقبل.</string>
+
+    <!-- GPX import (NATRUN-02) -->
+    <string name="runs_import_entry">جيب من GPX</string>
+    <string name="runs_import_entry_sub">جيب سورتي من ساعة ولا من تطبيق آخر.</string>
+    <string name="runs_import_title">جيب سورتي</string>
+    <string name="runs_import_pick">اختار ملف GPX</string>
+    <string name="runs_import_hint">اختار ملف ‎.gpx‎ مصدّر من الساعة تاعك ولا من تطبيق جري آخر.</string>
+    <string name="runs_import_preview_title">واجد للجلب</string>
+    <string name="runs_import_points_label">نقاط الطريق</string>
+    <string name="runs_import_start_label">البداية</string>
+    <string name="runs_import_default_title">سورتي مجلوبة</string>
+    <string name="runs_import_error_not_gpx">هاذ الملف ما يبانش ملف GPX.</string>
+    <string name="runs_import_error_no_track">هاذ GPX ما فيه طريق صالح — يلزمو زوج نقاط على الأقل.</string>
+    <string name="runs_import_error_too_short">طريق GPX قصير بزاف باش يتجاب كسورتي.</string>
+    <string name="runs_import_error_no_time">هاذ GPX ما فيه أوقات، ما نقدروش نحسبو الوقت.</string>
+    <string name="runs_import_error_short_time">هاذ السورتي في GPX أقل من دقيقة.</string>
+    <string name="runs_import_error_long">هاذ السورتي في GPX أكثر من 48 ساعة، يبان غالط.</string>
+    <string name="runs_import_error_future">وقت بداية GPX في المستقبل.</string>
+    <string name="runs_import_error_too_big">هاذ الملف كبير بزاف — ملفات GPX لازم أقل من 5 ميغا.</string>
+    <string name="runs_import_error_unreadable">ما قدرناش نقراو هاذ الملف. جرّب واحد آخر.</string>
 </resources>

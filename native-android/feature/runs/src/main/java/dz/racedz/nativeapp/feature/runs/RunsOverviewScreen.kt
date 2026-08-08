@@ -83,6 +83,10 @@ fun RunsOverviewScreen(
     onRecordRun: () -> Unit,
     /** Opens the save/discard summary for a finished recording that was never saved. */
     onOpenPendingSave: () -> Unit,
+    /** Opens the hand-entry form for a run with no GPS (NATRUN-01). */
+    onAddManual: () -> Unit,
+    /** Opens the GPX file picker + import flow (NATRUN-02). */
+    onImportGpx: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -216,9 +220,21 @@ fun RunsOverviewScreen(
                     EmptyWeekHero()
                 }
 
-                // Manual entry and GPX import are hidden until they exist (NATPAR-003): a
-                // visible control is a promise, and both used to dead-end into run history. They
-                // return here when the real screens ship.
+                // Manual entry and GPX import (NATRUN-01/02). Secondary ways to add a run for when
+                // there is no live GPS to record — a treadmill session typed in, or a run captured
+                // on a watch and brought in as a .gpx.
+                EntryRow(
+                    iconRes = R.drawable.ic_footprints,
+                    title = stringResource(R.string.runs_manual_entry),
+                    subtitle = stringResource(R.string.runs_manual_entry_sub),
+                    onClick = onAddManual,
+                )
+                EntryRow(
+                    iconRes = R.drawable.ic_route,
+                    title = stringResource(R.string.runs_import_entry),
+                    subtitle = stringResource(R.string.runs_import_entry_sub),
+                    onClick = onImportGpx,
+                )
 
                 // Clearance so the last card scrolls out from under the pinned dock, including at
                 // large font scale.
@@ -375,6 +391,52 @@ private fun DockButton(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/** A tappable secondary action: leading glyph, title over a one-line subtitle, and a chevron. */
+@Composable
+private fun EntryRow(iconRes: Int, title: String, subtitle: String, onClick: () -> Unit) {
+    val colors = ZidRunTheme.colors
+    ZidRunCard(
+        onClick = onClick,
+        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = title },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(ZidRunDimens.cornerMd))
+                    .background(colors.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(iconRes),
+                    contentDescription = null,
+                    tint = colors.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(ZidRunDimens.spaceMd))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = colors.textStrong,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+            }
+            Icon(
+                painterResource(R.drawable.ic_arrow_up_right),
+                contentDescription = null,
+                tint = colors.textMuted,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 

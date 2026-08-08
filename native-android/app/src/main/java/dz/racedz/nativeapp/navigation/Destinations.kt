@@ -24,6 +24,10 @@ object RootDestinations {
     const val RUN_START = "runs/start?workoutId={workoutId}"
     const val RUN_RECORDING = "runs/recording"
     const val RUN_SUMMARY = "runs/summary"
+    /** Hand-typed run, no GPS (NATRUN-01). */
+    const val RUN_MANUAL = "runs/manual"
+    /** GPX imported from a watch or another app (NATRUN-02). */
+    const val RUN_IMPORT = "runs/import"
     const val ONBOARDING = "onboarding"
     /** `edit=true` reuses the same five steps prefilled, against the update endpoint. */
     const val COACH_SETUP = "coach/setup?edit={edit}"

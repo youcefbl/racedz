@@ -64,6 +64,10 @@ import dz.racedz.nativeapp.feature.runs.record.RunRecorder
 import dz.racedz.nativeapp.feature.runs.record.RunSummaryScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunScreen
 import dz.racedz.nativeapp.feature.runs.record.StartRunViewModel
+import dz.racedz.nativeapp.feature.runs.manual.ManualRunScreen
+import dz.racedz.nativeapp.feature.runs.manual.ManualRunViewModel
+import dz.racedz.nativeapp.feature.runs.gpx.GpxImportScreen
+import dz.racedz.nativeapp.feature.runs.gpx.GpxImportViewModel
 import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
 import dz.racedz.nativeapp.locale.LocaleManager
@@ -321,6 +325,8 @@ fun ZidRunApp(
                     onRecordRun = { workoutId -> navController.navigate(RootDestinations.runStart(workoutId)) },
                     onResumeRecording = { navController.navigate(RootDestinations.RUN_RECORDING) },
                     onOpenPendingSave = { navController.navigate(RootDestinations.RUN_SUMMARY) },
+                    onAddManual = { navController.navigate(RootDestinations.RUN_MANUAL) },
+                    onImportGpx = { navController.navigate(RootDestinations.RUN_IMPORT) },
                     // Subscribing is a payment-proof upload flow that already exists on the website;
                     // the app opens it in a custom tab rather than shipping a second version of it.
                     onOpenSubscribe = { openWebSignedIn("/account/coach/subscribe") },
@@ -473,6 +479,38 @@ fun ZidRunApp(
                         }
                     },
                     onDiscarded = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                )
+            }
+
+            composable(RootDestinations.RUN_MANUAL) {
+                val manualViewModel: ManualRunViewModel = viewModel(
+                    factory = SimpleViewModelFactory { ManualRunViewModel(container.runsRepository) }
+                )
+                ManualRunScreen(
+                    viewModel = manualViewModel,
+                    // Same landing as a recorded save: straight to the new run's detail, with the
+                    // form gone from the back stack so Back returns to the Runs tab.
+                    onSaved = { runId ->
+                        navController.navigate(RootDestinations.runDetail(runId)) {
+                            popUpTo(RootDestinations.SHELL) { inclusive = false }
+                        }
+                    },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(RootDestinations.RUN_IMPORT) {
+                val importViewModel: GpxImportViewModel = viewModel(
+                    factory = SimpleViewModelFactory { GpxImportViewModel(container.runsRepository) }
+                )
+                GpxImportScreen(
+                    viewModel = importViewModel,
+                    onSaved = { runId ->
+                        navController.navigate(RootDestinations.runDetail(runId)) {
+                            popUpTo(RootDestinations.SHELL) { inclusive = false }
+                        }
+                    },
+                    onBack = { navController.popBackStack() },
                 )
             }
 
