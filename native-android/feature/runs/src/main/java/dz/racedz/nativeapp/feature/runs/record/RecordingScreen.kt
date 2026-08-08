@@ -140,6 +140,19 @@ fun RecordingScreen(
         voice?.say(kmCue(context, split.km, ZidRunFormat.pace(split.paceSecondsPerKm)))
     }
 
+    // The first step — the warm-up — is announced once when the guided run begins. advanceIfDue only
+    // fires on a *transition* to the next step, so without this the runner never hears the warm-up
+    // (or the cool-down, when it is the step being entered) called out at its start.
+    var announcedFirstStep by remember { mutableStateOf(false) }
+    LaunchedEffect(guided.session, state.status) {
+        if (announcedFirstStep) return@LaunchedEffect
+        if (guided.session == null || state.status == RecordingStatus.Idle) return@LaunchedEffect
+        guided.currentStep?.let {
+            announcedFirstStep = true
+            voice?.say(stepCue(context, it))
+        }
+    }
+
     // Guided steps advance off the same numbers shown on screen, and each change is spoken once.
     LaunchedEffect(state.elapsedSeconds, state.distanceMeters) {
         val entered = GuidedSessionController.advanceIfDue(state.elapsedSeconds, state.distanceMeters)

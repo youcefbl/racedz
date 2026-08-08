@@ -23,6 +23,8 @@ data class StartRunUiState(
     val loading: Boolean = true,
     /** Live conditions for the start screen, or null while loading / when unavailable. */
     val weather: WeatherDto? = null,
+    /** The city/town the runner is in, reverse-geocoded from their fix; null when unknown. */
+    val placeName: String? = null,
 )
 
 /**
@@ -62,6 +64,9 @@ class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
             }
         }
     }
+
+    /** The reverse-geocoded city/town, shown above the temperature. Best-effort; null is fine. */
+    fun setPlaceName(name: String?) = _state.update { it.copy(placeName = name?.takeIf { n -> n.isNotBlank() }) }
 }
 
 /** Human label for a step's role, e.g. "Warm up". */

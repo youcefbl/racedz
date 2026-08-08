@@ -140,6 +140,7 @@ fun StartRunScreen(
     LaunchedEffect(Unit) {
         val fix = lastKnownLocation(context)
         viewModel.loadWeather(fix?.latitude, fix?.longitude)
+        if (fix != null) viewModel.setPlaceName(cityName(context, fix.latitude, fix.longitude))
     }
     // Arriving from the coach's "Log this run" means the runner already chose a planned session, so
     // Guided is the mode they asked for (DEV-R06). Starting in Free associated the workout but ran
@@ -210,7 +211,7 @@ fun StartRunScreen(
             // Conditions where the run will happen, when the endpoint returned anything worth showing.
             session.weather
                 ?.takeIf { it.temperatureC != null || it.humidityPct != null || it.windSpeedKmh != null }
-                ?.let { WeatherCard(it) }
+                ?.let { WeatherCard(it, session.placeName) }
 
             // Free or guided. A guided run counts through warm-up, work, and cool-down and speaks
             // each change; a free run just records.
@@ -338,9 +339,27 @@ private fun lastKnownLocation(context: Context): Location? {
     }.getOrNull()
 }
 
-/** Live conditions where the run will happen: temperature, humidity, and wind. */
+/**
+ * The city/town for a fix, reverse-geocoded on-device, or null.
+ *
+ * Uses the platform [Geocoder] (no extra provider beyond what weather already needs) on a background
+ * dispatcher, since it can block on I/O. Best-effort: an unavailable geocoder, a device with no data,
+ * or an unnamed point simply yields no place label.
+ */
+private suspend fun cityName(context: Context, lat: Double, lng: Double): String? =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (!android.location.Geocoder.isPresent()) return@withContext null
+        runCatching {
+            val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+            @Suppress("DEPRECATION")
+            val address = geocoder.getFromLocation(lat, lng, 1)?.firstOrNull()
+            address?.locality ?: address?.subAdminArea ?: address?.adminArea
+        }.getOrNull()
+    }
+
+/** Live conditions where the run will happen: place, temperature, humidity, and wind. */
 @Composable
-private fun WeatherCard(weather: WeatherDto) {
+private fun WeatherCard(weather: WeatherDto, placeName: String?) {
     val locale = currentLocale()
     Column(
         modifier = Modifier
@@ -350,6 +369,22 @@ private fun WeatherCard(weather: WeatherDto) {
             .padding(ZidRunDimens.spaceMd),
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
     ) {
+      // The city/town, above the temperature, so the reading is anchored to a place.
+      placeName?.let { name ->
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
+              Icon(
+                  Icons.Filled.LocationOn,
+                  contentDescription = null,
+                  tint = ZidRunDarkColors.textMuted,
+                  modifier = Modifier.size(14.dp),
+              )
+              Text(
+                  text = name,
+                  style = MaterialTheme.typography.labelLarge,
+                  color = ZidRunDarkColors.textStrong,
+              )
+          }
+      }
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
