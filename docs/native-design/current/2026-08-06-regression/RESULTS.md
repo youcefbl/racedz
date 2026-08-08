@@ -31,6 +31,27 @@ timed + elevation-bearing route (2026-08-03, points carry `t` and `ele`), 13 run
 routes. Payment destinations were absent on every seeded race, so BaridiMob/CCP were seeded onto
 `tizi-ouzou-trail-challenge` to make `G-14` reachable; reverted in teardown.
 
+## Scoreboard
+
+54 cases in the matrix, counted strictly: a case is a **pass** only when *every* clause of its
+expected column was observed on the device. Where part of a case was observed and part was not, it
+is **partial** and named as such rather than folded into the pass count.
+
+| Outcome | Count | Cases |
+|---|---|---|
+| Pass | 44 | `G-01`, `G-02`, `G-04`–`G-14`, `R-02`–`R-09`, `R-11`, `R-12`, `L-01`, `L-06`–`L-11`, `C-02`–`C-08`, `X-01`–`X-04`, `A-02`, `P-01`, `P-02` |
+| Partial | 4 | `G-03` (TalkBack never enabled), `R-01` (surface does not scroll here), `R-13` (motion not provable from stills), `C-01` (first paint not provable) |
+| Not run | 6 | `R-10`, `L-02`, `L-03`, `L-04`, `L-05`, `A-01` |
+
+Five of the 44 passes are cases that **failed first** and passed only after a fix in this session:
+`G-09`, `G-12`, `L-11`, `X-03`, `C-04`. Two further defects were found outside the matrix (`D-02`
+deep links, `D-04` stale race detail).
+
+**Artifacts.** `R-02-airplane.png` was a zero-byte file left by the ADB disconnect and has been
+removed; `R-05` had two captures of the same frame, so the duplicate is gone and the survivor is
+named for what it shows. The Runs overview does not scroll at this fixture size, so its "top" and
+"bottom" captures were byte-identical in every variant — one per variant remains.
+
 ## Defects found and fixed this session
 
 ### D-01 — date of birth could not be typed on the numeric keypad *(fixes `G-09`)*
@@ -51,6 +72,11 @@ after 9: '1991-0'   after 5: '1996-50-10'
 Fix: `core/design/…/Components.kt` — the field now owns a `TextFieldValue` and re-anchors the caret
 to the same content character when the caller reformats. Re-tested: renders `1996-05-21`, backspace
 clears the field. This is a design-system fix, so it covers every reformatting field, not just DOB.
+
+**Evidence note.** `G-09-numeric-keypad-before-typing.png` shows the numeric keypad and the field's
+*starting* value `1995-06-15`; it is evidence that the keyboard has no separator key, not of the
+result. The result is the per-tap hierarchy transcript above — no screenshot of the corrected
+`1996-05-21` render was captured.
 
 ### D-02 — a race deep link was silently swallowed after process death
 
@@ -141,7 +167,7 @@ are committing to. It now appends a localised "+N more steps" (en/fr/ar, correct
 |---|---|---|
 | `G-01` | **pass** | 21.1K picked on detail → registration opened on Step 1 Details, no distance step; Review confirmed "21K Half Marathon" |
 | `G-02` | **pass** | Carried category made foreign in the DB while the race still offered two others → fell back to "Choose your distance" listing only the race's own distances |
-| `G-03` | **pass** | "Step 1 of 3 / 2 of 3 / 3 of 3", 3-segment bar advances; exposed to accessibility as one phrase (`D='Step 2 of 3'` on the container) |
+| `G-03` | **partial** | Observed: "Step 1 of 3 / 2 of 3 / 3 of 3", the 3-segment bar advancing, and the counter merged into one accessibility node (`D='Step 2 of 3'`). **Not observed:** the case requires TalkBack to *read* it as one phrase, and TalkBack was never enabled (see `A-01`). A merged node is a necessary condition, not the stated one |
 | `G-04` | **pass** | Race, distance, exact price (2,800 DZD = DB `priceDzd`), runner, phone, emergency contact, organizer-sharing line; DB count unchanged at 2 |
 | `G-05` | **pass** | Two taps in one shell round-trip → count 2 → 3, exactly one row, one registration shown |
 | `G-06` | **pass** | System Back *and* top-bar Back from Review both return to Details with DOB, emergency name and phone intact |
@@ -158,7 +184,7 @@ are committing to. It now appends a localised "+N more steps" (en/fr/ar, correct
 
 | ID | Result | Evidence / note |
 |---|---|---|
-| `R-01` | **pass** | Dock pinned at `[0,1797][1080,2039]`, above the tab bar at every scroll position; 117.60 km / 14.20 km / 4:58/km all render in full |
+| `R-01` | **partial** | Dock pinned at `[0,1797][1080,2039]`, above the tab bar, with 117.60 km / 14.20 km / 4:58/km all rendered in full. **Not observed:** "at every scroll position" — the Runs overview does not scroll at this fixture size, so there is only one position to check. The committed capture is named `R-01-runs-overview-not-scrollable.png` to say so; the earlier top/bottom pair were byte-identical for this reason and one has been removed |
 | `R-02` | **pass** *(method deviation)* | Airplane mode is **not usable over wireless ADB** — enabling it cut the only link to the device and cost a reconnect. Ran instead with the API made unreachable (`adb reverse --remove tcp:3003`): "You are offline / Check your connection and try again. / Try again" and the dock still present and usable. The dock's survival of the error state is proven; airplane mode itself was not exercised |
 | `R-03` | **pass** | "Recording · 0.00 km — Open"; tapping reopened the live run |
 | `R-04` | **pass** | "Paused · 0.00 km — Resume" |
@@ -170,7 +196,7 @@ are committing to. It now appends a localised "+N more steps" (en/fr/ar, correct
 | `R-10` | **not run — fixture blocked** | Needs a second account. The device holds a live session for `device.tester@zidrun.test` whose password is not in the repo, so signing out to test isolation risked stranding the fixture with no way back in. Not attempted |
 | `R-11` | **pass** | 900 ms hold started the run (the regression that used to cancel) |
 | `R-12` | **pass** | 400 ms hold started nothing; control returned to "Hold to begin" |
-| `R-13` | **pass, partial** | With `animator_duration_scale 0` the 900 ms hold still starts the run. "No aura pulse" and "ring jumps between states" are animation properties a still frame cannot prove — not claimed |
+| `R-13` | **partial** | With `animator_duration_scale 0` the 900 ms hold still starts the run. "No aura pulse" and "ring jumps between states" are animation properties a still frame cannot prove — not claimed |
 
 ## §5 Runs — live, summary, detail
 
@@ -198,7 +224,7 @@ showing through, not a product bug. Worth seeding denser points so `L-08`/`L-04`
 
 | ID | Result | Evidence / note |
 |---|---|---|
-| `C-01` | **pass** | "Free trial · 5 days left" beside the title; trial ends 2026-08-11 08:47, 4 d 7 h remaining → ceiling 5. "No pop-in shift" is a first-frame property not provable from a settled dump |
+| `C-01` | **partial** | Observed: "Free trial · 5 days left" sitting beside the title, with the correct ceiling (trial ends 2026-08-11 08:47, 4 d 7 h remaining). **Not observed:** "from first paint (no pop-in shift)" is a first-frame property, and a settled dump cannot show it |
 | `C-02` | **pass** | With `createdAt` set to 6 d 2 h ago: "Free trial · last day", not a vanished count |
 | `C-03` | **pass** | Overview "Whole plan · 3 of 6 · Sessions completed" vs plan week "1 of 3 sessions this week" — different scopes, both labelled, no contradiction |
 | `C-04` | **fail → fixed → pass** | See **D-07** |
