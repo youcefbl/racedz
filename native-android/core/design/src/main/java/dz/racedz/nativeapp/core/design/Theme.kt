@@ -124,11 +124,22 @@ fun ZidRunDarkSurfaceSystemBars() {
     androidx.compose.runtime.DisposableEffect(restoreToLight) {
         val window = (view.context as? android.app.Activity)?.window
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        darkSurfaceScreens.incrementAndGet()
         controller?.isAppearanceLightStatusBars = false
         controller?.isAppearanceLightNavigationBars = false
         onDispose {
-            controller?.isAppearanceLightStatusBars = restoreToLight
-            controller?.isAppearanceLightNavigationBars = restoreToLight
+            // Navigating from one dark-surface screen straight to the next composes the incoming
+            // screen before disposing the outgoing one, so an unconditional restore here runs last
+            // and hands the *new* screen the theme's bar appearance. That is how starting a run in
+            // Light went from white icons on the pre-run screen to black-on-black the moment the
+            // live screen appeared. Only the last dark surface to leave restores.
+            if (darkSurfaceScreens.decrementAndGet() <= 0) {
+                controller?.isAppearanceLightStatusBars = restoreToLight
+                controller?.isAppearanceLightNavigationBars = restoreToLight
+            }
         }
     }
 }
+
+/** How many dark-surface screens are currently composed. Single-activity app, so one counter. */
+private val darkSurfaceScreens = java.util.concurrent.atomic.AtomicInteger(0)
