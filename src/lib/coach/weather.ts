@@ -32,6 +32,9 @@ export type ForecastConditions = {
   apparentTemperatureC: number | null;
   humidityPct: number | null;
   windKph: number | null;
+  // Meteorological "from" bearing in degrees (0-360): the direction the wind is blowing FROM.
+  // Best-effort like the rest — null when the provider omits it or is unreachable.
+  windDirectionDegrees: number | null;
   todayHighC: number | null;
   todayLowC: number | null;
   precipitationChancePct: number | null;
@@ -255,6 +258,7 @@ type CurrentBlock = {
   apparent_temperature?: number | null;
   weather_code?: number | null;
   wind_speed_10m?: number | null;
+  wind_direction_10m?: number | null;
 };
 
 type DailyBlock = {
@@ -271,7 +275,7 @@ export async function fetchForecastConditions(coordinates: Coordinates): Promise
   const params = new URLSearchParams({
     latitude: coordinates.lat.toFixed(4),
     longitude: coordinates.lng.toFixed(4),
-    current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+    current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m",
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
     forecast_days: "1",
     timezone: "auto",
@@ -291,6 +295,7 @@ export async function fetchForecastConditions(coordinates: Coordinates): Promise
     apparentTemperatureC: round(current?.apparent_temperature, 1),
     humidityPct: round(current?.relative_humidity_2m),
     windKph: round(current?.wind_speed_10m),
+    windDirectionDegrees: round(current?.wind_direction_10m),
     todayHighC: round(daily?.temperature_2m_max?.[0], 1),
     todayLowC: round(daily?.temperature_2m_min?.[0], 1),
     precipitationChancePct: round(daily?.precipitation_probability_max?.[0]),

@@ -26,6 +26,7 @@ import dz.racedz.nativeapp.core.network.CoachPlanWeekDto
 import dz.racedz.nativeapp.core.network.CoachOverviewDto
 import dz.racedz.nativeapp.core.network.CreateCoachGoalRequest
 import dz.racedz.nativeapp.core.network.GuidedSessionDto
+import dz.racedz.nativeapp.core.network.WeatherDto
 import dz.racedz.nativeapp.core.network.RunDetailDto
 import dz.racedz.nativeapp.core.network.RunDto
 import dz.racedz.nativeapp.core.network.UpdateRunRequest
@@ -223,6 +224,10 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
 
     /** Today's guided session: warm-up, work, cool-down, built server-side. */
     suspend fun guidedSession(): ApiResult<GuidedSessionDto> = client.call { api.guidedSession() }
+
+    /** Live conditions where the runner is about to run; coordinates optional (wilaya fallback). */
+    suspend fun weather(lat: Double?, lng: Double?): ApiResult<WeatherDto> =
+        client.call { api.weather(lat, lng) }
 
     /** Achievements, computed server-side from records and race finishes. */
     suspend fun badges(): ApiResult<BadgesDto> = client.call { api.badges() }

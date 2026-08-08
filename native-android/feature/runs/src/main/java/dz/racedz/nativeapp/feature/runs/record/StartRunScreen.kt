@@ -1,8 +1,14 @@
 package dz.racedz.nativeapp.feature.runs.record
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
 import android.os.Build
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
@@ -67,6 +73,10 @@ import androidx.compose.ui.unit.dp
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunDarkColors
+import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.currentLocale
+import dz.racedz.nativeapp.core.network.WeatherDto
+import androidx.compose.foundation.layout.RowScope
 import dz.racedz.nativeapp.core.design.ZidRunDarkSurfaceSystemBars
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
@@ -123,6 +133,14 @@ fun StartRunScreen(
     val context = LocalContext.current
     val session by viewModel.state.collectAsStateWithLifecycle()
     var permissionDenied by remember { mutableStateOf(false) }
+
+    // Live conditions for where the run will happen. Read once on entry from the last known fix when
+    // location is already granted; with no fix the server falls back to the runner's wilaya. A
+    // nicety — never gated on permission and never blocking the run.
+    LaunchedEffect(Unit) {
+        val fix = lastKnownLocation(context)
+        viewModel.loadWeather(fix?.latitude, fix?.longitude)
+    }
     // Arriving from the coach's "Log this run" means the runner already chose a planned session, so
     // Guided is the mode they asked for (DEV-R06). Starting in Free associated the workout but ran
     // no cues or steps unless they noticed the tabs and switched — the guidance simply never came.
@@ -188,6 +206,11 @@ fun StartRunScreen(
                     tint = ZidRunDarkColors.textMuted,
                 )
             }
+
+            // Conditions where the run will happen, when the endpoint returned anything worth showing.
+            session.weather
+                ?.takeIf { it.temperatureC != null || it.humidityPct != null || it.windSpeedKmh != null }
+                ?.let { WeatherCard(it) }
 
             // Free or guided. A guided run counts through warm-up, work, and cool-down and speaks
             // each change; a free run just records.
@@ -291,6 +314,97 @@ private fun beginRecording(
     RunSettings.audioCuesEnabled = audioCues
     RunTrackingService.start(context)
     onStarted()
+}
+
+/**
+ * The runner's last known position, or null.
+ *
+ * A cached fix, not a fresh one: this only seeds the weather lookup, so a settled last-known point is
+ * both good enough and instant, where waiting on the GPS to acquire would stall the start screen. Null
+ * whenever location has not been granted or nothing is cached — the weather endpoint then falls back
+ * to the runner's wilaya. Permission is re-checked here rather than assumed.
+ */
+@SuppressLint("MissingPermission")
+private fun lastKnownLocation(context: Context): Location? {
+    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED
+    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+        PackageManager.PERMISSION_GRANTED
+    if (!fine && !coarse) return null
+    val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+    return runCatching {
+        (if (fine) manager.getLastKnownLocation(LocationManager.GPS_PROVIDER) else null)
+            ?: manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+    }.getOrNull()
+}
+
+/** Live conditions where the run will happen: temperature, humidity, and wind. */
+@Composable
+private fun WeatherCard(weather: WeatherDto) {
+    val locale = currentLocale()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(ZidRunDarkColors.surface)
+            .padding(ZidRunDimens.spaceMd),
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        weather.temperatureC?.let { temp ->
+            WeatherStat(
+                value = stringResource(R.string.runs_weather_temp, ZidRunFormat.count(temp.roundToInt(), locale)),
+                label = weather.apparentC?.let { feels ->
+                    stringResource(R.string.runs_weather_feels, ZidRunFormat.count(feels.roundToInt(), locale))
+                } ?: weather.weatherLabel?.replaceFirstChar { it.uppercase() }.orEmpty(),
+            )
+        }
+        weather.humidityPct?.let { humidity ->
+            WeatherStat(
+                value = stringResource(R.string.runs_weather_humidity_value, ZidRunFormat.count(humidity, locale)),
+                label = stringResource(R.string.runs_weather_humidity),
+            )
+        }
+        weather.windSpeedKmh?.let { wind ->
+            WeatherStat(
+                value = stringResource(R.string.runs_weather_wind_value, ZidRunFormat.count(wind, locale)),
+                label = stringResource(R.string.runs_weather_wind),
+                // Meteorological direction is where the wind comes FROM; the arrow points where it blows TO.
+                arrowDegrees = weather.windDirectionDegrees?.let { it.toFloat() + 180f },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.WeatherStat(value: String, label: String, arrowDegrees: Float? = null) {
+    Column(
+        modifier = Modifier.weight(1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall,
+                color = ZidRunDarkColors.textStrong,
+            )
+            if (arrowDegrees != null) {
+                Spacer(Modifier.width(ZidRunDimens.spaceSm))
+                Text(
+                    text = "↑",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = ZidRunDarkColors.primary,
+                    modifier = Modifier.graphicsLayer { rotationZ = arrowDegrees },
+                )
+            }
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = ZidRunDarkColors.textMuted,
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 @Composable

@@ -334,6 +334,13 @@
     <string name="runs_notification_body">%1$s كم · %2$s</string>
     <string name="runs_ready_title">ملّي تكون واجد</string>
     <string name="runs_ready_gps">GPS واجد</string>
+    <string name="runs_weather_temp">%1$s°</string>
+    <string name="runs_weather_feels">الإحساس %1$s°</string>
+    <string name="runs_weather_humidity">الرطوبة</string>
+    <string name="runs_weather_humidity_value">%1$s%%</string>
+    <string name="runs_weather_wind">الرياح</string>
+    <string name="runs_weather_wind_value">%1$s كم/س</string>
+    <string name="runs_weather_region">تقدير إقليمي</string>
     <string name="runs_hold">شدّ</string>
     <string name="runs_hold_to_begin">باش تبدا</string>
     <string name="runs_start_run">ابدا السورتي</string>

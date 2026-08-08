@@ -11,6 +11,7 @@ import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.GuidedSessionDto
 import dz.racedz.nativeapp.core.network.GuidedStepDto
+import dz.racedz.nativeapp.core.network.WeatherDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,8 @@ import kotlinx.coroutines.launch
 data class StartRunUiState(
     val session: GuidedSessionDto? = null,
     val loading: Boolean = true,
+    /** Live conditions for the start screen, or null while loading / when unavailable. */
+    val weather: WeatherDto? = null,
 )
 
 /**
@@ -42,6 +45,20 @@ class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 // so a runner who taps "Guided" offline still gets spoken warm-up and cool-down
                 // cues, instead of the guided card reading "unavailable" and recording a bare run.
                 is ApiResult.Failure -> _state.update { it.copy(session = OFFLINE_GUIDED_SESSION, loading = false) }
+            }
+        }
+    }
+
+    /**
+     * Loads live conditions for the start screen. Coordinates come from the runner's last known
+     * position when location is already granted; passing null lets the server fall back to their
+     * wilaya. A failure is silent — weather is a nicety, never a reason to hold up starting a run.
+     */
+    fun loadWeather(lat: Double?, lng: Double?) {
+        viewModelScope.launch {
+            when (val result = repository.weather(lat, lng)) {
+                is ApiResult.Success -> _state.update { it.copy(weather = result.value) }
+                is ApiResult.Failure -> Unit
             }
         }
     }

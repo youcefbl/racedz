@@ -793,6 +793,25 @@ data class GuidedStepDto(
     val repTotal: Int? = null,
 )
 
+/**
+ * Live conditions for where the runner is about to run, from /api/v1/weather (Open-Meteo).
+ *
+ * Every field is best-effort: the provider may omit any of them and the endpoint stays a nicety, so
+ * a null simply means that reading is hidden rather than the card failing. [windDirectionDegrees] is
+ * the meteorological "from" bearing, 0-360. [source] is "gps" when resolved from the runner's own
+ * position or "wilaya" when only their region was known.
+ */
+@Serializable
+data class WeatherDto(
+    val temperatureC: Double? = null,
+    val apparentC: Double? = null,
+    val humidityPct: Int? = null,
+    val windSpeedKmh: Int? = null,
+    val windDirectionDegrees: Int? = null,
+    val weatherLabel: String? = null,
+    val source: String? = null,
+)
+
 @Serializable
 data class GuidedSessionDto(
     val workoutId: String? = null,

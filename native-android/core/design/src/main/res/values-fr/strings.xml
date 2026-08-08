@@ -319,6 +319,13 @@
     <string name="runs_notification_body">%1$s km · %2$s</string>
     <string name="runs_ready_title">Quand vous voulez</string>
     <string name="runs_ready_gps">GPS prêt</string>
+    <string name="runs_weather_temp">%1$s°</string>
+    <string name="runs_weather_feels">Ressenti %1$s°</string>
+    <string name="runs_weather_humidity">Humidité</string>
+    <string name="runs_weather_humidity_value">%1$s%%</string>
+    <string name="runs_weather_wind">Vent</string>
+    <string name="runs_weather_wind_value">%1$s km/h</string>
+    <string name="runs_weather_region">Estimation régionale</string>
     <string name="runs_hold">Maintenez</string>
     <string name="runs_hold_to_begin">pour démarrer</string>
     <string name="runs_start_run">Démarrer</string>

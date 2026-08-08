@@ -150,6 +150,14 @@ interface ZidRunApi {
     @GET("api/v1/runs/guided")
     suspend fun guidedSession(): Response<ApiEnvelope<GuidedSessionDto>>
 
+    /** Live conditions where the runner is about to run. Coordinates optional; the server falls
+     * back to the runner's wilaya when they are absent. */
+    @GET("api/v1/weather")
+    suspend fun weather(
+        @Query("lat") lat: Double? = null,
+        @Query("lng") lng: Double? = null,
+    ): Response<ApiEnvelope<WeatherDto>>
+
     @GET("api/v1/me/badges")
     suspend fun badges(): Response<ApiEnvelope<BadgesDto>>
 
