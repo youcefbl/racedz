@@ -129,7 +129,10 @@ export const createRunnerRunSchema = z.object({
   title: z.string().trim().max(120).nullable().optional(),
   symptoms: z.string().trim().max(500).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
-  photos: runPhotosSchema.optional()
+  photos: runPhotosSchema.optional(),
+  // Ids of CHAT interactions the runner had with the Coach mid-run (no runId yet); linked to this
+  // run on save. Capped small — see runCreateSchema. Re-declared here so it survives this parse.
+  coachInteractionIds: z.array(z.string().min(1).max(64)).max(20).optional()
 });
 
 // Partial update from the runs list: flip visibility and/or attach photos after the fact.

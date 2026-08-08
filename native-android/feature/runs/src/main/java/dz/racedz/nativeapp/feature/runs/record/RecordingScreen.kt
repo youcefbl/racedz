@@ -112,6 +112,8 @@ fun RecordingScreen(
     onDiscarded: () -> Unit,
     onMinimize: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The mid-run coach, for subscribers. Null in previews and where coaching is not wired. */
+    coachViewModel: MidRunCoachViewModel? = null,
 ) {
     // This screen is dark in every theme, so the system bars must be too (DEV-R01).
     ZidRunDarkSurfaceSystemBars()
@@ -397,6 +399,14 @@ fun RecordingScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(vertical = ZidRunDimens.spaceSm),
             )
+        }
+
+        // Ask-the-coach mid-run, for subscribers only, and not once the run has finished.
+        val coachState = coachViewModel?.state?.collectAsStateWithLifecycle()?.value
+        if (coachViewModel != null && coachState?.subscribed == true && state.status != RecordingStatus.Finished) {
+            Spacer(Modifier.height(ZidRunDimens.spaceMd))
+            MidRunCoachButton(onOpen = coachViewModel::open)
+            MidRunCoachSheet(viewModel = coachViewModel, speak = { text -> voice?.say(text) })
         }
 
         Spacer(Modifier.height(ZidRunDimens.spaceMd))

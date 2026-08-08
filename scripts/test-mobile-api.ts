@@ -721,6 +721,65 @@ async function main() {
       !((await api("/api/v1/runs", { token: strangerToken })).body.data as Array<{ id: string }>).some((r) => r.id === tamperId)
     );
 
+    // ---- in-run coach chats linked at save --------------------------------------------------------
+    // A runner can ask the Coach questions mid-run; each is a plain CHAT with no runId (the run has
+    // no server id yet). On save the client sends those ids and the server links them to the new run
+    // — but only the caller's own, still-unlinked interactions, never another runner's and never one
+    // already tied to a different run.
+    console.log("\nin-run coach chats");
+    actAsClient(`203.0.${RUN_OCTET}.80`);
+    const mineLoose1 = await prisma.coachInteraction.create({
+      data: { userId: user.id, type: "CHAT", status: "COMPLETED", safety: {}, promptVersion: "test", runId: null },
+      select: { id: true }
+    });
+    const mineLoose2 = await prisma.coachInteraction.create({
+      data: { userId: user.id, type: "CHAT", status: "COMPLETED", safety: {}, promptVersion: "test", runId: null },
+      select: { id: true }
+    });
+    const strangerLoose = await prisma.coachInteraction.create({
+      data: { userId: stranger.id, type: "CHAT", status: "COMPLETED", safety: {}, promptVersion: "test", runId: null },
+      select: { id: true }
+    });
+    // Already tied to one of the runner's earlier runs — must not be stolen away from it.
+    const mineAlreadyLinked = await prisma.coachInteraction.create({
+      data: { userId: user.id, type: "CHAT", status: "COMPLETED", safety: {}, promptVersion: "test", runId: tamperId },
+      select: { id: true }
+    });
+
+    const linkClientId = randomUUID();
+    const linkBody = {
+      ...runBody,
+      clientId: linkClientId,
+      coachInteractionIds: [mineLoose1.id, mineLoose2.id, strangerLoose.id, mineAlreadyLinked.id]
+    };
+    const linkSave = await api("/api/v1/runs", { method: "POST", token: runsToken, body: linkBody });
+    check("a run saves with in-run coach chat ids", linkSave.status === 201, linkSave.body);
+    const linkedRunId = (linkSave.body.data as { id: string }).id;
+
+    const afterLink = await prisma.coachInteraction.findMany({
+      where: { id: { in: [mineLoose1.id, mineLoose2.id, strangerLoose.id, mineAlreadyLinked.id] } },
+      select: { id: true, runId: true }
+    });
+    const runIdOf = (id: string) => afterLink.find((r) => r.id === id)?.runId ?? null;
+    check("the runner's loose in-run chats are linked to the new run", runIdOf(mineLoose1.id) === linkedRunId && runIdOf(mineLoose2.id) === linkedRunId, afterLink);
+    check("another runner's interaction is never linked", runIdOf(strangerLoose.id) === null, runIdOf(strangerLoose.id));
+    check("an interaction already tied to another run is never stolen", runIdOf(mineAlreadyLinked.id) === tamperId, runIdOf(mineAlreadyLinked.id));
+
+    // A dropped save response followed by a retry (same clientId) must still link chats — including
+    // one recorded between the two attempts — even though the run already exists.
+    const mineLoose3 = await prisma.coachInteraction.create({
+      data: { userId: user.id, type: "CHAT", status: "COMPLETED", safety: {}, promptVersion: "test", runId: null },
+      select: { id: true }
+    });
+    const linkReplay = await api("/api/v1/runs", {
+      method: "POST",
+      token: runsToken,
+      body: { ...linkBody, coachInteractionIds: [mineLoose1.id, mineLoose3.id] }
+    });
+    check("the retry is an idempotent replay of the same run", linkReplay.status === 200 && (linkReplay.body.data as { id: string }).id === linkedRunId, linkReplay.body);
+    const loose3After = await prisma.coachInteraction.findUnique({ where: { id: mineLoose3.id }, select: { runId: true } });
+    check("a chat recorded before the retry still links on the retry path", loose3After?.runId === linkedRunId, loose3After);
+
     // ---- rate limiting ----------------------------------------------------------------------------
     console.log("\nrate limiting");
     actAsClient(`203.0.${RUN_OCTET}.99`);

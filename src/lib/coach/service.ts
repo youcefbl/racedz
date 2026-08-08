@@ -450,6 +450,40 @@ function errorMessageFor(error: unknown, fallback = "Unknown error.") {
   return (raw || fallback).slice(0, 500);
 }
 
+/**
+ * Attach mid-run Coach chats to the run they belong to.
+ *
+ * A runner can ask the Coach questions WHILE running; each is created as a plain CHAT
+ * CoachInteraction with no runId, because the run has no server id until it is saved. On save the
+ * client sends those interaction ids and we stamp the new run's id onto them.
+ *
+ * Two guards make this safe and idempotent:
+ *   - `userId = ...` — a caller can only link their own interactions, never another user's.
+ *   - `runId IS NULL` — an interaction already tied to a run is never re-pointed, so re-running this
+ *     (a dropped save response followed by a retry) links only the still-loose rows. A second call
+ *     with the same ids simply matches zero rows and is a no-op, never an error. Because the FK is
+ *     ON DELETE SET NULL, a run deleted on the concurrent-duplicate path releases its links, and the
+ *     winning run's own call re-claims them.
+ *
+ * Returns the number of rows newly linked (for logging/tests). Ids are parameterised, never
+ * interpolated.
+ */
+export async function linkCoachInteractionsToRun(
+  userId: string,
+  runId: string,
+  interactionIds: string[]
+): Promise<number> {
+  if (interactionIds.length === 0) return 0;
+  const linked = await getPrisma().$executeRaw`
+    UPDATE "CoachInteraction"
+    SET "runId" = ${runId}
+    WHERE "userId" = ${userId}
+      AND "runId" IS NULL
+      AND "id" IN (${Prisma.join(interactionIds)})
+  `;
+  return linked;
+}
+
 export async function createRunnerRun(userId: string, rawInput: unknown) {
   const input = createRunnerRunSchema.parse(rawInput);
   const prisma = getPrisma();
@@ -623,6 +657,18 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
         "updatedAt" = NOW()
       WHERE "id" = ${linkedWorkoutId}
     `;
+  }
+
+  // Attach any Coach chats the runner had DURING this run — created earlier as runId-less CHATs
+  // because the run had no server id yet. Idempotent by construction (see the helper): the loose
+  // rows get this run's id, and a retry finds nothing left to link. Non-fatal — a failed link never
+  // fails the save; the interactions simply stay unlinked and can be re-sent on the next retry.
+  if (input.coachInteractionIds && input.coachInteractionIds.length > 0) {
+    try {
+      await linkCoachInteractionsToRun(userId, runId, input.coachInteractionIds);
+    } catch (linkError) {
+      console.error("[coach] failed to link in-run interactions to run", linkError);
+    }
   }
 
   // Performance milestones (combined review U-25): if this run set a personal best, remember it as

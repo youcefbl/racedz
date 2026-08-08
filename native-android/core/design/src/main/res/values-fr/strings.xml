@@ -326,6 +326,13 @@
     <string name="runs_weather_wind">Vent</string>
     <string name="runs_weather_wind_value">%1$s km/h</string>
     <string name="runs_weather_region">Estimation régionale</string>
+    <string name="runs_coach_ask">Demandez au coach</string>
+    <string name="runs_coach_hint">Allure, foulée, sensations…</string>
+    <string name="runs_coach_send">Envoyer</string>
+    <string name="runs_coach_mic">Parler</string>
+    <string name="runs_coach_listening">Écoute…</string>
+    <string name="runs_coach_transcribing">Transcription…</string>
+    <string name="runs_coach_thinking">Le coach réfléchit…</string>
     <string name="runs_hold">Maintenez</string>
     <string name="runs_hold_to_begin">pour démarrer</string>
     <string name="runs_start_run">Démarrer</string>

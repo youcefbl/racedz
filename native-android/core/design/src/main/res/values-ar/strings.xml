@@ -341,6 +341,13 @@
     <string name="runs_weather_wind">الرياح</string>
     <string name="runs_weather_wind_value">%1$s كم/س</string>
     <string name="runs_weather_region">تقدير إقليمي</string>
+    <string name="runs_coach_ask">اسأل مدربك</string>
+    <string name="runs_coach_hint">عن الإيقاع، الأداء، إحساسك…</string>
+    <string name="runs_coach_send">إرسال</string>
+    <string name="runs_coach_mic">تكلّم</string>
+    <string name="runs_coach_listening">يستمع…</string>
+    <string name="runs_coach_transcribing">جارٍ النسخ…</string>
+    <string name="runs_coach_thinking">المدرب يفكّر…</string>
     <string name="runs_hold">شدّ</string>
     <string name="runs_hold_to_begin">باش تبدا</string>
     <string name="runs_start_run">ابدا السورتي</string>

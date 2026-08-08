@@ -99,6 +99,11 @@ export const runCreateSchema = z.object({
   goalId: z.string().optional(),
   workoutId: z.string().optional(),
   source: z.enum(["GPS", "MANUAL", "IMPORTED"]).optional(),
+  // Interactions the runner had with the Coach DURING this run. Each was created as a plain CHAT
+  // with no runId because the run had no server id yet; on save the client sends their ids so the
+  // server can link them to the run it is about to create. Capped small — a single run's worth of
+  // in-run questions, not a history dump.
+  coachInteractionIds: z.array(z.string().min(1).max(64)).max(20).optional(),
 });
 
 export const runUpdateSchema = z.object({

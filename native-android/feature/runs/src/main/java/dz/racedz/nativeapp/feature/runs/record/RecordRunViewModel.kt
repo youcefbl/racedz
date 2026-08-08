@@ -58,6 +58,8 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 workoutId = recording.workoutId,
                 // Lets the server tell a run from a ride; null on devices with no step counter.
                 avgCadence = recording.avgCadenceSpm,
+                // Coach questions asked mid-run, for the server to link to this run once it exists.
+                coachInteractionIds = recording.askedCoachIds.takeIf { it.isNotEmpty() },
             )
 
             when (val result = repository.create(request)) {

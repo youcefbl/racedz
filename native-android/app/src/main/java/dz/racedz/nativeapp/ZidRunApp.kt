@@ -371,12 +371,18 @@ fun ZidRunApp(
             }
 
             composable(RootDestinations.RUN_RECORDING) {
+                val coachViewModel: dz.racedz.nativeapp.feature.runs.record.MidRunCoachViewModel = viewModel(
+                    factory = SimpleViewModelFactory {
+                        dz.racedz.nativeapp.feature.runs.record.MidRunCoachViewModel(container.coachRepository)
+                    }
+                )
                 RecordingScreen(
                     onFinished = { navController.navigate(RootDestinations.RUN_SUMMARY) },
                     onDiscarded = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
                     // Minimising leaves the recording running in the service; the Runs tab shows a
                     // banner to come back.
                     onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
+                    coachViewModel = coachViewModel,
                 )
             }
 

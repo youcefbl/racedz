@@ -27,6 +27,11 @@ data class RecordingState(
     val workoutId: String? = null,
     /** Steps counted while actually recording, from the device step counter. 0 with no sensor. */
     val stepCount: Long = 0,
+    /**
+     * Coach interactions the runner started during this run, before it had a server id. Buffered so
+     * they can be handed to the server at save and linked to the run they were asked on.
+     */
+    val askedCoachIds: List<String> = emptyList(),
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
 
@@ -252,6 +257,9 @@ object RunRecorder {
     private var recordedSteps: Long = 0
     private var lastStepCounter: Long = -1
 
+    /** Ids of coach interactions asked during this run, in order, deduped. Sent at save to be linked. */
+    private val coachInteractionIds = mutableListOf<String>()
+
     /**
      * The id this recording will be saved under. Generated at start and kept for the life of the
      * recording so that a save which times out can be retried without creating a second run — it is
@@ -291,6 +299,7 @@ object RunRecorder {
         highSpeedSeconds = 0.0
         recordedSteps = 0
         lastStepCounter = -1
+        coachInteractionIds.clear()
         _state.value = RecordingState(
             status = RecordingStatus.Acquiring,
             clientId = UUID.randomUUID().toString(),
@@ -342,6 +351,7 @@ object RunRecorder {
         lastSnapshotMs = 0L
         recordedSteps = 0
         lastStepCounter = -1
+        coachInteractionIds.clear()
         _snapshotFailing.value = false
         // A delete that fails would otherwise leave the file blocking every future recording with
         // no way out; quarantining it keeps the bytes for support while unblocking the runner.
@@ -359,6 +369,8 @@ object RunRecorder {
         // same avgCadence rather than losing it — the request carries cadence, not the raw steps.
         recordedSteps = pending.request.avgCadence?.let { (it.toLong() * movingSeconds) / 60 } ?: 0
         lastStepCounter = -1
+        coachInteractionIds.clear()
+        pending.request.coachInteractionIds?.let { coachInteractionIds += it }
         _state.value = RecordingState(
             status = RecordingStatus.Finished,
             clientId = pending.request.clientId,
@@ -371,6 +383,7 @@ object RunRecorder {
             route = route.toList(),
             workoutId = pending.request.workoutId,
             stepCount = recordedSteps,
+            askedCoachIds = coachInteractionIds.toList(),
         )
     }
 
@@ -387,6 +400,7 @@ object RunRecorder {
         source = "GPS",
         workoutId = workoutId,
         avgCadence = avgCadenceSpm,
+        coachInteractionIds = askedCoachIds.takeIf { it.isNotEmpty() },
     )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */
@@ -415,6 +429,19 @@ object RunRecorder {
         }
         lastStepCounter = cumulativeSinceBoot
         _state.update { it.copy(stepCount = recordedSteps) }
+    }
+
+    /**
+     * Remembers a coach interaction the runner started mid-run, so its id rides to the server at
+     * save and is linked to this run. Deduped and persisted with the next snapshot, so a question
+     * asked mid-run survives the app being killed before the run is saved.
+     */
+    fun recordCoachInteraction(interactionId: String) {
+        if (interactionId.isBlank() || interactionId in coachInteractionIds) return
+        coachInteractionIds += interactionId
+        _state.update { it.copy(askedCoachIds = coachInteractionIds.toList()) }
+        // Durable immediately: the link matters most exactly when a run is interrupted after asking.
+        snapshot(force = true)
     }
 
     fun onLocation(location: Location) {

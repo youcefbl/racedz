@@ -344,6 +344,13 @@
     <string name="runs_weather_wind">Wind</string>
     <string name="runs_weather_wind_value">%1$s km/h</string>
     <string name="runs_weather_region">Regional estimate</string>
+    <string name="runs_coach_ask">Ask your coach</string>
+    <string name="runs_coach_hint">Ask about pace, form, how you feel…</string>
+    <string name="runs_coach_send">Send</string>
+    <string name="runs_coach_mic">Speak</string>
+    <string name="runs_coach_listening">Listening…</string>
+    <string name="runs_coach_transcribing">Transcribing…</string>
+    <string name="runs_coach_thinking">Coach is thinking…</string>
     <string name="runs_hold">Hold</string>
     <string name="runs_hold_to_begin">to begin</string>
     <string name="runs_start_run">Start run</string>

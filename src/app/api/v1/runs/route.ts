@@ -11,7 +11,7 @@ import {
   runSelect,
   toRunDto,
 } from "@/lib/api/v1/runs";
-import { createRunnerRun } from "@/lib/coach/service";
+import { createRunnerRun, linkCoachInteractionsToRun } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
@@ -107,6 +107,12 @@ export const POST = withApi(async (request) => {
     select: runSelect,
   });
   if (existing) {
+    // A retry of an already-stored run still carries its in-run Coach chats: the first attempt may
+    // have created the run but lost its response before (or without) linking them. Idempotent — the
+    // helper only touches this user's still-unlinked interactions, so re-linking is a safe no-op.
+    if (input.coachInteractionIds && input.coachInteractionIds.length > 0) {
+      await linkCoachInteractionsToRun(viewer.id, existing.id, input.coachInteractionIds);
+    }
     return apiOk(request, toRunDto(existing), { status: 200, headers: { "Idempotent-Replay": "true" } });
   }
 
@@ -134,6 +140,11 @@ export const POST = withApi(async (request) => {
         select: runSelect,
       });
       if (winner) {
+        // Deleting our losing run released (SET NULL) any interactions createRunnerRun linked to it,
+        // so re-point them at the run that won the clientId. Still only this user's unlinked rows.
+        if (input.coachInteractionIds && input.coachInteractionIds.length > 0) {
+          await linkCoachInteractionsToRun(viewer.id, winner.id, input.coachInteractionIds);
+        }
         return apiOk(request, toRunDto(winner), { status: 200, headers: { "Idempotent-Replay": "true" } });
       }
     }

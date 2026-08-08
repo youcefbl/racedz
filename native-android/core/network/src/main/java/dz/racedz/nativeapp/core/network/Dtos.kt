@@ -872,6 +872,13 @@ data class CreateRunRequest(
      * toward the plan, and the runner's adherence quietly depends on that guess.
      */
     val workoutId: String? = null,
+    /**
+     * Coach interactions the runner started DURING this run, before it had a server id. The run had
+     * none to send at ask time (a run only exists server-side once saved), so the app buffers the
+     * ids and hands them over here; the server links them to the new run so mid-run questions stay
+     * tied to the run they were asked on. Empty for a run with no mid-run coaching.
+     */
+    val coachInteractionIds: List<String>? = null,
 )
 
 /** Only runner-typed fields; every measurement is server-owned. */
