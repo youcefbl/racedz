@@ -45,3 +45,9 @@ docs/runs-issues
 brand-explore/
 # Generated email preview (npm run email:preview)
 public/email-preview.html
+
+# Physical-device capture screenshots. Kept out of the repository deliberately: they are large
+# (~38 MB for a few passes), they carry seeded test-account data, and their evidentiary value is
+# the written result, not the pixels. The dated RESULTS.md and performance .txt files in the same
+# folders ARE tracked — those are the evidence. See docs/native-design/current/README.md.
+docs/native-design/current/**/*.png
