@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { canonicalOrigin } from "../src/lib/site-url";
+import { canonicalBaseUrl, canonicalOrigin } from "../src/lib/site-url";
 
 /*
  * Regression guard for the production browser sign-in failure: /api/v1/auth/authorize built its
@@ -8,19 +8,17 @@ import { canonicalOrigin } from "../src/lib/site-url";
  * got a connection error. NextAuth had the correct origin on the same response.
  */
 
-const saved = { NEXTAUTH_URL: process.env.NEXTAUTH_URL, AUTH_URL: process.env.AUTH_URL };
-function withEnv(env: { NEXTAUTH_URL?: string; AUTH_URL?: string }, run: () => void) {
-  delete process.env.NEXTAUTH_URL;
-  delete process.env.AUTH_URL;
-  if (env.NEXTAUTH_URL) process.env.NEXTAUTH_URL = env.NEXTAUTH_URL;
-  if (env.AUTH_URL) process.env.AUTH_URL = env.AUTH_URL;
+type Env = { NEXTAUTH_URL?: string; AUTH_URL?: string; NEXT_PUBLIC_APP_URL?: string };
+const KEYS = ["NEXTAUTH_URL", "AUTH_URL", "NEXT_PUBLIC_APP_URL"] as const;
+const saved: Env = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+function withEnv(env: Env, run: () => void) {
+  for (const k of KEYS) delete process.env[k];
+  for (const k of KEYS) if (env[k]) process.env[k] = env[k];
   try {
     run();
   } finally {
-    delete process.env.NEXTAUTH_URL;
-    delete process.env.AUTH_URL;
-    if (saved.NEXTAUTH_URL) process.env.NEXTAUTH_URL = saved.NEXTAUTH_URL;
-    if (saved.AUTH_URL) process.env.AUTH_URL = saved.AUTH_URL;
+    for (const k of KEYS) delete process.env[k];
+    for (const k of KEYS) if (saved[k]) process.env[k] = saved[k];
   }
 }
 
@@ -43,8 +41,26 @@ withEnv({ AUTH_URL: "https://zidrun.com" }, () => {
   assert.equal(canonicalOrigin(bindAddress), "https://zidrun.com", "AUTH_URL is honoured when NEXTAUTH_URL is unset");
 });
 
-withEnv({ NEXTAUTH_URL: "https://zidrun.com", AUTH_URL: "https://wrong.example" }, () => {
-  assert.equal(canonicalOrigin(bindAddress), "https://zidrun.com", "NEXTAUTH_URL wins, matching the rest of the app");
+// Precedence, unified across the auth paths: the deliberate override, then Auth.js v5's own name,
+// then the v4 name. These used to differ between the authorize hand-off and the email chrome, so a
+// single password-reset email could carry a link to one host and a logo from another.
+withEnv({ NEXT_PUBLIC_APP_URL: "https://app.example", AUTH_URL: "https://auth.example", NEXTAUTH_URL: "https://legacy.example" }, () => {
+  assert.equal(canonicalOrigin(bindAddress), "https://app.example", "NEXT_PUBLIC_APP_URL is the top override");
+  assert.equal(canonicalBaseUrl(bindAddress), "https://app.example");
+});
+
+withEnv({ AUTH_URL: "https://auth.example", NEXTAUTH_URL: "https://legacy.example" }, () => {
+  assert.equal(canonicalOrigin(bindAddress), "https://auth.example", "AUTH_URL outranks the v4 name");
+});
+
+// canonicalBaseUrl keeps a configured sub-path; canonicalOrigin deliberately does not.
+withEnv({ AUTH_URL: "https://zidrun.com/app/" }, () => {
+  assert.equal(canonicalBaseUrl(bindAddress), "https://zidrun.com/app", "a sub-path survives, trailing slash does not");
+  assert.equal(canonicalOrigin(bindAddress), "https://zidrun.com", "a redirect target is the origin only");
+});
+
+withEnv({}, () => {
+  assert.equal(canonicalBaseUrl("http://127.0.0.1:3003/"), "http://127.0.0.1:3003", "the fallback is normalised too");
 });
 
 withEnv({}, () => {
@@ -63,4 +79,4 @@ withEnv({ NEXTAUTH_URL: "not a url" }, () => {
   );
 });
 
-console.log("site URL: 7/7 checks passed");
+console.log("site URL: all checks passed");

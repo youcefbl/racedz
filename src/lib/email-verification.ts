@@ -3,6 +3,7 @@ import { getPrisma } from "@/lib/db";
 import type { Locale } from "@/lib/i18n";
 import { sendNotificationEmail } from "@/lib/notifications/email-provider";
 import { renderRaceDzEmailHtml, renderRaceDzEmailText } from "@/lib/notifications/email-template";
+import { canonicalBaseUrl } from "@/lib/site-url";
 
 type VerificationCopy = {
   subject: string;
@@ -152,6 +153,7 @@ export async function isEmailVerified(email: string) {
   return Boolean(rows[0]?.emailVerifiedAt);
 }
 
+/** Shared with the other auth paths so one email cannot mix two hosts; see lib/site-url. */
 function getAppUrl() {
-  return process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "http://127.0.0.1:3003";
+  return canonicalBaseUrl("http://127.0.0.1:3003");
 }

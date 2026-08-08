@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { getPrisma } from "@/lib/db";
 import { sendNotificationEmail } from "@/lib/notifications/email-provider";
 import { renderRaceDzEmailHtml, renderRaceDzEmailText } from "@/lib/notifications/email-template";
+import { canonicalBaseUrl } from "@/lib/site-url";
 
 type ResetRow = {
   id: string;
@@ -88,6 +89,7 @@ export async function consumePasswordResetToken(token: string, passwordHash: str
   return { ok: true as const, userId: reset.userId };
 }
 
+/** Shared with the other auth paths so one email cannot mix two hosts; see lib/site-url. */
 function getAppUrl() {
-  return process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "http://127.0.0.1:3003";
+  return canonicalBaseUrl("http://127.0.0.1:3003");
 }

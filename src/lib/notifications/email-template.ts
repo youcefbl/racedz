@@ -1,3 +1,5 @@
+import { canonicalBaseUrl } from "@/lib/site-url";
+
 type RaceDzEmailAction = {
   label: string;
   href: string;
@@ -37,13 +39,9 @@ const EMAIL_CHROME = {
   }
 } as const;
 
+/** Shared with the other auth paths so one email cannot mix two hosts; see lib/site-url. */
 function getAppUrl() {
-  const raw =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.AUTH_URL ||
-    process.env.NEXTAUTH_URL ||
-    "https://zidrun.com";
-  return raw.replace(/\/+$/, "");
+  return canonicalBaseUrl("https://zidrun.com");
 }
 
 export function renderRaceDzEmailHtml({ preheader, title, body, action, meta = [], locale = "en" }: RaceDzEmailTemplateInput) {

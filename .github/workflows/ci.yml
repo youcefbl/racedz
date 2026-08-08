@@ -108,6 +108,7 @@ jobs:
       - run: npm run test:coach
       - run: npm run test:workout
       - run: npm run test:mfa
+      - run: npm run test:site-url # public-origin precedence, shared by every auth path
 
       # Apply migrations to the CI database, then build.
       - run: npx prisma migrate deploy
