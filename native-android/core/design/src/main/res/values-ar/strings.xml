@@ -402,6 +402,7 @@
     <string name="runs_step_cooldown">تهدئة</string>
     <string name="runs_step_steady">ثابت</string>
     <string name="runs_step_minutes">%1$s د</string>
+    <string name="runs_step_seconds">%1$s ثانية</string>
     <string name="runs_step_metres">%1$s م</string>
     <string name="runs_cue_started">بدا التسجيل</string>
     <string name="runs_cue_km">كيلومتر %1$d. الإيقاع %2$s</string>

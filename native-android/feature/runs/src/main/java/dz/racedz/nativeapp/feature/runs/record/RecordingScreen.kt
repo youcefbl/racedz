@@ -82,6 +82,11 @@ private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.
     // stepTargetLabel for why a %d placeholder is not enough.
     val locale = dz.racedz.nativeapp.core.design.localeOf(context)
     val target = when {
+        // A stride's 20 s work rep must be spoken as seconds, not "0 minutes".
+        seconds != null && seconds < 60 -> context.getString(
+            R.string.runs_step_seconds,
+            ZidRunFormat.count(seconds, locale),
+        )
         seconds != null -> context.getString(
             R.string.runs_step_minutes,
             ZidRunFormat.count(seconds / 60, locale),

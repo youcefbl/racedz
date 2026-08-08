@@ -124,6 +124,8 @@ fun stepTargetLabel(step: GuidedStepDto): String {
     val meters = step.meters
     val locale = currentLocale()
     return when {
+        // Sub-minute steps (a stride's 20 s work rep) must not collapse to "0 min"; show seconds.
+        seconds != null && seconds < 60 -> stringResource(R.string.runs_step_seconds, ZidRunFormat.count(seconds, locale))
         seconds != null -> stringResource(R.string.runs_step_minutes, ZidRunFormat.count(seconds / 60, locale))
         meters != null -> stringResource(R.string.runs_step_metres, ZidRunFormat.count(meters, locale))
         else -> ""

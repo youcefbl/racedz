@@ -405,6 +405,7 @@
     <string name="runs_step_cooldown">Cool down</string>
     <string name="runs_step_steady">Steady</string>
     <string name="runs_step_minutes">%1$s min</string>
+    <string name="runs_step_seconds">%1$s sec</string>
     <string name="runs_step_metres">%1$s m</string>
     <string name="runs_cue_started">Recording started</string>
     <string name="runs_cue_km">Kilometre %1$d. Pace %2$s</string>

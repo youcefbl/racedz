@@ -387,6 +387,7 @@
     <string name="runs_step_cooldown">Retour au calme</string>
     <string name="runs_step_steady">Régulier</string>
     <string name="runs_step_minutes">%1$s min</string>
+    <string name="runs_step_seconds">%1$s s</string>
     <string name="runs_step_metres">%1$s m</string>
     <string name="runs_cue_started">Enregistrement démarré</string>
     <string name="runs_cue_km">Kilomètre %1$d. Allure %2$s</string>
