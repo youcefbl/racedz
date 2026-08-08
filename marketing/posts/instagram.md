@@ -98,7 +98,7 @@ On-screen video text = primary language (FR unless noted). Pull hashtags from th
 > 👉 Lien en bio pour trouver ta course.
 
 **Caption — AR:**
-> ‏ماعادش تسكرولي في فيسبوك ساعات. 🙌 اختار الولاية، المسافة، التاريخ — وراك تجري. 🏃 الرابط في البايو 👆
+> ‏خلاص، ما تبقاش تسكرولي في فيسبوك ساعات. 🙌 اختار الولاية، المسافة، التاريخ — وراك تجري. 🏃 الرابط في البايو 👆
 
 **Caption — EN:**
 > Find your next race in 30 seconds — by wilaya, distance, date. Link in bio. 🏃
@@ -194,7 +194,7 @@ On-screen video text = primary language (FR unless noted). Pull hashtags from th
 **Visual:** POV skit. "POV: tu cherches une course sur Facebook depuis 2h" → frustrated → opens ZidRun → found in 10s → relief.
 **Caption — FR:**
 > On a tous vécu ça. 😮‍💨 Plus maintenant. ZidRun → lien en bio. Tag un coureur qui galère encore 👇
-**Caption — AR:** ‏كامل عشناها. 😮‍💨 ماعادش! ZidRun → الرابط في البايو. تاݣي صاحبك اللي مازال يعاني 👇
+**Caption — AR:** ‏كامل عشناها. 😮‍💨 خلاص! ZidRun → الرابط في البايو. تاڨي صاحبك اللي مازال يعاني 👇
 **Caption — EN:** We've all been there. 😮‍💨 Not anymore. Tag a runner who still suffers 👇
 **Hashtags:** #ZidRun #running #runningalgeria #dz #humour #جري
 

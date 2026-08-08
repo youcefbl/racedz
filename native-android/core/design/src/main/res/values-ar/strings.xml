@@ -3,7 +3,7 @@
 <resources>
 
     <string name="common_retry">عاود المحاولة</string>
-    <string name="common_loading">قاع يحمّل…</string>
+    <string name="common_loading">راهو يحمّل…</string>
     <string name="common_cancel">ألغِ</string>
     <string name="common_save">سجّل</string>
     <string name="common_continue">كمّل</string>
@@ -18,10 +18,10 @@
     <string name="common_error_body">كاين حاجة ما خدمتش. عاود المحاولة.</string>
     <string name="common_show_password">وري كلمة السر</string>
     <string name="common_hide_password">خبّي كلمة السر</string>
-    <string name="common_session_expired">الجلسة ديالك سالات. دخل مرة أخرى.</string>
+    <string name="common_session_expired">الجلسة تاعك سالات. دخل مرة أخرى.</string>
 
     <string name="auth_welcome_back">مرحبا بيك من جديد</string>
-    <string name="auth_welcome_subtitle">السباق الجاي ديالك يستناك.</string>
+    <string name="auth_welcome_subtitle">السباق الجاي تاعك يستناك.</string>
     <string name="auth_email_label">البريد الإلكتروني</string>
     <string name="auth_password_label">كلمة السر</string>
     <string name="auth_forgot_password">نسيت كلمة السر؟</string>
@@ -30,30 +30,30 @@
     <string name="auth_continue_with_google">كمّل مع Google</string>
     <string name="auth_new_here">جديد في ZidRun؟</string>
     <string name="auth_create_account_link">دير حساب</string>
-    <string name="auth_signed_out_expired">خرّجناك حيت الجلسة ديالك سالات.</string>
+    <string name="auth_signed_out_expired">خرّجناك على خاطر الجلسة تاعك سالات.</string>
     <string name="auth_signed_out_security">خرّجناك للأمان. دخل مرة أخرى.</string>
     <string name="auth_signed_out_blocked">هذا الحساب مبلوكي. اتصل بالدعم إذا تحسب راه غلط.</string>
     <string name="auth_browser_opening">راح يتحل المتصفح…</string>
 
-    <string name="auth_create_title">دير الحساب ديالك</string>
+    <string name="auth_create_title">دير الحساب تاعك</string>
     <string name="auth_step_of">الخطوة %1$d من %2$d</string>
     <string name="auth_full_name_label">الاسم الكامل</string>
     <string name="auth_password_hint">استعمل 8 حروف ولا أكثر</string>
     <string name="auth_accept_terms">نوافق على الشروط وسياسة الخصوصية</string>
     <string name="auth_profile_next_title">البروفايل اختياري من بعد</string>
-    <string name="auth_profile_next_body">تقدر تزيد تصويرة والتفضيلات ديالك من بعد ما دير الحساب.</string>
+    <string name="auth_profile_next_body">تقدر تزيد تصويرة والتفضيلات تاعك من بعد ما دير الحساب.</string>
     <string name="auth_create_account">دير الحساب</string>
     <string name="auth_have_account">عندك حساب من قبل؟</string>
-    <string name="auth_privacy_footnote">النشاط ديالك يبقى خاص بشكل افتراضي.</string>
+    <string name="auth_privacy_footnote">النشاط تاعك يبقى خاص بشكل افتراضي.</string>
 
-    <string name="auth_verify_title">شوف البريد ديالك</string>
-    <string name="auth_verify_body">صيفطنالك رابط التفعيل لـ %1$s. حلّه باش تفعّل الحساب، ومن بعد دخل.</string>
-    <string name="auth_resend_email">عاود صيفط البريد</string>
-    <string name="auth_resend_sent">إذا هاذ العنوان يحتاج التفعيل، صيفطنا رابط جديد.</string>
+    <string name="auth_verify_title">شوف البريد تاعك</string>
+    <string name="auth_verify_body">بعثنالك رابط التفعيل لـ %1$s. حلّه باش تفعّل الحساب، ومن بعد دخل.</string>
+    <string name="auth_resend_email">عاود ابعث البريد</string>
+    <string name="auth_resend_sent">إذا هاذ العنوان يحتاج التفعيل، بعثنا رابط جديد.</string>
     <string name="auth_back_to_sign_in">ارجع للدخول</string>
 
     <string name="auth_mfa_title">التحقق بخطوتين</string>
-    <string name="auth_mfa_body">دخّل الكود ديال 6 أرقام من تطبيق المصادقة، ولا واحد من أكواد الاسترجاع.</string>
+    <string name="auth_mfa_body">دخّل الكود تاع 6 أرقام من تطبيق المصادقة، ولا واحد من أكواد الاسترجاع.</string>
     <string name="auth_mfa_code_label">كود التحقق</string>
     <string name="auth_mfa_verify">تحقق</string>
 
@@ -70,7 +70,7 @@
     <string name="races_clear_filters">امسح الفلاتر</string>
     <string name="races_all_wilayas">الجزائر كاملة</string>
     <string name="races_filter_wilaya">الولاية</string>
-    <string name="races_loading_more">قاع نحمّلو سباقات أخرى…</string>
+    <string name="races_loading_more">رانا نحمّلو سباقات أخرى…</string>
     <string name="races_cd_search">قلّب على السباقات</string>
 
     <string name="race_status_open">التسجيل مفتوح</string>
@@ -95,17 +95,17 @@
     <string name="race_registration_not_open">التسجيل مازال ما تحلّش</string>
     <string name="race_registration_full">هاذ السباق عمر</string>
     <string name="race_already_registered">راك مسجّل</string>
-    <string name="race_view_registration">شوف التسجيل ديالي</string>
+    <string name="race_view_registration">شوف التسجيل تاعي</string>
     <string name="race_places_left">باقي %1$d بلايص</string>
     <string name="race_free">بلا فلوس</string>
     <string name="race_price_from">من %1$s دج</string>
     <string name="race_not_found_title">السباق ماشي متوفر</string>
-    <string name="race_not_found_body">يمكن هاذ السباق تحيّد ولا ما بقاش منشور.</string>
+    <string name="race_not_found_body">يمكن هاذ السباق تنحّى ولا ما بقاش منشور.</string>
     <string name="race_sign_in_to_register">دخل باش تسجّل</string>
 
     <string name="registration_title">التسجيل في %1$s</string>
-    <string name="registration_step_distance">اختار المسافة ديالك</string>
-    <string name="registration_step_details">المعلومات ديالك</string>
+    <string name="registration_step_distance">اختار المسافة تاعك</string>
+    <string name="registration_step_details">المعلومات تاعك</string>
     <string name="registration_step_confirm">أكّد</string>
     <string name="registration_first_name">الاسم</string>
     <string name="registration_last_name">اللقب</string>
@@ -144,9 +144,9 @@
     <string name="registration_submit">أكّد التسجيل</string>
     <string name="registration_incomplete">كمّل المعلومات المطلوبة ووافق على قوانين السباق باش تواصل.</string>
     <string name="registration_success_title">راك مسجّل</string>
-    <string name="registration_success_body">البلاصة ديالك محجوزة. خلّص وصيفط الإثبات باش المنظّم يأكّد.</string>
+    <string name="registration_success_body">البلاصة تاعك محجوزة. خلّص وابعث الإثبات باش المنظّم يأكّد.</string>
     <string name="registration_already">راك مسجّل من قبل في هاذ المسافة.</string>
-    <string name="registration_reconciled">هذا التسجيل تدار من قبل في محاولة سابقة، وراك تشوفو كيما عند المنظّم. المعلومات لي بدّلتها توّا ما تطبّقاتش — بدّلها من «تسجيلاتي».</string>
+    <string name="registration_reconciled">هذا التسجيل تدار من قبل في محاولة سابقة، وراك تشوفو كيما عند المنظّم. المعلومات لي بدّلتها ضرك ما تطبّقاتش — بدّلها من «تسجيلاتي».</string>
 
     <string name="payment_title">الدفع</string>
     <string name="payment_amount">المبلغ: %1$s دج</string>
@@ -162,7 +162,7 @@
     <string name="payment_ccp_account">CCP: %1$s</string>
     <string name="payment_ccp_key">المفتاح: %1$s</string>
     <string name="payment_choose_proof">اختار تصويرة</string>
-    <string name="payment_upload_proof">صيفط إثبات الدفع</string>
+    <string name="payment_upload_proof">ابعث إثبات الدفع</string>
     <string name="payment_proof_uploaded">وصل الإثبات. المنظّم راح يشوفو.</string>
     <string name="payment_proof_private">غير نتا والمنظّم تشوفو هاذ التصويرة.</string>
     <string name="payment_status_pending">في انتظار الدفع</string>
@@ -172,12 +172,12 @@
 
     <string name="account_title">الحساب</string>
     <string name="account_settings">الإعدادات</string>
-    <string name="account_your_season">الموسم ديالك</string>
+    <string name="account_your_season">الموسم تاعك</string>
     <string name="account_stat_races">سباقات</string>
     <string name="account_stat_km">كم</string>
     <string name="account_stat_runs">جريات</string>
     <string name="account_view_registration">شوف التسجيل</string>
-    <string name="account_my_registrations">التسجيلات ديالي</string>
+    <string name="account_my_registrations">التسجيلات تاعي</string>
     <string name="account_profile_preferences">البروفايل والتفضيلات</string>
     <string name="account_privacy_data">الخصوصية والبيانات</string>
     <string name="account_support">الدعم</string>
@@ -200,18 +200,18 @@
 
     <string name="privacy_title">الخصوصية والبيانات</string>
     <string name="privacy_private_profile">بروفايل خاص</string>
-    <string name="privacy_private_profile_body">خبّي النشاط ديالك من الترتيب ومن الجرّايين الآخرين.</string>
+    <string name="privacy_private_profile_body">خبّي النشاط تاعك من الترتيب ومن الجرّايين الآخرين.</string>
     <string name="privacy_devices">الأجهزة الداخلة</string>
     <string name="privacy_device_current">هاذ الجهاز</string>
     <string name="privacy_sign_out_all">خرّج من كل الأجهزة</string>
-    <string name="privacy_sign_out_all_body">يخرّج كل الأجهزة، حتى هاذ واحد.</string>
+    <string name="privacy_sign_out_all_body">يخرّج كل الأجهزة، حتى هاذا.</string>
     <string name="privacy_delete_account">اطلب حذف الحساب</string>
-    <string name="privacy_delete_account_body">نراجعو طلبات الحذف حيت السباقات اللي سجّلت فيهم فيها منظّم. تبقى داخل حتى نكملو.</string>
-    <string name="privacy_delete_confirm">صيفط طلب الحذف</string>
-    <string name="privacy_delete_sent">تصيفط الطلب ديالك. نردّو عليك في الدعم.</string>
+    <string name="privacy_delete_account_body">نراجعو طلبات الحذف على خاطر السباقات اللي سجّلت فيهم فيها منظّم. تبقى داخل حتى نكملو.</string>
+    <string name="privacy_delete_confirm">ابعث طلب الحذف</string>
+    <string name="privacy_delete_sent">تبعث الطلب تاعك. نردّو عليك في الدعم.</string>
     <string name="privacy_last_used">آخر استعمال %1$s</string>
 
-    <string name="registrations_title">التسجيلات ديالي</string>
+    <string name="registrations_title">التسجيلات تاعي</string>
     <string name="registrations_empty_title">ما كاين حتى تسجيل</string>
     <string name="registrations_empty_body">كي تسجّل في سباق يبان هنا مع حالة الدفع.</string>
     <string name="registration_status_pending">في الانتظار</string>
@@ -222,7 +222,7 @@
 
     <string name="cd_zidrun_wordmark">ZidRun</string>
     <string name="cd_race_image">تصويرة السباق</string>
-    <string name="cd_avatar">تصويرة البروفايل ديالك</string>
+    <string name="cd_avatar">تصويرة البروفايل تاعك</string>
     <string name="cd_open_settings">حل الإعدادات</string>
 
     <string name="runs_history_title">تاريخ الجري</string>
@@ -330,9 +330,9 @@
     <string name="runs_effort">المجهود</string>
     <string name="runs_elevation_gain_value">الصعود %1$d م</string>
     <string name="runs_notification_channel">تسجيل السورتي</string>
-    <string name="runs_notification_title">قاعد نسجّل السورتي</string>
+    <string name="runs_notification_title">راني نسجّل السورتي</string>
     <string name="runs_notification_body">%1$s كم · %2$s</string>
-    <string name="runs_ready_title">ملّي تكون واجد</string>
+    <string name="runs_ready_title">كي تكون واجد</string>
     <string name="runs_ready_gps">GPS واجد</string>
     <string name="runs_weather_temp">%1$s°</string>
     <string name="runs_weather_feels">الإحساس %1$s°</string>
@@ -343,17 +343,19 @@
     <string name="runs_weather_region">تقدير إقليمي</string>
     <string name="runs_coach_ask">اسأل مدربك</string>
     <string name="runs_coach_hint">عن الإيقاع، الأداء، إحساسك…</string>
-    <string name="runs_coach_send">إرسال</string>
+    <string name="runs_coach_send">ابعث</string>
     <string name="runs_coach_mic">تكلّم</string>
-    <string name="runs_coach_listening">يستمع…</string>
-    <string name="runs_coach_transcribing">جارٍ النسخ…</string>
-    <string name="runs_coach_thinking">المدرب يفكّر…</string>
+    <string name="runs_coach_listening">راهو يسمع…</string>
+    <string name="runs_coach_transcribing">راهو يكتب واش قلت…</string>
+    <string name="runs_coach_thinking">المدرب راهو يخمّم…</string>
+    <string name="runs_tts_missing">التنبيهات الصوتية تحتاج صوت للّغة تاعك. نصّب واحد باش تسمع الإحماء والمراحل والتوجيه.</string>
+    <string name="runs_tts_install">نصّب الصوت</string>
     <string name="runs_hold">شدّ</string>
     <string name="runs_hold_to_begin">باش تبدا</string>
     <string name="runs_start_run">ابدا السورتي</string>
     <string name="runs_permission_denied">نحتاجو الموقع باش نقيسو الطريق. ما نسجّلو والو حتى تبدا.</string>
     <string name="runs_grant_permission">سمح بالموقع</string>
-    <string name="runs_recording">قاعد يسجّل</string>
+    <string name="runs_recording">راهو يسجّل</string>
     <string name="runs_paused">واقف</string>
     <string name="runs_pause">وقّف</string>
     <string name="runs_resume">كمّل</string>
@@ -361,7 +363,7 @@
     <string name="runs_discard">امسح</string>
     <string name="runs_save">سجّل</string>
     <string name="runs_nothing_to_save">هاذ التسجيل ما فيه حتى مسافة، ما كاين والو باش يتسجّل. امسحو وعاود من الجديد.</string>
-    <string name="runs_auto_paused">وقّفنا — هذي بزاف بالنسبة للجري. كمّل ملّي ترجع تجري.</string>
+    <string name="runs_auto_paused">وقّفنا — هذي بزاف بالنسبة للجري. كمّل كي ترجع تجري.</string>
     <string name="runs_gps_weak">GPS ضعيف</string>
     <string name="runs_stat_calories">السعرات</string>
     <string name="runs_save_failed">ما قدرناش نسجّلو. السورتي مازالت هنا — عاود.</string>
@@ -375,7 +377,7 @@
     <string name="runs_finish_confirm_title">تسالي السورتي؟</string>
     <string name="runs_finish_confirm_body">%1$s كم في %2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>
     <string name="runs_keep_running">كمّل</string>
-    <string name="runs_recording_banner">قاعد يسجّل · %1$s كم</string>
+    <string name="runs_recording_banner">راهو يسجّل · %1$s كم</string>
     <string name="runs_open_recording">حل</string>
     <string name="runs_summary_title">سجّل السورتي</string>
     <string name="runs_title_label">العنوان</string>
@@ -398,7 +400,7 @@
     <string name="runs_cue_started">بدا التسجيل</string>
     <string name="runs_cue_km">كيلومتر %1$d. الإيقاع %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
-    <string name="runs_cue_done">سالات الحصة. هدّي ملّي تحب.</string>
+    <string name="runs_cue_done">سالات الحصة. هدّي كي تحب.</string>
     <string name="coach_goal">الهدف</string>
     <string name="coach_today_workout">حصة اليوم</string>
     <string name="coach_target_effort">المجهود المطلوب</string>
@@ -459,7 +461,7 @@
     <string name="coach_setup_step4_title">الصحة والأمان</string>
     <string name="coach_setup_step4_intro">كل حاجة تخلي البرنامج تاعك آمن. الكل اختياري، وحتى حاجة ما تتبعث حتى توافق في الخطوة الأخيرة.</string>
     <string name="coach_setup_step5_title">راجع وأكّد</string>
-    <string name="coach_setup_step5_intro">شوف واش غادي يستعمل الكوتش قبل ما تنشئ الهدف.</string>
+    <string name="coach_setup_step5_intro">شوف واش راح يستعمل الكوتش قبل ما تدير الهدف.</string>
     <string name="coach_setup_custom_goal_required">وصف هدفك في كلمتين.</string>
     <string name="coach_setup_target_distance">المسافة المستهدفة (كم)</string>
     <string name="coach_setup_target_time">الوقت المستهدف</string>
@@ -513,7 +515,7 @@
     <string name="coach_skip_weather">الطقس</string>
     <string name="coach_skip_illness">مرض</string>
     <string name="coach_skip_travel">في سفر</string>
-    <string name="coach_skip_motivation">ما عنديش النية</string>
+    <string name="coach_skip_motivation">ما عنديش المورال</string>
     <string name="coach_skip_other">حاجة أخرى</string>
     <string name="coach_skipped_done">الحصة تسجلت كفايتة. الأسبوع تاعك تحدّث.</string>
     <string name="coach_moved_done">الحصة تبدّلت. الأسبوع تاعك تحدّث.</string>
@@ -543,20 +545,20 @@
     <string name="coach_consent_review_goal">راجع الهدف والموافقة</string>
     <string name="coach_voice_record">سجّل رسالة صوتية</string>
     <string name="coach_voice_stop">وقّف التسجيل</string>
-    <string name="coach_voice_recording">راني نسمع… دوس باش توقّف</string>
+    <string name="coach_voice_recording">راني نسمع… اضغط باش توقّف</string>
     <string name="coach_voice_transcribing">راني نكتب واش قلت…</string>
     <string name="coach_voice_review">شوف النص قبل ما تبعثه.</string>
     <string name="coach_voice_error_mic">المايك ماشي متاح.</string>
     <string name="coach_voice_error_short">قصير بزاف. زيد شوية.</string>
     <string name="coach_voice_error_empty">ما سمعت والو. عاود.</string>
     <string name="coach_voice_error_subscription">الرسائل الصوتية تجي مع الاشتراك المدفوع.</string>
-    <string name="coach_voice_error_failed">ما نجمتش نحوّلها لنص. عاود.</string>
+    <string name="coach_voice_error_failed">ما قدرتش نحوّلها لنص. عاود.</string>
     <string name="coach_voice_permission_denied">لازم إذن المايك باش تسجّل رسالة صوتية.</string>
     <string name="coach_reply_speak">اقرا هاذ الجواب بصوت عالي</string>
     <string name="coach_reply_stop_speaking">وقّف القراية</string>
     <string name="coach_reply_speech_unsupported">ما كاينش صوت مركّب لهاذ اللغة في تليفونك.</string>
     <string name="coach_reply_speech_unavailable">القراية بصوت عالي ماشي متاحة في هاذ التليفون.</string>
-    <string name="coach_chat_thinking">المدرب قاعد يفكّر…</string>
+    <string name="coach_chat_thinking">المدرب راهو يخمّم…</string>
     <string name="coach_chat_empty_title">اسأل المدرب واش ما تحب</string>
     <string name="coach_chat_empty_body">التدريب، الإيقاع، الاسترجاع — المدرب عندو البرنامج والتاريخ تاعك.</string>
     <string name="coach_chat_blocked">المدرب ما يقدرش يجاوب على هذي. إذا كانت على صحتك، شوف طبيب.</string>
@@ -566,7 +568,7 @@
     <string name="coach_chat_recovery">الاستشفاء</string>
     <string name="coach_chat_data_gaps">واش ما كانش عند الكوتش</string>
     <string name="coach_analyse_run_title">حلّل هاذ الجري</string>
-    <string name="coach_analyse_run_body">الكوتش غادي يشوف الإيقاع والمجهود والظروف تاع هاذ الجري، ويقولك واش يعني للأسبوع. يستهلك رسالة من رسائل اليوم.</string>
+    <string name="coach_analyse_run_body">الكوتش راح يشوف الإيقاع والمجهود والظروف تاع هاذ الجري، ويقولك واش يعني للأسبوع. يستهلك رسالة من رسائل اليوم.</string>
     <string name="coach_analyse_run_action">اطلب تحليل</string>
     <string name="coach_analyse_run_chip">على الجري تاعك</string>
     <string name="coach_sleep_title">النوم والاسترجاع</string>

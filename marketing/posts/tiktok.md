@@ -55,7 +55,7 @@ Each script: **hook · beats · on-screen text · caption (FR/AR/EN) · sound/ha
 - **Hook:** "Courir à Oran à 6h du matin, ça donne ça 🌅"
 - **Beats:** cinematic POV run through the city, golden hour, end on race info card + "trouve ta course à Oran sur ZidRun".
 - **Caption FR:** L'Algérie qui court, ville par ville. 🇩🇿 Tag ta ville 👇 #ZidRun #Oran #running
-- **Caption AR:** الجزائر اللي تجري، مدينة بمدينة. 🇩🇿 تاݣي مدينتك 👇 #ZidRun
+- **Caption AR:** الجزائر اللي تجري، مدينة بمدينة. 🇩🇿 تاڨي مدينتك 👇 #ZidRun
 - *(Repeat for Alger, Constantine, Annaba, Tlemcen, Béjaïa, Sétif.)*
 
 ### TT-7 · 😄 "Tag a runner who still suffers"

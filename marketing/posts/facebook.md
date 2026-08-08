@@ -14,7 +14,7 @@ Each post: **visual brief**, **caption (FR / AR / EN)**, **CTA**. Use UTM links 
 > On prépare quelque chose pour tous les coureurs d'Algérie. 🇩🇿
 > Suis la page et active les notifications — ça arrive très bientôt. 👀
 **Caption — AR (add below or as comment):**
-> ‏قداش من سباق ضيّعتو هاد العام حيت ما كنتش عارف في الوقت؟ 🏃 راحنا نحضّرو حاجة لكل العدّائين في الجزائر. 🇩🇿 تابع الصفحة وفعّل التنبيهات — جايّة قريب! 👀
+> ‏شحال من سباق ضيّعتو هاد العام على خاطر ما كنتش عارف في الوقت؟ 🏃 راحنا نحضّرو حاجة لكل العدّائين في الجزائر. 🇩🇿 تابع الصفحة وفعّل التنبيهات — جايّة قريب! 👀
 **CTA:** Like + Follow page.
 
 ---
