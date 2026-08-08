@@ -1,0 +1,47 @@
+# Dependency update surveillance (SEC-012).
+#
+# Grouped rather than one PR per package: a release branch drowning in twenty single-bump PRs gets
+# ignored, which is the failure mode this is meant to prevent. Security updates are deliberately
+# separated and left ungrouped so an advisory is never buried inside a routine bump.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      production-patch-minor:
+        dependency-type: production
+        update-types: [patch, minor]
+      development:
+        dependency-type: development
+        update-types: [patch, minor]
+    ignore:
+      # Majors land deliberately, with the build and device pass re-run — never automatically.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+    labels: [dependencies]
+
+  - package-ecosystem: gradle
+    directory: "/native-android"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      androidx:
+        patterns: ["androidx.*", "com.android.*"]
+        update-types: [patch, minor]
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+    labels: [dependencies, android]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]

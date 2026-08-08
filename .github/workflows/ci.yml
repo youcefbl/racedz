@@ -6,6 +6,53 @@ on:
   pull_request:
 
 jobs:
+  # SEC-012: supply-chain surveillance. Separate job so a dependency advisory or a leaked secret
+  # fails the build on its own evidence, instead of being lost inside the long verify job.
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # gitleaks scans history, not just the tip.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Fails on any advisory at high or above. The overrides in package.json are what keep this
+      # green; a new advisory should stop a release rather than be discovered after it.
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      # Lockfile integrity: `npm ci` already refuses a lockfile that disagrees with package.json,
+      # so a drifted lockfile fails above. This asserts the lockfile is actually committed.
+      - name: Lockfile present and current
+        run: |
+          test -f package-lock.json || { echo "package-lock.json missing"; exit 1; }
+          git diff --exit-code package-lock.json
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # SBOM for the release record: what actually shipped, attached to the run that built it.
+      - name: Generate SBOM
+        run: npx --yes @cyclonedx/cyclonedx-npm@latest --output-format JSON --output-file sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom
+          path: sbom.json
+          retention-days: 90
+
   verify:
     runs-on: ubuntu-latest
 
