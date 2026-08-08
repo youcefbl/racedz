@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
@@ -136,7 +137,6 @@ fun ZidRunApp(
     // A race link that arrives while the splash is still up cannot be navigated to yet: the splash
     // finishes by popping itself with popUpTo(inclusive = true), which would take the race
     // destination with it. Park the slug and open it once the splash has handed over.
-    var splashResolved by remember { mutableStateOf(false) }
     var pendingRaceSlug by remember { mutableStateOf<String?>(null) }
 
     // System bars follow the *app's* theme, not the OS configuration (P234-R05). `enableEdgeToEdge()`
@@ -208,12 +208,17 @@ fun ZidRunApp(
             }
         }
 
-        LaunchedEffect(splashResolved, pendingRaceSlug) {
-            val slug = pendingRaceSlug
-            if (splashResolved && slug != null) {
-                pendingRaceSlug = null
-                navController.navigate(RootDestinations.raceDetail(slug))
-            }
+        // "The splash has handed over" is a fact about where navigation currently is, so read it from
+        // the back stack rather than from a flag the splash sets on its way out. Android restoring
+        // the app after process death rebuilds the saved back stack without ever composing
+        // SplashRoute, so a one-shot flag stayed false for the rest of that process — and every race
+        // link a runner opened afterwards was parked here and silently never opened.
+        val currentEntry by navController.currentBackStackEntryAsState()
+        LaunchedEffect(currentEntry, pendingRaceSlug) {
+            val slug = pendingRaceSlug ?: return@LaunchedEffect
+            if (currentEntry?.destination?.route == RootDestinations.SPLASH) return@LaunchedEffect
+            pendingRaceSlug = null
+            navController.navigate(RootDestinations.raceDetail(slug))
         }
 
         NavHost(
@@ -236,7 +241,6 @@ fun ZidRunApp(
                         navController.navigate(target) {
                             popUpTo(RootDestinations.SPLASH) { inclusive = true }
                         }
-                        splashResolved = true
                     },
                 )
             }
