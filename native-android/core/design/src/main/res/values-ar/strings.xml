@@ -611,4 +611,30 @@
         <item quantity="many">+%1$s خطوة أخرى</item>
         <item quantity="other">+%1$s خطوة أخرى</item>
     </plurals>
+    <string name="about_title">حول التطبيق</string>
+    <string name="about_wordmark">ZidRun</string>
+    <string name="about_tagline">اكتشف السباقات، سجّل، وتدرّب مع مدرب ذكي في الجزائر.</string>
+    <string name="about_version">الإصدار</string>
+    <string name="about_version_value">%1$s (build %2$s)</string>
+    <string name="about_release_date">تاريخ الإصدار</string>
+    <string name="about_developer">تطوير</string>
+    <string name="about_developer_site">موقع %1$s</string>
+    <string name="about_website">zidrun.com</string>
+    <string name="about_contact">اتصل بنا</string>
+    <string name="about_terms">شروط الاستعمال</string>
+    <string name="about_privacy">سياسة الخصوصية</string>
+    <string name="about_copyright">© 2026 %1$s. جميع الحقوق محفوظة.</string>
+    <string name="account_about">حول ZidRun</string>
+    <string name="account_subscription">الاشتراك</string>
+    <string name="account_subscription_active">نشط</string>
+    <string name="account_subscription_none">ما عندكش اشتراك في المدرب</string>
+    <string name="account_subscription_none_body">تقدر تبدا برنامج وقت ما تحب من تبويب المدرب.</string>
+    <plurals name="account_subscription_renews">
+        <item quantity="zero">باقي %1$s يوم</item>
+        <item quantity="one">باقي يوم واحد</item>
+        <item quantity="two">باقي يومين</item>
+        <item quantity="few">باقي %1$s أيام</item>
+        <item quantity="many">باقي %1$s يوم</item>
+        <item quantity="other">باقي %1$s يوم</item>
+    </plurals>
 </resources>

@@ -17,7 +17,15 @@ class ZidRunApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this, BuildConfig.VERSION_NAME)
+        container = AppContainer(
+            this,
+            BuildConfig.VERSION_NAME,
+            AppInfo(
+                versionName = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                releaseDate = BuildConfig.RELEASE_DATE,
+            ),
+        )
         container.sessionManager.restore()
     }
 

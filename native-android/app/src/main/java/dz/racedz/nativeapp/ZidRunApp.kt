@@ -33,6 +33,7 @@ import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AppFeaturesDto
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunThemeMode
+import dz.racedz.nativeapp.feature.account.AboutScreen
 import dz.racedz.nativeapp.feature.account.AccountViewModel
 import dz.racedz.nativeapp.feature.account.PrivacyDataScreen
 import dz.racedz.nativeapp.feature.account.ProfilePreferencesScreen
@@ -259,6 +260,15 @@ fun ZidRunApp(
                         }
                     },
                     onOpenBrowserSignIn = onOpenBrowserSignIn,
+                    // Local-only until there is an account: AppearanceController persists both to
+                    // the device, and signing in reconciles them from the server's preferences.
+                    theme = when (appearance.themeMode) {
+                        ZidRunThemeMode.Light -> "light"
+                        ZidRunThemeMode.Dark -> "dark"
+                        ZidRunThemeMode.Race -> "race"
+                    },
+                    language = LocaleManager.currentTag(context).take(2).lowercase(),
+                    onAppearanceChange = { theme, language -> appearance.apply(theme, language) },
                     signedOutNotice = when (reason) {
                         SignOutReason.SessionExpired -> stringResource(DesignR.string.auth_signed_out_expired)
                         SignOutReason.SecurityRevocation -> stringResource(DesignR.string.auth_signed_out_security)
@@ -330,6 +340,7 @@ fun ZidRunApp(
                     onOpenSecurity = {
                         openWebSignedIn("/account/security")
                     },
+                    onOpenAbout = { navController.navigate(RootDestinations.ABOUT) },
                     onSignedOut = {
                         navController.navigate(RootDestinations.AUTH) { popUpTo(0) { inclusive = true } }
                     },
@@ -580,6 +591,21 @@ fun ZidRunApp(
                 )
             }
 
+            composable(RootDestinations.ABOUT) {
+                // Public pages, so a plain URL rather than a signed handoff: minting a single-use
+                // session token to read the terms would be handing out a credential for nothing.
+                AboutScreen(
+                    versionName = container.appInfo.versionName,
+                    versionCode = container.appInfo.versionCode,
+                    releaseDate = container.appInfo.releaseDate,
+                    developer = container.appInfo.developer,
+                    developerUrl = container.appInfo.developerUrl,
+                    websiteUrl = container.appInfo.websiteUrl,
+                    onBack = { navController.popBackStack() },
+                    onOpenUrl = onOpenBrowserSignIn,
+                )
+            }
+
             composable(RootDestinations.PRIVACY) {
                 PrivacyDataScreen(
                     viewModel = rememberAccountViewModel(container, appearance),
@@ -624,6 +650,9 @@ internal fun rememberAccountViewModel(
         AccountViewModel(
             repository = container.accountRepository,
             session = container.sessionManager,
+            loadEntitlement = {
+                (container.coachRepository.overview() as? ApiResult.Success)?.value?.entitlement
+            },
             applyAppearance = { theme, language -> appearance.apply(theme, language) },
             onSignedOutCleanup = appearance::clear,
         )

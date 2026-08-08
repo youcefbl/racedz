@@ -78,12 +78,21 @@ private data class ShellTabSpec(
     val primary: Boolean = false,
 )
 
+/*
+ * Races and Coach deliberately diverge from the website's glyphs.
+ *
+ * The web nav carried calendar-search and sparkles. At 24dp in a tab bar the magnifier reads as
+ * "search races" rather than "races", and sparkles reads as "AI" rather than as training — neither
+ * says sport to a runner glancing down mid-session. A start flag and a stopwatch do, and they sit
+ * in the same Lucide line family as the footprints and the profile mark, so the row still reads as
+ * one set. If the website's nav is restyled, these are the two to bring back into line.
+ */
 private val shellTabs = listOf(
-    ShellTabSpec(ShellTab.Races, R.string.nav_races, DesignR.drawable.ic_calendar_search),
+    ShellTabSpec(ShellTab.Races, R.string.nav_races, DesignR.drawable.ic_flag),
     // Runs is the primary tab on the website too: it keeps a tinted pill even when unselected and
     // a solid one when active, because starting a run is the app's main verb.
     ShellTabSpec(ShellTab.Runs, R.string.nav_runs, DesignR.drawable.ic_footprints, primary = true),
-    ShellTabSpec(ShellTab.Coach, R.string.nav_coach, DesignR.drawable.ic_sparkles),
+    ShellTabSpec(ShellTab.Coach, R.string.nav_coach, DesignR.drawable.ic_timer),
     ShellTabSpec(ShellTab.Account, R.string.nav_account, DesignR.drawable.ic_user_round),
 )
 
@@ -119,6 +128,7 @@ fun AppShell(
     /** Hands off to the website for support and for security/MFA, which have no native screens. */
     onOpenSupport: () -> Unit,
     onOpenSecurity: () -> Unit,
+    onOpenAbout: () -> Unit,
     onSignedOut: () -> Unit,
     /**
      * Remote feature flags from /api/v1/config, or null while the fetch is pending or failed.
@@ -192,6 +202,7 @@ fun AppShell(
                     onOpenPrivacy = onOpenPrivacy,
                     onOpenSupport = onOpenSupport,
                     onOpenSecurity = onOpenSecurity,
+                    onOpenAbout = onOpenAbout,
                     onSignedOut = onSignedOut,
                     contentPadding = innerPadding,
                 )

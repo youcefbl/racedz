@@ -585,4 +585,26 @@
         <item quantity="one">+%1$s étape de plus</item>
         <item quantity="other">+%1$s étapes de plus</item>
     </plurals>
+    <string name="about_title">À propos</string>
+    <string name="about_wordmark">ZidRun</string>
+    <string name="about_tagline">Découvrez des courses, inscrivez-vous et entraînez-vous avec un coach IA en Algérie.</string>
+    <string name="about_version">Version</string>
+    <string name="about_version_value">%1$s (build %2$s)</string>
+    <string name="about_release_date">Date de sortie</string>
+    <string name="about_developer">Développé par</string>
+    <string name="about_developer_site">Site de %1$s</string>
+    <string name="about_website">zidrun.com</string>
+    <string name="about_contact">Nous contacter</string>
+    <string name="about_terms">Conditions d\'utilisation</string>
+    <string name="about_privacy">Politique de confidentialité</string>
+    <string name="about_copyright">© 2026 %1$s. Tous droits réservés.</string>
+    <string name="account_about">À propos de ZidRun</string>
+    <string name="account_subscription">Abonnement</string>
+    <string name="account_subscription_active">Actif</string>
+    <string name="account_subscription_none">Pas d\'abonnement coach</string>
+    <string name="account_subscription_none_body">Commencez un plan quand vous voulez depuis l\'onglet Coach.</string>
+    <plurals name="account_subscription_renews">
+        <item quantity="one">%1$s jour restant</item>
+        <item quantity="other">%1$s jours restants</item>
+    </plurals>
 </resources>

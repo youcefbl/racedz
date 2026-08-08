@@ -604,4 +604,26 @@
         <item quantity="one">+%1$s more step</item>
         <item quantity="other">+%1$s more steps</item>
     </plurals>
+    <string name="about_title">About</string>
+    <string name="about_wordmark">ZidRun</string>
+    <string name="about_tagline">Discover races, register, and train with an AI coach across Algeria.</string>
+    <string name="about_version">Version</string>
+    <string name="about_version_value">%1$s (build %2$s)</string>
+    <string name="about_release_date">Release date</string>
+    <string name="about_developer">Developed by</string>
+    <string name="about_developer_site">%1$s website</string>
+    <string name="about_website">zidrun.com</string>
+    <string name="about_contact">Contact us</string>
+    <string name="about_terms">Terms of use</string>
+    <string name="about_privacy">Privacy policy</string>
+    <string name="about_copyright">© 2026 %1$s. All rights reserved.</string>
+    <string name="account_about">About ZidRun</string>
+    <string name="account_subscription">Subscription</string>
+    <string name="account_subscription_active">Active</string>
+    <string name="account_subscription_none">No coach subscription</string>
+    <string name="account_subscription_none_body">Start a plan any time from the Coach tab.</string>
+    <plurals name="account_subscription_renews">
+        <item quantity="one">%1$s day left</item>
+        <item quantity="other">%1$s days left</item>
+    </plurals>
 </resources>

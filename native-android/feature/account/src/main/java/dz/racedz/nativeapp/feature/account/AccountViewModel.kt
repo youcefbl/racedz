@@ -8,6 +8,7 @@ import dz.racedz.nativeapp.core.auth.SignOutReason
 import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
+import dz.racedz.nativeapp.core.network.CoachEntitlementDto
 import dz.racedz.nativeapp.core.network.DeviceSessionDto
 import dz.racedz.nativeapp.core.network.PreferencesRequest
 import dz.racedz.nativeapp.core.network.ProfileRequest
@@ -23,6 +24,12 @@ data class AccountUiState(
     val user: UserDto? = null,
     val registrations: List<RegistrationDto> = emptyList(),
     val devices: List<DeviceSessionDto> = emptyList(),
+    /**
+     * Coach entitlement, so Account can state the subscription rather than making the runner open
+     * Coach to find out. Null while it loads, or when the fetch failed — the row is simply absent
+     * then, because guessing "no subscription" for a paying runner is worse than saying nothing.
+     */
+    val entitlement: CoachEntitlementDto? = null,
     val loading: Boolean = true,
     val saving: Boolean = false,
     val error: ApiCallException? = null,
@@ -39,6 +46,11 @@ data class AccountUiState(
 class AccountViewModel(
     private val repository: AccountRepository,
     private val session: SessionManager,
+    /**
+     * Reads the coach entitlement for the subscription row. Returns null when it cannot be
+     * determined, and the row stays hidden rather than claiming the runner has nothing.
+     */
+    private val loadEntitlement: suspend () -> CoachEntitlementDto?,
     /** Applies a saved theme/language to the running app. The server is still the source of truth;
      *  this just makes the change visible immediately instead of after the next launch. */
     private val applyAppearance: (theme: String?, language: String?) -> Unit,
@@ -65,6 +77,9 @@ class AccountViewModel(
                     // the Activity on every profile load.
                     applyAppearance(profile.value.preferences.theme, null)
                     loadRegistrations()
+                    // Separate and non-blocking: a coach outage must not stop the Account screen
+                    // from rendering the profile that already arrived.
+                    _state.update { it.copy(entitlement = loadEntitlement()) }
                 }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = profile.error) }
             }

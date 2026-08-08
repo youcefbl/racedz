@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +39,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -58,7 +63,10 @@ import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
+import dz.racedz.nativeapp.core.network.CoachEntitlementDto
 import dz.racedz.nativeapp.core.network.resolveMediaUrl
+import java.time.Duration
+import java.time.Instant
 import androidx.compose.material.icons.filled.Lock
 
 /**
@@ -77,6 +85,7 @@ fun AccountScreen(
     onOpenSupport: () -> Unit,
     /** Opens the website's security page, where MFA is managed. */
     onOpenSecurity: () -> Unit,
+    onOpenAbout: () -> Unit,
     onSignedOut: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
@@ -268,6 +277,10 @@ fun AccountScreen(
                             }
                         }
 
+                    // What the runner is paying for, stated on the screen that owns their account
+                    // rather than only inside Coach. Absent while unknown — see AccountUiState.
+                    state.entitlement?.let { SubscriptionCard(entitlement = it) }
+
                     ZidRunCard(contentPadding = PaddingValues(0.dp)) {
                         Column {
                             ZidRunMenuRow(
@@ -306,6 +319,12 @@ fun AccountScreen(
                                 label = stringResource(R.string.account_support),
                                 onClick = onOpenSupport,
                                 opensExternally = true,
+                            )
+                            ZidRunDivider()
+                            ZidRunMenuRow(
+                                icon = Icons.Filled.Info,
+                                label = stringResource(R.string.account_about),
+                                onClick = onOpenAbout,
                             )
                             ZidRunDivider()
                             ZidRunMenuRow(
@@ -354,6 +373,95 @@ private fun StatSeparator() {
 }
 
 
+
+/**
+ * What the runner's coach access currently is.
+ *
+ * Three states, each answering a different question: SUBSCRIBED says which plan and until when,
+ * TRIAL says how long is left, and NONE says the coach is available rather than pretending the
+ * runner has something. The day count uses the same ceiling as the Coach header — seconds after
+ * signing up a 7-day trial reads "7 days left", not 6 — so the two screens cannot disagree.
+ */
+@Composable
+private fun SubscriptionCard(entitlement: CoachEntitlementDto) {
+    val colors = ZidRunTheme.colors
+    val locale = currentLocale()
+
+    val endsAt = when (entitlement.tier) {
+        "TRIAL" -> entitlement.trialEndsAt
+        "SUBSCRIBED" -> entitlement.subscriptionEndsAt
+        else -> null
+    }
+    val daysLeft = endsAt
+        ?.let { runCatching { Duration.between(Instant.now(), Instant.parse(it)).seconds }.getOrNull() }
+        ?.takeIf { it > 0 }
+        ?.let { ((it + 86_399) / 86_400).toInt() }
+
+    val (label, detail, accent) = when (entitlement.tier) {
+        "SUBSCRIBED" -> Triple(
+            entitlement.plan?.takeIf { it.isNotBlank() } ?: stringResource(R.string.account_subscription_active),
+            daysLeft?.let {
+                pluralStringResource(R.plurals.account_subscription_renews, it, ZidRunFormat.count(it, locale))
+            },
+            colors.success,
+        )
+        "TRIAL" -> Triple(
+            stringResource(R.string.coach_trial),
+            when {
+                daysLeft == null -> null
+                daysLeft <= 1 -> stringResource(R.string.coach_trial_last_day)
+                else -> pluralStringResource(R.plurals.coach_trial_days_left, daysLeft, ZidRunFormat.count(daysLeft, locale))
+            },
+            colors.primary,
+        )
+        else -> Triple(
+            stringResource(R.string.account_subscription_none),
+            stringResource(R.string.account_subscription_none_body),
+            colors.textMuted,
+        )
+    }
+
+    // One phrase for the whole card: "Subscription: Free trial. 3 days left" rather than three
+    // fragments a screen reader would read as unrelated lines.
+    val heading = stringResource(R.string.account_subscription)
+    val spoken = listOfNotNull("$heading: $label", detail).joinToString(". ")
+
+    ZidRunCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) { contentDescription = spoken },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(colors.primarySoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.WorkspacePremium,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.account_subscription),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+                Text(label, style = MaterialTheme.typography.titleSmall, color = colors.textStrong)
+                if (detail != null) {
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = accent)
+                }
+            }
+        }
+    }
+}
 
 /**
  * "yo•••@gmail.com" — enough to recognise the account, not enough to read out or screenshot.

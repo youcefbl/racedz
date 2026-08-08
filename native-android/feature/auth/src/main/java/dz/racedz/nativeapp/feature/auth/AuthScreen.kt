@@ -54,8 +54,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
+import dz.racedz.nativeapp.core.design.ZidRunChoiceChip
 import dz.racedz.nativeapp.core.design.ZidRunDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunDimens
+import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunStepIndicator
@@ -78,6 +80,15 @@ fun AuthScreen(
     onOpenBrowserSignIn: (String) -> Unit,
     modifier: Modifier = Modifier,
     signedOutNotice: String? = null,
+    /**
+     * Current appearance and how to change it, so the two settings that decide whether this screen
+     * is *readable* are reachable before signing in. A runner who needs Arabic, or who cannot read
+     * a light screen outdoors, previously had to get through login first to fix it — and the
+     * account's own saved values overwrite these on the next load anyway.
+     */
+    theme: String? = null,
+    language: String? = null,
+    onAppearanceChange: ((theme: String?, language: String?) -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
@@ -122,6 +133,17 @@ fun AuthScreen(
                 AuthStep.Mfa -> MfaForm(state, viewModel, onSignedIn)
                 AuthStep.CreateAccount -> CreateAccountForm(state, viewModel)
                 AuthStep.VerifyEmail -> VerifyEmailPanel(state, viewModel)
+            }
+
+            // Below the form, not above it: signing in is why the runner is here, and a settings
+            // row competing with the first field would be the wrong emphasis. Hidden on the MFA
+            // step, where changing the language restarts the Activity mid-challenge.
+            if (onAppearanceChange != null && state.step != AuthStep.Mfa) {
+                AppearanceControls(
+                    theme = theme,
+                    language = language,
+                    onChange = onAppearanceChange,
+                )
             }
         }
     }
@@ -453,5 +475,63 @@ private fun OrDivider() {
             modifier = Modifier.padding(horizontal = ZidRunDimens.spaceMd),
         )
         Box(Modifier.weight(1f).height(1.dp).background(colors.border))
+    }
+}
+
+/**
+ * Theme and language, before there is an account to save them against.
+ *
+ * These write only to the device (AppearanceController persists them locally). Signing in loads the
+ * account's own preferences and overwrites both, which is the right precedence: this is a way to
+ * make the login screen usable, not a second place to configure the account.
+ */
+@Composable
+private fun AppearanceControls(
+    theme: String?,
+    language: String?,
+    onChange: (theme: String?, language: String?) -> Unit,
+) {
+    val colors = ZidRunTheme.colors
+    ZidRunDivider()
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+        Text(
+            stringResource(R.string.profile_language),
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textMuted,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+            listOf(
+                "en" to stringResource(R.string.profile_language_en),
+                "fr" to stringResource(R.string.profile_language_fr),
+                "ar" to stringResource(R.string.profile_language_ar),
+            ).forEach { (value, label) ->
+                ZidRunChoiceChip(
+                    label = label,
+                    selected = language == value,
+                    onClick = { onChange(null, value) },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(ZidRunDimens.spaceXs))
+
+        Text(
+            stringResource(R.string.profile_theme),
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textMuted,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+            listOf(
+                "light" to stringResource(R.string.profile_theme_light),
+                "dark" to stringResource(R.string.profile_theme_dark),
+                "race" to stringResource(R.string.profile_theme_race),
+            ).forEach { (value, label) ->
+                ZidRunChoiceChip(
+                    label = label,
+                    selected = theme == value,
+                    onClick = { onChange(value, null) },
+                )
+            }
+        }
     }
 }

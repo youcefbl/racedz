@@ -20,6 +20,10 @@ android {
         // never disagree. Do not reuse a number that has already left this machine.
         versionCode = 8
         versionName = "0.8.0"
+        // Shown on the About screen. A deliberate constant rather than a build timestamp: a value
+        // that changed on every compile would churn the build inputs and would tell a runner when
+        // the APK was compiled, not when the release was made. Bump it with versionName.
+        buildConfigField("String", "RELEASE_DATE", "\"2026-08-08\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

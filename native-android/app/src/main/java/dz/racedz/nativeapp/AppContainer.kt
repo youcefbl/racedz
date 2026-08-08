@@ -26,7 +26,7 @@ import dz.racedz.nativeapp.core.network.ZidRunApi
  * through an indirection, because the client needs the provider and the manager needs the API the
  * client builds. The indirection breaks that cycle without a lateinit escape hatch.
  */
-class AppContainer(context: Context, appVersion: String) {
+class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
 
     private val tokenStore = TokenStore(context)
 
@@ -69,3 +69,19 @@ class AppContainer(context: Context, appVersion: String) {
     val accountRepository = AccountRepository(api, apiClient, sessionManager)
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
 }
+
+/**
+ * What the About screen states about this build.
+ *
+ * Carried from the app module rather than read where it is displayed: `BuildConfig` belongs to the
+ * module that declares it, and the feature modules cannot see the app's own.
+ */
+data class AppInfo(
+    val versionName: String,
+    val versionCode: Int,
+    val releaseDate: String,
+    /** The company that builds ZidRun. */
+    val developer: String = "Inoblast",
+    val developerUrl: String = "https://inoblast.net",
+    val websiteUrl: String = "https://zidrun.com",
+)
