@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { sha256 } from "@/lib/api/v1/tokens";
+import { canonicalOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,13 @@ export async function GET(request: Request) {
     // Hand off to the website's own login page and come straight back here afterwards. Everything
     // that makes web sign-in safe (rate limits, MFA, blocked accounts, email verification) applies
     // unchanged; this endpoint deliberately implements none of it a second time.
-    const loginUrl = new URL("/login", url.origin);
+    //
+    // The origin has to be the *public* one, not this request's host: behind the production proxy
+    // that host is the address Next binds to, so this redirected the app's Custom Tab to
+    // https://0.0.0.0:3003/login and browser sign-in failed with a connection error for every
+    // signed-out runner. NextAuth was resolving the right origin for its own cookies on the very
+    // same response — only this hand-off read it from the request.
+    const loginUrl = new URL("/login", canonicalOrigin(url.origin));
     loginUrl.searchParams.set("callbackUrl", `${url.pathname}${url.search}`);
     return NextResponse.redirect(loginUrl);
   }
