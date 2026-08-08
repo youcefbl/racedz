@@ -47,6 +47,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +59,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
@@ -93,7 +97,7 @@ import dz.racedz.nativeapp.core.network.resolveMediaUrl
 fun RaceDetailScreen(
     viewModel: RaceDetailViewModel,
     onBack: () -> Unit,
-    onRegister: (raceId: String, raceTitle: String) -> Unit,
+    onRegister: (raceId: String, categoryId: String) -> Unit,
     onViewRegistration: (registrationId: String) -> Unit,
     isSignedIn: Boolean,
     onSignIn: () -> Unit,
@@ -101,6 +105,17 @@ fun RaceDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
+
+    // Registration happens on a screen stacked above this one, so coming back has to refetch or the
+    // page still offers "Register" for a race the runner just entered.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.reload()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Box(modifier = modifier.fillMaxSize().background(colors.background)) {
         when {

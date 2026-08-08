@@ -150,4 +150,19 @@ class RaceDetailViewModel(
             }
         }
     }
+
+    /**
+     * Refetches in place, keeping whatever is already on screen. Coming back from a finished
+     * registration left the stale "Register" call to action on a race the runner had just entered,
+     * and tapping it started a second entry; but a resume must not flash the page spinner or
+     * replace a good screen with an error just because the refetch failed.
+     */
+    fun reload() {
+        viewModelScope.launch {
+            when (val result = repository.detail(idOrSlug)) {
+                is ApiResult.Success -> _state.update { it.copy(race = result.value, loading = false, error = null) }
+                is ApiResult.Failure -> _state.update { if (it.race != null) it else it.copy(error = result.error) }
+            }
+        }
+    }
 }
