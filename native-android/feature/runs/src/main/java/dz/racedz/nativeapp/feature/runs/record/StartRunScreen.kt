@@ -646,7 +646,9 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
         // 1. Orange ambient backlight — faint at rest, warm and close by completion. Its scale
         //    breathes outward with the hold, but only when animations are on (reduced motion keeps
         //    the brightness change and drops the movement).
-        val glowScale = if (animationsEnabled) 0.78f + progress * 0.30f else 1f
+        // Half the previous radius so the orange is a close halo behind the sole, not a wash filling
+        // the ring. It still breathes outward with the hold when animations are on.
+        val glowScale = (if (animationsEnabled) 0.78f + progress * 0.30f else 1f) * 0.5f
         Image(
             painter = painterResource(RunsR.drawable.zidrun_hold_orange_glow),
             contentDescription = null,
@@ -654,10 +656,9 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    // A warm orange lamp-shadow behind the sole: present even at rest, glowing to a
-                    // full ambient wash by completion. Heavily blurred in the asset, so more opacity
-                    // reads as soft lamplight rather than a hard disc.
-                    alpha = 0.18f + progress * 0.62f
+                    // A warm orange lamp-shadow behind the sole: faint at rest, up to ~30% by
+                    // completion. Kept low so it reads as soft lamplight, never a hard orange disc.
+                    alpha = 0.10f + progress * 0.20f
                     scaleX = glowScale
                     scaleY = glowScale
                 },

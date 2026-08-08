@@ -71,25 +71,27 @@ lum = gaussian_filter(alpha_of("orange_glow.png"), sigma=22)  # lamp-shadow: ver
 lum = lum / lum.max()
 save(np.clip((lum ** 1.15) * 255, 0, 255), ACCENT, "zidrun_hold_orange_glow.png")
 
-# Sole base: the foot as-is, but its baked yellow rim recoloured to lime. "warmth" isolates the
-# warm rim/glow (high G, low B) from the cyan interior contours, and only those pixels shift.
+# Sole base: a clean dark-navy silhouette, no internal contour lines. The reference's topographic
+# rings read on-device as a stack of concentric edges around the foot; the ask is a single lit edge,
+# so the sole is filled flat (only the foot's alpha is kept for shape) and the one glowing rim comes
+# entirely from the edge-glow layer below. A faint top-to-bottom gradient keeps a little form without
+# drawing any line.
 foot = np.asarray(Image.open(os.path.join(SRC, "foot.png")).convert("RGBA")).astype(np.float32)
-r, g, b, a = (foot[:, :, i] for i in range(4))
-warmth = np.clip((np.clip(np.minimum(r, g) - b, 0, 255) / 255.0) * 1.4, 0, 1) * (a / 255.0)
-base = foot.copy()
-NAVY_RIM = np.array([12, 22, 36], np.float32)
+a = foot[:, :, 3]
+NAVY_TOP = np.array([16, 28, 46], np.float32)
+NAVY_BOTTOM = np.array([9, 17, 30], np.float32)
+rows = a.shape[0]
+grad = np.linspace(0.0, 1.0, rows, dtype=np.float32).reshape(rows, 1)
+base = np.zeros((*a.shape, 4), np.float32)
 for i in range(3):
-    # suppress the foot's own bright rim toward navy — the edge-glow layer is the single lit edge
-    base[:, :, i] = foot[:, :, i] * (1 - warmth) + NAVY_RIM[i] * warmth
-# Premium sole: deepen the interior toward a rich navy, and lift the cyan contour lines so they
-# read as crisp topographic tread rather than a murky wash. "coolness" isolates the cyan interior.
-coolness = np.clip((np.clip(b - g, 0, 255) / 255.0) * 2.0, 0, 1) * (a / 255.0) * (1 - warmth)
-interior = (1 - warmth) * (a / 255.0)
-NAVY = np.array([10, 20, 34], np.float32)
-CYAN = np.array([120, 200, 210], np.float32)
+    base[:, :, i] = NAVY_TOP[i] * (1.0 - grad) + NAVY_BOTTOM[i] * grad
+# A soft inner sheen: pull the interior a touch brighter away from the edge so the flat fill still
+# has some body. Distance-from-edge via a blurred silhouette, kept subtle.
+sheen = gaussian_filter((a > 40).astype(np.float32), sigma=14)
+sheen = np.clip((sheen - 0.5) / 0.5, 0, 1) * 0.18
 for i in range(3):
-    base[:, :, i] = base[:, :, i] * (1 - interior * 0.35) + NAVY[i] * (interior * 0.35)
-    base[:, :, i] = base[:, :, i] * (1 - coolness * 0.5) + CYAN[i] * (coolness * 0.5)
+    base[:, :, i] = base[:, :, i] * (1 - sheen) + (base[:, :, i] + 14) * sheen
+base[:, :, 3] = a  # keep the foot's silhouette exactly
 Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), "RGBA").save(
     os.path.join(OUT, "zidrun_hold_sole_base.png"))
 
