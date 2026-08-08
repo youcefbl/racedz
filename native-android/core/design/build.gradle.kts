@@ -34,4 +34,6 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)
+
+    testImplementation(libs.junit)
 }

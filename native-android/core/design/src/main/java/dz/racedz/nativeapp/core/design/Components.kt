@@ -213,19 +213,20 @@ fun ZidRunTextField(
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
 
-    // The caller may reformat what we hand it — the date of birth gains its dashes as the digits
-    // arrive. With the plain String overload the caret keeps its old character offset, so every
-    // separator the formatter inserts pushes the caret back through the text: typing 19960521 on
-    // the numeric keypad landed as "1996-52-10", and backspace deleted from the middle. Owning a
-    // TextFieldValue lets us re-anchor the caret to the same *content* character it was after,
-    // counting past whatever separators the formatter added.
     var fieldSize by remember { mutableStateOf(IntSize.Zero) }
     // Enough room under the box for the supporting/error line plus a comfortable gap.
     val helperGapPx = with(LocalDensity.current) { (ZidRunDimens.spaceXl + 20.dp).roundToPx() }
+
+    // This field owns a TextFieldValue rather than taking the String overload, so that a caller who
+    // rewrites the text — the date of birth gains its dashes as the digits arrive — cannot leave the
+    // caret stranded at a stale offset. See [syncedFieldValue] for the two cases and why they differ.
+    // Writing to `field` during composition is deliberate: the caret has to be right in the frame
+    // that renders the new text, and an effect would land one frame late.
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    var lastEmitted by remember { mutableStateOf(value) }
     if (field.text != value) {
-        val contentBeforeCaret = field.text.take(field.selection.end).count(Char::isLetterOrDigit)
-        field = TextFieldValue(value, TextRange(value.offsetAfterContentChars(contentBeforeCaret)))
+        field = syncedFieldValue(current = field, incoming = value, lastEmitted = lastEmitted)
+        lastEmitted = value
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -233,6 +234,7 @@ fun ZidRunTextField(
             value = field,
             onValueChange = {
                 field = it
+                lastEmitted = it.text
                 onValueChange(it.text)
             },
             label = {
@@ -322,6 +324,36 @@ fun ZidRunTextField(
         }
     }
 }
+
+/**
+ * Where the caret belongs when a caller hands the field text it did not type.
+ *
+ * Two different things look identical from inside the field, and they want opposite answers:
+ *
+ * 1. **The caller reformatted what the runner just typed** — same content characters, different
+ *    separators. The date of birth does this on every keystroke. Here the caret must stay on the
+ *    character the runner was editing, counting past whatever separators appeared, or each inserted
+ *    dash shoves it backwards and `19960521` arrives as `1996-52-10`.
+ * 2. **The caller replaced the value outright** — an async profile prefill, a reset, a clamp. The
+ *    old caret refers to text that no longer exists, so it goes to the end, which is what a plain
+ *    String-backed field does and what a runner expects when a field fills itself in.
+ *
+ * [lastEmitted] is the text this field last reported upward, so comparing *content* characters
+ * against it tells the two apart: a reformat preserves them, a replacement does not.
+ */
+internal fun syncedFieldValue(
+    current: TextFieldValue,
+    incoming: String,
+    lastEmitted: String,
+): TextFieldValue {
+    val reformatted = incoming.contentChars() == lastEmitted.contentChars()
+    if (!reformatted) return TextFieldValue(incoming, TextRange(incoming.length))
+    val contentBeforeCaret = current.text.take(current.selection.end).count(Char::isLetterOrDigit)
+    return TextFieldValue(incoming, TextRange(incoming.offsetAfterContentChars(contentBeforeCaret)))
+}
+
+/** The letters and digits only — what survives a pure reformat. */
+private fun String.contentChars(): String = filter(Char::isLetterOrDigit)
 
 /**
  * Offset just past the [count]th letter-or-digit, skipping separators the formatter inserted.
