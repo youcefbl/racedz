@@ -28,8 +28,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "hold-control-source")
 OUT = os.path.join(HERE, "..", "src", "main", "res", "drawable-nodpi")
 
-HERO = (163, 230, 53)    # #A3E635
-ACCENT = (251, 146, 60)  # #FB923C
+HERO = (170, 235, 62)    # bright neon lime, the bold sole edge in the reference
+ACCENT = (245, 150, 22)  # warm amber, the foot-shaped backlight in the reference
 MUTED = (120, 132, 150)  # muted blue-grey orbit
 
 
@@ -66,38 +66,45 @@ save(np.clip(grey_dilation(cov, size=5) * 1.3 + gaussian_filter(cov, sigma=7) * 
 cov = rotated_alpha("orbit_ring.png")
 save(np.clip(grey_dilation(cov, size=3) * 0.9, 0, 190), MUTED, "zidrun_hold_orbit_inactive.png")
 
-# Orange backlight: warm, soft, clean alpha, no pale/white core (gamma pulls the centre down).
-lum = gaussian_filter(alpha_of("orange_glow.png"), sigma=22)  # lamp-shadow: very soft
-lum = lum / lum.max()
-save(np.clip((lum ** 1.15) * 255, 0, 255), ACCENT, "zidrun_hold_orange_glow.png")
+# Amber backlight — FOOT-SHAPED, not a disc. The reference's warm glow hugs the sole and radiates
+# from its silhouette, so blur the foot's own alpha rather than a radial source: brightest right at
+# the foot edge, fading outward, exactly the shape of the shoe.
+foot_sil = (alpha_of("foot.png") > 40).astype(np.float32) * 255
+halo = gaussian_filter(foot_sil, sigma=26)
+halo = halo / halo.max()
+save(np.clip(halo * 255, 0, 255), ACCENT, "zidrun_hold_orange_glow.png")
 
-# Sole base: a clean dark-navy silhouette, no internal contour lines. The reference's topographic
-# rings read on-device as a stack of concentric edges around the foot; the ask is a single lit edge,
-# so the sole is filled flat (only the foot's alpha is kept for shape) and the one glowing rim comes
-# entirely from the edge-glow layer below. A faint top-to-bottom gradient keeps a little form without
-# drawing any line.
+# Sole base: the reference sole itself — a dark navy interior carrying the teal topographic contour
+# lines the source art already draws. Those contours ARE the reference look, so they are kept; only
+# the foot's own bright yellow outline is suppressed toward navy, because the bold green edge comes
+# from the edge-glow layer and two rims would read as a double edge.
 foot = np.asarray(Image.open(os.path.join(SRC, "foot.png")).convert("RGBA")).astype(np.float32)
-a = foot[:, :, 3]
-NAVY_TOP = np.array([16, 28, 46], np.float32)
-NAVY_BOTTOM = np.array([9, 17, 30], np.float32)
-rows = a.shape[0]
-grad = np.linspace(0.0, 1.0, rows, dtype=np.float32).reshape(rows, 1)
-base = np.zeros((*a.shape, 4), np.float32)
+r, g, b, a = (foot[:, :, i] for i in range(4))
+base = foot.copy()
+# The outline is the brightest ring in the art; pull just those pixels to navy, leaving the dimmer
+# teal interior contours untouched.
+lum = (r + g + b) / 3.0
+outline = np.clip((lum - 120.0) / 90.0, 0, 1) * (a / 255.0)
+NAVY_RIM = np.array([11, 21, 35], np.float32)
 for i in range(3):
-    base[:, :, i] = NAVY_TOP[i] * (1.0 - grad) + NAVY_BOTTOM[i] * grad
-# A soft inner sheen: pull the interior a touch brighter away from the edge so the flat fill still
-# has some body. Distance-from-edge via a blurred silhouette, kept subtle.
-sheen = gaussian_filter((a > 40).astype(np.float32), sigma=14)
-sheen = np.clip((sheen - 0.5) / 0.5, 0, 1) * 0.18
+    base[:, :, i] = foot[:, :, i] * (1 - outline) + NAVY_RIM[i] * outline
+# Deepen the interior a touch toward navy so it reads dark like the reference, and let the teal
+# contours sit on top of that.
+interior = (a / 255.0)
+NAVY = np.array([10, 19, 32], np.float32)
 for i in range(3):
-    base[:, :, i] = base[:, :, i] * (1 - sheen) + (base[:, :, i] + 14) * sheen
-base[:, :, 3] = a  # keep the foot's silhouette exactly
+    base[:, :, i] = base[:, :, i] * (1 - interior * 0.18) + NAVY[i] * (interior * 0.18)
+base[:, :, 3] = a
 Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), "RGBA").save(
     os.path.join(OUT, "zidrun_hold_sole_base.png"))
 
-# Sole edge glow: a bright lime rim hugging the foot silhouette (outer blur minus inner blur).
+# Sole edge glow: the BOLD bright-green rim from the reference. A thick band hugging the silhouette
+# (outer blur minus inner blur) plus a tight bright core right on the edge, so it reads as a heavy
+# neon outline rather than a faint halo.
 sil = (a > 40).astype(np.float32) * 255
-rim = np.clip(gaussian_filter(sil, sigma=6) - gaussian_filter(sil, sigma=2) * 0.95, 0, 255) * 3.4
-save(rim, HERO, "zidrun_hold_sole_edge_glow.png")
+band = np.clip(gaussian_filter(sil, sigma=8) - gaussian_filter(sil, sigma=2) * 0.88, 0, 255)
+core = np.clip(gaussian_filter(sil, sigma=3.5) - gaussian_filter(sil, sigma=1) * 0.9, 0, 255)
+edge = np.clip(band * 2.6 + core * 4.4, 0, 255)
+save(edge, HERO, "zidrun_hold_sole_edge_glow.png")
 
 print("regenerated zidrun_hold_* into", os.path.relpath(OUT, HERE))

@@ -643,22 +643,20 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
         // extracted/recoloured ZidRun run layers (drawable-nodpi/zidrun_hold_*), so the foot
         // silhouette, contour lines and footprint rhythm stay exactly as designed.
 
-        // 1. Orange ambient backlight — faint at rest, warm and close by completion. Its scale
-        //    breathes outward with the hold, but only when animations are on (reduced motion keeps
-        //    the brightness change and drops the movement).
-        // Half the previous radius so the orange is a close halo behind the sole, not a wash filling
-        // the ring. It still breathes outward with the hold when animations are on.
-        val glowScale = (if (animationsEnabled) 0.78f + progress * 0.30f else 1f) * 0.5f
+        // 1. Amber backlight — FOOT-SHAPED, not a disc: the asset is the blurred sole silhouette, so
+        //    the warm glow radiates from the shoe exactly as in the reference. Sized a little larger
+        //    than the sole; brightens with the hold, with a gentle breath when animations are on.
+        val glowScale = if (animationsEnabled) 0.97f + progress * 0.06f else 1f
         Image(
             painter = painterResource(RunsR.drawable.zidrun_hold_orange_glow),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .fillMaxSize()
+                .height(SOLE_HEIGHT + 72.dp)
+                .width(SOLE_WIDTH + 96.dp)
+                .align(Alignment.Center)
                 .graphicsLayer {
-                    // A warm orange lamp-shadow behind the sole: faint at rest, up to ~30% by
-                    // completion. Kept low so it reads as soft lamplight, never a hard orange disc.
-                    alpha = 0.10f + progress * 0.20f
+                    alpha = 0.16f + progress * 0.34f
                     scaleX = glowScale
                     scaleY = glowScale
                 },
@@ -695,17 +693,18 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             }
         }
 
-        // 4. The sole edge glow — a faint lime outline at rest, a bright crisp rim by completion.
-        //    Sized a touch larger than the sole so the lime halo sits just outside its silhouette.
+        // 4. The BOLD lime edge — already a heavy neon outline at rest (the reference shows it lit),
+        //    brightening to full by completion. Sized a touch larger than the sole so the rim sits
+        //    just outside its silhouette.
         Image(
             painter = painterResource(RunsR.drawable.zidrun_hold_sole_edge_glow),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(SOLE_HEIGHT + 12.dp)
-                .width(SOLE_WIDTH + 12.dp)
+                .height(SOLE_HEIGHT + 14.dp)
+                .width(SOLE_WIDTH + 14.dp)
                 .align(Alignment.Center)
-                .alpha(0.35f + progress * 0.65f),
+                .alpha(0.62f + progress * 0.38f),
         )
 
         // 5. The sole itself: dark navy, internal contour lines, and a lime (not yellow) rim, never
