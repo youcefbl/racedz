@@ -373,9 +373,11 @@ private fun beginRecording(
  * The runner's last known position, or null.
  *
  * A cached fix, not a fresh one: this only seeds the weather lookup, so a settled last-known point is
- * both good enough and instant, where waiting on the GPS to acquire would stall the start screen. Null
- * whenever location has not been granted or nothing is cached — the weather endpoint then falls back
- * to the runner's wilaya. Permission is re-checked here rather than assumed.
+ * both good enough and instant, where waiting on the GPS to acquire would stall the start screen. But
+ * a *stale* fix is worse than none — a days-old point would confidently show the wrong city and
+ * conditions (ALL-R10) — so a fix older than [FRESH_FIX_MS] is discarded and the weather endpoint
+ * falls back to the runner's wilaya (shown as a regional estimate). Null too whenever location was
+ * not granted or nothing is cached. Permission is re-checked here rather than assumed.
  */
 @SuppressLint("MissingPermission")
 private fun lastKnownLocation(context: Context): Location? {
@@ -385,11 +387,16 @@ private fun lastKnownLocation(context: Context): Location? {
         PackageManager.PERMISSION_GRANTED
     if (!fine && !coarse) return null
     val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
-    return runCatching {
+    val fix = runCatching {
         (if (fine) manager.getLastKnownLocation(LocationManager.GPS_PROVIDER) else null)
             ?: manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-    }.getOrNull()
+    }.getOrNull() ?: return null
+    // Discard a stale fix rather than label an old city as "where this run will happen".
+    return fix.takeIf { System.currentTimeMillis() - it.time <= FRESH_FIX_MS }
 }
+
+/** A cached fix older than this (10 min) is treated as no fix for pre-run weather/city. */
+private const val FRESH_FIX_MS = 10 * 60 * 1000L
 
 /**
  * The city/town for a fix, reverse-geocoded on-device, or null.
