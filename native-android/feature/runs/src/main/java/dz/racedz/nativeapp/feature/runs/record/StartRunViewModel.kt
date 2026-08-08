@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dz.racedz.nativeapp.core.auth.RunsRepository
 import dz.racedz.nativeapp.core.design.R
+import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.GuidedSessionDto
 import dz.racedz.nativeapp.core.network.GuidedStepDto
@@ -51,14 +53,21 @@ fun stepRoleLabel(role: String): String = when (role) {
     else -> stringResource(R.string.runs_step_steady)
 }
 
-/** "10 min" or "400 m", whichever this step counts down. */
+/**
+ * "10 min" or "400 m", whichever this step counts down.
+ *
+ * Counts go through [ZidRunFormat.count] rather than a `%d` placeholder: `%d` formats with the
+ * *resource* locale, which for bare `ar` is Arabic-Indic (٤٠٠ م) — beside distances formatted
+ * through [currentLocale]'s `ar-DZ` normalisation that put two numeral systems on one surface.
+ */
 @Composable
 fun stepTargetLabel(step: GuidedStepDto): String {
     val seconds = step.seconds
     val meters = step.meters
+    val locale = currentLocale()
     return when {
-        seconds != null -> stringResource(R.string.runs_step_minutes, seconds / 60)
-        meters != null -> stringResource(R.string.runs_step_metres, meters)
+        seconds != null -> stringResource(R.string.runs_step_minutes, ZidRunFormat.count(seconds / 60, locale))
+        meters != null -> stringResource(R.string.runs_step_metres, ZidRunFormat.count(meters, locale))
         else -> ""
     }
 }

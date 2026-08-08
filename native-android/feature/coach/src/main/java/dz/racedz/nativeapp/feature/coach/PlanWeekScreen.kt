@@ -447,7 +447,9 @@ private fun WorkoutDetailCard(
             Text(
                 text = listOfNotNull(
                     workout.targetDistanceKm?.let { ZidRunFormat.kilometres(it, locale) },
-                    workout.targetDurationMin?.let { stringResource(R.string.runs_step_minutes, it) },
+                    workout.targetDurationMin?.let {
+                        stringResource(R.string.runs_step_minutes, ZidRunFormat.count(it, locale))
+                    },
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.textMuted,

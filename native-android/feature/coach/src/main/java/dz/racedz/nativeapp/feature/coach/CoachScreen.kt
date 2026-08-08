@@ -445,7 +445,9 @@ internal fun goalTypeLabel(type: String): String = when (type) {
 private fun workoutTargetLabel(workout: CoachWorkoutDto, locale: java.util.Locale): String {
     val parts = buildList {
         workout.targetDistanceKm?.let { add(ZidRunFormat.kilometres(it, locale)) }
-        workout.targetDurationMin?.let { add(stringResource(R.string.runs_step_minutes, it)) }
+        workout.targetDurationMin?.let {
+            add(stringResource(R.string.runs_step_minutes, ZidRunFormat.count(it, locale)))
+        }
     }
     return parts.joinToString(" · ")
 }

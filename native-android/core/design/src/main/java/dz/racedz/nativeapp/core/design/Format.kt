@@ -143,14 +143,22 @@ object ZidRunFormat {
     private fun ltr(value: String): String = "\u2066$value\u2069"
 }
 
+/**
+ * The app's "ar" is Algerian Darija. A bare Locale("ar") formats numbers with Arabic-Indic
+ * digits (٩٫٢), but Algeria — like the rest of the Maghreb — writes Western digits, and the
+ * captured screens mixed both systems in one card (finding R5). Pinning the country makes
+ * CLDR pick the latn numbering system while keeping Arabic month names and shaping.
+ */
+private fun normaliseLocale(locale: Locale): Locale =
+    if (locale.language == "ar" && locale.country.isEmpty()) Locale("ar", "DZ") else locale
+
 /** The locale currently in effect for the composition. */
 @Composable
-fun currentLocale(): Locale {
-    val configuration = LocalConfiguration.current
-    val locale = configuration.locales[0] ?: Locale.getDefault()
-    // The app's "ar" is Algerian Darija. A bare Locale("ar") formats numbers with Arabic-Indic
-    // digits (٩٫٢), but Algeria — like the rest of the Maghreb — writes Western digits, and the
-    // captured screens mixed both systems in one card (finding R5). Pinning the country makes
-    // CLDR pick the latn numbering system while keeping Arabic month names and shaping.
-    return if (locale.language == "ar" && locale.country.isEmpty()) Locale("ar", "DZ") else locale
-}
+fun currentLocale(): Locale = normaliseLocale(LocalConfiguration.current.locales[0] ?: Locale.getDefault())
+
+/**
+ * The same locale [currentLocale] resolves, for code that formats outside a composition — the
+ * spoken run cues are built from a Context, not from the composition.
+ */
+fun localeOf(context: android.content.Context): Locale =
+    normaliseLocale(context.resources.configuration.locales[0] ?: Locale.getDefault())

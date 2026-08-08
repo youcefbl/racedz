@@ -78,9 +78,18 @@ private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.
     }
     val seconds = step.seconds
     val meters = step.meters
+    // Spoken and displayed counts use the same Western-digit rule as the rest of the app; see
+    // stepTargetLabel for why a %d placeholder is not enough.
+    val locale = dz.racedz.nativeapp.core.design.localeOf(context)
     val target = when {
-        seconds != null -> context.getString(R.string.runs_step_minutes, seconds / 60)
-        meters != null -> context.getString(R.string.runs_step_metres, meters)
+        seconds != null -> context.getString(
+            R.string.runs_step_minutes,
+            ZidRunFormat.count(seconds / 60, locale),
+        )
+        meters != null -> context.getString(
+            R.string.runs_step_metres,
+            ZidRunFormat.count(meters, locale),
+        )
         else -> ""
     }
     return context.getString(R.string.runs_cue_step, context.getString(role), target)
