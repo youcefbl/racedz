@@ -76,14 +76,19 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.PI
 
@@ -487,10 +492,16 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
         onTriggered()
     }
 
+    // The active footprint orbit, drawn through an angular clip so it fills clockwise from the top
+    // as the hold progresses — footprint by footprint from outline to solid lime, which is the
+    // progress signal the reference is built around (and it survives reduced motion and colour
+    // blindness, because the change is shape+fill, not only colour).
+    val activeOrbit = ImageBitmap.imageResource(RunsR.drawable.zidrun_hold_orbit_active)
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(240.dp)
+            .size(CONTROL_SIZE)
             .graphicsLayer { scaleX = appliedScale; scaleY = appliedScale }
             .clip(CircleShape)
             .pointerInput(Unit) {
@@ -511,76 +522,102 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 onClick(label = startLabel) { onTriggered(); true }
             },
     ) {
-        // These layers are exported from the approved ready/progress/complete mockups. Keeping
-        // them as images preserves the intended foot shape and footprint rhythm on small screens.
+        // Layer order matches the reference build: orange backlight, the muted orbit, the clockwise
+        // active orbit, the sole edge glow, the sole itself, then the label. The artwork is the
+        // extracted/recoloured ZidRun run layers (drawable-nodpi/zidrun_hold_*), so the foot
+        // silhouette, contour lines and footprint rhythm stay exactly as designed.
+
+        // 1. Orange ambient backlight — faint at rest, warm and close by completion. Its scale
+        //    breathes outward with the hold, but only when animations are on (reduced motion keeps
+        //    the brightness change and drops the movement).
+        val glowScale = if (animationsEnabled) 0.78f + progress * 0.30f else 1f
         Image(
-            painter = painterResource(RunsR.drawable.zidrun_run_orange_glow),
+            painter = painterResource(RunsR.drawable.zidrun_hold_orange_glow),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().padding(10.dp).alpha(0.28f + progress * 0.72f),
-        )
-        Image(
-            painter = painterResource(RunsR.drawable.zidrun_run_footprints_ring),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().padding(2.dp).alpha(0.72f),
-        )
-        Image(
-            painter = painterResource(RunsR.drawable.zidrun_run_footprints_ring_active),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().padding(2.dp).alpha(progress),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = 0.12f + progress * 0.73f
+                    scaleX = glowScale
+                    scaleY = glowScale
+                },
         )
 
-        // A sweep on top of the crossfade. Opacity alone says "something is happening"; a hand
-        // going round says how much longer to hold, which is the only question at this moment.
-        val sweepColor = ZidRunDarkColors.primary
-        // Inset to sit on the footprint circle rather than on the edge of the control's box: the
-        // exported artwork carries its own margin, so a flush arc reads as an unrelated second ring.
-        Canvas(modifier = Modifier.fillMaxSize().padding(SWEEP_INSET)) {
-            if (progress <= 0f) return@Canvas
-            val stroke = 5.dp.toPx()
-            val inset = stroke / 2
-            drawArc(
-                color = sweepColor,
-                startAngle = -90f,
-                sweepAngle = 360f * progress,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = Size(size.width - stroke, size.height - stroke),
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
-        }
+        // 2. The resting orbit: every footprint muted and unfilled.
+        Image(
+            painter = painterResource(RunsR.drawable.zidrun_hold_orbit_inactive),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
 
-        // The success aura: a single ring that expands from the sweep's radius toward the
-        // control's edge while fading. Drawn full-size (unpadded) so it has room to grow.
+        // 3. The active orbit, revealed clockwise from the top through a growing pie wedge. No
+        //    separate progress arc — the footprints themselves are the meter.
         Canvas(modifier = Modifier.fillMaxSize()) {
-            if (aura <= 0f) return@Canvas
-            val stroke = 3.dp.toPx()
-            val margin = SWEEP_INSET.toPx()
-            val expand = aura * (margin - stroke)
-            val inset = margin - expand
-            drawArc(
-                color = sweepColor.copy(alpha = (1f - aura) * 0.85f),
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = Size(size.width - inset * 2, size.height - inset * 2),
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
+            if (progress <= 0f) return@Canvas
+            val wedge = Path().apply {
+                moveTo(center.x, center.y)
+                arcTo(
+                    rect = Rect(Offset.Zero, size),
+                    startAngleDegrees = -90f,
+                    sweepAngleDegrees = 360f * progress,
+                    forceMoveTo = false,
+                )
+                close()
+            }
+            clipPath(wedge) {
+                drawImage(
+                    image = activeOrbit,
+                    dstOffset = IntOffset.Zero,
+                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                )
+            }
         }
 
+        // 4. The sole edge glow — a faint lime outline at rest, a bright crisp rim by completion.
+        //    Sized a touch larger than the sole so the lime halo sits just outside its silhouette.
+        Image(
+            painter = painterResource(RunsR.drawable.zidrun_hold_sole_edge_glow),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .height(SOLE_HEIGHT + 12.dp)
+                .width(SOLE_WIDTH + 12.dp)
+                .align(Alignment.Center)
+                .alpha(0.35f + progress * 0.65f),
+        )
+
+        // 5. The sole itself: dark navy, internal contour lines, never washed out by the glow.
         Image(
             painter = painterResource(RunsR.drawable.zidrun_run_foot),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(198.dp)
-                .width(99.dp)
-                .align(Alignment.Center)
-                .alpha(0.94f + progress * 0.06f),
+                .height(SOLE_HEIGHT)
+                .width(SOLE_WIDTH)
+                .align(Alignment.Center),
         )
+
+        // Completion pulse: one lime edge flash hugging the sole, expanding and fading a single
+        // time (never a loop). Reduced motion leaves `aura` at 0, so this never runs there.
+        if (aura > 0f) {
+            val pulseScale = 1f + aura * 0.12f
+            Image(
+                painter = painterResource(RunsR.drawable.zidrun_hold_sole_edge_glow),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(SOLE_HEIGHT + 12.dp)
+                    .width(SOLE_WIDTH + 12.dp)
+                    .align(Alignment.Center)
+                    .graphicsLayer {
+                        alpha = (1f - aura) * 0.9f
+                        scaleX = pulseScale
+                        scaleY = pulseScale
+                    },
+            )
+        }
 
         // The label's own clear space: a scrim wide enough for the longest translation ("Maintenez
         // / pour commencer") and no wider than the ring's inner circle.
@@ -612,8 +649,12 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
     }
 }
 
-/** Where the progress sweep sits, measured against the exported ring inside the 240dp control. */
-private val SWEEP_INSET = 26.dp
+/** The hold control's overall diameter — dominant on screen, as in the reference. */
+private val CONTROL_SIZE = 320.dp
+
+/** The sole silhouette inside the control. Its ratio matches the exported foot art (≈1:2). */
+private val SOLE_HEIGHT = 250.dp
+private val SOLE_WIDTH = 125.dp
 
 /** How long an aborted hold takes to wind back to nothing. */
 private const val RELEASE_MS = 220f
