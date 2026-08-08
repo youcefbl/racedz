@@ -354,7 +354,7 @@ class RegistrationViewModel(
                     // This costs one request, on this error only. A successful submit — or any
                     // other failure — issues exactly what it did before.
                     val existing = if (result.error.code == ApiErrorCode.IdempotencyKeyReused) {
-                        (registrationRepository.existingRegistration(raceId) as? ApiResult.Success)?.value
+                        (registrationRepository.existingRegistration(raceId, categoryId) as? ApiResult.Success)?.value
                     } else {
                         null
                     }

@@ -173,7 +173,11 @@ fun RegistrationScreen(
                     RegistrationStep.Payment -> PaymentStep(state, viewModel, locale) {
                         pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
-                    RegistrationStep.Done -> DoneStep(proofUploaded = state.proofUploaded, onDone = onDone)
+                    RegistrationStep.Done -> DoneStep(
+                        proofUploaded = state.proofUploaded,
+                        reconciledExistingEntry = state.reconciledExistingEntry,
+                        onDone = onDone,
+                    )
                 }
 
                 Spacer(Modifier.height(ZidRunDimens.spaceXxl))
@@ -605,7 +609,7 @@ private fun PaymentStep(
 }
 
 @Composable
-private fun DoneStep(proofUploaded: Boolean, onDone: () -> Unit) {
+private fun DoneStep(proofUploaded: Boolean, reconciledExistingEntry: Boolean, onDone: () -> Unit) {
     val colors = ZidRunTheme.colors
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -628,6 +632,17 @@ private fun DoneStep(proofUploaded: Boolean, onDone: () -> Unit) {
             color = colors.textMuted,
             textAlign = TextAlign.Center,
         )
+        // A recovered entry that owes nothing — free, or already paid — lands here rather than on
+        // Payment, so this warning has to exist on both endings. Showing it only on Payment meant a
+        // free race silently discarded whatever the runner edited before retrying.
+        if (reconciledExistingEntry) {
+            Text(
+                stringResource(R.string.registration_reconciled),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textMuted,
+                textAlign = TextAlign.Center,
+            )
+        }
         ZidRunButton(text = stringResource(R.string.common_close), onClick = onDone)
     }
 }

@@ -127,16 +127,25 @@ class RegistrationRepository(
         session.onResult(client.call { api.createRegistration(raceId, idempotencyKey, request) })
 
     /**
-     * The runner's existing entry for [raceIdOrSlug], if the server already holds one.
+     * The runner's existing entry for [categoryId], if the server already holds one.
+     *
+     * Scoped to the category, not the race: registrations are unique per
+     * `(userId, raceCategoryId)`, so one runner can legitimately hold several entries in the same
+     * event — the 5 km and the 10 km of one race day. Matching on the race alone would hand the
+     * recovery whichever entry came back first and could adopt the wrong distance.
+     *
+     * [raceIdOrSlug] still narrows the list first, and accepts either form because registration is
+     * reachable by both depending on how the race was opened.
      *
      * Only the idempotency-recovery path calls this — a submit that succeeds, or fails for any
-     * other reason, never issues this request. Matching on id *and* slug because registration is
-     * reachable by either, depending on how the race was opened.
+     * other reason, never issues this request.
      */
-    suspend fun existingRegistration(raceIdOrSlug: String): ApiResult<RegistrationDto?> =
+    suspend fun existingRegistration(raceIdOrSlug: String, categoryId: String): ApiResult<RegistrationDto?> =
         when (val result = session.onResult(client.call { api.myRegistrations(page = 1, limit = 50) })) {
             is ApiResult.Success -> ApiResult.Success(
-                result.value.firstOrNull { it.race.id == raceIdOrSlug || it.race.slug == raceIdOrSlug },
+                result.value.firstOrNull {
+                    (it.race.id == raceIdOrSlug || it.race.slug == raceIdOrSlug) && it.category.id == categoryId
+                },
             )
             is ApiResult.Failure -> result
         }
