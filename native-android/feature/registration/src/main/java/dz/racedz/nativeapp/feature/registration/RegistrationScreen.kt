@@ -107,9 +107,13 @@ fun RegistrationScreen(
             .testTag(ZidRunTestTags.RegistrationScroll)
             .background(colors.background)
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            // Insets first, scroll last. Applied after verticalScroll they pad the *content* while
+            // the scroll viewport still runs the full height of the window, so the scroller counts
+            // a field sitting under the keyboard as already visible and refuses to scroll to it —
+            // which is how a focused emergency-contact phone stayed clipped by the IME (G-12).
+            .imePadding()
             .navigationBarsPadding()
-            .imePadding(),
+            .verticalScroll(rememberScrollState()),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(ZidRunDimens.spaceSm),

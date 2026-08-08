@@ -80,9 +80,12 @@ private fun SettingsScaffold(
             .fillMaxSize()
             .background(colors.background)
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            // Insets before the scroller, so the viewport ends at the keyboard and a focused field
+            // can actually be scrolled above it. See RegistrationScreen for the failure this order
+            // prevents.
+            .imePadding()
             .navigationBarsPadding()
-            .imePadding(),
+            .verticalScroll(rememberScrollState()),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(ZidRunDimens.spaceSm),

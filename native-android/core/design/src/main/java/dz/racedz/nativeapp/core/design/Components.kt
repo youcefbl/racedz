@@ -45,7 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -215,6 +219,9 @@ fun ZidRunTextField(
     // the numeric keypad landed as "1996-52-10", and backspace deleted from the middle. Owning a
     // TextFieldValue lets us re-anchor the caret to the same *content* character it was after,
     // counting past whatever separators the formatter added.
+    var fieldSize by remember { mutableStateOf(IntSize.Zero) }
+    // Enough room under the box for the supporting/error line plus a comfortable gap.
+    val helperGapPx = with(LocalDensity.current) { (ZidRunDimens.spaceXl + 20.dp).roundToPx() }
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     if (field.text != value) {
         val contentBeforeCaret = field.text.take(field.selection.end).count(Char::isLetterOrDigit)
@@ -264,12 +271,28 @@ fun ZidRunTextField(
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 60.dp)
                 .bringIntoViewRequester(bringIntoView)
+                .onSizeChanged { fieldSize = it }
                 .onFocusEvent { focus ->
                     if (focus.isFocused) scope.launch {
                         // Wait for the IME inset to be applied; requesting against the old viewport
                         // can leave the field covered as soon as the keyboard finishes opening.
                         delay(250)
-                        bringIntoView.bringIntoView()
+                        // Ask for a strip taller than the field itself. Requesting the bare bounds
+                        // parks the focused box flush against the keyboard, with its bottom border
+                        // clipped and its supporting line — "Digits only, we add the dashes" —
+                        // still hidden underneath, which is where that hint is needed most.
+                        bringIntoView.bringIntoView(
+                            if (fieldSize.height > 0) {
+                                Rect(
+                                    left = 0f,
+                                    top = 0f,
+                                    right = fieldSize.width.toFloat(),
+                                    bottom = (fieldSize.height + helperGapPx).toFloat(),
+                                )
+                            } else {
+                                null
+                            },
+                        )
                     }
                 },
 
