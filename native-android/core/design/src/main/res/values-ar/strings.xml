@@ -388,6 +388,12 @@
     <string name="runs_discard_confirm">عاود اضغط باش تمسح</string>
     <string name="runs_mode_free">حرّة</string>
     <string name="runs_mode_guided">موجّهة</string>
+    <string name="runs_type_label">الحصة</string>
+    <string name="runs_type_easy">ساهل</string>
+    <string name="runs_type_long_run">جرية طويلة</string>
+    <string name="runs_type_intervals">أنترفال</string>
+    <string name="runs_type_strides">سترايد</string>
+    <string name="runs_type_norwegian">نورفيجيان 4×4</string>
     <string name="runs_audio_cues">التنبيهات الصوتية</string>
     <string name="runs_guided_unavailable">الخطوات الموجّهة ما راهيش متوفرة — تتسجّل كسورتي حرّة.</string>
     <string name="runs_step_warmup">تسخين</string>

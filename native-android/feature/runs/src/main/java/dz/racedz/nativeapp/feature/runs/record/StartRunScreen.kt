@@ -17,6 +17,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -167,7 +168,10 @@ fun StartRunScreen(
         val precise = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (precise) {
             permissionDenied = false
-            beginRecording(context, mode, audioCues, session.session, workoutId, onStarted)
+            // Guided mode runs the plan; Free mode runs the chosen workout type's structure (or
+            // nothing, for a plain free run).
+            val guidingSession = if (mode == RunMode.Guided) session.session else session.freeStructure
+            beginRecording(context, audioCues, guidingSession, workoutId, onStarted)
         } else {
             permissionDenied = true
         }
@@ -237,7 +241,27 @@ fun StartRunScreen(
             }
 
             if (mode == RunMode.Guided) {
-                GuidedPlanCard(session = session)
+                GuidedPlanCard(
+                    dto = session.session,
+                    loading = session.loading,
+                    title = session.session?.title ?: stringResource(R.string.runs_mode_guided),
+                )
+            }
+
+            // Free mode: pick a workout type and the run is audio-guided through it (or "Easy" for a
+            // plain free run). Choosing a type fetches its structure; the card previews the steps.
+            if (mode == RunMode.Free) {
+                WorkoutTypePicker(
+                    selected = session.selectedType ?: FREE_RUN_TYPE,
+                    onSelect = { viewModel.selectWorkoutType(it) },
+                )
+                if ((session.selectedType ?: FREE_RUN_TYPE) != FREE_RUN_TYPE) {
+                    GuidedPlanCard(
+                        dto = session.freeStructure,
+                        loading = session.structureLoading,
+                        title = stringResource(workoutTypeLabel(session.selectedType)),
+                    )
+                }
             }
 
             // Cues are the reason to look at the phone less, so they default on.
@@ -304,23 +328,22 @@ fun StartRunScreen(
 
 private fun beginRecording(
     context: android.content.Context,
-    mode: RunMode,
     audioCues: Boolean,
+    // The session that should guide this run: the plan (Guided mode) or the chosen workout type's
+    // structure (Free mode with a type picked), or null for a plain free run. Callers pick it.
     session: dz.racedz.nativeapp.core.network.GuidedSessionDto?,
     workoutId: String?,
     onStarted: () -> Unit,
 ) {
-    // An explicit workout from the plan wins over the guided session's own id: the runner said
-    // which session they are running, and the guided card is only a suggestion of one.
-    if (!RunRecorder.start(workoutId ?: session?.workoutId?.takeIf { mode == RunMode.Guided })) {
+    // An explicit workout from "Log this run" wins over the session's own id. A chosen workout type
+    // has no workoutId, so it stays a free run that simply happens to be audio-guided.
+    if (!RunRecorder.start(workoutId ?: session?.workoutId)) {
         // A recording already exists (this screen was reached by deep link or a stale back stack).
         // Do not touch the live run's settings or restart the service — just land on it.
         onStarted()
         return
     }
-    // A guided run with no session (offline when the screen opened) records as a free one rather
-    // than refusing to start — the run matters more than the guidance.
-    GuidedSessionController.start(if (mode == RunMode.Guided) session else null)
+    GuidedSessionController.start(session)
     RunSettings.audioCuesEnabled = audioCues
     RunTrackingService.start(context)
     onStarted()
@@ -554,13 +577,52 @@ private fun ModeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
     }
 }
 
+/** The localized name for a free-run workout type. */
+private fun workoutTypeLabel(type: String?): Int = when (type) {
+    "long_run" -> R.string.runs_type_long_run
+    "intervals" -> R.string.runs_type_intervals
+    "strides" -> R.string.runs_type_strides
+    "norwegian" -> R.string.runs_type_norwegian
+    else -> R.string.runs_type_easy
+}
+
+/** Free-run workout-type chooser: "Easy" is a plain free run; the rest audio-guide the run. */
+@Composable
+private fun WorkoutTypePicker(selected: String, onSelect: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+        Text(
+            text = stringResource(R.string.runs_type_label),
+            style = MaterialTheme.typography.titleSmall,
+            color = ZidRunDarkColors.textMuted,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+        ) {
+            FREE_RUN_WORKOUT_TYPES.forEach { type ->
+                val isSelected = type == selected
+                Text(
+                    text = stringResource(workoutTypeLabel(type)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) ZidRunDarkColors.onPrimary else ZidRunDarkColors.textStrong,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                        .background(if (isSelected) ZidRunDarkColors.primary else ZidRunDarkColors.surface)
+                        .selectable(selected = isSelected, role = Role.Tab) { onSelect(type) }
+                        .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                )
+            }
+        }
+    }
+}
+
 /** How many steps the pre-run card lists before summarising the rest. */
 private const val GUIDED_STEP_PREVIEW = 4
 
-/** What the guided session will ask for, so the runner knows before they commit to it. */
+/** What a guided/structured session will ask for, so the runner knows before they commit to it. */
 @Composable
-private fun GuidedPlanCard(session: StartRunUiState) {
-    val steps = session.session?.steps.orEmpty()
+private fun GuidedPlanCard(dto: dz.racedz.nativeapp.core.network.GuidedSessionDto?, loading: Boolean, title: String) {
+    val steps = dto?.steps.orEmpty()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -570,12 +632,12 @@ private fun GuidedPlanCard(session: StartRunUiState) {
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         Text(
-            text = session.session?.title ?: stringResource(R.string.runs_mode_guided),
+            text = title,
             style = MaterialTheme.typography.titleSmall,
             color = ZidRunDarkColors.textStrong,
         )
         when {
-            session.loading -> Text(
+            loading -> Text(
                 stringResource(R.string.common_loading),
                 style = MaterialTheme.typography.bodySmall,
                 color = ZidRunDarkColors.textMuted,

@@ -150,6 +150,19 @@ interface ZidRunApi {
     @GET("api/v1/runs/guided")
     suspend fun guidedSession(): Response<ApiEnvelope<GuidedSessionDto>>
 
+    /** Steps for a workout the runner chose themselves (no plan): intervals, norwegian, strides,
+     * recovery, long_run. Template params are optional and clamped server-side. */
+    @GET("api/v1/runs/structure")
+    suspend fun runStructure(
+        @Query("type") type: String,
+        @Query("reps") reps: Int? = null,
+        @Query("repMeters") repMeters: Int? = null,
+        @Query("workMinutes") workMinutes: Int? = null,
+        @Query("easyMinutes") easyMinutes: Int? = null,
+        @Query("durationMin") durationMin: Int? = null,
+        @Query("distanceKm") distanceKm: Int? = null,
+    ): Response<ApiEnvelope<GuidedSessionDto>>
+
     /** Live conditions where the runner is about to run. Coordinates optional; the server falls
      * back to the runner's wilaya when they are absent. */
     @GET("api/v1/weather")

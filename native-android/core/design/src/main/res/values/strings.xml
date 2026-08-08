@@ -391,6 +391,12 @@
     <string name="runs_discard_confirm">Tap again to discard</string>
     <string name="runs_mode_free">Free run</string>
     <string name="runs_mode_guided">Guided</string>
+    <string name="runs_type_label">Workout</string>
+    <string name="runs_type_easy">Easy</string>
+    <string name="runs_type_long_run">Long run</string>
+    <string name="runs_type_intervals">Intervals</string>
+    <string name="runs_type_strides">Strides</string>
+    <string name="runs_type_norwegian">Norwegian 4×4</string>
     <string name="runs_audio_cues">Audio cues</string>
     <string name="runs_guided_unavailable">Guided steps are unavailable right now — this will record as a free run.</string>
     <string name="runs_step_warmup">Warm up</string>

@@ -25,6 +25,11 @@ data class StartRunUiState(
     val weather: WeatherDto? = null,
     /** The city/town the runner is in, reverse-geocoded from their fix; null when unknown. */
     val placeName: String? = null,
+    /** The workout type the runner picked on a Free run, or null for a plain free run. */
+    val selectedType: String? = null,
+    /** The structure for [selectedType], used to audio-guide a Free run; null for a plain free run. */
+    val freeStructure: GuidedSessionDto? = null,
+    val structureLoading: Boolean = false,
 )
 
 /**
@@ -67,7 +72,34 @@ class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
 
     /** The reverse-geocoded city/town, shown above the temperature. Best-effort; null is fine. */
     fun setPlaceName(name: String?) = _state.update { it.copy(placeName = name?.takeIf { n -> n.isNotBlank() }) }
+
+    /**
+     * Loads the step structure for a runner-chosen workout type (intervals, norwegian, strides,
+     * recovery, long_run) so a Free run can be audio-guided without a plan. A blank/"easy" type is a
+     * plain free run: clear any structure. A failure keeps the plain free run rather than blocking.
+     */
+    fun selectWorkoutType(type: String?) {
+        if (type.isNullOrBlank() || type == FREE_RUN_TYPE) {
+            _state.update { it.copy(selectedType = null, freeStructure = null, structureLoading = false) }
+            return
+        }
+        _state.update { it.copy(selectedType = type, structureLoading = true) }
+        viewModelScope.launch {
+            when (val result = repository.runStructure(type)) {
+                is ApiResult.Success ->
+                    _state.update { it.copy(freeStructure = result.value, structureLoading = false) }
+                is ApiResult.Failure ->
+                    _state.update { it.copy(selectedType = null, freeStructure = null, structureLoading = false) }
+            }
+        }
+    }
 }
+
+/** The "no structure, just run" option in the Free-mode workout-type picker. */
+const val FREE_RUN_TYPE = "easy"
+
+/** The workout types the Free-run picker offers, in display order. Values match the endpoint's ids. */
+val FREE_RUN_WORKOUT_TYPES = listOf(FREE_RUN_TYPE, "long_run", "intervals", "strides", "norwegian")
 
 /** Human label for a step's role, e.g. "Warm up". */
 @Composable
