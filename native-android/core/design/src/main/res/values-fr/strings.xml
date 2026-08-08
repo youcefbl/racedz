@@ -580,4 +580,8 @@
     <string name="coach_memory_source_human">De la part de votre coach</string>
     <string name="coach_chat_based_on">Basé sur</string>
     <string name="coach_chat_answer">Répondre</string>
+    <plurals name="runs_guided_more_steps">
+        <item quantity="one">+%1$s étape de plus</item>
+        <item quantity="other">+%1$s étapes de plus</item>
+    </plurals>
 </resources>

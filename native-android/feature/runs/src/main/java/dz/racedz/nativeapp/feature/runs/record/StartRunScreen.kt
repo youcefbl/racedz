@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -303,6 +304,9 @@ private fun ModeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
     }
 }
 
+/** How many steps the pre-run card lists before summarising the rest. */
+private const val GUIDED_STEP_PREVIEW = 4
+
 /** What the guided session will ask for, so the runner knows before they commit to it. */
 @Composable
 private fun GuidedPlanCard(session: StartRunUiState) {
@@ -331,12 +335,25 @@ private fun GuidedPlanCard(session: StartRunUiState) {
                 style = MaterialTheme.typography.bodySmall,
                 color = ZidRunDarkColors.textMuted,
             )
-            else -> steps.take(4).forEach { step ->
-                Text(
-                    text = "${stepRoleLabel(step.role)} · ${stepTargetLabel(step)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ZidRunDarkColors.textMuted,
-                )
+            else -> {
+                steps.take(GUIDED_STEP_PREVIEW).forEach { step ->
+                    Text(
+                        text = "${stepRoleLabel(step.role)} · ${stepTargetLabel(step)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ZidRunDarkColors.textMuted,
+                    )
+                }
+                // An interval session runs to a dozen-odd steps. Cutting the list at four without
+                // saying so told the runner "warm up, work, recover, work" and left them to guess
+                // whether that was the whole session — the opposite of what this card is for.
+                val hidden = steps.size - GUIDED_STEP_PREVIEW
+                if (hidden > 0) {
+                    Text(
+                        text = pluralStringResource(R.plurals.runs_guided_more_steps, hidden, hidden.toString()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ZidRunDarkColors.textMuted,
+                    )
+                }
             }
         }
     }

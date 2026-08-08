@@ -599,4 +599,8 @@
     <string name="coach_memory_source_human">From your coach</string>
     <string name="coach_chat_based_on">Based on</string>
     <string name="coach_chat_answer">Answer</string>
+    <plurals name="runs_guided_more_steps">
+        <item quantity="one">+%1$s more step</item>
+        <item quantity="other">+%1$s more steps</item>
+    </plurals>
 </resources>

@@ -602,4 +602,12 @@
     <string name="coach_memory_source_human">من مدربك</string>
     <string name="coach_chat_based_on">استنادًا إلى</string>
     <string name="coach_chat_answer">أجب</string>
+    <plurals name="runs_guided_more_steps">
+        <item quantity="zero">+%1$s خطوة أخرى</item>
+        <item quantity="one">+خطوة واحدة أخرى</item>
+        <item quantity="two">+خطوتان أخريان</item>
+        <item quantity="few">+%1$s خطوات أخرى</item>
+        <item quantity="many">+%1$s خطوة أخرى</item>
+        <item quantity="other">+%1$s خطوة أخرى</item>
+    </plurals>
 </resources>
