@@ -21,6 +21,7 @@
     "test:social-import": "tsx scripts/test-social-import.ts",
     "test:mfa": "tsx scripts/test-mfa.ts",
     "test:social-authz": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-social-authz.ts",
+    "test:authz-objects": "tsx scripts/test-authz-objects.ts",
     "test:groups-moderation": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-groups-moderation.ts",
     "test:registration": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-registration-concurrency.ts",
     "test:e2e": "node scripts/run-e2e.mjs",
