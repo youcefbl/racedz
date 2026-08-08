@@ -145,6 +145,7 @@
     <string name="registration_success_title">Vous êtes inscrit</string>
     <string name="registration_success_body">Votre place est réservée. Payez et envoyez votre preuve pour que l\'organisateur confirme.</string>
     <string name="registration_already">Vous êtes déjà inscrit à cette distance.</string>
+    <string name="registration_reconciled">Cette inscription avait déjà été créée par une tentative précédente ; elle s\'affiche telle que l\'organisateur la détient. Les informations que vous venez de modifier n\'ont pas été appliquées — modifiez-les depuis Mes inscriptions.</string>
 
     <string name="payment_title">Paiement</string>
     <string name="payment_amount">Montant : %1$s DZD</string>

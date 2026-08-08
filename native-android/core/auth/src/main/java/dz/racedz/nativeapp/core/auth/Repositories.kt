@@ -126,6 +126,21 @@ class RegistrationRepository(
     ): ApiResult<RegistrationDto> =
         session.onResult(client.call { api.createRegistration(raceId, idempotencyKey, request) })
 
+    /**
+     * The runner's existing entry for [raceIdOrSlug], if the server already holds one.
+     *
+     * Only the idempotency-recovery path calls this — a submit that succeeds, or fails for any
+     * other reason, never issues this request. Matching on id *and* slug because registration is
+     * reachable by either, depending on how the race was opened.
+     */
+    suspend fun existingRegistration(raceIdOrSlug: String): ApiResult<RegistrationDto?> =
+        when (val result = session.onResult(client.call { api.myRegistrations(page = 1, limit = 50) })) {
+            is ApiResult.Success -> ApiResult.Success(
+                result.value.firstOrNull { it.race.id == raceIdOrSlug || it.race.slug == raceIdOrSlug },
+            )
+            is ApiResult.Failure -> result
+        }
+
     suspend fun uploadPaymentProof(
         registrationId: String,
         paymentMethod: String,

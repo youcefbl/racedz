@@ -158,6 +158,7 @@
     <string name="registration_success_title">You are registered</string>
     <string name="registration_success_body">Your place is held. Pay and upload your proof so the organizer can confirm it.</string>
     <string name="registration_already">You are already registered for this distance.</string>
+    <string name="registration_reconciled">This entry was already created by an earlier attempt, so it is shown as the organizer has it. Any details you changed just now were not applied — edit them from My registrations.</string>
 
     <!-- payment -->
     <string name="payment_title">Payment</string>

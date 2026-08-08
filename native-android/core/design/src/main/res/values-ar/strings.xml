@@ -146,6 +146,7 @@
     <string name="registration_success_title">راك مسجّل</string>
     <string name="registration_success_body">البلاصة ديالك محجوزة. خلّص وصيفط الإثبات باش المنظّم يأكّد.</string>
     <string name="registration_already">راك مسجّل من قبل في هاذ المسافة.</string>
+    <string name="registration_reconciled">هذا التسجيل تدار من قبل في محاولة سابقة، وراك تشوفو كيما عند المنظّم. المعلومات لي بدّلتها توّا ما تطبّقاتش — بدّلها من «تسجيلاتي».</string>
 
     <string name="payment_title">الدفع</string>
     <string name="payment_amount">المبلغ: %1$s دج</string>

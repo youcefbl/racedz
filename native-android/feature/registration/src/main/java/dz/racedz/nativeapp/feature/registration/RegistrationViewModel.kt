@@ -57,6 +57,12 @@ data class RegistrationUiState(
     val paymentMethod: String = "BARIDIMOB",
     val error: ApiCallException? = null,
     val proofUploaded: Boolean = false,
+    /**
+     * Set when Confirm turned out to be a retry of a submit that had already committed, and the
+     * entry shown here is the one the server kept rather than the edited form. The screen has to
+     * say so: the runner changed something and we did not apply it.
+     */
+    val reconciledExistingEntry: Boolean = false,
 ) {
     val selectedCategory: RaceCategoryDto?
         get() = race?.categories?.firstOrNull { it.id == selectedCategoryId }
@@ -329,29 +335,60 @@ class RegistrationViewModel(
                 ),
             )
 
-            _state.update { current ->
-                when (result) {
-                    is ApiResult.Success -> current.copy(
-                        submitting = false,
-                        registration = result.value,
-                        // Skip the payment step entirely when the server says nothing is owed.
-                        step = if (result.value.paymentStatus == "NOT_REQUIRED" || result.value.paymentStatus == "PAID") {
-                            RegistrationStep.Done
+            when (result) {
+                is ApiResult.Success -> _state.update { it.arriveAt(result.value) }
+
+                is ApiResult.Failure -> {
+                    // Reconcile before reporting, but only for the one error that means "you have
+                    // already registered under this key". The key is held for the whole attempt so
+                    // a retry after a lost response replays the first result — but Review lets the
+                    // runner edit, and a retry with a changed body is a *different* request under
+                    // the same key, which the server correctly refuses. Retrying cannot heal that:
+                    // the key lives in saved state, so every further Confirm hits the same 409 and
+                    // the runner's only way out was to abandon the flow.
+                    //
+                    // Rotating the key here would risk a second real entry, because the refusal
+                    // means the first request was recorded. So ask the server what it actually
+                    // holds and show the runner that, rather than an error they cannot clear.
+                    //
+                    // This costs one request, on this error only. A successful submit — or any
+                    // other failure — issues exactly what it did before.
+                    val existing = if (result.error.code == ApiErrorCode.IdempotencyKeyReused) {
+                        (registrationRepository.existingRegistration(raceId) as? ApiResult.Success)?.value
+                    } else {
+                        null
+                    }
+
+                    _state.update { current ->
+                        if (existing != null) {
+                            current.arriveAt(existing).copy(reconciledExistingEntry = true)
                         } else {
-                            RegistrationStep.Payment
-                        },
-                    )
-                    is ApiResult.Failure -> current.copy(
-                        submitting = false,
-                        error = result.error,
-                        // Not a field problem: the profile is missing data this form prefills from,
-                        // so the runner is sent to onboarding rather than left staring at the form.
-                        needsOnboarding = result.error.code == ApiErrorCode.ProfileIncomplete,
-                    )
+                            current.copy(
+                                submitting = false,
+                                error = result.error,
+                                // Not a field problem: the profile is missing data this form
+                                // prefills from, so the runner is sent to onboarding rather than
+                                // left staring at the form.
+                                needsOnboarding = result.error.code == ApiErrorCode.ProfileIncomplete,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+
+    /** Land on the entry the server holds, skipping Payment when nothing is owed. */
+    private fun RegistrationUiState.arriveAt(entry: RegistrationDto) = copy(
+        submitting = false,
+        error = null,
+        registration = entry,
+        step = if (entry.paymentStatus == "NOT_REQUIRED" || entry.paymentStatus == "PAID") {
+            RegistrationStep.Done
+        } else {
+            RegistrationStep.Payment
+        },
+    )
 
     /**
      * Uploads a payment screenshot the user picked from the system photo picker.

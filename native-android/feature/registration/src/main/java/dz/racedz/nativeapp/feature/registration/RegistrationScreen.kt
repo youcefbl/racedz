@@ -494,6 +494,16 @@ private fun PaymentStep(
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.text,
             )
+            // Confirm turned out to be a retry of a submit that had already committed, so this is
+            // the entry the server kept — not the edited form. Saying nothing would quietly drop
+            // whatever the runner changed before retrying.
+            if (state.reconciledExistingEntry) {
+                Text(
+                    stringResource(R.string.registration_reconciled),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textMuted,
+                )
+            }
             registration.category.priceDzd?.takeIf { it > 0 }?.let {
                 Text(
                     stringResource(R.string.payment_amount, ZidRunFormat.money(it, locale)),

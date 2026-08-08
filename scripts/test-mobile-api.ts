@@ -380,6 +380,27 @@ async function main() {
         (replay.body.data as { id?: string })?.id === (created.body.data as { id?: string })?.id
       );
 
+      // Review lets the runner edit and retry, so a retry can carry a *changed* body under the key
+      // the attempt is still holding. That must not quietly register something different, and it
+      // must not be mistaken for the replay above: the client's recovery keys off this exact 409 to
+      // go and reconcile against the entry the server already holds.
+      const edited = await api(`/api/v1/races/${openRace.id}/registrations`, {
+        method: "POST",
+        token: accessToken,
+        body: { ...registrationBody, emergencyContactName: "Someone Else" },
+        headers: { "Idempotency-Key": key }
+      });
+      check("a changed body under the same key is refused", edited.status === 409, edited.body);
+      check(
+        "the refusal is IDEMPOTENCY_KEY_REUSED, which the client recovers from",
+        (edited.body.error as { code?: string })?.code === "IDEMPOTENCY_KEY_REUSED",
+        edited.body
+      );
+      const afterEdit = await prisma.raceRegistration.count({
+        where: { userId: user.id, raceEventId: openRace.id }
+      });
+      check("the refused retry created no second entry", afterEdit === 1, { afterEdit });
+
       // Two identical taps racing each other must produce one registration, not two. Before the
       // reservation was inserted ahead of the mutation, both could pass a "no record yet" check.
       //
