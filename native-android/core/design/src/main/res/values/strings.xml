@@ -397,6 +397,13 @@
     <string name="runs_type_intervals">Intervals</string>
     <string name="runs_type_strides">Strides</string>
     <string name="runs_type_norwegian">Norwegian 4×4</string>
+    <string name="runs_type_subscribe">Guided workouts are a subscriber feature. Subscribe to unlock them.</string>
+    <string name="runs_param_reps">Reps</string>
+    <string name="runs_param_distance">Distance</string>
+    <string name="runs_param_easy">Easy run</string>
+    <string name="runs_param_work">Work</string>
+    <string name="runs_param_recovery">Recovery</string>
+    <string name="runs_param_km_value">%1$s km</string>
     <string name="runs_audio_cues">Audio cues</string>
     <string name="runs_guided_unavailable">Guided steps are unavailable right now — this will record as a free run.</string>
     <string name="runs_step_warmup">Warm up</string>

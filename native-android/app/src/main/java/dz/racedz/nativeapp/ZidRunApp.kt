@@ -360,7 +360,7 @@ fun ZidRunApp(
                 ),
             ) { entry ->
                 val startViewModel: StartRunViewModel = viewModel(
-                    factory = SimpleViewModelFactory { StartRunViewModel(container.runsRepository) }
+                    factory = SimpleViewModelFactory { StartRunViewModel(container.runsRepository, container.coachRepository) }
                 )
                 StartRunScreen(
                     viewModel = startViewModel,

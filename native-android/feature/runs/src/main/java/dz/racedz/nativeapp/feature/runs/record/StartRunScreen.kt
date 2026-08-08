@@ -249,17 +249,28 @@ fun StartRunScreen(
             }
 
             // Free mode: pick a workout type and the run is audio-guided through it (or "Easy" for a
-            // plain free run). Choosing a type fetches its structure; the card previews the steps.
+            // plain free run). Structured types are a subscriber feature — non-subscribers see the
+            // chips disabled with a prompt. Choosing a type fetches its structure; the runner can
+            // tune it and the card previews the steps.
             if (mode == RunMode.Free) {
                 WorkoutTypePicker(
                     selected = session.selectedType ?: FREE_RUN_TYPE,
+                    enabled = session.canCustomize,
                     onSelect = { viewModel.selectWorkoutType(it) },
                 )
-                if ((session.selectedType ?: FREE_RUN_TYPE) != FREE_RUN_TYPE) {
+                if (!session.canCustomize && session.entitlementKnown) {
+                    SubscribeToCustomizeNotice()
+                }
+                session.selectedType?.takeIf { it != FREE_RUN_TYPE }?.let { type ->
+                    WorkoutParamControls(
+                        type = type,
+                        values = session.typeParams,
+                        onChange = { key, delta -> viewModel.updateParam(key, delta) },
+                    )
                     GuidedPlanCard(
                         dto = session.freeStructure,
                         loading = session.structureLoading,
-                        title = stringResource(workoutTypeLabel(session.selectedType)),
+                        title = stringResource(workoutTypeLabel(type)),
                     )
                 }
             }
@@ -586,9 +597,14 @@ private fun workoutTypeLabel(type: String?): Int = when (type) {
     else -> R.string.runs_type_easy
 }
 
-/** Free-run workout-type chooser: "Easy" is a plain free run; the rest audio-guide the run. */
+/**
+ * Free-run workout-type chooser: "Easy" is a plain free run; the rest audio-guide the run.
+ *
+ * The structured types are a subscriber feature: when [enabled] is false they render dimmed and only
+ * "Easy" responds, so a non-subscriber can still run — the subscribe prompt sits below.
+ */
 @Composable
-private fun WorkoutTypePicker(selected: String, onSelect: (String) -> Unit) {
+private fun WorkoutTypePicker(selected: String, enabled: Boolean, onSelect: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
         Text(
             text = stringResource(R.string.runs_type_label),
@@ -601,18 +617,126 @@ private fun WorkoutTypePicker(selected: String, onSelect: (String) -> Unit) {
         ) {
             FREE_RUN_WORKOUT_TYPES.forEach { type ->
                 val isSelected = type == selected
+                // "Easy" is always available; the structured types need a subscription.
+                val locked = !enabled && type != FREE_RUN_TYPE
+                val fill = when {
+                    isSelected -> ZidRunDarkColors.primary
+                    else -> ZidRunDarkColors.surface
+                }
+                val label = when {
+                    isSelected -> ZidRunDarkColors.onPrimary
+                    locked -> ZidRunDarkColors.textMuted.copy(alpha = 0.5f)
+                    else -> ZidRunDarkColors.textStrong
+                }
                 Text(
                     text = stringResource(workoutTypeLabel(type)),
                     style = MaterialTheme.typography.labelLarge,
-                    color = if (isSelected) ZidRunDarkColors.onPrimary else ZidRunDarkColors.textStrong,
+                    color = label,
                     modifier = Modifier
                         .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
-                        .background(if (isSelected) ZidRunDarkColors.primary else ZidRunDarkColors.surface)
-                        .selectable(selected = isSelected, role = Role.Tab) { onSelect(type) }
+                        .background(fill)
+                        .selectable(selected = isSelected, enabled = !locked, role = Role.Tab) { onSelect(type) }
                         .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
                 )
             }
         }
+    }
+}
+
+/** Shown under a locked type picker: structured workouts need a subscription. */
+@Composable
+private fun SubscribeToCustomizeNotice() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(ZidRunDarkColors.primary.copy(alpha = 0.12f))
+            .padding(ZidRunDimens.spaceMd),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        Icon(Icons.Filled.Lock, contentDescription = null, tint = ZidRunDarkColors.primary, modifier = Modifier.size(18.dp))
+        Text(
+            text = stringResource(R.string.runs_type_subscribe),
+            style = MaterialTheme.typography.bodyMedium,
+            color = ZidRunDarkColors.textStrong,
+        )
+    }
+}
+
+/** The +/- controls for a chosen workout type's tunables (reps, distance, recovery…). */
+@Composable
+private fun WorkoutParamControls(type: String, values: Map<String, Int>, onChange: (String, Int) -> Unit) {
+    val specs = WORKOUT_TYPE_PARAMS[type] ?: return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(ZidRunDarkColors.surface)
+            .padding(ZidRunDimens.spaceMd),
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+    ) {
+        specs.forEach { spec ->
+            val value = values[spec.key] ?: spec.default
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(paramLabel(spec.key)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ZidRunDarkColors.text,
+                    modifier = Modifier.weight(1f),
+                )
+                StepperButton(symbol = "−", enabled = value > spec.min) { onChange(spec.key, -1) }
+                Text(
+                    text = paramValueText(spec.key, value),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = ZidRunDarkColors.textStrong,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(min = 64.dp).padding(horizontal = ZidRunDimens.spaceXs),
+                )
+                StepperButton(symbol = "+", enabled = value < spec.max) { onChange(spec.key, +1) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepperButton(symbol: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(ZidRunDarkColors.primary.copy(alpha = if (enabled) 0.16f else 0.05f))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = symbol,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (enabled) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
+        )
+    }
+}
+
+/** The label for a workout tunable. */
+private fun paramLabel(key: String): Int = when (key) {
+    "reps" -> R.string.runs_param_reps
+    "repMeters", "distanceKm" -> R.string.runs_param_distance
+    "easyMinutes" -> R.string.runs_param_easy
+    "workMinutes" -> R.string.runs_param_work
+    "recoverySeconds" -> R.string.runs_param_recovery
+    else -> R.string.runs_param_reps
+}
+
+/** A tunable's value with its unit — "6", "400 m", "12 km", "20 min", "90 sec". */
+@Composable
+private fun paramValueText(key: String, value: Int): String {
+    val n = ZidRunFormat.count(value, currentLocale())
+    return when (key) {
+        "repMeters" -> stringResource(R.string.runs_step_metres, n)
+        "distanceKm" -> stringResource(R.string.runs_param_km_value, n)
+        "easyMinutes", "workMinutes" -> stringResource(R.string.runs_step_minutes, n)
+        "recoverySeconds" -> stringResource(R.string.runs_step_seconds, n)
+        else -> n
     }
 }
 

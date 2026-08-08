@@ -161,6 +161,7 @@ interface ZidRunApi {
         @Query("easyMinutes") easyMinutes: Int? = null,
         @Query("durationMin") durationMin: Int? = null,
         @Query("distanceKm") distanceKm: Int? = null,
+        @Query("recoverySeconds") recoverySeconds: Int? = null,
     ): Response<ApiEnvelope<GuidedSessionDto>>
 
     /** Live conditions where the runner is about to run. Coordinates optional; the server falls

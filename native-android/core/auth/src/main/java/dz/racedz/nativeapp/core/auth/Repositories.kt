@@ -225,17 +225,21 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
     /** Today's guided session: warm-up, work, cool-down, built server-side. */
     suspend fun guidedSession(): ApiResult<GuidedSessionDto> = client.call { api.guidedSession() }
 
-    /** Steps for a runner-chosen workout type (no plan). Params are optional; the server clamps them. */
-    suspend fun runStructure(
-        type: String,
-        reps: Int? = null,
-        repMeters: Int? = null,
-        workMinutes: Int? = null,
-        easyMinutes: Int? = null,
-        durationMin: Int? = null,
-        distanceKm: Int? = null,
-    ): ApiResult<GuidedSessionDto> =
-        client.call { api.runStructure(type, reps, repMeters, workMinutes, easyMinutes, durationMin, distanceKm) }
+    /** Steps for a runner-chosen workout type (no plan), with any tunables the runner set. The
+     * server clamps each to the template's bounds, so out-of-range or unknown keys are harmless. */
+    suspend fun runStructure(type: String, params: Map<String, Int>): ApiResult<GuidedSessionDto> =
+        client.call {
+            api.runStructure(
+                type = type,
+                reps = params["reps"],
+                repMeters = params["repMeters"],
+                workMinutes = params["workMinutes"],
+                easyMinutes = params["easyMinutes"],
+                durationMin = params["durationMin"],
+                distanceKm = params["distanceKm"],
+                recoverySeconds = params["recoverySeconds"],
+            )
+        }
 
     /** Live conditions where the runner is about to run; coordinates optional (wilaya fallback). */
     suspend fun weather(lat: Double?, lng: Double?): ApiResult<WeatherDto> =

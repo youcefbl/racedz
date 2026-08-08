@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dz.racedz.nativeapp.core.auth.CoachRepository
 import dz.racedz.nativeapp.core.auth.RunsRepository
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunFormat
@@ -30,6 +31,41 @@ data class StartRunUiState(
     /** The structure for [selectedType], used to audio-guide a Free run; null for a plain free run. */
     val freeStructure: GuidedSessionDto? = null,
     val structureLoading: Boolean = false,
+    /** The tunable values for [selectedType], keyed as the server expects them (reps, repMeters…). */
+    val typeParams: Map<String, Int> = emptyMap(),
+    /**
+     * Whether the runner may pick and customize a guided workout type. Structured guided workouts
+     * are a subscriber feature; everyone else can still run Free, so the chips are shown disabled
+     * with a prompt to subscribe rather than hidden.
+     */
+    val canCustomize: Boolean = false,
+    val entitlementKnown: Boolean = false,
+)
+
+/** One adjustable value on a workout type: bounds and the step for the +/- control. */
+data class WorkoutParamSpec(val key: String, val min: Int, val max: Int, val step: Int, val default: Int)
+
+/**
+ * The tunables each workout type exposes, mirroring the server's GUIDED_SESSION_TEMPLATES so the
+ * +/- controls match exactly what the endpoint will clamp to. Order is display order.
+ */
+val WORKOUT_TYPE_PARAMS: Map<String, List<WorkoutParamSpec>> = mapOf(
+    "long_run" to listOf(WorkoutParamSpec("distanceKm", 6, 32, 1, 12)),
+    "intervals" to listOf(
+        WorkoutParamSpec("reps", 4, 10, 1, 6),
+        WorkoutParamSpec("repMeters", 200, 1000, 100, 400),
+        WorkoutParamSpec("recoverySeconds", 30, 180, 15, 90),
+    ),
+    "strides" to listOf(
+        WorkoutParamSpec("easyMinutes", 10, 40, 5, 20),
+        WorkoutParamSpec("reps", 4, 8, 1, 6),
+        WorkoutParamSpec("recoverySeconds", 30, 120, 15, 60),
+    ),
+    "norwegian" to listOf(
+        WorkoutParamSpec("reps", 3, 5, 1, 4),
+        WorkoutParamSpec("workMinutes", 3, 6, 1, 4),
+        WorkoutParamSpec("recoverySeconds", 60, 300, 30, 180),
+    ),
 )
 
 /**
@@ -38,7 +74,10 @@ data class StartRunUiState(
  * A failure is silent: the session is simply absent, the guided card says so, and starting still
  * works as a free run. Being unable to reach the server is not a reason to stop someone running.
  */
-class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
+class StartRunViewModel(
+    private val repository: RunsRepository,
+    private val coach: CoachRepository,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(StartRunUiState())
     val state: StateFlow<StartRunUiState> = _state.asStateFlow()
@@ -53,6 +92,15 @@ class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 // cues, instead of the guided card reading "unavailable" and recording a bare run.
                 is ApiResult.Failure -> _state.update { it.copy(session = OFFLINE_GUIDED_SESSION, loading = false) }
             }
+        }
+        viewModelScope.launch {
+            // Structured guided workouts are a subscriber feature. Unknown entitlement (a failed
+            // fetch) locks it, which is the safe default — the server enforces it regardless.
+            val subscribed = when (val result = coach.overview()) {
+                is ApiResult.Success -> result.value.entitlement.tier == "SUBSCRIBED"
+                is ApiResult.Failure -> false
+            }
+            _state.update { it.copy(canCustomize = subscribed, entitlementKnown = true) }
         }
     }
 
@@ -80,16 +128,36 @@ class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
      */
     fun selectWorkoutType(type: String?) {
         if (type.isNullOrBlank() || type == FREE_RUN_TYPE) {
-            _state.update { it.copy(selectedType = null, freeStructure = null, structureLoading = false) }
+            _state.update { it.copy(selectedType = null, freeStructure = null, structureLoading = false, typeParams = emptyMap()) }
             return
         }
-        _state.update { it.copy(selectedType = type, structureLoading = true) }
+        // Only subscribers may run a structured workout; everyone else stays on a plain free run.
+        if (!_state.value.canCustomize) return
+        val params = (WORKOUT_TYPE_PARAMS[type] ?: emptyList()).associate { it.key to it.default }
+        _state.update { it.copy(selectedType = type, typeParams = params, structureLoading = true) }
+        fetchStructure(type, params)
+    }
+
+    /** Adjusts one tunable (clamped to its bounds) and re-fetches the structure to preview. */
+    fun updateParam(key: String, delta: Int) {
+        val type = _state.value.selectedType ?: return
+        val spec = WORKOUT_TYPE_PARAMS[type]?.firstOrNull { it.key == key } ?: return
+        val current = _state.value.typeParams[key] ?: spec.default
+        val next = (current + delta * spec.step).coerceIn(spec.min, spec.max)
+        if (next == current) return
+        val params = _state.value.typeParams.toMutableMap().apply { put(key, next) }
+        _state.update { it.copy(typeParams = params, structureLoading = true) }
+        fetchStructure(type, params)
+    }
+
+    private fun fetchStructure(type: String, params: Map<String, Int>) {
         viewModelScope.launch {
-            when (val result = repository.runStructure(type)) {
+            when (val result = repository.runStructure(type, params)) {
                 is ApiResult.Success ->
-                    _state.update { it.copy(freeStructure = result.value, structureLoading = false) }
+                    // Ignore a stale response if the runner has since changed the type.
+                    _state.update { if (it.selectedType == type) it.copy(freeStructure = result.value, structureLoading = false) else it }
                 is ApiResult.Failure ->
-                    _state.update { it.copy(selectedType = null, freeStructure = null, structureLoading = false) }
+                    _state.update { if (it.selectedType == type) it.copy(structureLoading = false) else it }
             }
         }
     }

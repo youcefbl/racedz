@@ -379,6 +379,13 @@
     <string name="runs_type_intervals">Fractionné</string>
     <string name="runs_type_strides">Lignes</string>
     <string name="runs_type_norwegian">Norvégien 4×4</string>
+    <string name="runs_type_subscribe">Les séances guidées sont réservées aux abonnés. Abonnez-vous pour les débloquer.</string>
+    <string name="runs_param_reps">Répétitions</string>
+    <string name="runs_param_distance">Distance</string>
+    <string name="runs_param_easy">Course facile</string>
+    <string name="runs_param_work">Effort</string>
+    <string name="runs_param_recovery">Récupération</string>
+    <string name="runs_param_km_value">%1$s km</string>
     <string name="runs_audio_cues">Cues audio</string>
     <string name="runs_guided_unavailable">Les étapes guidées sont indisponibles — la sortie sera enregistrée comme libre.</string>
     <string name="runs_step_warmup">Échauffement</string>

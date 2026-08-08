@@ -394,6 +394,13 @@
     <string name="runs_type_intervals">أنترفال</string>
     <string name="runs_type_strides">سترايد</string>
     <string name="runs_type_norwegian">نورفيجيان 4×4</string>
+    <string name="runs_type_subscribe">الحصص الموجّهة للمشتركين. اشترك باش تحلّها.</string>
+    <string name="runs_param_reps">التكرارات</string>
+    <string name="runs_param_distance">المسافة</string>
+    <string name="runs_param_easy">جري ساهل</string>
+    <string name="runs_param_work">المجهود</string>
+    <string name="runs_param_recovery">الاستشفاء</string>
+    <string name="runs_param_km_value">%1$s كم</string>
     <string name="runs_audio_cues">التنبيهات الصوتية</string>
     <string name="runs_guided_unavailable">الخطوات الموجّهة ما راهيش متوفرة — تتسجّل كسورتي حرّة.</string>
     <string name="runs_step_warmup">تسخين</string>

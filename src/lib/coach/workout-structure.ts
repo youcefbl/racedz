@@ -182,7 +182,8 @@ export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
     workoutType: "INTERVAL",
     params: [
       { key: "reps", min: 4, max: 10, step: 1, default: 6 },
-      { key: "repMeters", min: 200, max: 1000, step: 100, default: 400 }
+      { key: "repMeters", min: 200, max: 1000, step: 100, default: 400 },
+      { key: "recoverySeconds", min: 30, max: 180, step: 15, default: 90 }
     ],
     build: (params) => ({
       blocks: [
@@ -192,7 +193,7 @@ export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
           times: num(params, "reps", 6),
           steps: [
             { role: "WORK", intensity: "HARD", target: { type: "DISTANCE", meters: num(params, "repMeters", 400) } },
-            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: 90 } }
+            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: num(params, "recoverySeconds", 90) } }
           ]
         },
         { kind: "single", step: { role: "COOLDOWN", intensity: "EASY", target: { type: "TIME", seconds: COOLDOWN_SECONDS } } }
@@ -206,7 +207,8 @@ export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
     workoutType: "THRESHOLD",
     params: [
       { key: "reps", min: 3, max: 5, step: 1, default: 4 },
-      { key: "workMinutes", min: 3, max: 6, step: 1, default: 4 }
+      { key: "workMinutes", min: 3, max: 6, step: 1, default: 4 },
+      { key: "recoverySeconds", min: 60, max: 300, step: 30, default: 180 }
     ],
     build: (params) => ({
       blocks: [
@@ -216,7 +218,7 @@ export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
           times: num(params, "reps", 4),
           steps: [
             { role: "WORK", intensity: "HARD", target: { type: "TIME", seconds: num(params, "workMinutes", 4) * 60 } },
-            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: 3 * 60 } }
+            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: num(params, "recoverySeconds", 180) } }
           ]
         },
         { kind: "single", step: { role: "COOLDOWN", intensity: "EASY", target: { type: "TIME", seconds: COOLDOWN_SECONDS } } }
@@ -229,7 +231,8 @@ export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
     workoutType: "STRIDES",
     params: [
       { key: "easyMinutes", min: 10, max: 40, step: 5, default: 20 },
-      { key: "reps", min: 4, max: 8, step: 1, default: 6 }
+      { key: "reps", min: 4, max: 8, step: 1, default: 6 },
+      { key: "recoverySeconds", min: 30, max: 120, step: 15, default: 60 }
     ],
     build: (params) => ({
       blocks: [
@@ -239,7 +242,7 @@ export const GUIDED_SESSION_TEMPLATES: GuidedSessionTemplate[] = [
           times: num(params, "reps", 6),
           steps: [
             { role: "WORK", intensity: "HARD", target: { type: "TIME", seconds: 20 } },
-            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: 60 } }
+            { role: "RECOVERY", intensity: "EASY", target: { type: "TIME", seconds: num(params, "recoverySeconds", 60) } }
           ]
         },
         { kind: "single", step: { role: "COOLDOWN", intensity: "EASY", target: { type: "TIME", seconds: 5 * 60 } } }
