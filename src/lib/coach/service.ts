@@ -1201,6 +1201,15 @@ export type TodayWorkout = {
   scheduledFor: string;
 };
 
+/**
+ * The session scheduled for *today*, or null when the plan has none.
+ *
+ * The lower bound alone matched the next PLANNED session on any future day, so on a rest day the
+ * coach overview labelled a session scheduled for tomorrow "Today's workout" while the card beside
+ * it correctly dated the very same session tomorrow — the two-cards-disagree bug the `nextWorkout`
+ * query was already fixed for, on the other side of the pair. `coach-overview.tsx` on the web has
+ * always meant strictly today; this is the same definition.
+ */
 export async function getTodayGuidedWorkout(userId: string): Promise<TodayWorkout | null> {
   const rows = await getPrisma().$queryRaw<Array<Omit<TodayWorkout, "scheduledFor"> & { scheduledFor: Date }>>`
     SELECT workout."id", workout."workoutType", workout."title", workout."targetDistanceKm",
@@ -1209,6 +1218,7 @@ export async function getTodayGuidedWorkout(userId: string): Promise<TodayWorkou
     INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
     WHERE plan."userId" = ${userId} AND plan."status" = 'ACTIVE' AND workout."status" = 'PLANNED'
       AND workout."scheduledFor" >= date_trunc('day', NOW())
+      AND workout."scheduledFor" < date_trunc('day', NOW()) + INTERVAL '1 day'
       AND workout."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
     ORDER BY workout."scheduledFor" ASC
     LIMIT 1
