@@ -13,7 +13,7 @@
     "check:blog": "tsx scripts/check-blog-content.ts",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts",
-    "test:coach": "tsx scripts/test-coach.ts && tsx scripts/test-coach-context.ts && tsx scripts/test-adaptive-planner.ts && tsx scripts/test-coach-memory.ts",
+    "test:coach": "tsx scripts/test-coach.ts && tsx scripts/test-coach-context.ts && tsx scripts/test-adaptive-planner.ts && tsx scripts/test-coach-memory.ts && tsx scripts/test-coach-calendar.ts",
     "test:workout": "tsx scripts/test-workout-structure.ts",
     "test:audio": "tsx scripts/test-audio-coaching.ts",
     "test:run-incident": "tsx scripts/test-run-incident.ts",

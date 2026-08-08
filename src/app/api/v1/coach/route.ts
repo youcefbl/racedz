@@ -3,6 +3,7 @@ import { requireMobileUser } from "@/lib/api/v1/guard";
 import { getPrisma } from "@/lib/db";
 import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { getPlanAdherence, getTodayGuidedWorkout } from "@/lib/coach/service";
+import { productDayEnd } from "@/lib/coach/calendar";
 import { coachReplySummary } from "@/lib/api/v1/coach";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
@@ -51,6 +52,11 @@ export const GET = withApi(async (request) => {
   // runner whose session was scheduled for this morning saw the very same workout as both "Today's
   // workout" and "Next workout" (DEV-R05). Starting at tomorrow's midnight is what "next" means to
   // a runner reading the two cards side by side.
+  //
+  // That midnight is the *Algiers* one. `date_trunc('day', NOW())` is the UTC day, so for the first
+  // hour of every local day this bound sat a day behind and could offer today's session as "next" —
+  // the same off-by-one-day that getTodayGuidedWorkout carried on the other side of the pair. Both
+  // now read the boundary from the one definition in `@/lib/coach/calendar`.
   const upcoming = await prisma.$queryRaw<
     Array<{ id: string; title: string; targetDistanceKm: number | null; targetDurationMin: number | null; scheduledFor: Date }>
   >`
@@ -59,7 +65,7 @@ export const GET = withApi(async (request) => {
     INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
     WHERE plan."userId" = ${viewer.id} AND plan."status" = 'ACTIVE' AND workout."status" = 'PLANNED'
       AND workout."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
-      AND workout."scheduledFor" >= date_trunc('day', NOW()) + INTERVAL '1 day'
+      AND workout."scheduledFor" >= ${productDayEnd}
     ORDER BY workout."scheduledFor" ASC
     LIMIT 1
   `;
