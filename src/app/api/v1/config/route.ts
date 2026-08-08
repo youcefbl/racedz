@@ -1,4 +1,5 @@
 import { apiOk, withApi, API_VERSION } from "@/lib/api/v1/http";
+import { clientIp, enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +11,13 @@ export const dynamic = "force-dynamic";
  * `minimumVersionCode` is the kill switch — an app below it must show a blocking upgrade screen
  * rather than attempt calls whose contract it no longer satisfies.
  */
-export const GET = withApi(async (request) =>
-  apiOk(request, {
+export const GET = withApi(async (request) => {
+  // SEC-006: unauthenticated and hit by every launch, so the bound is per-IP and generous — it
+  // exists to stop a cheap amplification loop, not to interfere with real app starts.
+  const limited = enforceRateLimit(rateLimitKey("v1-config", clientIp(request.headers) ?? "anonymous"), 120, 60_000);
+  if (limited) return limited;
+
+  return apiOk(request, {
     apiVersion: API_VERSION,
     minimumVersionCode: 1,
     recommendedVersionCode: 1,
@@ -26,5 +32,5 @@ export const GET = withApi(async (request) =>
       registration: true,
       googleSignIn: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET)
     }
-  })
-);
+  });
+});

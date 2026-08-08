@@ -1,3 +1,4 @@
+import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { getPrisma } from "@/lib/db";
 import { apiOk, pageMeta, parsePageParams, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
@@ -8,6 +9,10 @@ export const dynamic = "force-dynamic";
 /** The caller's own race registrations, newest first. Scoped by userId — never by a client filter. */
 export const GET = withApi(async (request) => {
   const viewer = await requireMobileUser(request);
+  // SEC-006: an authenticated read is still a scraping and DB-load surface, and this one paginates
+  // over a runner's whole entry history.
+  const limited = enforceRateLimit(rateLimitKey("v1-me-registrations", viewer.id), 120, 60_000);
+  if (limited) return limited;
   const { page, limit, skip } = parsePageParams(new URL(request.url));
   const prisma = getPrisma();
 
