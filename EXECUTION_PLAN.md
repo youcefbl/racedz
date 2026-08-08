@@ -233,6 +233,27 @@ introduce breaking API or database changes for the website.
 | `NATIVE-007` | P2 | Prove parallel release safety | Separate internal/closed-track package, App Links/Firebase fingerprints, Data Safety/privacy copy, staged rollout, support/monitoring, and Capacitor rollback path are verified. |
 | `NATIVE-008` | — | ~~Make the switch/continue decision~~ | **Closed by owner decision (2026-08-02): native primary, Capacitor retired.** No weighted comparison will be run. What remains is the retirement mechanics — Play listing/track ownership, App Links transfer, and the point at which the Capacitor artifact stops being a rollback option — tracked under `NATIVE-007`. |
 
+### Native run-feature parity gaps vs. Capacitor (2026-08-08)
+
+A direct feature comparison of the web/Capacitor run flow against `native-android/` found run
+features present on the shipping Capacitor client but **missing from native**, none of which were
+tracked as concrete items (they sat implicitly under `NATIVE-005`/`006`). The backend already accepts
+all three run sources (`GPS`/`MANUAL`/`IMPORTED`) through `createRunnerRun`, so these are client-side
+gaps. Recorded here so they are visible and acceptance-bounded.
+
+| ID | Priority | Gap | Web reference | Native today | Done when |
+|---|---|---|---|---|---|
+| `NATRUN-01` | P2 | **Manual run entry** (no GPS): type distance, duration, effort, date, title, notes | `coach-runs-panel.tsx:410` form → `POST /api/coach/runs` (`source:"MANUAL"` when no route) | Only GPS record; entry hidden (`RunsOverviewScreen.kt:219`, NATPAR-003) | A native form posts `POST /api/v1/runs` with `clientId`, `source:"MANUAL"`, no route; validation mirrors `runCreateSchema` (distance 0.1–500, duration 60–172800s, effort 1–10, startedAt ≤5min future); saved run appears in history. Delivered 2026-08-08 (see commits). |
+| `NATRUN-02` | P2 | **Import from GPX**: pick a `.gpx`, parse trackpoints, save as a run | `gpx.ts` parser + `gpx-import.tsx` → `POST /api/coach/runs/import` | GPX **export** only (WebView handoff); no import (NATPAR-003) | Native parses `<trkpt>` (lat/lng/ele/time) on-device, derives distance (haversine) + duration (timestamps), and posts `POST /api/v1/runs` with `source:"IMPORTED"` + full route. Same guards as web (≥2 points, ≥0.1km, 60–172800s, not future). |
+| `NATRUN-03` | P2 | **Free-run workout-type picker + per-type audio**: choose easy/long/intervals/strides/norwegian and get an audio-guided structure without a plan | `guided-session-picker.tsx` + `GUIDED_SESSION_TEMPLATES` (client-side build); audio profiles in `audio-coaching.ts`/`audio-copy.ts` | Only a **server-plan** guided run (`/api/v1/runs/guided`); one generic voice track; no type picker | Native offers a type picker on Free mode; steps come from the templates (new `GET /api/v1/runs/structure?type=&params` reusing `buildGuidedSession`/`buildWorkoutStructure`, same `GuidedSessionDto` shape) and run through the existing `GuidedSessionController`/`RunVoice`. Essential cues (step announce, splits, done) match; the richer per-type profile commentary (`repSplit`/`oneMinuteLeft`/pace/hydration…) is a follow-up port of `audio-coaching.ts`. |
+| `NATRUN-04` | P3 | **Run photos**, **badges/achievements on runs**, **workout-match confirm UI**, **on-device GPX export**, **account data export surfacing** | various web components | absent on native | Each scoped and prioritized separately post-release; listed so the parity backlog is complete. |
+
+Related finding surfaced while testing (2026-08-08): on the M21 the device TTS has **no Arabic voice**
+(`ara-DZA LANG_NOT_SUPPORTED`), so Arabic cues fall back to an English voice reading Arabic text. A
+native notice now prompts installing a voice (commit `2dd100f`); a deeper fix (skip mismatched-language
+cues, or gate on installed voices) is open. The app-language instability across launches observed
+during testing is the same authority gap as `ROUND2-R11`.
+
 ### Owner decision — native Runs adopts the website's visual system (2026-08-01)
 
 The owner reviewed the trade-off and chose a **full restyle of the native Runs overview to match the
