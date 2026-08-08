@@ -25,8 +25,12 @@ import kotlinx.coroutines.launch
  * straight away (hands are moving), text is for when speaking is not possible.
  */
 data class MidRunCoachUiState(
-    /** Whether the runner may use the coach at all (SUBSCRIBED). Others never see the affordance. */
-    val subscribed: Boolean = false,
+    /**
+     * Whether the runner may use the coach at all — TRIAL or SUBSCRIBED (i.e. entitlement is not
+     * NONE), matching what the server enforces. A trial exists to let someone experience the paid
+     * coach, so it would be wrong to hide the feature they are trialling; NONE never sees it.
+     */
+    val canCoach: Boolean = false,
     /** True once the entitlement has been resolved, so the button does not flicker in on load. */
     val ready: Boolean = false,
     val open: Boolean = false,
@@ -48,13 +52,13 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            // A failure leaves subscribed=false: unknown entitlement hides the affordance rather than
+            // A failure leaves canCoach=false: unknown entitlement hides the affordance rather than
             // showing a coach button that would only 402 on tap. The server is the real gate anyway.
-            val subscribed = when (val result = coach.overview()) {
-                is ApiResult.Success -> result.value.entitlement.tier == "SUBSCRIBED"
+            val canCoach = when (val result = coach.overview()) {
+                is ApiResult.Success -> result.value.entitlement.tier != "NONE"
                 is ApiResult.Failure -> false
             }
-            _state.update { it.copy(subscribed = subscribed, ready = true) }
+            _state.update { it.copy(canCoach = canCoach, ready = true) }
         }
     }
 

@@ -401,9 +401,9 @@ fun RecordingScreen(
             )
         }
 
-        // Ask-the-coach mid-run, for subscribers only, and not once the run has finished.
+        // Ask-the-coach mid-run, for entitled runners (trial or subscribed), and not once finished.
         val coachState = coachViewModel?.state?.collectAsStateWithLifecycle()?.value
-        if (coachViewModel != null && coachState?.subscribed == true && state.status != RecordingStatus.Finished) {
+        if (coachViewModel != null && coachState?.canCoach == true && state.status != RecordingStatus.Finished) {
             Spacer(Modifier.height(ZidRunDimens.spaceMd))
             MidRunCoachButton(onOpen = coachViewModel::open)
             MidRunCoachSheet(viewModel = coachViewModel, speak = { text -> voice?.say(text) })
