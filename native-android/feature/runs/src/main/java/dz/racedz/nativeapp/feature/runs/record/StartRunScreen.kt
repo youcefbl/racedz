@@ -581,6 +581,19 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
         }
 
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+
+        if (!animationsEnabled) {
+            // Reduced motion (R-13): keep the real 700 ms hold as the accidental-start guard, but do
+            // not sweep the wedge continuously. Show discrete progress states only — a single midway
+            // step, then complete — so the reveal jumps rather than animates.
+            progress = 0.5f
+            delay(HOLD_TO_BEGIN_MS / 2)
+            progress = 1f
+            delay(HOLD_TO_BEGIN_MS / 2)
+            completed = true
+            return@LaunchedEffect
+        }
+
         val start = withFrameMillis { it }
         while (progress < 1f) {
             withFrameMillis { now ->
@@ -652,11 +665,11 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(SOLE_HEIGHT + 72.dp)
-                .width(SOLE_WIDTH + 96.dp)
+                .height(SOLE_HEIGHT + 92.dp)
+                .width(SOLE_WIDTH + 130.dp)
                 .align(Alignment.Center)
                 .graphicsLayer {
-                    alpha = 0.16f + progress * 0.34f
+                    alpha = 0.20f + progress * 0.42f
                     scaleX = glowScale
                     scaleY = glowScale
                 },
@@ -701,10 +714,10 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(SOLE_HEIGHT + 14.dp)
-                .width(SOLE_WIDTH + 14.dp)
+                .height(SOLE_HEIGHT + 8.dp)
+                .width(SOLE_WIDTH + 8.dp)
                 .align(Alignment.Center)
-                .alpha(0.62f + progress * 0.38f),
+                .alpha(0.6f + progress * 0.4f),
         )
 
         // 5. The sole itself: dark navy, internal contour lines, and a lime (not yellow) rim, never

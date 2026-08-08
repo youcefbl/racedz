@@ -66,13 +66,35 @@ save(np.clip(grey_dilation(cov, size=5) * 1.3 + gaussian_filter(cov, sigma=7) * 
 cov = rotated_alpha("orbit_ring.png")
 save(np.clip(grey_dilation(cov, size=3) * 0.9, 0, 190), MUTED, "zidrun_hold_orbit_inactive.png")
 
-# Amber backlight — FOOT-SHAPED, not a disc. The reference's warm glow hugs the sole and radiates
-# from its silhouette, so blur the foot's own alpha rather than a radial source: brightest right at
-# the foot edge, fading outward, exactly the shape of the shoe.
-foot_sil = (alpha_of("foot.png") > 40).astype(np.float32) * 255
-halo = gaussian_filter(foot_sil, sigma=26)
-halo = halo / halo.max()
-save(np.clip(halo * 255, 0, 255), ACCENT, "zidrun_hold_orange_glow.png")
+# Amber backlight — FOOT-SHAPED and RADIANT, strong against the sole and fading to nothing outward.
+# Two blurs of the foot silhouette give the falloff: a tight one that hugs the edge (the strong near
+# shadow) and a wide one that spreads faintly (the weak far shadow); a gamma pushes intensity toward
+# the foot. The silhouette is padded first so the blur decays fully to zero well inside the PNG —
+# otherwise the image's own rectangular border reads as a faint orange box behind the shoe.
+#
+# The glow is not one flat colour: like the reference, its hue rides the intensity — a bright amber
+# right at the foot, through orange, to a deep orange at the faint fringe — so it reads as a radiant
+# warm light rather than a single-colour wash. RGB comes from the ramp, alpha from the intensity.
+sil = (alpha_of("foot.png") > 40).astype(np.float32)
+sil = np.pad(sil, 220, mode="constant")
+near = gaussian_filter(sil, sigma=10)   # strong, right at the foot
+far = gaussian_filter(sil, sigma=52)    # weak, spread wide
+glow = near * 1.0 + far * 0.30
+glow = glow / glow.max()
+glow = glow ** 1.5                      # concentrate: strong close, weak outside
+
+HOT = np.array([255, 222, 120], np.float32)   # bright amber, right at the foot
+MID = np.array([246, 138, 30], np.float32)     # orange
+COLD = np.array([170, 52, 10], np.float32)     # deep orange at the faint fringe
+t = np.clip(glow, 0, 1)
+lo = (t < 0.5)[..., None]
+a = np.clip(t / 0.5, 0, 1)[..., None]
+b = np.clip((t - 0.5) / 0.5, 0, 1)[..., None]
+rgb = np.where(lo, COLD * (1 - a) + MID * a, MID * (1 - b) + HOT * b)
+out = np.zeros((*glow.shape, 4), np.uint8)
+out[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+out[..., 3] = np.clip(glow * 255, 0, 255).astype(np.uint8)
+Image.fromarray(out, "RGBA").save(os.path.join(OUT, "zidrun_hold_orange_glow.png"))
 
 # Sole base: the reference sole itself — a dark navy interior carrying the teal topographic contour
 # lines the source art already draws. Those contours ARE the reference look, so they are kept; only
@@ -98,13 +120,12 @@ base[:, :, 3] = a
 Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), "RGBA").save(
     os.path.join(OUT, "zidrun_hold_sole_base.png"))
 
-# Sole edge glow: the BOLD bright-green rim from the reference. A thick band hugging the silhouette
-# (outer blur minus inner blur) plus a tight bright core right on the edge, so it reads as a heavy
-# neon outline rather than a faint halo.
+# Sole edge glow: a THIN bright-green neon line like the reference — a crisp rim right on the
+# silhouette plus a small tight glow, not a thick blurred band.
 sil = (a > 40).astype(np.float32) * 255
-band = np.clip(gaussian_filter(sil, sigma=8) - gaussian_filter(sil, sigma=2) * 0.88, 0, 255)
-core = np.clip(gaussian_filter(sil, sigma=3.5) - gaussian_filter(sil, sigma=1) * 0.9, 0, 255)
-edge = np.clip(band * 2.6 + core * 4.4, 0, 255)
+line = np.clip(gaussian_filter(sil, sigma=2.0) - gaussian_filter(sil, sigma=0.8) * 0.92, 0, 255)
+glow = np.clip(gaussian_filter(sil, sigma=5.0) - gaussian_filter(sil, sigma=2.0) * 0.92, 0, 255)
+edge = np.clip(line * 5.2 + glow * 1.2, 0, 255)
 save(edge, HERO, "zidrun_hold_sole_edge_glow.png")
 
 print("regenerated zidrun_hold_* into", os.path.relpath(OUT, HERE))
