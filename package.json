@@ -116,8 +116,8 @@
       "postcss": "8.5.23",
       "sharp": "0.35.3"
     },
-    "fast-uri": "4.1.2",
-    "nanoid": "6.0.1"
+    "fast-uri": "3.1.5",
+    "nanoid": "3.3.18"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
