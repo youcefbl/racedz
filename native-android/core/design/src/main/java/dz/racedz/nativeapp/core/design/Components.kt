@@ -53,9 +53,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -207,10 +209,25 @@ fun ZidRunTextField(
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
 
+    // The caller may reformat what we hand it — the date of birth gains its dashes as the digits
+    // arrive. With the plain String overload the caret keeps its old character offset, so every
+    // separator the formatter inserts pushes the caret back through the text: typing 19960521 on
+    // the numeric keypad landed as "1996-52-10", and backspace deleted from the middle. Owning a
+    // TextFieldValue lets us re-anchor the caret to the same *content* character it was after,
+    // counting past whatever separators the formatter added.
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    if (field.text != value) {
+        val contentBeforeCaret = field.text.take(field.selection.end).count(Char::isLetterOrDigit)
+        field = TextFieldValue(value, TextRange(value.offsetAfterContentChars(contentBeforeCaret)))
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = field,
+            onValueChange = {
+                field = it
+                onValueChange(it.text)
+            },
             label = {
                 Text(if (required) "$label · ${stringResource(R.string.common_required)}" else label)
             },
@@ -281,6 +298,22 @@ fun ZidRunTextField(
             )
         }
     }
+}
+
+/**
+ * Offset just past the [count]th letter-or-digit, skipping separators the formatter inserted.
+ * Used to keep a text caret on the character the runner was actually editing.
+ */
+private fun String.offsetAfterContentChars(count: Int): Int {
+    if (count <= 0) return 0
+    var seen = 0
+    forEachIndexed { index, char ->
+        if (char.isLetterOrDigit()) {
+            seen++
+            if (seen == count) return index + 1
+        }
+    }
+    return length
 }
 
 /** Card surface used for grouped content across every screen. */
