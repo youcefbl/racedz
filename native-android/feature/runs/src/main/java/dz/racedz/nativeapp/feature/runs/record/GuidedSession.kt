@@ -9,6 +9,27 @@ import kotlinx.coroutines.flow.asStateFlow
 /** What the runner chose on the start screen. */
 enum class RunMode { Free, Guided }
 
+/**
+ * The generic guided session used when the server's cannot be reached.
+ *
+ * The backend's /runs/guided never returns nothing — with no plan it still hands back an easy run
+ * bookended by a warm-up and cool-down (see api/v1/runs/guided). So a *failed* fetch, not a missing
+ * plan, is the only reason the app would have no session, and refusing guidance then (recording a
+ * bare free run) punishes the runner for a dropped request. This mirrors the backend's no-plan
+ * default — 10 min warm-up, 20 min easy, 10 min cool-down — so a runner who taps "Guided" offline
+ * still gets spoken warm-up and cool-down cues rather than silence.
+ */
+val OFFLINE_GUIDED_SESSION = GuidedSessionDto(
+    workoutId = null,
+    title = null,
+    fromPlan = false,
+    steps = listOf(
+        GuidedStepDto(index = 0, total = 3, role = "WARMUP", intensity = "EASY", seconds = 600),
+        GuidedStepDto(index = 1, total = 3, role = "STEADY", intensity = "EASY", seconds = 1200),
+        GuidedStepDto(index = 2, total = 3, role = "COOLDOWN", intensity = "EASY", seconds = 600),
+    ),
+)
+
 data class GuidedProgress(
     val session: GuidedSessionDto? = null,
     val stepIndex: Int = 0,

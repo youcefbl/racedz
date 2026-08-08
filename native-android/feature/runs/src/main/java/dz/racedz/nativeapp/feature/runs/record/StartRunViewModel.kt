@@ -37,7 +37,11 @@ class StartRunViewModel(private val repository: RunsRepository) : ViewModel() {
         viewModelScope.launch {
             when (val result = repository.guidedSession()) {
                 is ApiResult.Success -> _state.update { it.copy(session = result.value, loading = false) }
-                is ApiResult.Failure -> _state.update { it.copy(session = null, loading = false) }
+                // A dropped request is not a missing plan: the server always has a session (an easy
+                // run bookended by a warm-up and cool-down). Fall back to that same default locally
+                // so a runner who taps "Guided" offline still gets spoken warm-up and cool-down
+                // cues, instead of the guided card reading "unavailable" and recording a bare run.
+                is ApiResult.Failure -> _state.update { it.copy(session = OFFLINE_GUIDED_SESSION, loading = false) }
             }
         }
     }
