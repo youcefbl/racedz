@@ -952,6 +952,15 @@ data class TrackRequest(
     val locale: String? = null,
 )
 
+/** A moderation report. targetType is "RaceEvent" | "RunnerRun" | "User", as the server allows. */
+@Serializable
+data class CreateReportRequest(
+    val targetType: String,
+    val targetId: String,
+    val category: String,
+    val details: String? = null,
+)
+
 @Serializable
 data class ConfirmMatchRequest(val workoutId: String)
 

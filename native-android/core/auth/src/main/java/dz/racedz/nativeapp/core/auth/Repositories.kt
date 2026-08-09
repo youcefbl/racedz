@@ -61,6 +61,27 @@ class RacesRepository(private val api: ZidRunApi, private val client: ApiClient)
 
     suspend fun detail(idOrSlug: String): ApiResult<RaceDetailDto> = client.call { api.race(idOrSlug) }
 
+    /**
+     * Reports a race. Returns the server's message on refusal — "already reported" and "no longer
+     * exists" are different answers the reporter can act on, so they are not collapsed into one.
+     */
+    suspend fun report(raceId: String, category: String, details: String?): ApiResult<Unit> {
+        val result = client.call {
+            api.createReport(
+                dz.racedz.nativeapp.core.network.CreateReportRequest(
+                    targetType = "RaceEvent",
+                    targetId = raceId,
+                    category = category,
+                    details = details?.trim()?.takeIf { it.isNotEmpty() },
+                )
+            )
+        }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(Unit)
+            is ApiResult.Failure -> result
+        }
+    }
+
     companion object {
         const val PAGE_SIZE = 20
     }

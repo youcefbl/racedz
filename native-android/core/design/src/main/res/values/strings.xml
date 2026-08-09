@@ -196,6 +196,17 @@
     <string name="account_privacy_data">Privacy &amp; data</string>
     <string name="account_support">Support</string>
     <string name="notifications_title">Notifications</string>
+    <string name="report_action">Report this race</string>
+    <string name="report_title">Report this race</string>
+    <string name="report_body">Tell us what is wrong. A moderator reviews every report.</string>
+    <string name="report_reason_scam">Scam or fake</string>
+    <string name="report_reason_spam">Spam</string>
+    <string name="report_reason_offensive">Offensive</string>
+    <string name="report_reason_incorrect">Incorrect information</string>
+    <string name="report_reason_other">Something else</string>
+    <string name="report_details_label">Anything else we should know? (optional)</string>
+    <string name="report_submit">Send report</string>
+    <string name="report_sent">Thanks — a moderator will review this.</string>
     <string name="notifications_empty_title">Nothing yet</string>
     <string name="notifications_empty_body">Race updates, session reminders and messages from your coach will appear here.</string>
     <string name="notifications_mark_all">Mark all as read</string>

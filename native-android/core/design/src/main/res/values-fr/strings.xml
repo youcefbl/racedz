@@ -181,6 +181,17 @@
     <string name="account_privacy_data">Confidentialité et données</string>
     <string name="account_support">Support</string>
     <string name="notifications_title">Notifications</string>
+    <string name="report_action">Signaler cette course</string>
+    <string name="report_title">Signaler cette course</string>
+    <string name="report_body">Dites-nous ce qui ne va pas. Un modérateur examine chaque signalement.</string>
+    <string name="report_reason_scam">Arnaque ou faux</string>
+    <string name="report_reason_spam">Spam</string>
+    <string name="report_reason_offensive">Offensant</string>
+    <string name="report_reason_incorrect">Information incorrecte</string>
+    <string name="report_reason_other">Autre chose</string>
+    <string name="report_details_label">Autre chose à signaler ? (facultatif)</string>
+    <string name="report_submit">Envoyer le signalement</string>
+    <string name="report_sent">Merci — un modérateur va examiner cela.</string>
     <string name="notifications_empty_title">Rien pour l\'instant</string>
     <string name="notifications_empty_body">Les actualités des courses, les rappels de séance et les messages de votre coach apparaîtront ici.</string>
     <string name="notifications_mark_all">Tout marquer comme lu</string>

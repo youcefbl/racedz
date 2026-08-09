@@ -66,6 +66,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import dz.racedz.nativeapp.core.design.R
+import dz.racedz.nativeapp.core.design.ZidRunChoiceChip
+import dz.racedz.nativeapp.core.design.ZidRunTextField
+import dz.racedz.nativeapp.core.design.ZidRunTextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
@@ -104,6 +110,7 @@ fun RaceDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val colors = ZidRunTheme.colors
 
     // Registration happens on a screen stacked above this one, so coming back has to refetch or the
@@ -144,6 +151,7 @@ fun RaceDetailScreen(
 
             state.race != null -> RaceDetailContent(
                 race = state.race!!,
+                onReport = viewModel::openReport,
                 onBack = onBack,
                 onRegister = onRegister,
                 onViewRegistration = onViewRegistration,
@@ -151,12 +159,101 @@ fun RaceDetailScreen(
                 onSignIn = onSignIn,
             )
         }
+
+        if (state.reporting) {
+            ReportRaceDialog(
+                submitting = state.submittingReport,
+                error = state.reportError,
+                onDismiss = viewModel::dismissReport,
+                onSubmit = { category, details -> viewModel.submitReport(category, details) },
+            )
+        }
+
+        // A confirmation the runner actually sees; the sheet has already closed by now.
+        if (state.reportSent) {
+            val sent = stringResource(R.string.report_sent)
+            LaunchedEffect(sent) {
+                android.widget.Toast.makeText(context, sent, android.widget.Toast.LENGTH_LONG).show()
+                viewModel.acknowledgeReportSent()
+            }
+        }
     }
+}
+
+/**
+ * The report sheet: pick a reason, optionally say more.
+ *
+ * A reason is REQUIRED and there is no default selection — a pre-picked category would turn a
+ * mis-tap into a moderation signal, and the queue cannot tell an accidental "Scam" from a real one.
+ */
+@Composable
+private fun ReportRaceDialog(
+    submitting: Boolean,
+    error: String?,
+    onDismiss: () -> Unit,
+    onSubmit: (String, String?) -> Unit,
+) {
+    val colors = ZidRunTheme.colors
+    var category by remember { mutableStateOf<String?>(null) }
+    var details by remember { mutableStateOf("") }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!submitting) onDismiss() },
+        containerColor = colors.surface,
+        title = { Text(stringResource(R.string.report_title), color = colors.textStrong) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                Text(
+                    stringResource(R.string.report_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+                // Category values are the server's enum, not the labels — the labels are
+                // translated and must never be what gets stored.
+                listOf(
+                    "SCAM" to R.string.report_reason_scam,
+                    "SPAM" to R.string.report_reason_spam,
+                    "OFFENSIVE" to R.string.report_reason_offensive,
+                    "INCORRECT_INFO" to R.string.report_reason_incorrect,
+                    "OTHER" to R.string.report_reason_other,
+                ).forEach { (value, label) ->
+                    ZidRunChoiceChip(
+                        label = stringResource(label),
+                        selected = category == value,
+                        onClick = { category = value },
+                    )
+                }
+                ZidRunTextField(
+                    value = details,
+                    onValueChange = { details = it.take(1000) },
+                    label = stringResource(R.string.report_details_label),
+                    enabled = !submitting,
+                )
+                error?.let { ZidRunInlineError(it) }
+            }
+        },
+        confirmButton = {
+            ZidRunButton(
+                text = stringResource(R.string.report_submit),
+                onClick = { category?.let { onSubmit(it, details) } },
+                enabled = category != null && !submitting,
+                loading = submitting,
+            )
+        },
+        dismissButton = {
+            ZidRunTextButton(
+                text = stringResource(R.string.common_cancel),
+                onClick = onDismiss,
+                fillWidth = false,
+            )
+        },
+    )
 }
 
 @Composable
 private fun RaceDetailContent(
     race: RaceDetailDto,
+    onReport: () -> Unit,
     onBack: () -> Unit,
     onRegister: (String, String) -> Unit,
     onViewRegistration: (String) -> Unit,
@@ -354,6 +451,15 @@ private fun RaceDetailContent(
                 onViewRegistration = onViewRegistration,
                 onSignIn = onSignIn,
             )
+
+            /*
+             * Reporting (NATGAP-12).
+             *
+             * Every race here is content someone else published, so a listing with no way to flag
+             * a scam is the gap. Low emphasis and at the foot of the page on purpose: it must be
+             * findable when needed and never compete with registering.
+             */
+            ZidRunTextButton(text = stringResource(R.string.report_action), onClick = onReport)
 
             Spacer(Modifier.height(ZidRunDimens.spaceXxl))
         }

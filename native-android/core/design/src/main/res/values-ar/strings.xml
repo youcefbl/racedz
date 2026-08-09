@@ -182,6 +182,17 @@
     <string name="account_privacy_data">الخصوصية والبيانات</string>
     <string name="account_support">الدعم</string>
     <string name="notifications_title">الإشعارات</string>
+    <string name="report_action">بلّغ على هاذ السباق</string>
+    <string name="report_title">بلّغ على هاذ السباق</string>
+    <string name="report_body">قُلّنا واش ماشي مليح. مشرف يشوف كل تبليغ.</string>
+    <string name="report_reason_scam">نصب ولا مزوّر</string>
+    <string name="report_reason_spam">إزعاج</string>
+    <string name="report_reason_offensive">كلام خايب</string>
+    <string name="report_reason_incorrect">معلومة غالطة</string>
+    <string name="report_reason_other">حاجة أخرى</string>
+    <string name="report_details_label">كاين حاجة أخرى لازم نعرفوها؟ (اختياري)</string>
+    <string name="report_submit">صيفط التبليغ</string>
+    <string name="report_sent">صحّة — مشرف رح يشوفها.</string>
     <string name="notifications_empty_title">مازال والو</string>
     <string name="notifications_empty_body">أخبار السباقات، تذكيرات الحصص، ورسائل الكوتش يبانو هنا.</string>
     <string name="notifications_mark_all">علّم الكل كمقروء</string>

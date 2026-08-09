@@ -258,6 +258,10 @@ interface ZidRunApi {
     @POST("api/v1/track")
     suspend fun track(@Body body: TrackRequest): Response<ApiEnvelope<JsonObject>>
 
+    /** Files a moderation report against a race, run, or runner. */
+    @POST("api/v1/reports")
+    suspend fun createReport(@Body body: CreateReportRequest): Response<ApiEnvelope<JsonObject>>
+
     // ---- me -----------------------------------------------------------------------------------
 
     @GET("api/v1/me")

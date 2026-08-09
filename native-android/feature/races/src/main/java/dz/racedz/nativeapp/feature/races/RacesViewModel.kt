@@ -124,6 +124,13 @@ data class RaceDetailUiState(
     val race: RaceDetailDto? = null,
     val loading: Boolean = true,
     val error: ApiCallException? = null,
+    /** True while the report sheet is open. */
+    val reporting: Boolean = false,
+    val submittingReport: Boolean = false,
+    /** Why the last report was refused ("already reported", for instance), or null. */
+    val reportError: String? = null,
+    /** Set once a report is accepted, so the sheet can close on a confirmation. */
+    val reportSent: Boolean = false,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val notFound: Boolean get() = error?.code == ApiErrorCode.NotFound
@@ -139,6 +146,35 @@ class RaceDetailViewModel(
 
     init {
         load()
+    }
+
+    fun openReport() = _state.update { it.copy(reporting = true, reportError = null, reportSent = false) }
+
+    fun dismissReport() = _state.update { it.copy(reporting = false, reportError = null) }
+
+    fun acknowledgeReportSent() = _state.update { it.copy(reportSent = false) }
+
+    /**
+     * Files a moderation report against this race.
+     *
+     * The server's message is surfaced rather than replaced: "you have already reported this" and
+     * "this race no longer exists" are different facts, and a generic failure would leave the
+     * reporter unsure whether to try again.
+     */
+    fun submitReport(category: String, details: String?) {
+        val raceId = _state.value.race?.id ?: return
+        if (_state.value.submittingReport) return
+        _state.update { it.copy(submittingReport = true, reportError = null) }
+        viewModelScope.launch {
+            when (val result = repository.report(raceId, category, details)) {
+                is ApiResult.Success -> _state.update {
+                    it.copy(submittingReport = false, reporting = false, reportSent = true)
+                }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(submittingReport = false, reportError = result.error.message)
+                }
+            }
+        }
     }
 
     fun load() {
