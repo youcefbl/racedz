@@ -115,6 +115,24 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!--
+          Hands the account data export to a share target as a content:// URI.
+
+          `exported="false"` with `grantUriPermissions` is the whole point: no other app can query
+          this provider, and a share target only ever gets a one-shot, read-only grant for the exact
+          file the runner chose to send. The authority is suffixed with the build's applicationId so
+          the debug and release apps can be installed side by side — two providers claiming one
+          authority makes the second install fail outright.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

@@ -201,6 +201,10 @@
     <string name="privacy_private_profile">Profil privé</string>
     <string name="privacy_private_profile_body">Masquez votre activité des classements et des autres coureurs.</string>
     <string name="privacy_devices">Appareils connectés</string>
+    <string name="privacy_export">Télécharger mes données</string>
+    <string name="privacy_export_body">Une copie de votre profil, de vos inscriptions et de vos sorties, dans un fichier que vous gardez. Les tracés GPS n\'y sont pas : exportez le GPX depuis la sortie concernée.</string>
+    <string name="privacy_export_share">Partager mes données ZidRun</string>
+    <string name="privacy_export_failed">Impossible de préparer le fichier. Réessayez.</string>
     <string name="privacy_device_current">Cet appareil</string>
     <string name="privacy_sign_out_all">Se déconnecter partout</string>
     <string name="privacy_sign_out_all_body">Déconnecte tous les appareils, y compris celui-ci.</string>

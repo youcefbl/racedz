@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+
+/** Indented, because the export exists to be READ by the person who asked for it. */
+private val prettyJson = Json { prettyPrint = true }
 
 data class AccountUiState(
     val user: UserDto? = null,
@@ -160,6 +164,41 @@ class AccountViewModel(
             repository.signOutEverywhere()
             onSignedOutCleanup()
             onDone()
+        }
+    }
+
+    /**
+     * Writes the account's export to a private cache file and hands the caller its path to share.
+     *
+     * A file plus the system share sheet, not a screen full of JSON: the runner asked for a copy of
+     * their data, which means something they can keep — mail to themselves, drop in Drive, hand to
+     * a regulator. Rendering it in a scroll view would satisfy the letter of "show me my data" and
+     * none of the point.
+     *
+     * The file lands in `cacheDir/export`, which is app-private and swept by Android under storage
+     * pressure. That is the right lifetime for a copy of someone's profile, races and runs: long
+     * enough to reach the share target, not a permanent second copy sitting in shared storage.
+     */
+    fun exportMyData(cacheDir: java.io.File, onReady: (java.io.File) -> Unit) {
+        if (_state.value.saving) return
+        viewModelScope.launch {
+            _state.update { it.copy(saving = true, error = null) }
+            when (val result = repository.exportMyData()) {
+                is ApiResult.Success -> {
+                    val written = runCatching {
+                        val directory = java.io.File(cacheDir, "export").apply { mkdirs() }
+                        // One fixed name, overwritten each time. A timestamped file would leave a
+                        // growing pile of full account snapshots in the cache, which is the last
+                        // data we should be accumulating copies of.
+                        java.io.File(directory, "zidrun-my-data.json").apply {
+                            writeText(prettyJson.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), result.value))
+                        }
+                    }.getOrNull()
+                    _state.update { it.copy(saving = false) }
+                    if (written != null) onReady(written)
+                }
+                is ApiResult.Failure -> _state.update { it.copy(saving = false, error = result.error) }
+            }
         }
     }
 

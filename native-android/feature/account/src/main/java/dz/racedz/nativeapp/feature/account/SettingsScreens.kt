@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Icon
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -248,6 +250,9 @@ fun PrivacyDataScreen(viewModel: AccountViewModel, onBack: () -> Unit, onSignedO
     val locale = currentLocale()
     val savedMessage = stringResource(R.string.profile_saved)
     val deletionSent = stringResource(R.string.privacy_delete_sent)
+    val context = LocalContext.current
+    val exportShareTitle = stringResource(R.string.privacy_export_share)
+    val exportFailed = stringResource(R.string.privacy_export_failed)
 
     LaunchedEffect(Unit) { viewModel.loadDevices() }
 
@@ -341,6 +346,45 @@ fun PrivacyDataScreen(viewModel: AccountViewModel, onBack: () -> Unit, onSignedO
             }
         }
 
+        /*
+         * "Download my data".
+         *
+         * The endpoint (GET /api/v1/me/export) has existed and been tested since the mobile
+         * contract was written, and no client but the website ever called it — so on the phone the
+         * runner had a delete request and no way to obtain a copy first, which is the wrong half of
+         * the pair to ship alone. Above deletion deliberately: take your data, then decide.
+         */
+        ZidRunCard {
+            Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Download, contentDescription = null, tint = colors.primary)
+                    Spacer(Modifier.width(ZidRunDimens.spaceSm))
+                    Text(
+                        stringResource(R.string.privacy_export),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.textStrong,
+                    )
+                }
+                Text(
+                    // Says what is NOT in it. The export deliberately excludes GPS routes — the
+                    // most sensitive thing in the account — and a runner who assumed otherwise
+                    // would think they had a complete copy when they did not.
+                    stringResource(R.string.privacy_export_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+                ZidRunOutlinedButton(
+                    text = stringResource(R.string.privacy_export),
+                    onClick = {
+                        viewModel.exportMyData(context.cacheDir) { file ->
+                            shareExport(context, file, exportShareTitle, exportFailed)
+                        }
+                    },
+                    enabled = !state.saving,
+                )
+            }
+        }
+
         ZidRunCard {
             Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -367,6 +411,46 @@ fun PrivacyDataScreen(viewModel: AccountViewModel, onBack: () -> Unit, onSignedO
             }
         }
     }
+}
+
+/**
+ * Hands the written export to a share target.
+ *
+ * A content:// URI from the app's own FileProvider with a one-shot read grant — never a file://
+ * path, which Android has refused between apps since N, and never a copy written to shared storage,
+ * which would leave a permanent second copy of the runner's account outside the app's control.
+ *
+ * A chooser rather than a direct target, because "keep a copy" means different things to different
+ * people: mail it to yourself, drop it in Drive, save it to Files. Falls back to a message rather
+ * than silence if the device somehow has nothing that accepts JSON.
+ */
+private fun shareExport(
+    context: android.content.Context,
+    file: java.io.File,
+    chooserTitle: String,
+    failedMessage: String,
+) {
+    val uri = runCatching {
+        androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+    }.getOrNull()
+    if (uri == null) {
+        android.widget.Toast.makeText(context, failedMessage, android.widget.Toast.LENGTH_LONG).show()
+        return
+    }
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        putExtra(android.content.Intent.EXTRA_TITLE, file.name)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    runCatching { context.startActivity(android.content.Intent.createChooser(send, chooserTitle)) }
+        .onFailure {
+            android.widget.Toast.makeText(context, failedMessage, android.widget.Toast.LENGTH_LONG).show()
+        }
 }
 
 /** The runner's own registrations with their server-authoritative status. */

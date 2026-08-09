@@ -218,6 +218,10 @@
     <string name="privacy_private_profile">Private profile</string>
     <string name="privacy_private_profile_body">Hide your activity from leaderboards and other runners.</string>
     <string name="privacy_devices">Signed-in devices</string>
+    <string name="privacy_export">Download my data</string>
+    <string name="privacy_export_body">A copy of your profile, race registrations and runs, as a file you can keep. GPS routes are not included — export a run\'s GPX from the run itself.</string>
+    <string name="privacy_export_share">Share my ZidRun data</string>
+    <string name="privacy_export_failed">Could not prepare the file. Try again.</string>
     <string name="privacy_device_current">This device</string>
     <string name="privacy_sign_out_all">Sign out everywhere</string>
     <string name="privacy_sign_out_all_body">Signs out every device, including this one.</string>

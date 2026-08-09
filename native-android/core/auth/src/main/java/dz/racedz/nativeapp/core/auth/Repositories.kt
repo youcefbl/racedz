@@ -100,6 +100,10 @@ class AccountRepository(
         }
     }
 
+    /** The account's full data export, as the server rendered it. */
+    suspend fun exportMyData(): ApiResult<kotlinx.serialization.json.JsonElement> =
+        session.onResult(client.call { api.exportMyData() })
+
     suspend fun requestAccountDeletion(reason: String?): ApiResult<Unit> {
         val result = session.onResult(client.call { api.requestAccountDeletion(DeletionRequestBody(reason)) })
         return when (result) {

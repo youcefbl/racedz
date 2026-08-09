@@ -202,6 +202,10 @@
     <string name="privacy_private_profile">بروفايل خاص</string>
     <string name="privacy_private_profile_body">خبّي النشاط تاعك من الترتيب ومن الجرّايين الآخرين.</string>
     <string name="privacy_devices">الأجهزة الداخلة</string>
+    <string name="privacy_export">حمّل المعطيات تاعي</string>
+    <string name="privacy_export_body">نسخة من البروفيل، التسجيلات في السباقات، والسورتيات، في فيشي تقدر تحتافظ بيه. المسارات GPS ما راهمش فيه — صدّر GPX من السورتي روحها.</string>
+    <string name="privacy_export_share">شارك المعطيات تاعي</string>
+    <string name="privacy_export_failed">ما نجّمناش نوجّدو الفيشي. عاود جرّب.</string>
     <string name="privacy_device_current">هاذ الجهاز</string>
     <string name="privacy_sign_out_all">خرّج من كل الأجهزة</string>
     <string name="privacy_sign_out_all_body">يخرّج كل الأجهزة، حتى هاذا.</string>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the app is willing to hand to another app through a content:// URI.
+
+  Deliberately ONE narrow subtree: cacheDir/export, where the account data export is written.
+  A blanket <cache-path path="." /> would expose everything the app caches to any share target the
+  runner picks — including the run outbox and picked run photos waiting to upload. The export is the
+  only thing here meant to leave the app, so it is the only thing reachable.
+-->
+<paths>
+    <cache-path name="export" path="export/" />
+</paths>
