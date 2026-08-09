@@ -6,6 +6,7 @@ import dz.racedz.nativeapp.core.auth.RunsRepository
 import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
+import dz.racedz.nativeapp.core.network.BadgesDto
 import dz.racedz.nativeapp.core.network.RunDto
 import java.time.Instant
 import java.time.ZoneId
@@ -19,6 +20,29 @@ import kotlinx.coroutines.launch
 /** Which recording sources the history list is showing. */
 enum class RunSourceFilter { All, Gps, Manual }
 
+/** The four month-scale targets, in the order the overview lists them. */
+enum class RunChallengeId { MonthDistance, MonthRuns, MonthLongRun }
+
+/**
+ * A challenge: something to chase this month, measured against the runner's own history.
+ *
+ * Derived entirely from runs already in memory — there is no challenge table, no join, and no
+ * award pipeline, so a challenge cannot drift out of sync with the runs it is counted from. The
+ * target is the next rung above the runner's best completed month, which is what keeps this
+ * meaningful for someone running 15 km a month and someone running 150: a fixed "50 km" would be
+ * unreachable for the first and already spent for the second.
+ */
+data class RunChallenge(val id: RunChallengeId, val current: Double, val target: Double) {
+    val done: Boolean get() = current >= target
+    val fraction: Float
+        get() = if (target <= 0.0) 0f else (current / target).coerceIn(0.0, 1.0).toFloat()
+}
+
+/** Rungs per challenge. Chosen to be a real step up without being a cliff. */
+private val MONTH_DISTANCE_LADDER = listOf(25.0, 50.0, 100.0, 150.0, 200.0, 300.0)
+private val MONTH_RUNS_LADDER = listOf(4.0, 8.0, 12.0, 16.0, 20.0, 26.0)
+private val LONG_RUN_LADDER = listOf(5.0, 10.0, 15.0, 21.1, 30.0, 42.2)
+
 data class RunsUiState(
     val runs: List<RunDto> = emptyList(),
     val loading: Boolean = true,
@@ -26,6 +50,16 @@ data class RunsUiState(
     val query: String = "",
     val sourceFilter: RunSourceFilter = RunSourceFilter.All,
     val thisMonthOnly: Boolean = false,
+    /**
+     * Achievements, straight from the server.
+     *
+     * Fetched rather than derived: the catalogue, the thresholds and the race-finish count all
+     * live server-side, and a second implementation here would eventually disagree with the
+     * website about whether something was earned — which is exactly the kind of difference a
+     * runner notices and does not forgive. Null until it arrives, and left null if it fails: an
+     * unreachable badges endpoint must not take the runs page down with it.
+     */
+    val badges: BadgesDto? = null,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val isEmpty: Boolean get() = !loading && error == null && runs.isEmpty()
@@ -53,6 +87,66 @@ data class RunsUiState(
 
     val visibleDistanceKm: Double get() = visibleRuns.sumOf { it.distanceKm }
 
+    /**
+     * Runs that count toward totals, bests, streaks and challenges.
+     *
+     * The server classifies an activity it can tell was not covered on foot (a step rate too low
+     * for the ground covered, or a pace nobody sustains) and leaves it out of records, streaks and
+     * the coach's picture. This page summed everything, so one bike ride logged by accident became
+     * the runner's "best pace" here while the website and the coach ignored it — two numbers for
+     * one history, and no way to tell which was lying.
+     */
+    val countedRuns: List<RunDto> get() = runs.filter { it.validity == "VALID" }
+
+    /**
+     * This month's challenges, each measured against the next rung above the runner's best
+     * *completed* month. Basing the target on finished months rather than the current one is what
+     * stops the goal running away from the runner as they progress through it.
+     */
+    val challenges: List<RunChallenge>
+        get() {
+            val zone = ZoneId.systemDefault()
+            val now = Instant.now().atZone(zone)
+            val byMonth = countedRuns.groupBy { run ->
+                runCatching { Instant.parse(run.startedAt).atZone(zone) }
+                    .getOrNull()
+                    ?.let { it.year * 12 + it.monthValue }
+            }
+            val currentKey = now.year * 12 + now.monthValue
+            val past = byMonth.filterKeys { it != null && it != currentKey }.values
+            val current = byMonth[currentKey].orEmpty()
+
+            fun nextRung(ladder: List<Double>, best: Double) =
+                ladder.firstOrNull { it > best } ?: ladder.last()
+
+            return listOf(
+                RunChallenge(
+                    RunChallengeId.MonthDistance,
+                    current = current.sumOf { it.distanceKm },
+                    target = nextRung(
+                        MONTH_DISTANCE_LADDER,
+                        past.maxOfOrNull { month -> month.sumOf { it.distanceKm } } ?: 0.0,
+                    ),
+                ),
+                RunChallenge(
+                    RunChallengeId.MonthRuns,
+                    current = current.size.toDouble(),
+                    target = nextRung(
+                        MONTH_RUNS_LADDER,
+                        past.maxOfOrNull { month -> month.size.toDouble() } ?: 0.0,
+                    ),
+                ),
+                RunChallenge(
+                    RunChallengeId.MonthLongRun,
+                    current = current.maxOfOrNull { it.distanceKm } ?: 0.0,
+                    target = nextRung(
+                        LONG_RUN_LADDER,
+                        past.maxOfOrNull { month -> month.maxOfOrNull { it.distanceKm } ?: 0.0 } ?: 0.0,
+                    ),
+                ),
+            )
+        }
+
     val hasFilters: Boolean
         get() = query.isNotBlank() || sourceFilter != RunSourceFilter.All || thisMonthOnly
 
@@ -78,12 +172,12 @@ data class RunsUiState(
      * repository follows the sync cursor to the end), so summing it here agrees with the server by
      * construction and costs no extra request.
      */
-    val totalDistanceKm: Double get() = runs.sumOf { it.distanceKm }
-    val longestRunKm: Double get() = runs.maxOfOrNull { it.distanceKm } ?: 0.0
+    val totalDistanceKm: Double get() = countedRuns.sumOf { it.distanceKm }
+    val longestRunKm: Double get() = countedRuns.maxOfOrNull { it.distanceKm } ?: 0.0
 
     /** Fastest average pace, ignoring runs the server could not derive a pace for. */
     val bestPaceSecondsPerKm: Int?
-        get() = runs.mapNotNull { it.averagePaceSecondsPerKm.takeIf { pace -> pace > 0 } }.minOrNull()
+        get() = countedRuns.mapNotNull { it.averagePaceSecondsPerKm.takeIf { pace -> pace > 0 } }.minOrNull()
 
     /**
      * Consecutive weeks ending with the current one that contain at least one run. A week the runner
@@ -91,9 +185,9 @@ data class RunsUiState(
      */
     val streakWeeks: Int
         get() {
-            if (runs.isEmpty()) return 0
+            if (countedRuns.isEmpty()) return 0
             val zone = ZoneId.systemDefault()
-            val weeks = runs.mapNotNull { run ->
+            val weeks = countedRuns.mapNotNull { run ->
                 runCatching { Instant.parse(run.startedAt).atZone(zone).toLocalDate() }
                     .getOrNull()
                     ?.with(WeekFields.ISO.dayOfWeek(), 1)
@@ -114,7 +208,7 @@ data class RunsUiState(
         val zone = ZoneId.systemDefault()
         val field = WeekFields.ISO.weekOfWeekBasedYear()
         val now = Instant.now().atZone(zone)
-        return runs.filter { run ->
+        return countedRuns.filter { run ->
             val at = runCatching { Instant.parse(run.startedAt).atZone(zone) }.getOrNull() ?: return@filter false
             at.year == now.year && at.get(field) == now.get(field)
         }
@@ -151,6 +245,21 @@ class RunsViewModel(private val repository: RunsRepository) : ViewModel() {
                 }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
             }
+        }
+        loadBadges()
+    }
+
+    /**
+     * Achievements, fetched alongside the runs but never blocking them.
+     *
+     * Its own coroutine and its own failure handling: badges are an embellishment on a page whose
+     * job is to show runs, so a slow or failing endpoint must not delay the list or turn the whole
+     * screen into an error. A failure simply leaves the section out.
+     */
+    private fun loadBadges() {
+        viewModelScope.launch {
+            val result = repository.badges()
+            if (result is ApiResult.Success) _state.update { it.copy(badges = result.value) }
         }
     }
 

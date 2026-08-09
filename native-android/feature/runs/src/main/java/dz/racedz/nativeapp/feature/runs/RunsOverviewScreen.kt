@@ -60,6 +60,8 @@ import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.currentLocale
+import dz.racedz.nativeapp.core.network.BadgeDto
+import dz.racedz.nativeapp.core.network.BadgesDto
 import dz.racedz.nativeapp.core.network.RunDto
 import dz.racedz.nativeapp.feature.runs.record.RecordingStatus
 import dz.racedz.nativeapp.feature.runs.record.RunRecorder
@@ -212,6 +214,12 @@ fun RunsOverviewScreen(
                             longestRunKm = state.longestRunKm,
                             bestPaceSecondsPerKm = state.bestPaceSecondsPerKm,
                         )
+
+                        // What there is to chase this month, then what has already been earned.
+                        // In that order on purpose: personal bests and badges both look backward,
+                        // and a page that only looks backward gives a runner nothing to do next.
+                        ChallengesCard(challenges = state.challenges)
+                        state.badges?.let { BadgesCard(badges = it) }
                     }
                 } else {
                     // The empty state is a brand moment (PRODUCT.md "earned energy"), not a grey
@@ -651,6 +659,221 @@ private fun LatestRunCard(run: RunDto, onClick: () -> Unit) {
             }
         }
       }
+    }
+}
+
+/**
+ * This month's targets, with a bar each.
+ *
+ * Everything here is arithmetic over runs already in memory (see [RunsUiState.challenges]) — no
+ * challenge table, no enrolment, nothing to join or expire. That is a deliberate limit: it means
+ * these are personal targets, not shared events with other runners, and nothing here can claim a
+ * progress figure the run list does not already support.
+ */
+@Composable
+private fun ChallengesCard(challenges: List<RunChallenge>) {
+    val colors = ZidRunTheme.colors
+    val locale = currentLocale()
+
+    ZidRunCard {
+        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.runs_challenges),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.textStrong,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    painterResource(R.drawable.ic_flame),
+                    contentDescription = null,
+                    tint = colors.accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            challenges.forEach { challenge ->
+                val label = stringResource(
+                    when (challenge.id) {
+                        RunChallengeId.MonthDistance -> R.string.runs_challenge_month_distance
+                        RunChallengeId.MonthRuns -> R.string.runs_challenge_month_runs
+                        RunChallengeId.MonthLongRun -> R.string.runs_challenge_long_run
+                    }
+                )
+                // Counts render as whole numbers, distances to one decimal — "8.0 runs" reads as
+                // a measurement rather than a tally.
+                val whole = challenge.id == RunChallengeId.MonthRuns
+                val current = if (whole) {
+                    ZidRunFormat.count(challenge.current.toInt(), locale)
+                } else {
+                    ZidRunFormat.decimal(challenge.current, locale, digits = 1)
+                }
+                val target = if (whole) {
+                    ZidRunFormat.count(challenge.target.toInt(), locale)
+                } else {
+                    ZidRunFormat.decimal(challenge.target, locale, digits = 1)
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                    modifier = Modifier.semantics(mergeDescendants = true) {
+                        contentDescription = "$label $current / $target"
+                    },
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.text,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            // "Done" replaces the fraction once the target is met, so a cleared
+                            // challenge does not read as "still 52 of 50".
+                            text = if (challenge.done) {
+                                stringResource(R.string.runs_challenge_done)
+                            } else {
+                                "$current / $target"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (challenge.done) colors.success else colors.textStrong,
+                            maxLines = 1,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                            .background(colors.surfaceMuted),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(challenge.fraction)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                                .background(if (challenge.done) colors.success else colors.primary),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Achievements from `/api/v1/me/badges` — earned first, then the two closest to being earned.
+ *
+ * Only three are shown. The catalogue runs to fourteen, and a wall of mostly-locked badges reads
+ * as a list of things the runner has failed to do; the next two within reach read as a next step.
+ */
+@Composable
+private fun BadgesCard(badges: BadgesDto) {
+    val colors = ZidRunTheme.colors
+    val locale = currentLocale()
+    if (badges.badges.isEmpty()) return
+
+    val earned = badges.badges.filter { it.earned }
+    val next = badges.badges
+        .filter { !it.earned }
+        // Closest to done first, by fraction rather than by raw remainder — 9/10 runs is nearer
+        // than 900/1000 km even though the gap is larger.
+        .sortedByDescending { if (it.target <= 0.0) 0.0 else it.current / it.target }
+    val shown = (earned.takeLast(2) + next.take(3 - minOf(earned.size, 2))).take(3)
+
+    ZidRunCard {
+        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.runs_badges),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.textStrong,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = stringResource(
+                        R.string.runs_badges_earned,
+                        ZidRunFormat.count(badges.earnedCount, locale),
+                        ZidRunFormat.count(badges.badges.size, locale),
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.textMuted,
+                )
+            }
+
+            shown.forEach { badge ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics(mergeDescendants = true) { },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (badge.earned) colors.primary else colors.surfaceMuted
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_award),
+                            contentDescription = null,
+                            // An earned badge is filled and an unearned one is outlined, so the
+                            // difference survives colour blindness and a greyscale screenshot.
+                            tint = if (badge.earned) colors.onPrimary else colors.textMuted,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    Text(
+                        text = badgeLabel(badge, locale),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (badge.earned) colors.textStrong else colors.text,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (!badge.earned) {
+                        Text(
+                            // Progress on a locked badge, so it is something to chase rather than
+                            // a bare "not yet".
+                            text = "${ZidRunFormat.count(badge.current.toInt(), locale)} / " +
+                                ZidRunFormat.count(badge.target.toInt(), locale),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textMuted,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A badge's name, built from its stable id.
+ *
+ * The ids encode both the metric and the threshold (`runs_50`, `dist_250`, `streak_12`), so the
+ * label is composed from one string per family rather than fourteen hand-written names in three
+ * languages — and a badge added server-side gets a sensible label here without a client release.
+ */
+@Composable
+private fun badgeLabel(badge: BadgeDto, locale: java.util.Locale): String {
+    val target = ZidRunFormat.count(badge.target.toInt(), locale)
+    return when (badge.id) {
+        "long_10k" -> stringResource(R.string.runs_badge_10k)
+        "long_half" -> stringResource(R.string.runs_badge_half)
+        "long_marathon" -> stringResource(R.string.runs_badge_marathon)
+        else -> when (badge.category) {
+            "DISTANCE" -> stringResource(R.string.runs_badge_distance, target)
+            "CONSISTENCY" -> stringResource(R.string.runs_badge_streak, target)
+            "RACING" -> stringResource(R.string.runs_badge_race, target)
+            else -> stringResource(R.string.runs_badge_volume, target)
+        }
     }
 }
 
