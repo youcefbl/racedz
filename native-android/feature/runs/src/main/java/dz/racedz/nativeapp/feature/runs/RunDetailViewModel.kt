@@ -88,6 +88,46 @@ class RunDetailViewModel(
         }
     }
 
+    /**
+     * Accepts the suggested link between this run and a planned session.
+     *
+     * Reloads rather than patching state locally: confirming also flips the workout to COMPLETED
+     * and recomputes adherence server-side, so the screen should show what the server now holds
+     * rather than an optimistic guess at it.
+     */
+    fun confirmWorkoutMatch(workoutId: String) {
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, actionError = null) }
+        viewModelScope.launch {
+            when (val result = repository.confirmWorkoutMatch(runId, workoutId)) {
+                is ApiResult.Success -> {
+                    _state.update { it.copy(mutating = false) }
+                    load()
+                }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(mutating = false, actionError = result.error.message)
+                }
+            }
+        }
+    }
+
+    /** "It was a free run": detaches this run from its workout and reopens that session. */
+    fun unlinkWorkoutMatch() {
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, actionError = null) }
+        viewModelScope.launch {
+            when (val result = repository.unlinkWorkoutMatch(runId)) {
+                is ApiResult.Success -> {
+                    _state.update { it.copy(mutating = false) }
+                    load()
+                }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(mutating = false, actionError = result.error.message)
+                }
+            }
+        }
+    }
+
     /** Deletes the run. [onDeleted] runs only after the server has actually accepted it. */
     fun delete(onDeleted: () -> Unit) {
         if (_state.value.mutating) return

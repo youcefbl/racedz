@@ -185,6 +185,17 @@ interface ZidRunApi {
     @DELETE("api/v1/runs/{id}")
     suspend fun deleteRun(@Path("id") id: String): Response<ApiEnvelope<RunDto>>
 
+    /** "Yes, this run was that planned session." */
+    @POST("api/v1/runs/{id}/match")
+    suspend fun confirmWorkoutMatch(
+        @Path("id") id: String,
+        @Body body: ConfirmMatchRequest,
+    ): Response<ApiEnvelope<JsonObject>>
+
+    /** "It was a free run" — detaches the run and reopens the workout. */
+    @DELETE("api/v1/runs/{id}/match")
+    suspend fun unlinkWorkoutMatch(@Path("id") id: String): Response<ApiEnvelope<JsonObject>>
+
     /**
      * Stores one run photo and returns its URL.
      *

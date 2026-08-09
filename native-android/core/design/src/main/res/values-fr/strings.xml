@@ -306,6 +306,13 @@
     <string name="runs_delete_confirm">Supprimer</string>
     <string name="runs_delete_confirm_body">Cela supprime définitivement la sortie et son tracé. C\'est irréversible depuis l\'application.</string>
     <string name="runs_analyze">Analyser</string>
+    <string name="runs_match_suggest">C\'était %1$s ?</string>
+    <string name="runs_match_suggest_body">Cela ressemble à la séance prévue par votre plan aujourd\'hui.</string>
+    <string name="runs_match_yes">Oui, c\'était ça</string>
+    <string name="runs_match_free">C\'était une sortie libre</string>
+    <string name="runs_match_linked">Compte pour %1$s</string>
+    <string name="runs_match_linked_auto">Associée automatiquement à %1$s</string>
+    <string name="runs_match_undo">Pas cette séance</string>
     <string name="runs_detail_title">Sortie</string>
     <string name="runs_title">Sorties</string>
     <string name="runs_view_history">Voir l’historique</string>

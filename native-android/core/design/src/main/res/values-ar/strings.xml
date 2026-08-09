@@ -321,6 +321,13 @@
     <string name="runs_delete_confirm">امسح</string>
     <string name="runs_delete_confirm_body">هاذي تمسح الجري والمسار تاعو للأبد. ما تقدرش ترجّعها من التطبيق.</string>
     <string name="runs_analyze">حلّل</string>
+    <string name="runs_match_suggest">هاذي كانت %1$s؟</string>
+    <string name="runs_match_suggest_body">تبان الحصة لي كان مبرمجها البلان تاعك اليوم.</string>
+    <string name="runs_match_yes">إيه، هي هاذي</string>
+    <string name="runs_match_free">كانت سورتي حرة</string>
+    <string name="runs_match_linked">تحسب في %1$s</string>
+    <string name="runs_match_linked_auto">تربطت أوتوماتيك مع %1$s</string>
+    <string name="runs_match_undo">ماشي هاذ الحصة</string>
     <string name="runs_detail_title">سورتي</string>
     <string name="runs_title">الجري</string>
     <string name="runs_view_history">شوف التاريخ</string>

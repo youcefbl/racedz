@@ -282,6 +282,14 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
 
     suspend fun delete(id: String): ApiResult<RunDto> = client.call { api.deleteRun(id) }
 
+    /** Accepts the suggested link between a run and a planned workout. */
+    suspend fun confirmWorkoutMatch(runId: String, workoutId: String): ApiResult<kotlinx.serialization.json.JsonObject> =
+        client.call { api.confirmWorkoutMatch(runId, dz.racedz.nativeapp.core.network.ConfirmMatchRequest(workoutId)) }
+
+    /** Detaches a run from its workout, reopening that session in the plan. */
+    suspend fun unlinkWorkoutMatch(runId: String): ApiResult<kotlinx.serialization.json.JsonObject> =
+        client.call { api.unlinkWorkoutMatch(runId) }
+
     companion object {
         const val PAGE_SIZE = 50
 

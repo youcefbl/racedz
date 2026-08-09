@@ -441,6 +441,22 @@ data class RunDetailDto(
     val splits: List<RunSplitDto> = emptyList(),
     val paceSeries: List<SeriesPointDto> = emptyList(),
     val elevationSeries: List<SeriesPointDto> = emptyList(),
+    /** The planned session this run completed, when it is linked to one. */
+    val workoutId: String? = null,
+    /** That workout's title, so the link can be named rather than shown as an id. */
+    val workoutTitle: String? = null,
+    /** EXPLICIT, AUTO, or RUNNER_CONFIRMED — how the link came about. */
+    val workoutMatchSource: String? = null,
+    /** A planned workout this unlinked run probably completed, for the runner to accept or decline. */
+    val suggestedMatch: SuggestedMatchDto? = null,
+)
+
+/** A planned workout the matcher thinks this run completed, awaiting the runner's answer. */
+@Serializable
+data class SuggestedMatchDto(
+    val workoutId: String = "",
+    val title: String = "",
+    val confidence: Double = 0.0,
 )
 
 // ---- coach ------------------------------------------------------------------------------------
@@ -906,6 +922,9 @@ data class CreateRunRequest(
 )
 
 /** Only runner-typed fields; every measurement is server-owned. */
+@Serializable
+data class ConfirmMatchRequest(val workoutId: String)
+
 @Serializable
 data class UpdateRunRequest(
     val baseRevision: Int,

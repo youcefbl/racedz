@@ -518,39 +518,14 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     if (workouts[0].completedRunId) throw new CoachError("This workout already has a completed run.", 409, "WORKOUT_ALREADY_COMPLETED");
     linkTargetKm = workouts[0].targetDistanceKm;
   } else {
-    // Candidate PLANNED, running-type workouts in the active plan within ±1 Algiers day of the run,
-    // not already claimed by another run. dayDelta is the whole-day gap between the two local dates.
-    const candidates = await prisma.$queryRaw<
-      Array<{ id: string; workoutType: string; targetDistanceKm: number | null; title: string; dayDelta: number }>
-    >`
-      SELECT w."id", w."workoutType"::text AS "workoutType", w."targetDistanceKm", w."title",
-        ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
-            - (${input.startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date)::int AS "dayDelta"
-      FROM "TrainingWorkout" w
-      INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
-      WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'PLANNED'
-        AND w."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
-        AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
-        AND ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
-            - (${input.startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date) <= 1
-    `;
-    const best = pickBestWorkoutMatch(
-      input.distanceKm,
-      candidates.map((c) => ({
-        workoutId: c.id,
-        workoutType: c.workoutType,
-        targetDistanceKm: c.targetDistanceKm,
-        dayDelta: Number(c.dayDelta)
-      }))
-    );
-    if (best?.scored.tier === "AUTO") {
-      linkedWorkoutId = best.candidate.workoutId;
+    const best = await findWorkoutMatchForRun(userId, input.startedAt, input.distanceKm);
+    if (best?.tier === "AUTO") {
+      linkedWorkoutId = best.workoutId;
       matchSource = "AUTO";
-      matchConfidence = best.scored.confidence;
-      linkTargetKm = best.candidate.targetDistanceKm;
-    } else if (best?.scored.tier === "SUGGEST") {
-      const cand = candidates.find((c) => c.id === best.candidate.workoutId);
-      suggestedMatch = { workoutId: best.candidate.workoutId, title: cand?.title ?? "", confidence: best.scored.confidence };
+      matchConfidence = best.confidence;
+      linkTargetKm = best.targetDistanceKm;
+    } else if (best?.tier === "SUGGEST") {
+      suggestedMatch = { workoutId: best.workoutId, title: best.title, confidence: best.confidence };
     }
   }
 
@@ -897,6 +872,60 @@ export async function confirmWorkoutMatch(userId: string, runId: string, workout
     `
   ]);
   return { runId, workoutId };
+}
+
+/**
+ * The best planned workout this run could belong to, or null.
+ *
+ * Extracted from createRunnerRun so a *suggestion* can be recomputed on read as well as at save
+ * time. The suggestion was previously produced only in the create response and stored nowhere, so
+ * a client that did not act on that one response could never offer it again — which is exactly how
+ * the mobile app ended up unable to confirm or reject a match at all (NATGAP-07). Recomputing is
+ * cheap (one indexed query over the active plan's ±1-day window) and self-correcting: once the run
+ * is linked, or the workout is claimed, this stops returning it.
+ *
+ * Scoring stays in adherence.ts; this function only supplies candidates.
+ */
+export async function findWorkoutMatchForRun(
+  userId: string,
+  startedAt: Date | string,
+  distanceKm: number
+): Promise<{ workoutId: string; title: string; targetDistanceKm: number | null; tier: "AUTO" | "SUGGEST"; confidence: number } | null> {
+  const prisma = getPrisma();
+  // Candidate PLANNED, running-type workouts in the active plan within ±1 Algiers day of the run,
+  // not already claimed by another run. dayDelta is the whole-day gap between the two local dates.
+  const candidates = await prisma.$queryRaw<
+    Array<{ id: string; workoutType: string; targetDistanceKm: number | null; title: string; dayDelta: number }>
+  >`
+    SELECT w."id", w."workoutType"::text AS "workoutType", w."targetDistanceKm", w."title",
+      ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+          - (${startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date)::int AS "dayDelta"
+    FROM "TrainingWorkout" w
+    INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
+    WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'PLANNED'
+      AND w."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
+      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
+      AND ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
+          - (${startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date) <= 1
+  `;
+  const best = pickBestWorkoutMatch(
+    distanceKm,
+    candidates.map((c) => ({
+      workoutId: c.id,
+      workoutType: c.workoutType,
+      targetDistanceKm: c.targetDistanceKm,
+      dayDelta: Number(c.dayDelta)
+    }))
+  );
+  if (!best || (best.scored.tier !== "AUTO" && best.scored.tier !== "SUGGEST")) return null;
+  const candidate = candidates.find((c) => c.id === best.candidate.workoutId);
+  return {
+    workoutId: best.candidate.workoutId,
+    title: candidate?.title ?? "",
+    targetDistanceKm: best.candidate.targetDistanceKm,
+    tier: best.scored.tier,
+    confidence: best.scored.confidence
+  };
 }
 
 // "Mark as free run": detach a run from its workout (e.g. a wrong auto-match), reopening the workout.

@@ -4,6 +4,7 @@ import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/h
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { requireOwnedRun, runSelect, runUpdateSchema, toRunDto } from "@/lib/api/v1/runs";
 import { computeSplits, elevationSeries, paceSeries } from "@/lib/coach/run-stats";
+import { findWorkoutMatchForRun } from "@/lib/coach/service";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +28,21 @@ export const GET = withApi(async (request, context: Context) => {
   // boundary rather than interpolating the crossing, so every split drifted.
   const points = (run.route ?? null) as Parameters<typeof computeSplits>[0];
 
+  // A planned workout this run might belong to, recomputed on read.
+  //
+  // The matcher already runs at save time, but its suggestion was returned once and stored
+  // nowhere — so a client that did not act on that single response could never offer it again.
+  // Recomputing here is one indexed query over the active plan's ±1-day window, and it is
+  // self-correcting: it stops returning a workout as soon as the run is linked or the workout is
+  // claimed. Only asked for an unlinked, still-matchable run.
+  const workout = await resolveWorkoutContext(viewer.id, run);
+
   return apiOk(request, {
     ...toRunDto(run, run.route ?? null),
     splits: computeSplits(points),
     paceSeries: paceSeries(points),
     elevationSeries: elevationSeries(points),
+    ...workout,
   });
 });
 
@@ -135,3 +146,36 @@ export const DELETE = withApi(async (request, context: Context) => {
   const fresh = await getPrisma().runnerRun.findFirst({ where: { id, userId: viewer.id }, select: runSelect });
   return apiOk(request, toRunDto(fresh!));
 });
+
+/**
+ * The run's workout link, and — when it has none — the workout it most likely belongs to.
+ *
+ * Returns the linked workout's title so the client can name it ("counted toward Tuesday tempo")
+ * instead of showing an opaque id, and a `suggestedMatch` the runner can accept or decline.
+ * Never both: a linked run has nothing to suggest.
+ *
+ * Best-effort. A failure here must not take down a run's detail page — the numbers and the route
+ * are what the runner opened it for.
+ */
+async function resolveWorkoutContext(userId: string, run: { workoutId?: unknown; startedAt?: unknown; distanceKm?: unknown; validity?: unknown }) {
+  try {
+    if (run.workoutId) {
+      const workout = await getPrisma().trainingWorkout.findFirst({
+        where: { id: run.workoutId as string },
+        select: { id: true, title: true },
+      });
+      return { workoutTitle: workout?.title ?? null, suggestedMatch: null };
+    }
+    // A non-foot activity is excluded from workout completion server-side, so offering to link it
+    // would be offering an action the confirm endpoint is going to refuse.
+    if (run.validity !== "VALID") return { workoutTitle: null, suggestedMatch: null };
+
+    const best = await findWorkoutMatchForRun(userId, run.startedAt as Date, run.distanceKm as number);
+    return {
+      workoutTitle: null,
+      suggestedMatch: best ? { workoutId: best.workoutId, title: best.title, confidence: best.confidence } : null,
+    };
+  } catch {
+    return { workoutTitle: null, suggestedMatch: null };
+  }
+}

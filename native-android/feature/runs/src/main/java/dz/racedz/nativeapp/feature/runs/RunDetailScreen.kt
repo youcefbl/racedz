@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Icon
@@ -163,6 +164,35 @@ fun RunDetailScreen(
                  */
                 if (run.validity != "VALID") {
                     NonFootNotice(reason = run.validityReason)
+                }
+
+                /*
+                 * "Was this your Tuesday tempo?"
+                 *
+                 * The matcher has always run on save, and has always stored either a link or a
+                 * suggestion — but the suggestion appeared once, in the create response, and the
+                 * phone had no way to act on it and no way to undo a wrong automatic link. Plan
+                 * adherence on mobile therefore depended entirely on the matcher being right, with
+                 * no correction available to the one person who knows the answer (NATGAP-07).
+                 *
+                 * An automatic link is stated and offered for undo; a link the runner made
+                 * deliberately is stated without one, because there is nothing to second-guess.
+                 */
+                run.suggestedMatch?.let { suggestion ->
+                    WorkoutMatchPrompt(
+                        title = suggestion.title,
+                        busy = state.mutating,
+                        onConfirm = { viewModel.confirmWorkoutMatch(suggestion.workoutId) },
+                        onFreeRun = viewModel::unlinkWorkoutMatch,
+                    )
+                }
+                if (run.suggestedMatch == null && run.workoutId != null && run.workoutTitle != null) {
+                    WorkoutLinkedNotice(
+                        title = run.workoutTitle!!,
+                        automatic = run.workoutMatchSource == "AUTO",
+                        busy = state.mutating,
+                        onUndo = viewModel::unlinkWorkoutMatch,
+                    )
                 }
 
                 RunMap(
@@ -555,6 +585,99 @@ fun RunDetailScreen(
 
                 Spacer(Modifier.height(ZidRunDimens.spaceXxl))
             }
+        }
+    }
+}
+
+/**
+ * Asks whether this run was the planned session, with both answers given equal weight.
+ *
+ * Neither button is styled as the "right" one. The matcher is guessing from a distance and a date,
+ * and a runner who did an unplanned easy 5k on the day a tempo was scheduled must find "it was a
+ * free run" exactly as easy to reach — a leading design here quietly corrupts adherence with
+ * confirmations nobody meant to give.
+ */
+@Composable
+private fun WorkoutMatchPrompt(
+    title: String,
+    busy: Boolean,
+    onConfirm: () -> Unit,
+    onFreeRun: () -> Unit,
+) {
+    val colors = ZidRunTheme.colors
+    ZidRunCard {
+        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+            Text(
+                text = stringResource(R.string.runs_match_suggest, title),
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.textStrong,
+            )
+            Text(
+                text = stringResource(R.string.runs_match_suggest_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textMuted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+                ZidRunButton(
+                    text = stringResource(R.string.runs_match_yes),
+                    onClick = onConfirm,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                )
+                ZidRunOutlinedButton(
+                    text = stringResource(R.string.runs_match_free),
+                    onClick = onFreeRun,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * States an existing link, with an undo only when the app made it.
+ *
+ * A link the runner chose ("Log this run" from the plan) or confirmed needs no undo offered beside
+ * it — it would invite them to second-guess a decision they already made. An automatic one does,
+ * because nobody agreed to it.
+ */
+@Composable
+private fun WorkoutLinkedNotice(title: String, automatic: Boolean, busy: Boolean, onUndo: () -> Unit) {
+    val colors = ZidRunTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(colors.primarySoft)
+            .padding(ZidRunDimens.spaceMd)
+            .semantics(mergeDescendants = true) { },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+    ) {
+        Icon(
+            Icons.Filled.EventAvailable,
+            contentDescription = null,
+            tint = colors.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(
+            text = stringResource(
+                if (automatic) R.string.runs_match_linked_auto else R.string.runs_match_linked,
+                title,
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.textStrong,
+            modifier = Modifier.weight(1f),
+        )
+        if (automatic) {
+            ZidRunTextButton(
+                text = stringResource(R.string.runs_match_undo),
+                // Guarded here rather than by a disabled state: ZidRunTextButton has no `enabled`,
+                // and inside a Row it must not fill the width or it collapses the label beside it.
+                onClick = { if (!busy) onUndo() },
+                fillWidth = false,
+            )
         }
     }
 }

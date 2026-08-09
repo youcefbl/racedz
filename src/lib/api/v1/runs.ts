@@ -150,6 +150,7 @@ export const runSelect = {
   validityReason: true,
   goalId: true,
   workoutId: true,
+  workoutMatchSource: true,
   weather: true,
   createdAt: true,
   updatedAt: true,
@@ -207,6 +208,10 @@ export function toRunDto(run: RunRow, route?: unknown, routePreview?: unknown) {
     validityReason: (run.validityReason as string | null) ?? null,
     goalId: (run.goalId as string | null) ?? null,
     workoutId: (run.workoutId as string | null) ?? null,
+    // How the link was made: EXPLICIT (the runner chose it), AUTO (the matcher was confident),
+    // RUNNER_CONFIRMED (the runner accepted a suggestion). The client needs it to tell an
+    // automatic link — which it should offer to undo — from one the runner made deliberately.
+    workoutMatchSource: (run.workoutMatchSource as string | null) ?? null,
     weather: (run.weather as unknown) ?? null,
     createdAt: (run.createdAt as Date).toISOString(),
     updatedAt: (run.updatedAt as Date).toISOString(),

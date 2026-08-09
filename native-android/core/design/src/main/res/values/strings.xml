@@ -324,6 +324,13 @@
     <string name="runs_delete_confirm">Delete</string>
     <string name="runs_delete_confirm_body">This removes the run and its route for good. It cannot be undone from the app.</string>
     <string name="runs_analyze">Analyze run</string>
+    <string name="runs_match_suggest">Was this %1$s?</string>
+    <string name="runs_match_suggest_body">It looks like the session your plan had for today.</string>
+    <string name="runs_match_yes">Yes, that was it</string>
+    <string name="runs_match_free">It was a free run</string>
+    <string name="runs_match_linked">Counted toward %1$s</string>
+    <string name="runs_match_linked_auto">Linked automatically to %1$s</string>
+    <string name="runs_match_undo">Not this workout</string>
     <string name="runs_detail_title">Run</string>
     <string name="runs_title">Runs</string>
     <string name="runs_view_history">View history</string>
