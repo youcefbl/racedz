@@ -38,10 +38,24 @@ data class RunChallenge(val id: RunChallengeId, val current: Double, val target:
         get() = if (target <= 0.0) 0f else (current / target).coerceIn(0.0, 1.0).toFloat()
 }
 
-/** Rungs per challenge. Chosen to be a real step up without being a cliff. */
+/**
+ * Rungs per challenge, and the increment used once a runner has climbed past the last one.
+ *
+ * The named rungs are landmarks — 100 km in a month, a half-marathon — but they must not be a
+ * ceiling. Pinning to the top rung was wrong in a way only real data showed: a runner whose best
+ * month was 337 km over 32 runs was handed "300 km" and "26 runs" as this month's challenge, both
+ * *below* what they had already done. A target beneath your own proven best is not a step up, and
+ * a page that offers one has stopped paying attention to the person reading it.
+ *
+ * Beyond the ladder the target keeps climbing, rounded up to the next [step] so it stays a round
+ * number rather than "338 km".
+ */
 private val MONTH_DISTANCE_LADDER = listOf(25.0, 50.0, 100.0, 150.0, 200.0, 300.0)
+private const val MONTH_DISTANCE_STEP = 50.0
 private val MONTH_RUNS_LADDER = listOf(4.0, 8.0, 12.0, 16.0, 20.0, 26.0)
+private const val MONTH_RUNS_STEP = 4.0
 private val LONG_RUN_LADDER = listOf(5.0, 10.0, 15.0, 21.1, 30.0, 42.2)
+private const val LONG_RUN_STEP = 5.0
 
 data class RunsUiState(
     val runs: List<RunDto> = emptyList(),
@@ -116,8 +130,11 @@ data class RunsUiState(
             val past = byMonth.filterKeys { it != null && it != currentKey }.values
             val current = byMonth[currentKey].orEmpty()
 
-            fun nextRung(ladder: List<Double>, best: Double) =
-                ladder.firstOrNull { it > best } ?: ladder.last()
+            // Strictly greater than the runner's best, always — past the last rung it keeps
+            // climbing in `step` increments instead of pinning to the top of the list.
+            fun nextRung(ladder: List<Double>, step: Double, best: Double): Double =
+                ladder.firstOrNull { it > best }
+                    ?: (kotlin.math.floor(best / step) + 1) * step
 
             return listOf(
                 RunChallenge(
@@ -125,6 +142,7 @@ data class RunsUiState(
                     current = current.sumOf { it.distanceKm },
                     target = nextRung(
                         MONTH_DISTANCE_LADDER,
+                        MONTH_DISTANCE_STEP,
                         past.maxOfOrNull { month -> month.sumOf { it.distanceKm } } ?: 0.0,
                     ),
                 ),
@@ -133,6 +151,7 @@ data class RunsUiState(
                     current = current.size.toDouble(),
                     target = nextRung(
                         MONTH_RUNS_LADDER,
+                        MONTH_RUNS_STEP,
                         past.maxOfOrNull { month -> month.size.toDouble() } ?: 0.0,
                     ),
                 ),
@@ -141,6 +160,7 @@ data class RunsUiState(
                     current = current.maxOfOrNull { it.distanceKm } ?: 0.0,
                     target = nextRung(
                         LONG_RUN_LADDER,
+                        LONG_RUN_STEP,
                         past.maxOfOrNull { month -> month.maxOfOrNull { it.distanceKm } ?: 0.0 } ?: 0.0,
                     ),
                 ),
