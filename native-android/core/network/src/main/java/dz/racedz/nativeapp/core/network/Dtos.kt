@@ -924,6 +924,15 @@ data class CreateRunRequest(
 )
 
 /** Only runner-typed fields; every measurement is server-owned. */
+/** One screen view. Ids are random per-install/per-session UUIDs minted on the device. */
+@Serializable
+data class TrackRequest(
+    val path: String,
+    val visitorId: String,
+    val sessionId: String,
+    val locale: String? = null,
+)
+
 @Serializable
 data class ConfirmMatchRequest(val workoutId: String)
 

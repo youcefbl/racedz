@@ -67,6 +67,8 @@ import dz.racedz.nativeapp.feature.coach.CoachViewModel
 import dz.racedz.nativeapp.feature.races.RacesViewModel
 import dz.racedz.nativeapp.feature.runs.RunsOverviewScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
+import androidx.compose.runtime.DisposableEffect
+import androidx.navigation.NavController
 import androidx.compose.runtime.LaunchedEffect
 import dz.racedz.nativeapp.navigation.ShellTab
 import dz.racedz.nativeapp.rememberAccountViewModel
@@ -150,8 +152,24 @@ fun AppShell(
      */
     requestedTab: ShellTab? = null,
     onRequestedTabHandled: () -> Unit = {},
+    /**
+     * Reports a tab change for analytics, with the tab's route.
+     *
+     * Observed HERE and not by the caller because the tabs are destinations of the nested NavHost
+     * below: the root controller only ever sees "shell" and never learns which tab is showing, so
+     * a listener up there records nothing at all for the four screens people spend their time on.
+     */
+    onScreen: (String) -> Unit = {},
 ) {
     val navController = rememberNavController()
+
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+            destination.route?.let(onScreen)
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
+    }
 
     LaunchedEffect(requestedTab) {
         val tab = requestedTab ?: return@LaunchedEffect

@@ -66,6 +66,16 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
         // recording pipeline. Release and internal builds keep the real rule — see GpsQuality.
         GpsQuality.trustDisplacementWhenSpeedIsZero = BuildConfig.DEBUG
     }
+    private val analyticsRepository = dz.racedz.nativeapp.core.auth.AnalyticsRepository(api)
+
+    /** First-party screen-view tracking (NATGAP-17). No third-party SDK is involved. */
+    val analytics = dz.racedz.nativeapp.observability.Analytics(
+        context = context.applicationContext,
+        send = { path, locale, visitorId, sessionId ->
+            analyticsRepository.track(path, locale, visitorId, sessionId)
+        },
+    )
+
     val accountRepository = AccountRepository(api, apiClient, sessionManager)
 
     /**

@@ -242,6 +242,10 @@ interface ZidRunApi {
     @POST("api/v1/uploads")
     suspend fun uploadRunPhoto(@Part file: MultipartBody.Part): Response<ApiEnvelope<UploadedImageDto>>
 
+    /** Screen-view beacon. Fire-and-forget; the server answers 200 even when it drops the row. */
+    @POST("api/v1/track")
+    suspend fun track(@Body body: TrackRequest): Response<ApiEnvelope<JsonObject>>
+
     // ---- me -----------------------------------------------------------------------------------
 
     @GET("api/v1/me")

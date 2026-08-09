@@ -3,6 +3,7 @@ package dz.racedz.nativeapp
 import android.net.Uri
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,7 @@ import dz.racedz.nativeapp.core.auth.SignOutReason
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AppFeaturesDto
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.design.ZidRunThemeMode
 import dz.racedz.nativeapp.feature.account.AboutScreen
 import dz.racedz.nativeapp.feature.account.AccountViewModel
@@ -181,6 +183,25 @@ fun ZidRunApp(
         // verifier; a race link opens that race. Both are consumed exactly once — replaying a spent
         // authorization code on a configuration change would fail and look like a broken sign-in.
         var pendingShellTab by remember { mutableStateOf<ShellTab?>(null) }
+
+        /*
+         * Screen views (NATGAP-17).
+         *
+         * Reported as WEBSITE paths, not native route names: the admin funnel groups by path, so
+         * "runs/history" and "/account/runs" would otherwise sit in the dashboard as two unrelated
+         * rows for the same screen. Route arguments are dropped — a path carrying a run id would
+         * shatter the aggregate into one row per run and put an identifier in the analytics table.
+         */
+        val locale = currentLocale()
+        DisposableEffect(navController, locale) {
+            val listener = androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
+                analyticsPathFor(destination.route)?.let { path ->
+                    container.analytics.screen(path, locale.language)
+                }
+            }
+            navController.addOnDestinationChangedListener(listener)
+            onDispose { navController.removeOnDestinationChangedListener(listener) }
+        }
 
         LaunchedEffect(pendingDeepLink?.id) {
             val link = pendingDeepLink?.uri ?: return@LaunchedEffect
@@ -385,6 +406,9 @@ fun ZidRunApp(
                 }
 
                 AppShell(
+                    onScreen = { route ->
+                        analyticsPathFor(route)?.let { container.analytics.screen(it, locale.language) }
+                    },
                     requestedTab = pendingShellTab,
                     onRequestedTabHandled = { pendingShellTab = null },
                     container = container,
@@ -776,3 +800,27 @@ internal fun rememberAccountViewModel(
         )
     }
 )
+
+/**
+ * The website path a native destination corresponds to, or null when it should not be tracked.
+ *
+ * Deliberately an explicit allowlist rather than a transform of the route string. Two reasons: a
+ * route template like `runs/{runId}` would otherwise be reported with the id substituted, putting
+ * an identifier into the analytics table and splitting one screen into thousands of rows; and
+ * screens with no website equivalent are better left out than mapped to an invented path.
+ */
+internal fun analyticsPathFor(route: String?): String? = when (route) {
+    ShellTab.Races.route -> "/races"
+    ShellTab.Runs.route -> "/account/runs"
+    ShellTab.Coach.route -> "/account/coach"
+    ShellTab.Account.route -> "/account"
+    RootDestinations.RUN_HISTORY -> "/account/runs"
+    RootDestinations.REGISTRATIONS -> "/account/registrations"
+    RootDestinations.PROFILE -> "/account/profile"
+    RootDestinations.PRIVACY -> "/account/privacy"
+    RootDestinations.ABOUT -> "/about"
+    RootDestinations.AUTH -> "/login"
+    // Everything else — run detail, race detail, the recording flow, coach sub-screens — either
+    // carries an id or has no web counterpart.
+    else -> null
+}

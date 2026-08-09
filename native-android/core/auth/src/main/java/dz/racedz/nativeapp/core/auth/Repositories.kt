@@ -331,6 +331,25 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
  * A NONE entitlement comes back as a normal success with empty sections rather than an error — not
  * having subscribed is a state to render, not a failure to retry.
  */
+/**
+ * The screen-view beacon. Its own tiny repository because it is the one call that is deliberately
+ * unauthenticated-tolerant: it must work before sign-in and must never surface a failure.
+ */
+class AnalyticsRepository(private val api: ZidRunApi) {
+    suspend fun track(path: String, locale: String?, visitorId: String, sessionId: String) {
+        runCatching {
+            api.track(
+                dz.racedz.nativeapp.core.network.TrackRequest(
+                    path = path,
+                    visitorId = visitorId,
+                    sessionId = sessionId,
+                    locale = locale,
+                )
+            )
+        }
+    }
+}
+
 class CoachRepository(private val api: ZidRunApi, private val client: ApiClient) {
 
     /**
