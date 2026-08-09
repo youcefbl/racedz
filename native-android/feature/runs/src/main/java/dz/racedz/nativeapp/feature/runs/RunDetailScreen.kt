@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -92,12 +93,14 @@ fun RunDetailScreen(
     onBack: () -> Unit,
     /** Opens the coach with this run selected. Null when the runner has no coaching. */
     onAnalyse: ((String) -> Unit)? = null,
-    onExportGpx: (String) -> Unit = {},
     /** Called after the server has accepted the delete, so the list never shows a ghost row. */
     onDeleted: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val exportShareTitle = stringResource(R.string.runs_export_share)
+    val exportFailed = stringResource(R.string.runs_export_failed)
     var confirmingDelete by remember { mutableStateOf(false) }
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
@@ -485,7 +488,16 @@ fun RunDetailScreen(
                     if ((run.route?.size ?: 0) >= 2) {
                         ZidRunOutlinedButton(
                             text = stringResource(R.string.runs_export_gpx),
-                            onClick = { onExportGpx(run.id) },
+                            // Fetched and shared on-device rather than handed to a browser: the old
+                            // route opened a signed web link, so the runner left the app to receive
+                            // a download they then had to go and find. Same share sheet the account
+                            // export uses, so the file reaches mail/Drive/Files in one step.
+                            onClick = {
+                                viewModel.exportGpx(context.cacheDir, exportFailed) { file ->
+                                    shareRunFile(context, file, exportShareTitle, "application/gpx+xml", exportFailed)
+                                }
+                            },
+                            enabled = !state.mutating,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -1000,4 +1012,34 @@ private fun ChartWithAxes(
             }
         }
     }
+}
+
+/**
+ * Hands a generated file to a share target.
+ *
+ * A content:// URI from the app's own FileProvider with a one-shot read grant — never a file://
+ * path, which Android has refused between apps since N.
+ */
+internal fun shareRunFile(
+    context: android.content.Context,
+    file: java.io.File,
+    chooserTitle: String,
+    mimeType: String,
+    failedMessage: String,
+) {
+    val uri = runCatching {
+        androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    }.getOrNull()
+    if (uri == null) {
+        android.widget.Toast.makeText(context, failedMessage, android.widget.Toast.LENGTH_LONG).show()
+        return
+    }
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = mimeType
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        putExtra(android.content.Intent.EXTRA_TITLE, file.name)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    runCatching { context.startActivity(android.content.Intent.createChooser(send, chooserTitle)) }
+        .onFailure { android.widget.Toast.makeText(context, failedMessage, android.widget.Toast.LENGTH_LONG).show() }
 }

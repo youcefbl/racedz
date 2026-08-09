@@ -299,6 +299,8 @@
     <string name="runs_private">Privée</string>
     <string name="runs_public">Partagée</string>
     <string name="runs_export_gpx">Exporter GPX</string>
+    <string name="runs_export_failed">Impossible de préparer le fichier GPX. Réessayez.</string>
+    <string name="runs_export_share">Partager cette sortie</string>
     <string name="runs_visibility_title">Visibilité</string>
     <string name="runs_visibility_public_body">Toute personne qui voit votre profil voit cette sortie.</string>
     <string name="runs_visibility_private_body">Vous seul voyez cette sortie.</string>

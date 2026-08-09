@@ -80,6 +80,17 @@ interface ZidRunApi {
     @GET("api/v1/runs/{id}")
     suspend fun run(@Path("id") id: String): Response<ApiEnvelope<RunDetailDto>>
 
+    /**
+     * One run as a .gpx document, for the system share sheet.
+     *
+     * Raw bytes: this is a file, and wrapping a document in the JSON envelope would mean decoding
+     * it before it could be written. Bearer-authed, which is why it cannot simply be opened in a
+     * browser — that is what the old web handoff worked around.
+     */
+    @Streaming
+    @GET("api/v1/runs/{id}/gpx")
+    suspend fun runGpx(@Path("id") id: String): Response<ResponseBody>
+
     // ---- coach --------------------------------------------------------------------------------
 
     @GET("api/v1/coach")

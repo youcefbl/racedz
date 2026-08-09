@@ -621,11 +621,6 @@ fun ZidRunApp(
                     } else {
                         null
                     },
-                    onExportGpx = { id ->
-                        // The web (cookie-authed) GPX route via the signed-in handoff — the old
-                        // direct v1 URL was bearer-authed and 401'd in a browser (NATPAR-002).
-                        openWebSignedIn("/api/coach/runs/$id/gpx")
-                    },
                     // Back to the list, which reloads on resume — the deleted run is gone from the
                     // server, so returning to its detail screen would show a 404.
                     onDeleted = { navController.popBackStack() },

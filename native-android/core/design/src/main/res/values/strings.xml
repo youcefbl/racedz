@@ -317,6 +317,8 @@
     <string name="runs_private">Private</string>
     <string name="runs_public">Shared</string>
     <string name="runs_export_gpx">Export GPX</string>
+    <string name="runs_export_failed">Could not prepare the GPX file. Try again.</string>
+    <string name="runs_export_share">Share this run</string>
     <string name="runs_visibility_title">Visibility</string>
     <string name="runs_visibility_public_body">Anyone who can see your profile can see this run.</string>
     <string name="runs_visibility_private_body">Only you can see this run.</string>

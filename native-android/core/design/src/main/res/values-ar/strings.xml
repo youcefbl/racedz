@@ -314,6 +314,8 @@
     <string name="runs_private">خاصة</string>
     <string name="runs_public">مشتركة</string>
     <string name="runs_export_gpx">صدّر GPX</string>
+    <string name="runs_export_failed">ما نجّمناش نوجّدو فيشي GPX. عاود جرّب.</string>
+    <string name="runs_export_share">شارك هاذ السورتي</string>
     <string name="runs_visibility_title">الظهور</string>
     <string name="runs_visibility_public_body">كل واحد يشوف البروفايل تاعك يقدر يشوف هاذ الجري.</string>
     <string name="runs_visibility_private_body">غير انت تشوف هاذ الجري.</string>

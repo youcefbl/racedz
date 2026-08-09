@@ -128,6 +128,31 @@ class RunDetailViewModel(
         }
     }
 
+    /**
+     * Writes the run's GPX to a private cache file and hands the caller its path to share.
+     *
+     * On-device rather than the old signed web handoff, which bounced the runner into a browser to
+     * receive a download they then had to find again. Same cacheDir/export subtree the data export
+     * uses, so the existing FileProvider grant covers it and nothing new is exposed.
+     */
+    fun exportGpx(cacheDir: java.io.File, failedMessage: String, onReady: (java.io.File) -> Unit) {
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, actionError = null) }
+        viewModelScope.launch {
+            val bytes = repository.runGpx(runId)
+            val file = bytes?.let {
+                runCatching {
+                    val directory = java.io.File(cacheDir, "export").apply { mkdirs() }
+                    // Named as the server names it, so an app export and a web export of the same
+                    // run land as the same filename rather than two mystery files.
+                    java.io.File(directory, "zidrun-${runId.take(6)}.gpx").apply { writeBytes(it) }
+                }.getOrNull()
+            }
+            _state.update { it.copy(mutating = false, actionError = if (file == null) failedMessage else null) }
+            if (file != null) onReady(file)
+        }
+    }
+
     /** Deletes the run. [onDeleted] runs only after the server has actually accepted it. */
     fun delete(onDeleted: () -> Unit) {
         if (_state.value.mutating) return

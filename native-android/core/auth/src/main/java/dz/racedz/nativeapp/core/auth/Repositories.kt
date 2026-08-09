@@ -294,6 +294,18 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
 
     suspend fun delete(id: String): ApiResult<RunDto> = client.call { api.deleteRun(id) }
 
+    /**
+     * A run's GPX document, or null.
+     *
+     * Bypasses ApiClient.call, which exists to interpret the JSON envelope this endpoint does not
+     * return. Null on any failure — the caller surfaces that as "could not export", never a crash.
+     */
+    suspend fun runGpx(id: String): ByteArray? = runCatching {
+        val response = api.runGpx(id)
+        if (!response.isSuccessful) return null
+        response.body()?.use { it.bytes() }
+    }.getOrNull()
+
     /** Accepts the suggested link between a run and a planned workout. */
     suspend fun confirmWorkoutMatch(runId: String, workoutId: String): ApiResult<kotlinx.serialization.json.JsonObject> =
         client.call { api.confirmWorkoutMatch(runId, dz.racedz.nativeapp.core.network.ConfirmMatchRequest(workoutId)) }
