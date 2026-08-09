@@ -184,6 +184,24 @@ fun ZidRunApp(
         // verifier; a race link opens that race. Both are consumed exactly once — replaying a spent
         // authorization code on a configuration change would fail and look like a broken sign-in.
         var pendingShellTab by remember { mutableStateOf<ShellTab?>(null) }
+        var crashReportingEnabled by remember {
+            mutableStateOf(dz.racedz.nativeapp.observability.CrashReporting.isEnabled(context))
+        }
+
+        /*
+         * ONE notification view model, shared by the Account badge and the inbox.
+         *
+         * They had one each. Reading a notification updated only the inbox's copy, so going back
+         * to Account still showed the old unread count until something else refetched — the two
+         * views disagreed about the same number. Hoisted here because this is the nearest scope
+         * that contains both.
+         */
+        val notificationsViewModel: dz.racedz.nativeapp.feature.account.NotificationsViewModel = viewModel(
+            key = "notifications",
+            factory = SimpleViewModelFactory {
+                dz.racedz.nativeapp.feature.account.NotificationsViewModel(container.accountRepository)
+            },
+        )
 
         /*
          * Screen views (NATGAP-17).
@@ -193,6 +211,8 @@ fun ZidRunApp(
          * rows for the same screen. Route arguments are dropped — a path carrying a run id would
          * shatter the aggregate into one row per run and put an identifier in the analytics table.
          */
+        val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
+
         val locale = currentLocale()
         DisposableEffect(navController, locale) {
             val listener = androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
@@ -407,6 +427,7 @@ fun ZidRunApp(
                 }
 
                 AppShell(
+                    unreadNotifications = notificationsState.unreadCount,
                     onScreen = { route ->
                         analyticsPathFor(route)?.let { container.analytics.screen(it, locale.language) }
                     },
@@ -616,11 +637,6 @@ fun ZidRunApp(
             }
 
             composable(RootDestinations.NOTIFICATIONS) {
-                val notificationsViewModel: dz.racedz.nativeapp.feature.account.NotificationsViewModel = viewModel(
-                    factory = SimpleViewModelFactory {
-                        dz.racedz.nativeapp.feature.account.NotificationsViewModel(container.accountRepository)
-                    }
-                )
                 dz.racedz.nativeapp.feature.account.NotificationsScreen(
                     viewModel = notificationsViewModel,
                     onBack = { navController.popBackStack() },
@@ -777,6 +793,10 @@ fun ZidRunApp(
 
             composable(RootDestinations.PRIVACY) {
                 PrivacyDataScreen(
+                    crashReporting = crashReportingEnabled to { enabled: Boolean ->
+                        crashReportingEnabled = enabled
+                        dz.racedz.nativeapp.observability.CrashReporting.setEnabled(context, enabled)
+                    },
                     viewModel = rememberAccountViewModel(container, appearance),
                     onBack = { navController.popBackStack() },
                     onSignedOut = {
