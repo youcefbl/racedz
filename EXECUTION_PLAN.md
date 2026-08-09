@@ -297,7 +297,7 @@ website's existing routes or server actions.
 | `NATGAP-06` | P2 | **Wilaya rankings / leaderboards** | `/rankings` page + `src/lib/leaderboard.ts` (`getWilayaLeaderboards`) | Nothing | `GET /api/v1/rankings?wilaya=&window=` returns the same leaderboard the page renders; a native rankings screen with the wilaya and time-window filters. |
 | `NATGAP-07` | ✅ | **Workout-match confirmation** — delivered 2026-08-09 — "was this run your Tuesday tempo?" | `POST`/`DELETE /api/coach/runs/[id]/match`; `match-confirm-banner.tsx` | The server still auto-matches and still stores a *suggestion*, but native never shows it, so a suggested match can never be confirmed or rejected from the phone and plan adherence quietly depends on the matcher's guess | `/api/v1/runs/[id]/match` (confirm, reject); the suggestion surfaces as a banner on the run detail screen. Was folded into `NATRUN-04`; broken out because it is a correctness gap, not a nicety. |
 | `NATGAP-08` | P2 | **Human coach notes** — messages an admin coach writes to a runner | `getHumanCoachNotes` (`src/lib/coach-admin.ts`); `/account/coach/notes`; admin composes at `/admin/coach` | Nothing. A note written to a native-only runner is never delivered | `GET /api/v1/coach/notes`; the notes appear in the native Coach tab, with an unread marker. Pairs with `NATGAP-02`. |
-| `NATGAP-09` | P3 | **Cloud TTS fallback for voice cues** | `GET /api/coach/tts` streams OpenAI audio, disk-cached by (locale, text), for devices with no installed voice | `RunVoice.kt` is device TTS only. On the M21 there is no `ara-DZA` voice, so Arabic cues are read by an English voice; native shows an "install a voice" notice instead | `/api/v1/coach/tts` (or the existing route accepting bearer auth); native falls back to streamed audio when `isLanguageAvailable` fails, with the same on-disk cache. Closes the Arabic-cue finding recorded under `NATRUN-03`. |
+| `NATGAP-09` | ✅ | **Cloud TTS fallback for voice cues** — delivered 2026-08-09 | `GET /api/coach/tts` streams OpenAI audio, disk-cached by (locale, text), for devices with no installed voice | `RunVoice.kt` is device TTS only. On the M21 there is no `ara-DZA` voice, so Arabic cues are read by an English voice; native shows an "install a voice" notice instead | `/api/v1/coach/tts` (or the existing route accepting bearer auth); native falls back to streamed audio when `isLanguageAvailable` fails, with the same on-disk cache. Closes the Arabic-cue finding recorded under `NATRUN-03`. |
 | `NATGAP-10` | P3 | **Plan adjustment** | `PATCH /api/coach/plans/[id]`; `coach-plan-panel.tsx` | Native shows the plan week and can act on a workout (`PATCH /api/v1/coach/workouts/[id]`) but cannot adjust the plan itself | `/api/v1/coach/plan` gains the adjust action; the native plan screen exposes it. |
 | `NATGAP-11` | P3 | **Registration certificate / bib** | `/account/registrations/[id]/certificate` | Native lists registrations and opens detail, but cannot produce the certificate a runner brings to bib pickup | Certificate available natively (PDF share sheet) or, at minimum, an explicit signed web handoff rather than a dead end. |
 | `NATGAP-12` | P3 | **Report content / moderation** | `POST /api/reports`; `report-button.tsx`; `Report` model; admin queue at `/admin/reports` | Nothing. Once `NATGAP-04` ships public content to native, this becomes a **release blocker, not a nicety** — user-generated content with no in-app report path | `/api/v1/reports`; a report action wherever native shows another runner's content. Sequence after `NATGAP-04`, never before. |
@@ -336,17 +336,31 @@ The project already has a Firebase config, but it is the **Capacitor app's**, an
 | App | Application id | In `google-services.json`? |
 |---|---|---|
 | Capacitor | `dz.racedz.app` | yes — `android/app/google-services.json` |
-| Native | `dz.racedz.nativeapp` (+ `.debug`, `.internal`) | **no** |
+| Native release | `dz.racedz.nativeapp` | **yes, registered 2026-08-09** |
+| Native debug | `dz.racedz.nativeapp.debug` | **no — still blocks on-device testing** |
+| Native internal | `dz.racedz.nativeapp.internal` | no (only if that track is used) |
+
+**Status 2026-08-09:** the owner registered `dz.racedz.nativeapp` and the regenerated file is in
+place at `native-android/app/google-services.json` (git-ignored by `native-android/.gitignore`, so
+it stays a local credential). One registration is still missing: the debug build applies
+`applicationIdSuffix = ".debug"`, and the Google Services plugin matches the *variant's* full
+application id — so a debug build, which is what installs on the M21, will fail with "No matching
+client found for package name `dz.racedz.nativeapp.debug`". Register that id (and `.internal` if
+that track is used) and re-download; the alternative is a variant-specific copy under
+`app/src/debug/`, which means maintaining two files and is worse.
 
 The Google Services Gradle plugin matches strictly and fails the build with "No matching client
 found for package name" when the id is absent, so the existing file cannot simply be copied into
 `native-android/app/`. This is a console job, not a code change, and needs no new Firebase project:
-in `racedz-625ae` → Add app → Android, register `dz.racedz.nativeapp` and `dz.racedz.nativeapp.debug`
-(add `.internal` if that track is used), then download the regenerated `google-services.json` — it
-will contain every client — to `native-android/app/`. Because it is the same project, the sender id
-(`9542026153`) and therefore the **server's existing FCM credentials are unchanged**: nothing on the
-sending side needs to move. SHA-256 fingerprints are only needed for App Links / Google Sign-In, not
-for FCM delivery.
+in `racedz-625ae` → Add app → Android, register the remaining variant ids, then download the
+regenerated `google-services.json` — it will contain every client — to `native-android/app/`.
+Because it is the same project, the sender id (`9542026153`) and therefore the **server's existing
+FCM credentials are unchanged**: nothing on the sending side needs to move. SHA-256 fingerprints are
+only needed for App Links / Google Sign-In, not for FCM delivery.
+
+No FCM *code* exists yet either — the config is a precondition, not the work. `NATGAP-03` still
+needs the Messaging dependency, a service, token registration against the existing
+`/api/notifications/push-subscriptions`, a notification channel, and tap routing to a destination.
 
 **Sequencing note.** `NATGAP-03` (push) and `NATGAP-16` (crash reporting) are rollout infrastructure,
 not features, and both are already implied by open gates (`PR-048`, `PR-049`). They should close before
