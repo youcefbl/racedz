@@ -65,6 +65,14 @@ export const GET = withApi(async (request) => {
     // Whether the reading is the runner's exact GPS point or their wilaya centroid, so the app can
     // caption it ("near your area") when it is only regional.
     source: conditions.source,
+    // Where the reading is FROM, when the server chose the place.
+    //
+    // Only set for the wilaya fallback: with real coordinates the device reverse-geocodes a far
+    // more useful street-level town name than we could, and the server has no geocoder anyway.
+    // Without this the card had no place label at all in the common case — a runner who has not
+    // granted location yet (it is only requested at hold-to-begin, so that is every runner on a
+    // fresh install) saw a bare temperature with no indication of where it was measured.
+    place: wilaya,
   });
 });
 

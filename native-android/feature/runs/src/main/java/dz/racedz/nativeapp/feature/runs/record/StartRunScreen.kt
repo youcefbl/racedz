@@ -220,7 +220,11 @@ fun StartRunScreen(
             // Conditions where the run will happen, when the endpoint returned anything worth showing.
             session.weather
                 ?.takeIf { it.temperatureC != null || it.humidityPct != null || it.windSpeedKmh != null }
-                ?.let { WeatherCard(it, session.placeName) }
+                // The device's own reverse-geocoded town when there is a GPS fix, otherwise the
+                // wilaya the server used. The first is only available once location has been
+                // granted — which does not happen until hold-to-begin — so before a runner's first
+                // run the second is the only one there is, and the card used to show no place at all.
+                ?.let { WeatherCard(it, session.placeName ?: it.place) }
 
             // Free or guided. A guided run counts through warm-up, work, and cool-down and speaks
             // each change; a free run just records.

@@ -833,6 +833,8 @@ data class WeatherDto(
     val windDirectionDegrees: Int? = null,
     val weatherLabel: String? = null,
     val source: String? = null,
+    /** The wilaya the reading came from, when it is the regional fallback rather than a GPS fix. */
+    val place: String? = null,
 )
 
 @Serializable
