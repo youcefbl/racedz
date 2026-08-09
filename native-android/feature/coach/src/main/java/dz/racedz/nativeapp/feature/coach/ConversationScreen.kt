@@ -166,6 +166,37 @@ fun ConversationScreen(
                     // Newest at the bottom, as a conversation reads.
                     reverseLayout = true,
                 ) {
+                    // The run this screen was opened for, offered rather than auto-sent.
+                    //
+                    // FIRST in the list, which under reverseLayout means LAST on screen — directly
+                    // above the composer, where the list opens. It used to be declared after the
+                    // messages, which put it above the entire transcript: a runner who tapped
+                    // "Analyze run" landed on their existing chat with the offer parked off-screen,
+                    // and the run was never analysed because the button was never seen.
+                    if (state.canAnalyseRun(viewModel.runId)) {
+                        item(key = "analyse") {
+                            ZidRunCard {
+                                Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                                    Text(
+                                        stringResource(R.string.coach_analyse_run_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = colors.primary,
+                                    )
+                                    Text(
+                                        stringResource(R.string.coach_analyse_run_body),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colors.textMuted,
+                                    )
+                                    ZidRunButton(
+                                        text = stringResource(R.string.coach_analyse_run_action),
+                                        onClick = viewModel::analyseRun,
+                                        enabled = !state.generating,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // reverseLayout puts the first item at the bottom, so the question being
                     // answered belongs at the head of the list. Keyed on pendingQuestion too:
                     // a question whose reply was generated but not yet refetched (reload failed)
@@ -206,31 +237,6 @@ fun ConversationScreen(
                                 }
                             },
                         )
-                    }
-
-                    // The run this screen was opened for, offered rather than auto-sent.
-                    if (state.canAnalyseRun(viewModel.runId)) {
-                        item(key = "analyse") {
-                            ZidRunCard {
-                                Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-                                    Text(
-                                        stringResource(R.string.coach_analyse_run_title),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = colors.primary,
-                                    )
-                                    Text(
-                                        stringResource(R.string.coach_analyse_run_body),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = colors.textMuted,
-                                    )
-                                    ZidRunButton(
-                                        text = stringResource(R.string.coach_analyse_run_action),
-                                        onClick = viewModel::analyseRun,
-                                        enabled = !state.generating,
-                                    )
-                                }
-                            }
-                        }
                     }
 
                     if (state.conversation.messages.isEmpty() && !state.generating) {
