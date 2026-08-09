@@ -198,7 +198,10 @@ fun AccountScreen(
                                 StatSeparator()
                                 ZidRunStatTile(
                                     icon = Icons.Filled.Straighten,
-                                    value = ZidRunFormat.money(user.season.totalDistanceKm.toInt(), locale),
+                                    // One decimal, not a truncated integer: 64.2 km was rendering as "64 km".
+                                    // money() is an INTEGER formatter — right for dinars, wrong for
+                                    // a distance, where it silently discards the fraction.
+                                    value = ZidRunFormat.decimal(user.season.totalDistanceKm, locale, digits = 1),
                                     label = stringResource(R.string.account_stat_km),
                                     modifier = Modifier.weight(1f),
                                 )
