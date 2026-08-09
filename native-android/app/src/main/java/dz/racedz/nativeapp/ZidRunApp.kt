@@ -196,12 +196,28 @@ fun ZidRunApp(
          * views disagreed about the same number. Hoisted here because this is the nearest scope
          * that contains both.
          */
+        /*
+         * Keyed by ACCOUNT, not a constant.
+         *
+         * With a fixed key the single instance outlived the session: it was built before sign-in,
+         * loaded once, and was never cleared — so after signing out and back in as someone else the
+         * badge and inbox could still be showing the previous runner's notifications. Keying by
+         * user id means a different account gets a different instance and cross-account state is
+         * impossible by construction rather than by remembering to clear.
+         */
+        val signedInUserId = (authState as? AuthState.SignedIn)?.userId
         val notificationsViewModel: dz.racedz.nativeapp.feature.account.NotificationsViewModel = viewModel(
-            key = "notifications",
+            key = "notifications-${signedInUserId.orEmpty()}",
             factory = SimpleViewModelFactory {
                 dz.racedz.nativeapp.feature.account.NotificationsViewModel(container.accountRepository)
             },
         )
+
+        // Loaded only once there is a session to load it with, and again whenever the account
+        // changes — which is also what fills a freshly keyed instance.
+        LaunchedEffect(signedInUserId) {
+            if (signedInUserId != null) notificationsViewModel.load()
+        }
 
         /*
          * Screen views (NATGAP-17).

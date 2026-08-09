@@ -28,9 +28,14 @@ class NotificationsViewModel(private val repository: AccountRepository) : ViewMo
     private val _state = MutableStateFlow(NotificationsUiState())
     val state: StateFlow<NotificationsUiState> = _state.asStateFlow()
 
-    init {
-        load()
-    }
+    /*
+     * Deliberately no `init { load() }`.
+     *
+     * This is created by the app shell, which exists before anyone has signed in, so loading on
+     * construction fired an unauthenticated request and — worse — left whatever it loaded in place
+     * across a sign-out. The caller loads it when there is a session, and the instance is keyed by
+     * account so one runner's inbox can never be shown to the next.
+     */
 
     fun load() {
         viewModelScope.launch {
