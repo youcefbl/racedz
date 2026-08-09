@@ -19,6 +19,10 @@ plugins {
 val googleServicesConfig = file("google-services.json")
 if (googleServicesConfig.exists()) {
     apply(plugin = libs.plugins.google.services.get().pluginId)
+    // Crashlytics is a Firebase product and its plugin needs google-services applied first, so it
+    // is gated on the same file. Uploading mapping files is a release-build concern; the debug
+    // variant reports unobfuscated and needs no upload.
+    apply(plugin = libs.plugins.crashlytics.get().pluginId)
 }
 
 android {
@@ -119,6 +123,7 @@ dependencies {
     // library is inert until Firebase is initialised, which needs that file.
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.crashlytics)
 
     implementation(project(":core:design"))
     implementation(project(":core:network"))

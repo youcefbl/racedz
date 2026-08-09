@@ -6,9 +6,11 @@ import coil.ImageLoaderFactory
 import okhttp3.OkHttpClient
 
 /**
- * App-wide entry point. Builds the dependency graph and nothing else — no crash reporting and no
- * analytics SDK is wired up yet; those arrive with their own privacy/security review per
- * docs/NATIVE_ANDROID_OPTION_PLAN.md rather than being added speculatively.
+ * App-wide entry point. Builds the dependency graph and starts crash reporting.
+ *
+ * Crash reporting (NATGAP-16) is deliberately the only SDK initialised here, and it sends no user
+ * identifier — see CrashReporting for what is and is not collected. Analytics stays first-party
+ * (POST /api/v1/track) rather than a third-party SDK, so there is nothing else to start.
  */
 class ZidRunApplication : Application(), ImageLoaderFactory {
 
@@ -25,6 +27,12 @@ class ZidRunApplication : Application(), ImageLoaderFactory {
                 versionCode = BuildConfig.VERSION_CODE,
                 releaseDate = BuildConfig.RELEASE_DATE,
             ),
+        )
+        // Before restore(), so a crash inside session restoration is itself reported.
+        dz.racedz.nativeapp.observability.CrashReporting.initialise(
+            context = this,
+            versionName = BuildConfig.VERSION_NAME,
+            versionCode = BuildConfig.VERSION_CODE,
         )
         container.sessionManager.restore()
     }

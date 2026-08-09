@@ -714,6 +714,9 @@ fun ZidRunApp(
                 // Public pages, so a plain URL rather than a signed handoff: minting a single-use
                 // session token to read the terms would be handing out a credential for nothing.
                 AboutScreen(
+                    onForceTestCrash = if (BuildConfig.DEBUG) {
+                        { dz.racedz.nativeapp.observability.CrashReporting.forceTestCrash() }
+                    } else null,
                     versionName = container.appInfo.versionName,
                     versionCode = container.appInfo.versionCode,
                     releaseDate = container.appInfo.releaseDate,

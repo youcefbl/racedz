@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.PrivacyTip
@@ -52,6 +53,13 @@ import dz.racedz.nativeapp.core.design.ZidRunTheme
  */
 @Composable
 fun AboutScreen(
+    /**
+     * Supplied on debug builds only; null hides the row entirely.
+     *
+     * A callback rather than a boolean because crash reporting lives in the app module and a
+     * feature module cannot — and should not — reach into it.
+     */
+    onForceTestCrash: (() -> Unit)? = null,
     versionName: String,
     versionCode: Int,
     releaseDate: String,
@@ -132,6 +140,23 @@ fun AboutScreen(
                     AboutFact(
                         label = stringResource(R.string.about_developer),
                         value = developer,
+                    )
+                }
+            }
+
+            /*
+             * Debug-only: forces a crash so Crashlytics can be shown to actually report (PR-049).
+             *
+             * Guarded on the build type, not on a hidden gesture — a release build must not contain
+             * a reachable path that kills the app, however well hidden. Placed here because About
+             * already carries the build's identity, which is what an engineer checks alongside it.
+             */
+            if (onForceTestCrash != null) {
+                ZidRunCard(contentPadding = PaddingValues(0.dp)) {
+                    ZidRunMenuRow(
+                        icon = Icons.Filled.BugReport,
+                        label = "Force a test crash (debug)",
+                        onClick = onForceTestCrash,
                     )
                 }
             }
