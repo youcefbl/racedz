@@ -116,6 +116,16 @@ class AccountRepository(
             api.revokePushToken(dz.racedz.nativeapp.core.network.PushSubscriptionRequest(token))
         } is ApiResult.Success
 
+    /** The notification inbox with its unread count. */
+    suspend fun notifications(): ApiResult<dz.racedz.nativeapp.core.network.NotificationsDto> =
+        session.onResult(client.call { api.notifications() })
+
+    suspend fun markAllNotificationsRead(): Boolean =
+        client.call { api.markAllNotificationsRead() } is ApiResult.Success
+
+    suspend fun markNotificationRead(id: String): Boolean =
+        client.call { api.markNotificationRead(id) } is ApiResult.Success
+
     suspend fun requestAccountDeletion(reason: String?): ApiResult<Unit> {
         val result = session.onResult(client.call { api.requestAccountDeletion(DeletionRequestBody(reason)) })
         return when (result) {

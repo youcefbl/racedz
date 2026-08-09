@@ -50,6 +50,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import dz.racedz.nativeapp.push.PUSH_HREF_KEY
 import dz.racedz.nativeapp.push.ensurePushChannel
 import dz.racedz.nativeapp.feature.runs.RunDetailScreen
 import dz.racedz.nativeapp.feature.runs.RunDetailViewModel
@@ -437,6 +438,7 @@ fun ZidRunApp(
                     // browser's cookie jar, so a runner already signed in on the web lands straight
                     // on the page rather than at a second login.
                     onOpenSupport = { openWebSignedIn("/account/support") },
+                    onOpenNotifications = { navController.navigate(RootDestinations.NOTIFICATIONS) },
                     onOpenSecurity = {
                         openWebSignedIn("/account/security")
                     },
@@ -610,6 +612,32 @@ fun ZidRunApp(
                         }
                     },
                     onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(RootDestinations.NOTIFICATIONS) {
+                val notificationsViewModel: dz.racedz.nativeapp.feature.account.NotificationsViewModel = viewModel(
+                    factory = SimpleViewModelFactory {
+                        dz.racedz.nativeapp.feature.account.NotificationsViewModel(container.accountRepository)
+                    }
+                )
+                dz.racedz.nativeapp.feature.account.NotificationsScreen(
+                    viewModel = notificationsViewModel,
+                    onBack = { navController.popBackStack() },
+                    // Reuses the push href mapping, so a notification opened from the inbox lands
+                    // exactly where the same notification opened from the tray does.
+                    onOpenHref = { href ->
+                        pushDestination(android.content.Intent().putExtra(PUSH_HREF_KEY, href))?.let { link ->
+                            when {
+                                link.host == "runs" -> {
+                                    navController.popBackStack(RootDestinations.SHELL, inclusive = false)
+                                    pendingShellTab = ShellTab.Runs
+                                }
+                                link.host == "registrations" -> navController.navigate(RootDestinations.REGISTRATIONS)
+                                else -> pendingRaceSlug = raceSlugFrom(link)
+                            }
+                        }
+                    },
                 )
             }
 
@@ -819,6 +847,7 @@ internal fun analyticsPathFor(route: String?): String? = when (route) {
     RootDestinations.PROFILE -> "/account/profile"
     RootDestinations.PRIVACY -> "/account/privacy"
     RootDestinations.ABOUT -> "/about"
+    RootDestinations.NOTIFICATIONS -> "/account/notifications"
     RootDestinations.AUTH -> "/login"
     // Everything else — run detail, race detail, the recording flow, coach sub-screens — either
     // carries an id or has no web counterpart.

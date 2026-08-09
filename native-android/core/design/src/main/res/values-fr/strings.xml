@@ -180,6 +180,11 @@
     <string name="account_profile_preferences">Profil et préférences</string>
     <string name="account_privacy_data">Confidentialité et données</string>
     <string name="account_support">Support</string>
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_empty_title">Rien pour l\'instant</string>
+    <string name="notifications_empty_body">Les actualités des courses, les rappels de séance et les messages de votre coach apparaîtront ici.</string>
+    <string name="notifications_mark_all">Tout marquer comme lu</string>
+    <string name="account_notifications">Notifications</string>
     <string name="account_sign_out">Se déconnecter</string>
     <string name="account_sign_out_confirm">Se déconnecter de ZidRun sur cet appareil ?</string>
     <string name="account_signed_in_as">Connecté en tant que %1$s</string>

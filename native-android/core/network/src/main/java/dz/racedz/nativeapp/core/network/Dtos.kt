@@ -854,6 +854,25 @@ data class UploadedImageDto(
     val contentType: String = "",
 )
 
+/** One row in the runner's notification inbox. */
+@Serializable
+data class NotificationDto(
+    val id: String = "",
+    val type: String = "",
+    val title: String = "",
+    val body: String = "",
+    /** A website path the notification points at, or null. Mapped to a native screen where one exists. */
+    val href: String? = null,
+    val read: Boolean = false,
+    val createdAt: String = "",
+)
+
+@Serializable
+data class NotificationsDto(
+    val unreadCount: Int = 0,
+    val notifications: List<NotificationDto> = emptyList(),
+)
+
 /** One achievement, earned or still in progress. */
 @Serializable
 data class BadgeDto(

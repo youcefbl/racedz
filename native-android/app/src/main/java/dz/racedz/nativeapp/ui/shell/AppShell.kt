@@ -69,6 +69,7 @@ import dz.racedz.nativeapp.feature.runs.RunsOverviewScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
 import androidx.compose.runtime.DisposableEffect
 import androidx.navigation.NavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import dz.racedz.nativeapp.navigation.ShellTab
 import dz.racedz.nativeapp.rememberAccountViewModel
@@ -134,6 +135,7 @@ fun AppShell(
     onOpenPrivacy: () -> Unit,
     /** Hands off to the website for support and for security/MFA, which have no native screens. */
     onOpenSupport: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
     onOpenSecurity: () -> Unit,
     onOpenAbout: () -> Unit,
     onSignedOut: () -> Unit,
@@ -241,12 +243,22 @@ fun AppShell(
                 )
             }
             composable(ShellTab.Account.route) {
+                // Its own view model so the badge is fetched when the tab is shown, and refreshed
+                // by the inbox's own reload on resume rather than going stale after reading.
+                val notificationsViewModel: dz.racedz.nativeapp.feature.account.NotificationsViewModel = viewModel(
+                    factory = SimpleViewModelFactory {
+                        dz.racedz.nativeapp.feature.account.NotificationsViewModel(container.accountRepository)
+                    }
+                )
+                val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
                 AccountScreen(
                     viewModel = rememberAccountViewModel(container, appearance),
                     onOpenRegistrations = onOpenRegistrations,
                     onOpenProfile = onOpenProfile,
                     onOpenPrivacy = onOpenPrivacy,
                     onOpenSupport = onOpenSupport,
+                    onOpenNotifications = onOpenNotifications,
+                    unreadNotifications = notificationsState.unreadCount,
                     onOpenSecurity = onOpenSecurity,
                     onOpenAbout = onOpenAbout,
                     onSignedOut = onSignedOut,

@@ -209,6 +209,18 @@ interface ZidRunApi {
     @HTTP(method = "DELETE", path = "api/v1/me/push-subscriptions", hasBody = true)
     suspend fun revokePushToken(@Body body: PushSubscriptionRequest): Response<ApiEnvelope<JsonObject>>
 
+    /** The notification inbox, newest first, with the unread count for the badge. */
+    @GET("api/v1/notifications")
+    suspend fun notifications(): Response<ApiEnvelope<NotificationsDto>>
+
+    /** Marks everything read. */
+    @POST("api/v1/notifications")
+    suspend fun markAllNotificationsRead(): Response<ApiEnvelope<JsonObject>>
+
+    /** Marks one read; returns the fresh unread count so the badge follows the server. */
+    @POST("api/v1/notifications/{id}/read")
+    suspend fun markNotificationRead(@Path("id") id: String): Response<ApiEnvelope<JsonObject>>
+
     @GET("api/v1/me/badges")
     suspend fun badges(): Response<ApiEnvelope<BadgesDto>>
 

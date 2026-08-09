@@ -72,6 +72,7 @@ import dz.racedz.nativeapp.core.network.resolveMediaUrl
 import java.time.Duration
 import java.time.Instant
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
 
 /**
  * Account hub (05-account-page.png): identity header, season stats, the next upcoming registration,
@@ -87,6 +88,9 @@ fun AccountScreen(
     onOpenProfile: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenSupport: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
+    /** Unread notifications, for the badge on that row. */
+    unreadNotifications: Int = 0,
     /** Opens the website's security page, where MFA is managed. */
     onOpenSecurity: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -320,6 +324,16 @@ fun AccountScreen(
                                 label = stringResource(R.string.account_security),
                                 onClick = onOpenSecurity,
                                 opensExternally = true,
+                            )
+                            ZidRunDivider()
+                            ZidRunMenuRow(
+                                icon = Icons.Filled.Notifications,
+                                label = stringResource(R.string.account_notifications),
+                                // The count rides on the row rather than a bare dot: "3" tells the
+                                // runner whether it is worth opening, a dot only that something is.
+                                trailingText = unreadNotifications.takeIf { it > 0 }
+                                    ?.let { ZidRunFormat.count(it, locale) },
+                                onClick = onOpenNotifications,
                             )
                             ZidRunDivider()
                             ZidRunMenuRow(

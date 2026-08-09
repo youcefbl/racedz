@@ -203,6 +203,8 @@ fun ZidRunMenuRow(
      * distrust the bigger promises. The trailing glyph changes and the accessible name says so.
      */
     opensExternally: Boolean = false,
+    /** A count shown before the chevron — unread notifications, for instance. Null hides it. */
+    trailingText: String? = null,
 ) {
     val colors = ZidRunTheme.colors
     val badgeTint = tint ?: colors.primary
@@ -233,6 +235,21 @@ fun ZidRunMenuRow(
             color = colors.textStrong,
             modifier = Modifier.weight(1f),
         )
+        trailingText?.let { count ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                    .background(colors.primary)
+                    .padding(horizontal = ZidRunDimens.spaceSm, vertical = 2.dp),
+            ) {
+                Text(
+                    text = count,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onPrimary,
+                )
+            }
+            Spacer(Modifier.width(ZidRunDimens.spaceSm))
+        }
         Icon(
             imageVector = if (opensExternally) {
                 Icons.AutoMirrored.Filled.OpenInNew

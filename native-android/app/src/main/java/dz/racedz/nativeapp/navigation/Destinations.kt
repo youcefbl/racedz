@@ -15,6 +15,7 @@ object RootDestinations {
     const val PROFILE = "account/profile"
     const val PRIVACY = "account/privacy"
     const val ABOUT = "account/about"
+    const val NOTIFICATIONS = "account/notifications"
     const val RUN_HISTORY = "runs/history"
     const val RUN_DETAIL = "runs/{runId}"
     /**

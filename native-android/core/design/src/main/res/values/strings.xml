@@ -195,6 +195,11 @@
     <string name="account_profile_preferences">Profile &amp; preferences</string>
     <string name="account_privacy_data">Privacy &amp; data</string>
     <string name="account_support">Support</string>
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_empty_title">Nothing yet</string>
+    <string name="notifications_empty_body">Race updates, session reminders and messages from your coach will appear here.</string>
+    <string name="notifications_mark_all">Mark all as read</string>
+    <string name="account_notifications">Notifications</string>
     <string name="account_sign_out">Sign out</string>
     <string name="account_sign_out_confirm">Sign out of ZidRun on this device?</string>
     <string name="account_signed_in_as">Signed in as %1$s</string>
