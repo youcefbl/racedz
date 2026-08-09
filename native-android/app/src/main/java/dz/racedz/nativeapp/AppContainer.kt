@@ -88,6 +88,13 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
         registerToken = { token, label -> accountRepository.registerPushToken(token, label) },
         revokeToken = { token -> accountRepository.revokePushToken(token) },
     )
+
+    init {
+        // Covers the sign-outs nobody taps: refresh expiry and security revocation. The manual
+        // path still revokes server-side first (see AccountViewModel), which is cleaner; this is
+        // the floor that always works.
+        sessionManager.onSessionCleared = { pushRegistrar.invalidateLocalToken() }
+    }
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
 }
 

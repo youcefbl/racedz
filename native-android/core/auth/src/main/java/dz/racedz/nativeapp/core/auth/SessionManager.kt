@@ -160,10 +160,23 @@ class SessionManager(
         clearSession(reason)
     }
 
+    /**
+     * Run whenever a session ends, however it ended.
+     *
+     * Set once at startup. Exists because sign-out is not only the button: an expired refresh
+     * token and a server-side security revocation both land here, and device-scoped cleanup —
+     * push registration, for one — must happen on those paths too or the previous account keeps
+     * receiving notifications on this phone.
+     */
+    var onSessionCleared: (() -> Unit)? = null
+
     fun clearSession(reason: SignOutReason) {
         tokenStore.clear()
         _lastSignOutReason.value = reason
         _state.value = AuthState.SignedOut
+        // After the state change, and never allowed to throw: a failing cleanup must not leave the
+        // app believing it is still signed in.
+        runCatching { onSessionCleared?.invoke() }
     }
 
     fun consumeSignOutReason(): SignOutReason? = _lastSignOutReason.value.also { _lastSignOutReason.value = null }

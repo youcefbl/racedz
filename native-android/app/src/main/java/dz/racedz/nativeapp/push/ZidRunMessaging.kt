@@ -159,6 +159,23 @@ class PushRegistrar(
         runCatching { revokeToken(token) }
     }
 
+    /**
+     * Stops this device receiving, without needing a valid session.
+     *
+     * The authenticated revoke above is the clean path, but it is unavailable exactly when it is
+     * most needed: an expired refresh token or a server-side revocation clears the tokens, so
+     * there is nothing left to authenticate with — and the subscription row would stay active with
+     * the previous account's notifications still arriving on this phone.
+     *
+     * Deleting the token at FCM works regardless. Delivery stops immediately, and the server row
+     * self-heals: the next send gets NOT_FOUND / INVALID_ARGUMENT, which sendFirebasePush already
+     * reports as shouldRevokeToken. A new token is minted and registered on the next sign-in.
+     */
+    fun invalidateLocalToken() {
+        if (!isAvailable) return
+        runCatching { FirebaseMessaging.getInstance().deleteToken() }
+    }
+
     private suspend fun currentToken(): String =
         kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
             FirebaseMessaging.getInstance().token
