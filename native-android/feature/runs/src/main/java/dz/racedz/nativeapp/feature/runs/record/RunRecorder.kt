@@ -64,6 +64,16 @@ data class RecordingState(
     val calories: Int? get() = GpsQuality.estimateCalories(distanceKm, movingSeconds)
 
     /**
+     * Why this recording does not look like it was covered on foot, or null.
+     *
+     * The same test the server applies at save time. Surfacing it live means a ride logged by
+     * mistake can be stopped or discarded on the spot, instead of being saved, silently excluded
+     * from every number that matters, and only explained on the run's detail screen afterwards.
+     */
+    val nonFootReason: GpsQuality.NonFootReason?
+        get() = GpsQuality.detectNonFootActivity(distanceKm, movingSeconds, avgCadenceSpm)
+
+    /**
      * GPS strength, from the reported accuracy. Four buckets rather than a number, because a runner
      * glancing mid-stride needs "is it working", not "12.4 m".
      */

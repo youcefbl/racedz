@@ -49,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
-import dz.racedz.nativeapp.core.design.ZidRunDarkColors
+import dz.racedz.nativeapp.core.design.zidRunOnDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 
 /** The pill that opens the coach sheet. The caller renders it only for subscribers, mid-run. */
@@ -58,7 +58,7 @@ fun MidRunCoachButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
-            .background(ZidRunDarkColors.primary.copy(alpha = 0.14f))
+            .background(zidRunOnDarkColors().primary.copy(alpha = 0.14f))
             .clickable(role = Role.Button, onClick = onOpen)
             .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm)
             .semantics(mergeDescendants = true) { },
@@ -68,13 +68,13 @@ fun MidRunCoachButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
         Icon(
             Icons.Outlined.Forum,
             contentDescription = null,
-            tint = ZidRunDarkColors.primary,
+            tint = zidRunOnDarkColors().primary,
             modifier = Modifier.size(18.dp),
         )
         Text(
             text = stringResource(R.string.runs_coach_ask),
             style = MaterialTheme.typography.labelLarge,
-            color = ZidRunDarkColors.primary,
+            color = zidRunOnDarkColors().primary,
         )
     }
 }
@@ -131,7 +131,7 @@ fun MidRunCoachSheet(
     ModalBottomSheet(
         onDismissRequest = { recorder.cancel(); viewModel.setRecording(false); viewModel.close() },
         sheetState = sheetState,
-        containerColor = ZidRunDarkColors.surface,
+        containerColor = zidRunOnDarkColors().surface,
     ) {
         Column(
             modifier = Modifier
@@ -145,7 +145,7 @@ fun MidRunCoachSheet(
             Text(
                 text = stringResource(R.string.runs_coach_ask),
                 style = MaterialTheme.typography.titleMedium,
-                color = ZidRunDarkColors.textStrong,
+                color = zidRunOnDarkColors().textStrong,
             )
 
             // The status line: reply, an in-flight note, or the prompt hint.
@@ -159,19 +159,19 @@ fun MidRunCoachSheet(
                 Text(
                     text = reply,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = ZidRunDarkColors.text,
+                    color = zidRunOnDarkColors().text,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                        .background(ZidRunDarkColors.surfaceMuted)
+                        .background(zidRunOnDarkColors().surfaceMuted)
                         .padding(ZidRunDimens.spaceMd),
                 )
             }
             status?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = ZidRunDarkColors.textMuted)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = zidRunOnDarkColors().textMuted)
             }
             state.error?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = ZidRunDarkColors.danger)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = zidRunOnDarkColors().danger)
             }
 
             Row(
@@ -186,23 +186,23 @@ fun MidRunCoachSheet(
                     enabled = !state.busy,
                     placeholder = { Text(stringResource(R.string.runs_coach_hint)) },
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = ZidRunDarkColors.surfaceMuted,
-                        unfocusedContainerColor = ZidRunDarkColors.surfaceMuted,
-                        focusedTextColor = ZidRunDarkColors.textStrong,
-                        unfocusedTextColor = ZidRunDarkColors.textStrong,
+                        focusedContainerColor = zidRunOnDarkColors().surfaceMuted,
+                        unfocusedContainerColor = zidRunOnDarkColors().surfaceMuted,
+                        focusedTextColor = zidRunOnDarkColors().textStrong,
+                        unfocusedTextColor = zidRunOnDarkColors().textStrong,
                     ),
                     maxLines = 3,
                 )
 
                 // Mic: start/stop a voice note. Turns into a stop button while recording.
                 CoachCircle(
-                    tint = if (state.recording) ZidRunDarkColors.danger else ZidRunDarkColors.primary,
+                    tint = if (state.recording) zidRunOnDarkColors().danger else zidRunOnDarkColors().primary,
                     enabled = !state.busy,
                     icon = { m ->
                         Icon(
                             if (state.recording) Icons.Filled.Stop else Icons.Filled.Mic,
                             contentDescription = stringResource(R.string.runs_coach_mic),
-                            tint = if (state.recording) ZidRunDarkColors.danger else ZidRunDarkColors.primary,
+                            tint = if (state.recording) zidRunOnDarkColors().danger else zidRunOnDarkColors().primary,
                             modifier = m,
                         )
                     },
@@ -214,17 +214,17 @@ fun MidRunCoachSheet(
                     CircularProgressIndicator(
                         modifier = Modifier.size(28.dp),
                         strokeWidth = 3.dp,
-                        color = ZidRunDarkColors.primary,
+                        color = zidRunOnDarkColors().primary,
                     )
                 } else {
                     CoachCircle(
-                        tint = ZidRunDarkColors.primary,
+                        tint = zidRunOnDarkColors().primary,
                         enabled = state.draft.isNotBlank(),
                         icon = { m ->
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = stringResource(R.string.runs_coach_send),
-                                tint = if (state.draft.isNotBlank()) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
+                                tint = if (state.draft.isNotBlank()) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
                                 modifier = m,
                             )
                         },

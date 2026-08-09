@@ -109,6 +109,53 @@ object GpsQuality {
         return Math.round(met * weight * (movingSeconds / 3600.0)).toInt()
     }
 
+    /**
+     * Why an activity does not look like it was covered on foot.
+     *
+     * Matches the server's `NonFootReason` (src/lib/coach/motion-check.ts) so the phone and the
+     * server name the same thing the same way.
+     */
+    enum class NonFootReason { Cadence, Speed }
+
+    /** Below this step rate, footfalls cannot explain the ground covered. Easy jogging is ~150+. */
+    const val MIN_FOOT_CADENCE_SPM = 120
+
+    /** The cadence test only applies above this speed; a slow shuffle can honestly read low. */
+    const val CADENCE_TEST_MIN_SPEED_KMH = 7.0
+
+    /** Faster than this average pace (~24 km/h) is motorised whatever the step count says. */
+    const val IMPOSSIBLE_PACE_SEC_PER_KM = 150.0
+
+    /** Below these, a couple of stray fixes would dominate the average. */
+    const val NON_FOOT_MIN_DISTANCE_KM = 0.5
+    const val NON_FOOT_MIN_MOVING_SECONDS = 90
+
+    /**
+     * "This was almost certainly not covered on foot" — a port of detectNonFootActivity() in
+     * src/lib/coach/motion-check.ts, thresholds included.
+     *
+     * The server runs the same test at save time and quietly keeps a flagged activity out of
+     * records, streaks and the coach's context. Running it on the phone as well lets the runner be
+     * told while it is still happening — and while it can still be discarded — rather than
+     * discovering weeks later that their personal bests never moved. It is only ever a warning:
+     * neither side refuses to record, because the runner may have meant to log a ride.
+     */
+    fun detectNonFootActivity(distanceKm: Double, movingSeconds: Int, avgCadenceSpm: Int?): NonFootReason? {
+        if (distanceKm < NON_FOOT_MIN_DISTANCE_KM || movingSeconds < NON_FOOT_MIN_MOVING_SECONDS) return null
+
+        val speedKmh = distanceKm / (movingSeconds / 3600.0)
+        val paceSecPerKm = movingSeconds / distanceKm
+
+        if (paceSecPerKm > 0 && paceSecPerKm < IMPOSSIBLE_PACE_SEC_PER_KM) return NonFootReason.Speed
+
+        if (avgCadenceSpm != null && avgCadenceSpm > 0 &&
+            avgCadenceSpm < MIN_FOOT_CADENCE_SPM && speedKmh >= CADENCE_TEST_MIN_SPEED_KMH
+        ) {
+            return NonFootReason.Cadence
+        }
+        return null
+    }
+
     /** Great-circle distance in metres. */
     fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val earthRadiusM = 6_371_000.0

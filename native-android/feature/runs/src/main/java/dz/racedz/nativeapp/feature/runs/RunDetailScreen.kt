@@ -3,6 +3,7 @@ package dz.racedz.nativeapp.feature.runs
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -50,6 +52,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import dz.racedz.nativeapp.core.network.resolveMediaUrl
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunCard
@@ -146,6 +150,21 @@ fun RunDetailScreen(
                     color = colors.textMuted,
                 )
 
+                /*
+                 * "This wasn't run on foot."
+                 *
+                 * The server already decides this at save time (detectNonFootActivity: a step rate
+                 * too low for the ground covered, or a pace no human sustains) and quietly keeps
+                 * the activity out of records, streaks, plan adherence and the coach's context.
+                 * None of that was visible here, so a bike ride or a drive looked like an ordinary
+                 * run with an oddly good pace — and the runner had no way to know why their
+                 * personal bests never moved. Said plainly, at the top, before the numbers that
+                 * are not being counted.
+                 */
+                if (run.validity != "VALID") {
+                    NonFootNotice(reason = run.validityReason)
+                }
+
                 RunMap(
                     route = run.route,
                     modifier = Modifier
@@ -176,6 +195,30 @@ fun RunDetailScreen(
                             label = stringResource(R.string.runs_stat_pace),
                             modifier = Modifier.weight(1f),
                         )
+                    }
+                }
+
+                // Photos attached when the run was saved. Above the analysis, below the numbers:
+                // they are what the runner will actually come back to this screen for.
+                if (run.photos.isNotEmpty()) {
+                    ZidRunSectionHeader(title = stringResource(R.string.runs_photos))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                    ) {
+                        run.photos.forEach { url ->
+                            AsyncImage(
+                                model = resolveMediaUrl(url),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(140.dp)
+                                    .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                                    .background(colors.surfaceMuted),
+                            )
+                        }
                     }
                 }
 
@@ -356,22 +399,28 @@ fun RunDetailScreen(
                     }
                 }
 
+                /*
+                 * One banner, and only when this run actually earned it.
+                 *
+                 * There used to be two, unconditionally: a "steady effort" line that appeared
+                 * whenever the negative-split test failed — which is most runs — and a fixed
+                 * "easy day next, hydrate" line with no input from the run at all. Advice that
+                 * cannot be wrong is advice that says nothing, and after two or three runs the
+                 * runner learns to skip the whole strip, taking any real insight with it. A
+                 * negative split is a genuine, checkable fact about this run, so it keeps its
+                 * banner; everything else belongs to the coach, which has the context to say
+                 * something true. Silence is the honest default here.
+                 */
                 val fastestFinish = run.splits.size > 1 &&
                     run.splits.last().paceSecondsPerKm < run.splits.first().paceSecondsPerKm
-                InsightBanner(
-                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                    text = stringResource(
-                        if (fastestFinish) R.string.runs_insight_finish else R.string.runs_insight_steady,
-                    ),
-                    tint = colors.success,
-                    container = colors.successSoft,
-                )
-                InsightBanner(
-                    icon = Icons.Filled.WaterDrop,
-                    text = stringResource(R.string.runs_recovery_body),
-                    tint = colors.info,
-                    container = colors.infoSoft,
-                )
+                if (fastestFinish) {
+                    InsightBanner(
+                        icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                        text = stringResource(R.string.runs_insight_finish),
+                        tint = colors.success,
+                        container = colors.successSoft,
+                    )
+                }
 
                 ZidRunSectionHeader(title = stringResource(R.string.runs_highlights))
                 ZidRunCard {
@@ -454,7 +503,18 @@ fun RunDetailScreen(
                             Switch(
                                 checked = run.isPublic,
                                 onCheckedChange = { viewModel.setPublic(it) },
-                                enabled = !state.mutating,
+                                // The server refuses to publish a non-foot activity, so the switch
+                                // is disabled rather than left to fail: offering a control that
+                                // always errors is worse than not offering it.
+                                enabled = !state.mutating && run.validity == "VALID",
+                            )
+                        }
+
+                        if (run.validity != "VALID") {
+                            Text(
+                                stringResource(R.string.runs_visibility_blocked),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.textMuted,
                             )
                         }
 
@@ -495,6 +555,52 @@ fun RunDetailScreen(
 
                 Spacer(Modifier.height(ZidRunDimens.spaceXxl))
             }
+        }
+    }
+}
+
+/**
+ * The non-foot warning: what the server concluded, why, and what it means for the runner's numbers.
+ *
+ * Deliberately a warning tone rather than an error — the activity is not rejected, and the runner
+ * may well have meant to record a ride. What matters is that it will not count, and why.
+ */
+@Composable
+private fun NonFootNotice(reason: String?) {
+    val colors = ZidRunTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(colors.accentSoft)
+            .border(1.dp, colors.accent.copy(alpha = 0.35f), RoundedCornerShape(ZidRunDimens.cornerLg))
+            .padding(ZidRunDimens.spaceMd)
+            .semantics(mergeDescendants = true) { },
+        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+    ) {
+        Icon(
+            Icons.Filled.DirectionsBike,
+            contentDescription = null,
+            tint = colors.accent,
+            modifier = Modifier.size(24.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
+            Text(
+                text = stringResource(R.string.runs_validity_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.textStrong,
+            )
+            Text(
+                text = stringResource(
+                    when (reason) {
+                        "LOW_CADENCE_AT_SPEED" -> R.string.runs_validity_cadence
+                        "IMPOSSIBLE_PACE" -> R.string.runs_validity_pace
+                        else -> R.string.runs_validity_generic
+                    }
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.text,
+            )
         }
     }
 }

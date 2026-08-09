@@ -326,8 +326,32 @@
     <string name="runs_highlights">Highlights</string>
     <string name="runs_longest_run">Longest run</string>
     <string name="runs_insight_finish">Strong finish — your final kilometre was your fastest.</string>
-    <string name="runs_insight_steady">Steady effort — your pacing stayed controlled across the run.</string>
-    <string name="runs_recovery_body">Easy day next · hydrate and keep it conversational.</string>
+    <!-- Non-foot activity (server validity): the run is kept but does not feed records or coaching. -->
+    <string name="runs_validity_title">Probably not a run on foot</string>
+    <string name="runs_validity_cadence">Your step rate was far too low for the distance covered — this looks like a bike, a car or a scooter. The activity is kept, but it does not count toward your records, your consistency, or what your coach sees.</string>
+    <string name="runs_validity_pace">The average pace is faster than a person can run — this looks like a bike, a car or a scooter. The activity is kept, but it does not count toward your records, your consistency, or what your coach sees.</string>
+    <string name="runs_validity_generic">This does not look like a run on foot. The activity is kept, but it does not count toward your records, your consistency, or what your coach sees.</string>
+    <string name="runs_validity_pill">Not a run</string>
+    <string name="runs_nonfoot_live">This does not look like running — it will not count toward your records.</string>
+    <!-- Badges (server-computed) and this month's derived challenges. -->
+    <string name="runs_badges">Badges</string>
+    <string name="runs_badges_earned">%1$s of %2$s earned</string>
+    <string name="runs_badge_volume">%1$s runs</string>
+    <string name="runs_badge_distance">%1$s km total</string>
+    <string name="runs_badge_10k">First 10K</string>
+    <string name="runs_badge_half">First half marathon</string>
+    <string name="runs_badge_marathon">First marathon</string>
+    <string name="runs_badge_streak">%1$s weeks in a row</string>
+    <string name="runs_badge_race">%1$s races</string>
+    <string name="runs_challenges">This month</string>
+    <string name="runs_challenge_month_distance">Distance this month</string>
+    <string name="runs_challenge_month_runs">Runs this month</string>
+    <string name="runs_challenge_long_run">Longest run this month</string>
+    <string name="runs_challenge_done">Done</string>
+    <string name="runs_photos">Photos</string>
+    <string name="runs_photo_add">Add photo</string>
+    <string name="runs_photo_remove">Remove photo</string>
+    <string name="runs_visibility_blocked">An activity flagged for review cannot be made public.</string>
     <string name="runs_heart_rate">Heart rate</string>
     <string name="runs_cadence">Cadence</string>
     <string name="runs_effort">Effort</string>

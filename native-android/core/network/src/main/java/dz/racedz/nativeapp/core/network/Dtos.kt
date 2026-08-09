@@ -370,6 +370,8 @@ data class RunDto(
     val painLevel: Int = 0,
     val title: String? = null,
     val notes: String? = null,
+    /** Photos attached to this run. Always present, empty when there are none. */
+    val photos: List<String> = emptyList(),
     val isPublic: Boolean = false,
     val source: String = "GPS",
     val validity: String = "VALID",
@@ -425,9 +427,14 @@ data class RunDetailDto(
     val perceivedEffort: Int = 5,
     val title: String? = null,
     val notes: String? = null,
+    /** Photos attached to this run. Always present, empty when there are none. */
+    val photos: List<String> = emptyList(),
     val isPublic: Boolean = false,
     val source: String = "GPS",
+    /** VALID, SUSPECT, or EXCLUDED — the server's "was this recorded on foot?" verdict. */
     val validity: String = "VALID",
+    /** Why, when it is not VALID: LOW_CADENCE_AT_SPEED or IMPOSSIBLE_PACE. */
+    val validityReason: String? = null,
     val createdAt: String = "",
     val updatedAt: String = "",
     val route: List<RoutePointDto>? = null,
@@ -821,6 +828,14 @@ data class GuidedSessionDto(
     val steps: List<GuidedStepDto> = emptyList(),
 )
 
+/** What POST api/v1/uploads gives back for a stored image. */
+@Serializable
+data class UploadedImageDto(
+    val url: String = "",
+    val size: Long = 0,
+    val contentType: String = "",
+)
+
 /** One achievement, earned or still in progress. */
 @Serializable
 data class BadgeDto(
@@ -856,6 +871,15 @@ data class CreateRunRequest(
     val route: List<RoutePointDto>? = null,
     val title: String? = null,
     val notes: String? = null,
+    /**
+     * Photo URLs, already uploaded via POST api/v1/uploads and returned by it.
+     *
+     * URLs rather than bytes: the images go up one at a time while the runner is still on the
+     * summary screen, so a photo that fails to upload costs that photo and not the whole run —
+     * and the run's own request body stays small enough to retry on a bad connection, which is
+     * the one thing that must never be at the mercy of a 4 MB attachment.
+     */
+    val photos: List<String>? = null,
     val isPublic: Boolean? = null,
     val source: String? = null,
     /**
@@ -888,5 +912,7 @@ data class UpdateRunRequest(
     val title: String? = null,
     val notes: String? = null,
     val isPublic: Boolean? = null,
+    /** The complete list, not a delta — sending it replaces what the run has. */
+    val photos: List<String>? = null,
     val perceivedEffort: Int? = null,
 )

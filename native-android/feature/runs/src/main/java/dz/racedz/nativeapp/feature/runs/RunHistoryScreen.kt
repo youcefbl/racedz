@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunCard
+import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunChoiceChip
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunDisplayTitle
@@ -192,7 +193,21 @@ private fun RunRow(run: RunDto, onClick: () -> Unit) {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
             ) {
-                Text(dateLabel, style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                ) {
+                    Text(dateLabel, style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
+                    // A ride logged as a run is worth marking in the list too: its pace sits next
+                    // to real runs in the same column, and without the pill the fastest row in the
+                    // history is the one that never counted.
+                    if (run.validity != "VALID") {
+                        ZidRunPill(
+                            text = stringResource(R.string.runs_validity_pill),
+                            color = colors.accent,
+                        )
+                    }
+                }
                 Text(
                     text = run.title ?: stringResource(R.string.runs_untitled),
                     style = MaterialTheme.typography.titleMedium,

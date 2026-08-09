@@ -57,7 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
-import dz.racedz.nativeapp.core.design.ZidRunDarkColors
+import dz.racedz.nativeapp.core.design.zidRunOnDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunDarkSurfaceSystemBars
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
@@ -103,9 +103,10 @@ private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.
 /**
  * The during-run screen (03-during-run.png).
  *
- * Always dark and laid out for a glance at arm's length while moving: distance is the largest thing
- * on the screen, the controls are within thumb reach at the bottom, and every touch target is well
- * over the 44dp minimum because the runner is not still.
+ * Dark in every theme (the current theme's dark palette — see zidRunOnDarkColors) and laid out for
+ * a glance at arm's length while moving: distance is the largest thing on the screen, the controls
+ * are within thumb reach at the bottom, and every touch target is well over the 44dp minimum
+ * because the runner is not still.
  *
  * Back minimises rather than ending: the run keeps recording in the foreground service and the
  * runner returns to the rest of the app, with a banner offering one tap back here. A stray swipe
@@ -176,11 +177,11 @@ fun RecordingScreen(
         // thumb can easily miss. Confirming costs a second; ending a run by accident costs the run.
         AlertDialog(
             onDismissRequest = { confirmFinish = false },
-            containerColor = ZidRunDarkColors.surface,
+            containerColor = zidRunOnDarkColors().surface,
             title = {
                 Text(
                     stringResource(R.string.runs_finish_confirm_title),
-                    color = ZidRunDarkColors.textStrong,
+                    color = zidRunOnDarkColors().textStrong,
                 )
             },
             text = {
@@ -190,7 +191,7 @@ fun RecordingScreen(
                         ZidRunFormat.decimal(state.distanceKm, locale),
                         ZidRunFormat.duration(state.elapsedSeconds),
                     ),
-                    color = ZidRunDarkColors.text,
+                    color = zidRunOnDarkColors().text,
                 )
             },
             confirmButton = {
@@ -200,12 +201,12 @@ fun RecordingScreen(
                     RunTrackingService.stop(context)
                     onFinished()
                 }) {
-                    Text(stringResource(R.string.runs_finish), color = ZidRunDarkColors.primary)
+                    Text(stringResource(R.string.runs_finish), color = zidRunOnDarkColors().primary)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmFinish = false }) {
-                    Text(stringResource(R.string.runs_keep_running), color = ZidRunDarkColors.textMuted)
+                    Text(stringResource(R.string.runs_keep_running), color = zidRunOnDarkColors().textMuted)
                 }
             },
         )
@@ -214,7 +215,7 @@ fun RecordingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(ZidRunDarkColors.background)
+            .background(zidRunOnDarkColors().background)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = ZidRunDimens.spaceLg),
@@ -230,12 +231,12 @@ fun RecordingScreen(
                     text = stepRoleLabel(step.role) +
                         (step.repTotal?.let { " ${step.repCurrent}/$it" } ?: ""),
                     style = MaterialTheme.typography.titleMedium,
-                    color = ZidRunDarkColors.primary,
+                    color = zidRunOnDarkColors().primary,
                 )
                 Text(
                     text = stepTargetLabel(step),
                     style = MaterialTheme.typography.bodySmall,
-                    color = ZidRunDarkColors.textMuted,
+                    color = zidRunOnDarkColors().textMuted,
                 )
             }
         }
@@ -246,13 +247,13 @@ fun RecordingScreen(
             Text(
                 text = ZidRunFormat.decimal(state.distanceKm, locale),
                 style = MaterialTheme.typography.displayLarge,
-                color = ZidRunDarkColors.textStrong,
+                color = zidRunOnDarkColors().textStrong,
             )
             Spacer(Modifier.width(ZidRunDimens.spaceXs))
             Text(
                 text = stringResource(R.string.runs_unit_km),
                 style = MaterialTheme.typography.headlineSmall,
-                color = ZidRunDarkColors.textMuted,
+                color = zidRunOnDarkColors().textMuted,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }
@@ -260,7 +261,7 @@ fun RecordingScreen(
         Text(
             text = ZidRunFormat.duration(state.elapsedSeconds),
             style = MaterialTheme.typography.displayMedium,
-            color = ZidRunDarkColors.textStrong,
+            color = zidRunOnDarkColors().textStrong,
         )
 
         Spacer(Modifier.height(ZidRunDimens.spaceLg))
@@ -272,13 +273,13 @@ fun RecordingScreen(
             LiveTile(
                 label = stringResource(R.string.runs_current_pace),
                 value = state.currentPaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
-                tint = ZidRunDarkColors.primary,
+                tint = zidRunOnDarkColors().primary,
                 modifier = Modifier.weight(1f),
             )
             LiveTile(
                 label = stringResource(R.string.runs_avg_pace),
                 value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
-                tint = ZidRunDarkColors.accent,
+                tint = zidRunOnDarkColors().accent,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -330,7 +331,7 @@ fun RecordingScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
-                            .background(if (isFastest) ZidRunDarkColors.primarySoft else ZidRunDarkColors.surfaceMuted)
+                            .background(if (isFastest) zidRunOnDarkColors().primarySoft else zidRunOnDarkColors().surfaceMuted)
                             .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm)
                             .semantics(mergeDescendants = true) {
                                 contentDescription = "km ${split.km} ${ZidRunFormat.pace(split.paceSecondsPerKm)}" +
@@ -340,12 +341,12 @@ fun RecordingScreen(
                         Text(
                             "${stringResource(R.string.runs_split_km)} ${split.km}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isFastest) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
+                            color = if (isFastest) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
                         )
                         Text(
                             ZidRunFormat.pace(split.paceSecondsPerKm),
                             style = MaterialTheme.typography.titleSmall,
-                            color = ZidRunDarkColors.textStrong,
+                            color = zidRunOnDarkColors().textStrong,
                         )
                     }
                 }
@@ -365,7 +366,7 @@ fun RecordingScreen(
                     .weight(1f)
                     .heightIn(min = 144.dp)
                     .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                    .border(1.dp, ZidRunDarkColors.border, RoundedCornerShape(ZidRunDimens.cornerLg)),
+                    .border(1.dp, zidRunOnDarkColors().border, RoundedCornerShape(ZidRunDimens.cornerLg)),
             ) {
                 RunMap(route = state.route, modifier = Modifier.fillMaxSize())
             }
@@ -386,7 +387,7 @@ fun RecordingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                    .background(ZidRunDarkColors.surface)
+                    .background(zidRunOnDarkColors().surface)
                     .padding(ZidRunDimens.spaceLg)
                     // Announced politely as the state changes, without stealing focus mid-run.
                     .semantics(mergeDescendants = true) {
@@ -398,12 +399,12 @@ fun RecordingScreen(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = ZidRunDarkColors.textStrong,
+                    color = zidRunOnDarkColors().textStrong,
                 )
                 Text(
                     text = help,
                     style = MaterialTheme.typography.bodySmall,
-                    color = ZidRunDarkColors.textMuted,
+                    color = zidRunOnDarkColors().textMuted,
                 )
             }
             Spacer(Modifier.weight(1f))
@@ -413,9 +414,25 @@ fun RecordingScreen(
             Text(
                 text = stringResource(R.string.runs_auto_paused),
                 style = MaterialTheme.typography.bodyMedium,
-                color = ZidRunDarkColors.accent,
+                color = zidRunOnDarkColors().accent,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(vertical = ZidRunDimens.spaceSm),
+            )
+        }
+
+        // Told while it is still happening. The server applies the same test at save time and
+        // quietly leaves the activity out of records, streaks and the coach's picture — learning
+        // that only afterwards, from a run already in the list, is too late to do anything about
+        // it. Here the runner can still stop, or finish and discard.
+        if (state.nonFootReason != null) {
+            Text(
+                text = stringResource(R.string.runs_nonfoot_live),
+                style = MaterialTheme.typography.bodyMedium,
+                color = zidRunOnDarkColors().accent,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(vertical = ZidRunDimens.spaceSm)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
 
@@ -454,9 +471,9 @@ private fun StatusHeader(state: RecordingState) {
         else -> stringResource(R.string.runs_recording)
     }
     val tint = when {
-        state.status == RecordingStatus.Paused -> ZidRunDarkColors.textMuted
-        !state.hasUsableFix -> ZidRunDarkColors.accent
-        else -> ZidRunDarkColors.primary
+        state.status == RecordingStatus.Paused -> zidRunOnDarkColors().textMuted
+        !state.hasUsableFix -> zidRunOnDarkColors().accent
+        else -> zidRunOnDarkColors().primary
     }
     val gpsLabel = when (state.gpsStrength) {
         GpsStrength.Strong -> stringResource(R.string.runs_gps_strong)
@@ -466,9 +483,9 @@ private fun StatusHeader(state: RecordingState) {
         GpsStrength.Unknown -> stringResource(R.string.runs_gps_searching)
     }
     val gpsTint = when (state.gpsStrength) {
-        GpsStrength.Strong, GpsStrength.Good -> ZidRunDarkColors.primary
-        GpsStrength.Weak -> ZidRunDarkColors.accent
-        else -> ZidRunDarkColors.danger
+        GpsStrength.Strong, GpsStrength.Good -> zidRunOnDarkColors().primary
+        GpsStrength.Weak -> zidRunOnDarkColors().accent
+        else -> zidRunOnDarkColors().danger
     }
 
     Row(
@@ -478,7 +495,7 @@ private fun StatusHeader(state: RecordingState) {
             .padding(top = ZidRunDimens.spaceMd)
             .semantics(mergeDescendants = true) { },
     ) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(if (recording) tint else ZidRunDarkColors.textMuted))
+        Box(Modifier.size(10.dp).clip(CircleShape).background(if (recording) tint else zidRunOnDarkColors().textMuted))
         Text(label, style = MaterialTheme.typography.titleMedium, color = tint)
         Spacer(Modifier.width(ZidRunDimens.spaceSm))
         Icon(
@@ -497,14 +514,14 @@ private fun SmallStat(label: String, value: String, modifier: Modifier = Modifie
         modifier = modifier.semantics(mergeDescendants = true) { contentDescription = "$label $value" },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(value, style = MaterialTheme.typography.titleMedium, color = ZidRunDarkColors.textStrong)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = ZidRunDarkColors.textMuted)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = zidRunOnDarkColors().textStrong)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = zidRunOnDarkColors().textMuted)
     }
 }
 
 @Composable
 private fun StatHairline() {
-    Box(Modifier.width(1.dp).fillMaxHeight().background(ZidRunDarkColors.border))
+    Box(Modifier.width(1.dp).fillMaxHeight().background(zidRunOnDarkColors().border))
 }
 
 @Composable
@@ -519,7 +536,7 @@ private fun LiveTile(label: String, value: String, tint: Color, modifier: Modifi
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
     ) {
         Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = tint)
-        Text(value, style = MaterialTheme.typography.headlineMedium, color = ZidRunDarkColors.textStrong)
+        Text(value, style = MaterialTheme.typography.headlineMedium, color = zidRunOnDarkColors().textStrong)
     }
 }
 
@@ -545,7 +562,7 @@ private fun Controls(
         if (paused && !finished) {
             CircleAction(
                 label = stringResource(R.string.runs_discard),
-                tint = ZidRunDarkColors.danger,
+                tint = zidRunOnDarkColors().danger,
                 onClick = onDiscard,
             )
         }
@@ -555,7 +572,7 @@ private fun Controls(
                 .weight(1f)
                 .heightIn(min = 64.dp)
                 .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
-                .background(if (paused) ZidRunDarkColors.primary else ZidRunDarkColors.surfaceMuted)
+                .background(if (paused) zidRunOnDarkColors().primary else zidRunOnDarkColors().surfaceMuted)
                 .clickable(enabled = !saving, role = Role.Button, onClick = if (paused) onResume else onPause),
             contentAlignment = Alignment.Center,
         ) {
@@ -563,13 +580,13 @@ private fun Controls(
                 Icon(
                     imageVector = if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                     contentDescription = null,
-                    tint = if (paused) ZidRunDarkColors.onPrimary else ZidRunDarkColors.textStrong,
+                    tint = if (paused) zidRunOnDarkColors().onPrimary else zidRunOnDarkColors().textStrong,
                 )
                 Spacer(Modifier.width(ZidRunDimens.spaceSm))
                 Text(
                     text = stringResource(if (paused) R.string.runs_resume else R.string.runs_pause),
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (paused) ZidRunDarkColors.onPrimary else ZidRunDarkColors.textStrong,
+                    color = if (paused) zidRunOnDarkColors().onPrimary else zidRunOnDarkColors().textStrong,
                 )
             }
         }
@@ -578,12 +595,12 @@ private fun Controls(
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
                 strokeWidth = 3.dp,
-                color = ZidRunDarkColors.primary,
+                color = zidRunOnDarkColors().primary,
             )
         } else {
             CircleAction(
                 label = stringResource(R.string.runs_finish),
-                tint = ZidRunDarkColors.accent,
+                tint = zidRunOnDarkColors().accent,
                 onClick = onFinish,
                 icon = Icons.Filled.Flag,
             )

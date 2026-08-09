@@ -112,6 +112,36 @@ fun RunSummaryScreen(
                 )
             }
 
+            // The same non-foot test the server will apply the moment this is saved. Said here,
+            // where Discard is still one tap away, rather than only on the saved run's detail
+            // screen — by then the runner's only remedy is to delete a run they already logged.
+            state.nonFootReason?.let { reason ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                        .background(colors.accentSoft)
+                        .padding(ZidRunDimens.spaceMd),
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                ) {
+                    Text(
+                        text = stringResource(R.string.runs_validity_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = colors.textStrong,
+                    )
+                    Text(
+                        text = stringResource(
+                            when (reason) {
+                                GpsQuality.NonFootReason.Cadence -> R.string.runs_validity_cadence
+                                GpsQuality.NonFootReason.Speed -> R.string.runs_validity_pace
+                            }
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.text,
+                    )
+                }
+            }
+
             ZidRunCard {
                 Row(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
@@ -137,6 +167,108 @@ fun RunSummaryScreen(
                 }
             }
 
+            /*
+             * Everything else the recorder measured.
+             *
+             * This screen used to show distance, time and pace and nothing more — moving time,
+             * climb, calories and cadence were all live on the during-run screen, then vanished at
+             * Finish and only reappeared on the run's detail page after saving. The runner was
+             * asked to title and rate a run whose numbers they could no longer see. All four come
+             * straight off the recorder; none of them costs a request.
+             */
+            ZidRunCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SummaryStat(
+                        value = ZidRunFormat.duration(state.movingSeconds),
+                        label = stringResource(R.string.runs_moving_time),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Hairline()
+                    SummaryStat(
+                        value = "+${state.elevationGainM.toInt()} m",
+                        label = stringResource(R.string.runs_elevation),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Hairline()
+                    SummaryStat(
+                        value = state.calories?.toString() ?: "—",
+                        label = stringResource(R.string.runs_stat_calories),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Hairline()
+                    SummaryStat(
+                        // Null on a phone with no step counter, and until the run is long enough
+                        // for a step rate to mean anything — an em dash, never a fabricated 0.
+                        value = state.avgCadenceSpm?.let { "$it spm" } ?: "—",
+                        label = stringResource(R.string.runs_cadence),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            // Completed kilometres, in the order they were run. The server recomputes these from
+            // the route on save (interpolating the boundary crossing, which is why the saved run's
+            // splits can differ by a second); these are the recorder's own, shown so the runner can
+            // rate their effort against the kilometres they actually felt.
+            val splits = state.splits
+            if (splits.isNotEmpty()) {
+                ZidRunCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                        Text(
+                            text = stringResource(R.string.runs_splits),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.textStrong,
+                        )
+                        val fastest = splits.minOf { it.paceSecondsPerKm }.coerceAtLeast(1)
+                        splits.forEach { split ->
+                            val isFastest = split.paceSecondsPerKm == fastest && splits.size > 1
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics(mergeDescendants = true) {
+                                        contentDescription =
+                                            "${split.km} ${ZidRunFormat.pace(split.paceSecondsPerKm)}"
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "${stringResource(R.string.runs_split_km)} ${split.km}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.textMuted,
+                                    modifier = Modifier.width(64.dp),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = ZidRunDimens.spaceSm),
+                                ) {
+                                    Box(
+                                        Modifier
+                                            // Proportional to the fastest kilometre, floored so the
+                                            // slowest still reads as a bar rather than a sliver.
+                                            .fillMaxWidth(
+                                                (fastest.toFloat() / split.paceSecondsPerKm)
+                                                    .coerceIn(0.25f, 1f)
+                                            )
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(if (isFastest) colors.accentStrong else colors.primary)
+                                    )
+                                }
+                                Text(
+                                    text = ZidRunFormat.pace(split.paceSecondsPerKm),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = colors.textStrong,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             ZidRunTextField(
                 value = title,
                 onValueChange = { title = it.take(120) },
@@ -148,6 +280,28 @@ fun RunSummaryScreen(
                 onValueChange = { notes = it.take(2000) },
                 label = stringResource(R.string.runs_notes_label),
                 enabled = !saveState.saving,
+            )
+
+            /*
+             * Photos, attached before the run is stored.
+             *
+             * Here rather than on the saved run's detail screen because this is the one moment the
+             * runner is still holding the phone with the finish line behind them. Asking later, from
+             * a row in a list, is asking a question nobody goes back to answer — the same reasoning
+             * that puts title, notes and effort on this screen.
+             *
+             * Each image uploads as it is picked, so the run's own save request stays small and
+             * retryable; the URLs ride along with it. The server re-encodes every upload, which
+             * strips the EXIF GPS coordinates a mid-run photo carries.
+             */
+            RunPhotoPicker(
+                photos = saveState.photos,
+                uploading = saveState.uploadingPhotos,
+                error = saveState.photoError,
+                enabled = !saveState.saving,
+                onPicked = viewModel::addPhotos,
+                onRemove = viewModel::removePhoto,
+                onDismissError = viewModel::dismissPhotoError,
             )
 
             ZidRunEffortSlider(

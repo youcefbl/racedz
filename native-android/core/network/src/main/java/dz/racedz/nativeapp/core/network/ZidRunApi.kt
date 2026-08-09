@@ -184,10 +184,31 @@ interface ZidRunApi {
     @DELETE("api/v1/runs/{id}")
     suspend fun deleteRun(@Path("id") id: String): Response<ApiEnvelope<RunDto>>
 
+    /**
+     * Stores one run photo and returns its URL.
+     *
+     * One image per call, deliberately: a runner attaching four photos over a patchy connection
+     * should lose at most the one that failed, and each upload can be retried on its own.
+     */
+    @Multipart
+    @POST("api/v1/uploads")
+    suspend fun uploadRunPhoto(@Part file: MultipartBody.Part): Response<ApiEnvelope<UploadedImageDto>>
+
     // ---- me -----------------------------------------------------------------------------------
 
     @GET("api/v1/me")
     suspend fun me(): Response<ApiEnvelope<UserDto>>
+
+    /**
+     * Everything the account holds, for the runner to keep.
+     *
+     * Typed as a raw [JsonElement] deliberately: the payload is a nested snapshot of profile,
+     * registrations and runs whose shape belongs to the server, and the app's only job is to write
+     * it out faithfully. Modelling it as Kotlin data classes would mean a field the server adds is
+     * silently dropped from the export — the one place where losing data is the whole failure.
+     */
+    @GET("api/v1/me/export")
+    suspend fun exportMyData(): Response<ApiEnvelope<JsonElement>>
 
     @PATCH("api/v1/me")
     suspend fun updateProfile(@Body body: ProfileRequest): Response<ApiEnvelope<UserDto>>

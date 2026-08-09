@@ -12,7 +12,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class SaveRunUiState(val saving: Boolean = false, val error: String? = null)
+data class SaveRunUiState(
+    val saving: Boolean = false,
+    val error: String? = null,
+    /** URLs of photos already stored on the server, in the order the runner picked them. */
+    val photos: List<String> = emptyList(),
+    /** True while at least one picked image is still being uploaded. */
+    val uploadingPhotos: Boolean = false,
+    /** Why the last photo did not upload, if it did not. Cleared on the next attempt. */
+    val photoError: String? = null,
+)
+
+/** How many photos one run may carry. Matches the server's own cap (runPhotosSchema). */
+const val MAX_RUN_PHOTOS = 6
 
 /**
  * Saves a finished recording.
@@ -29,6 +41,43 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
 
     private val _state = MutableStateFlow(SaveRunUiState())
     val state: StateFlow<SaveRunUiState> = _state.asStateFlow()
+
+    /**
+     * Uploads picked images, one at a time, appending each URL as it lands.
+     *
+     * Uploading here rather than at save time is deliberate. A run's create request already carries
+     * its whole route and must stay small enough to retry on a bad connection; bolting several
+     * megabytes of JPEG onto it would put the run itself at the mercy of the photos. Sequential
+     * rather than concurrent for the same reason — a phone on a weak mobile signal finishes four
+     * uploads in a row far more reliably than four at once.
+     *
+     * A failure stops the batch and keeps whatever already uploaded. The runner can retry or simply
+     * save without them; a photo is never worth blocking the run.
+     */
+    fun addPhotos(files: List<Pair<java.io.File, String>>) {
+        if (files.isEmpty() || _state.value.uploadingPhotos) return
+        _state.update { it.copy(uploadingPhotos = true, photoError = null) }
+        viewModelScope.launch {
+            for ((file, mimeType) in files) {
+                if (_state.value.photos.size >= MAX_RUN_PHOTOS) break
+                val result = repository.uploadPhoto(file, mimeType)
+                // The picked image was copied into the cache to be uploaded; it has no reason to
+                // survive the attempt either way.
+                runCatching { file.delete() }
+                if (result is ApiResult.Success) {
+                    _state.update { it.copy(photos = it.photos + result.value.url) }
+                } else if (result is ApiResult.Failure) {
+                    _state.update { it.copy(photoError = result.error.message) }
+                    break
+                }
+            }
+            _state.update { it.copy(uploadingPhotos = false) }
+        }
+    }
+
+    fun removePhoto(url: String) = _state.update { it.copy(photos = it.photos - url) }
+
+    fun dismissPhotoError() = _state.update { it.copy(photoError = null) }
 
     fun save(
         title: String? = null,
@@ -49,6 +98,7 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 perceivedEffort = perceivedEffort,
                 title = title,
                 notes = notes,
+                photos = _state.value.photos.takeIf { it.isNotEmpty() },
                 movingTimeSeconds = recording.movingSeconds.takeIf { it > 0 },
                 elevationGainM = recording.elevationGainM.toInt().takeIf { it > 0 },
                 route = recording.route.takeIf { it.size >= 2 },

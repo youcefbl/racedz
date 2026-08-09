@@ -42,6 +42,25 @@ object ZidRunTheme {
         }
 }
 
+/**
+ * The palette for a surface that is dark in every theme — the record screens, the auth header, the
+ * featured hero.
+ *
+ * Those surfaces used [ZidRunDarkColors] directly, which quietly meant "always the *Dark theme's*
+ * colours". Race is a dark theme too, so a runner in Race mode got the charcoal-and-green record
+ * screens while the rest of the app was violet and neon: the one screen they stare at for an hour
+ * was the one that ignored the theme they picked. "Dark surface" and "the Dark theme" are two
+ * different things, and this is the first.
+ *
+ * Light still maps to the dark palette — that is the whole point of these screens: readable at
+ * arm's length outdoors, and cheaper on an OLED panel during a long run.
+ */
+@Composable
+fun zidRunOnDarkColors(): ZidRunColors = when (LocalZidRunThemeMode.current) {
+    ZidRunThemeMode.Race -> ZidRunRaceColors
+    else -> ZidRunDarkColors
+}
+
 private fun materialColorScheme(colors: ZidRunColors, mode: ZidRunThemeMode) = if (mode.isDarkBase) {
     darkColorScheme(
         primary = colors.primary,

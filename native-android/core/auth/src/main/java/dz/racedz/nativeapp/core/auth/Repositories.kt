@@ -12,6 +12,7 @@ import dz.racedz.nativeapp.core.network.RaceDetailDto
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.RegistrationDto
 import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.UploadedImageDto
 import dz.racedz.nativeapp.core.network.AskCoachRequest
 import dz.racedz.nativeapp.core.network.AskCoachResponseDto
 import dz.racedz.nativeapp.core.network.WorkoutActionRequest
@@ -247,6 +248,24 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
 
     /** Achievements, computed server-side from records and race finishes. */
     suspend fun badges(): ApiResult<BadgesDto> = client.call { api.badges() }
+
+    /**
+     * Uploads one run photo and returns its stored URL.
+     *
+     * The server re-encodes the image, which strips EXIF — including the GPS coordinates a photo
+     * taken mid-run carries. That matters here more than anywhere else in the app: a runner
+     * publishing a run should not also be publishing the exact location of every photo in it.
+     */
+    suspend fun uploadPhoto(file: java.io.File, mimeType: String): ApiResult<UploadedImageDto> =
+        client.call {
+            api.uploadRunPhoto(
+                MultipartBody.Part.createFormData(
+                    "file",
+                    file.name,
+                    file.asRequestBody(mimeType.toMediaTypeOrNull()),
+                )
+            )
+        }
 
     /**
      * Saves a recorded run. [clientId] is generated once per recording and reused on every retry —

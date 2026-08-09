@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { getPrisma } from "@/lib/db";
-import { runRoutePointSchema } from "@/lib/coach/schemas";
+import { runPhotosSchema, runRoutePointSchema } from "@/lib/coach/schemas";
 import { ApiError } from "@/lib/api/v1/http";
 
 // Shared pieces of the mobile runs sync contract (docs/NATIVE_ANDROID_OPTION_PLAN.md §3).
@@ -95,6 +95,11 @@ export const runCreateSchema = z.object({
   painLevel: z.number().int().min(0).max(10).optional(),
   title: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(2000).optional(),
+  // Photos the runner attached on the post-run screen, uploaded to /api/v1/uploads first. The
+  // website's own schema is reused rather than restated: it caps the count, dedupes, and — the
+  // part that matters — refuses anything outside the /uploads/run/ prefix, so a client cannot
+  // paste an arbitrary external URL into a run record.
+  photos: runPhotosSchema.optional(),
   isPublic: z.boolean().optional(),
   goalId: z.string().optional(),
   workoutId: z.string().optional(),
@@ -112,6 +117,7 @@ export const runUpdateSchema = z.object({
   title: z.string().trim().max(120).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
   isPublic: z.boolean().optional(),
+  photos: runPhotosSchema.optional(),
   perceivedEffort: z.number().int().min(1).max(10).optional(),
   fatigueLevel: z.number().int().min(0).max(10).optional(),
   painLevel: z.number().int().min(0).max(10).optional(),
@@ -137,6 +143,7 @@ export const runSelect = {
   painLevel: true,
   title: true,
   notes: true,
+  photos: true,
   isPublic: true,
   source: true,
   validity: true,
@@ -191,6 +198,9 @@ export function toRunDto(run: RunRow, route?: unknown, routePreview?: unknown) {
     painLevel: run.painLevel as number,
     title: (run.title as string | null) ?? null,
     notes: (run.notes as string | null) ?? null,
+    // Always an array: a run saved before photos existed has a NULL column, and a client that
+    // has to distinguish null from [] before it can render a gallery will eventually get it wrong.
+    photos: Array.isArray(run.photos) ? (run.photos as string[]) : [],
     isPublic: run.isPublic as boolean,
     source: run.source as string,
     validity: run.validity as string,

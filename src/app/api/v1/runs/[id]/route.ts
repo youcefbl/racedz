@@ -68,6 +68,15 @@ export const PATCH = withApi(async (request, context: Context) => {
   const current = await requireOwnedRun(viewer.id, id);
   if (current.deletedAt) throw new ApiError("NOT_FOUND", "This run was not found.");
 
+  // An activity the server classified as non-foot (a bike, a car, a scooter) cannot be published.
+  // The website's updateRun() has always refused this, but this route writes through updateMany
+  // and so skipped the check — a SUSPECT ride could be made public from the phone while the same
+  // action failed on the web. The save path already forces isPublic to false for these; this stops
+  // the runner turning it back on afterwards.
+  if (changes.isPublic === true && current.validity !== "VALID") {
+    throw new ApiError("CONFLICT", "This activity must be reviewed before it can be public.");
+  }
+
   // Conditional on the revision, so two devices editing at once cannot both win: the update matches
   // zero rows for the loser rather than overwriting the winner.
   const updated = await getPrisma().runnerRun.updateMany({

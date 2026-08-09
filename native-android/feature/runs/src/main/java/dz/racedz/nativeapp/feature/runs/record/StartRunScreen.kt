@@ -23,7 +23,9 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -74,7 +76,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
-import dz.racedz.nativeapp.core.design.ZidRunDarkColors
+import dz.racedz.nativeapp.core.design.zidRunOnDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.WeatherDto
@@ -110,8 +112,10 @@ private const val HOLD_TO_BEGIN_MS = 700L
 /**
  * "Ready when you are" (02-create-new-run.png): the pre-run screen.
  *
- * Always dark, whatever the app theme: this is the screen before a run and the one the runner
- * glances at outdoors, and the mockup treats it as a single dark surface.
+ * Dark whatever the app theme: this is the screen before a run and the one the runner glances at
+ * outdoors, and the mockup treats it as a single dark surface. "Dark" here means the current
+ * theme's dark palette (zidRunOnDarkColors) — Race keeps its violet and neon, Light borrows the
+ * Dark theme's charcoals — not the Dark theme's colours imposed on everyone.
  *
  * Starting is a press-and-hold rather than a tap. A run started by accident in a pocket is worse
  * than one that takes an extra second to start, and the mockup asks for it. TalkBack users get an
@@ -180,7 +184,7 @@ fun StartRunScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(ZidRunDarkColors.background)
+            .background(zidRunOnDarkColors().background)
             .navigationBarsPadding(),
     ) {
         ZidRunTopBar(title = "", onBack = onBack, onDarkSurface = true)
@@ -196,7 +200,7 @@ fun StartRunScreen(
             Text(
                 text = stringResource(R.string.runs_ready_title),
                 style = MaterialTheme.typography.displaySmall,
-                color = ZidRunDarkColors.textStrong,
+                color = zidRunOnDarkColors().textStrong,
                 textAlign = TextAlign.Center,
             )
 
@@ -204,12 +208,12 @@ fun StartRunScreen(
                 ReadyChip(
                     icon = Icons.Filled.LocationOn,
                     label = stringResource(R.string.runs_ready_gps),
-                    tint = ZidRunDarkColors.primary,
+                    tint = zidRunOnDarkColors().primary,
                 )
                 ReadyChip(
                     icon = Icons.Filled.Lock,
                     label = stringResource(R.string.runs_private),
-                    tint = ZidRunDarkColors.textMuted,
+                    tint = zidRunOnDarkColors().textMuted,
                 )
             }
 
@@ -224,7 +228,7 @@ fun StartRunScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                    .background(ZidRunDarkColors.surface),
+                    .background(zidRunOnDarkColors().surface),
             ) {
                 ModeTab(
                     label = stringResource(R.string.runs_mode_free),
@@ -280,7 +284,7 @@ fun StartRunScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                    .background(ZidRunDarkColors.surface)
+                    .background(zidRunOnDarkColors().surface)
                     .clickable(role = Role.Switch) { audioCues = !audioCues }
                     .padding(ZidRunDimens.spaceMd)
                     .semantics(mergeDescendants = true) { },
@@ -289,21 +293,28 @@ fun StartRunScreen(
                 Icon(
                     if (audioCues) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                     contentDescription = null,
-                    tint = if (audioCues) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
+                    tint = if (audioCues) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
                 )
                 Spacer(Modifier.width(ZidRunDimens.spaceMd))
                 Text(
                     text = stringResource(R.string.runs_audio_cues),
                     style = MaterialTheme.typography.titleSmall,
-                    color = ZidRunDarkColors.textStrong,
+                    color = zidRunOnDarkColors().textStrong,
                     modifier = Modifier.weight(1f),
                 )
                 Switch(
                     checked = audioCues,
                     onCheckedChange = { audioCues = it },
+                    // Every state, not just the checked one. The unchecked colours were left to
+                    // MaterialTheme — which follows the APP theme, not this always-dark surface —
+                    // so switching cues off in Light mode put a pale grey track on a black screen.
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ZidRunDarkColors.onPrimary,
-                        checkedTrackColor = ZidRunDarkColors.primary,
+                        checkedThumbColor = zidRunOnDarkColors().onPrimary,
+                        checkedTrackColor = zidRunOnDarkColors().primary,
+                        checkedBorderColor = zidRunOnDarkColors().primary,
+                        uncheckedThumbColor = zidRunOnDarkColors().textMuted,
+                        uncheckedTrackColor = zidRunOnDarkColors().surfaceMuted,
+                        uncheckedBorderColor = zidRunOnDarkColors().borderStrong,
                     ),
                 )
             }
@@ -324,13 +335,18 @@ fun StartRunScreen(
                 Text(
                     text = stringResource(R.string.runs_permission_denied),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = ZidRunDarkColors.danger,
+                    color = zidRunOnDarkColors().danger,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
                 )
                 ZidRunButton(
                     text = stringResource(R.string.runs_grant_permission),
                     onClick = { launcher.launch(permissions) },
+                    // ZidRunButton defaults to the app theme's primary, which on this always-dark
+                    // screen meant the Light theme's forest green on near-black. Pinned to the
+                    // dark-surface palette like everything else here.
+                    containerColor = zidRunOnDarkColors().primary,
+                    contentColor = zidRunOnDarkColors().onPrimary,
                 )
             }
         }
@@ -437,19 +453,19 @@ private fun TtsInstallNotice() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(ZidRunDarkColors.accent.copy(alpha = 0.12f))
+            .background(zidRunOnDarkColors().accent.copy(alpha = 0.12f))
             .padding(ZidRunDimens.spaceMd),
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         Text(
             text = stringResource(R.string.runs_tts_missing),
             style = MaterialTheme.typography.bodyMedium,
-            color = ZidRunDarkColors.textStrong,
+            color = zidRunOnDarkColors().textStrong,
         )
         Text(
             text = stringResource(R.string.runs_tts_install),
             style = MaterialTheme.typography.titleSmall,
-            color = ZidRunDarkColors.accent,
+            color = zidRunOnDarkColors().accent,
             modifier = Modifier
                 .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
                 .clickable(role = Role.Button) {
@@ -479,7 +495,7 @@ private fun WeatherCard(weather: WeatherDto, placeName: String?) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(ZidRunDarkColors.surface)
+            .background(zidRunOnDarkColors().surface)
             .padding(ZidRunDimens.spaceMd),
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
     ) {
@@ -489,13 +505,13 @@ private fun WeatherCard(weather: WeatherDto, placeName: String?) {
               Icon(
                   Icons.Filled.LocationOn,
                   contentDescription = null,
-                  tint = ZidRunDarkColors.textMuted,
+                  tint = zidRunOnDarkColors().textMuted,
                   modifier = Modifier.size(14.dp),
               )
               Text(
                   text = name,
                   style = MaterialTheme.typography.labelLarge,
-                  color = ZidRunDarkColors.textStrong,
+                  color = zidRunOnDarkColors().textStrong,
               )
           }
       }
@@ -533,7 +549,7 @@ private fun WeatherCard(weather: WeatherDto, placeName: String?) {
           Text(
               text = stringResource(R.string.runs_weather_region),
               style = MaterialTheme.typography.labelSmall,
-              color = ZidRunDarkColors.textMuted,
+              color = zidRunOnDarkColors().textMuted,
           )
       }
     }
@@ -549,14 +565,14 @@ private fun RowScope.WeatherStat(value: String, label: String, arrowDegrees: Flo
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleSmall,
-                color = ZidRunDarkColors.textStrong,
+                color = zidRunOnDarkColors().textStrong,
             )
             if (arrowDegrees != null) {
                 Spacer(Modifier.width(ZidRunDimens.spaceSm))
                 Text(
                     text = "↑",
                     style = MaterialTheme.typography.titleSmall,
-                    color = ZidRunDarkColors.primary,
+                    color = zidRunOnDarkColors().primary,
                     modifier = Modifier.graphicsLayer { rotationZ = arrowDegrees },
                 )
             }
@@ -564,7 +580,7 @@ private fun RowScope.WeatherStat(value: String, label: String, arrowDegrees: Flo
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = ZidRunDarkColors.textMuted,
+            color = zidRunOnDarkColors().textMuted,
             textAlign = TextAlign.Center,
         )
     }
@@ -575,7 +591,7 @@ private fun ModeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(if (selected) ZidRunDarkColors.primary else Color.Transparent)
+            .background(if (selected) zidRunOnDarkColors().primary else Color.Transparent)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .padding(vertical = ZidRunDimens.spaceMd),
         contentAlignment = Alignment.Center,
@@ -583,7 +599,7 @@ private fun ModeTab(label: String, selected: Boolean, onClick: () -> Unit, modif
         Text(
             text = label,
             style = MaterialTheme.typography.titleSmall,
-            color = if (selected) ZidRunDarkColors.onPrimary else ZidRunDarkColors.textMuted,
+            color = if (selected) zidRunOnDarkColors().onPrimary else zidRunOnDarkColors().textMuted,
         )
     }
 }
@@ -609,7 +625,7 @@ private fun WorkoutTypePicker(selected: String, enabled: Boolean, onSelect: (Str
         Text(
             text = stringResource(R.string.runs_type_label),
             style = MaterialTheme.typography.titleSmall,
-            color = ZidRunDarkColors.textMuted,
+            color = zidRunOnDarkColors().textMuted,
         )
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -620,13 +636,13 @@ private fun WorkoutTypePicker(selected: String, enabled: Boolean, onSelect: (Str
                 // "Easy" is always available; the structured types need a subscription.
                 val locked = !enabled && type != FREE_RUN_TYPE
                 val fill = when {
-                    isSelected -> ZidRunDarkColors.primary
-                    else -> ZidRunDarkColors.surface
+                    isSelected -> zidRunOnDarkColors().primary
+                    else -> zidRunOnDarkColors().surface
                 }
                 val label = when {
-                    isSelected -> ZidRunDarkColors.onPrimary
-                    locked -> ZidRunDarkColors.textMuted.copy(alpha = 0.5f)
-                    else -> ZidRunDarkColors.textStrong
+                    isSelected -> zidRunOnDarkColors().onPrimary
+                    locked -> zidRunOnDarkColors().textMuted.copy(alpha = 0.5f)
+                    else -> zidRunOnDarkColors().textStrong
                 }
                 Text(
                     text = stringResource(workoutTypeLabel(type)),
@@ -650,16 +666,16 @@ private fun SubscribeToCustomizeNotice() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(ZidRunDarkColors.primary.copy(alpha = 0.12f))
+            .background(zidRunOnDarkColors().primary.copy(alpha = 0.12f))
             .padding(ZidRunDimens.spaceMd),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
-        Icon(Icons.Filled.Lock, contentDescription = null, tint = ZidRunDarkColors.primary, modifier = Modifier.size(18.dp))
+        Icon(Icons.Filled.Lock, contentDescription = null, tint = zidRunOnDarkColors().primary, modifier = Modifier.size(18.dp))
         Text(
             text = stringResource(R.string.runs_type_subscribe),
             style = MaterialTheme.typography.bodyMedium,
-            color = ZidRunDarkColors.textStrong,
+            color = zidRunOnDarkColors().textStrong,
         )
     }
 }
@@ -672,7 +688,7 @@ private fun WorkoutParamControls(type: String, values: Map<String, Int>, onChang
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(ZidRunDarkColors.surface)
+            .background(zidRunOnDarkColors().surface)
             .padding(ZidRunDimens.spaceMd),
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
@@ -682,14 +698,14 @@ private fun WorkoutParamControls(type: String, values: Map<String, Int>, onChang
                 Text(
                     text = stringResource(paramLabel(spec.key)),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = ZidRunDarkColors.text,
+                    color = zidRunOnDarkColors().text,
                     modifier = Modifier.weight(1f),
                 )
                 StepperButton(symbol = "−", enabled = value > spec.min) { onChange(spec.key, -1) }
                 Text(
                     text = paramValueText(spec.key, value),
                     style = MaterialTheme.typography.titleSmall,
-                    color = ZidRunDarkColors.textStrong,
+                    color = zidRunOnDarkColors().textStrong,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.widthIn(min = 64.dp).padding(horizontal = ZidRunDimens.spaceXs),
                 )
@@ -705,14 +721,14 @@ private fun StepperButton(symbol: String, enabled: Boolean, onClick: () -> Unit)
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(ZidRunDarkColors.primary.copy(alpha = if (enabled) 0.16f else 0.05f))
+            .background(zidRunOnDarkColors().primary.copy(alpha = if (enabled) 0.16f else 0.05f))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = symbol,
             style = MaterialTheme.typography.titleMedium,
-            color = if (enabled) ZidRunDarkColors.primary else ZidRunDarkColors.textMuted,
+            color = if (enabled) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
         )
     }
 }
@@ -751,32 +767,32 @@ private fun GuidedPlanCard(dto: dz.racedz.nativeapp.core.network.GuidedSessionDt
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(ZidRunDarkColors.surface)
+            .background(zidRunOnDarkColors().surface)
             .padding(ZidRunDimens.spaceMd),
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            color = ZidRunDarkColors.textStrong,
+            color = zidRunOnDarkColors().textStrong,
         )
         when {
             loading -> Text(
                 stringResource(R.string.common_loading),
                 style = MaterialTheme.typography.bodySmall,
-                color = ZidRunDarkColors.textMuted,
+                color = zidRunOnDarkColors().textMuted,
             )
             steps.isEmpty() -> Text(
                 stringResource(R.string.runs_guided_unavailable),
                 style = MaterialTheme.typography.bodySmall,
-                color = ZidRunDarkColors.textMuted,
+                color = zidRunOnDarkColors().textMuted,
             )
             else -> {
                 steps.take(GUIDED_STEP_PREVIEW).forEach { step ->
                     Text(
                         text = "${stepRoleLabel(step.role)} · ${stepTargetLabel(step)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = ZidRunDarkColors.textMuted,
+                        color = zidRunOnDarkColors().textMuted,
                     )
                 }
                 // An interval session runs to a dozen-odd steps. Cutting the list at four without
@@ -787,7 +803,7 @@ private fun GuidedPlanCard(dto: dz.racedz.nativeapp.core.network.GuidedSessionDt
                     Text(
                         text = pluralStringResource(R.plurals.runs_guided_more_steps, hidden, hidden.toString()),
                         style = MaterialTheme.typography.bodySmall,
-                        color = ZidRunDarkColors.textMuted,
+                        color = zidRunOnDarkColors().textMuted,
                     )
                 }
             }
@@ -942,10 +958,23 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
     // blindness, because the change is shape+fill, not only colour).
     val activeOrbit = ImageBitmap.imageResource(RunsR.drawable.zidrun_hold_orbit_active)
 
-    Box(
+    BoxWithConstraints(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(CONTROL_SIZE)
+            // Square, always — and capped rather than fixed.
+            //
+            // `size(CONTROL_SIZE)` looked equivalent but was not: on any screen narrower than
+            // 344dp + the page's own padding (a 360dp-wide phone, for instance) the incoming width
+            // constraint won and the box came out taller than it was wide. The two orbit layers
+            // then disagreed about what "full size" meant — the resting orbit is an `Image` with
+            // `ContentScale.Fit`, so it stayed a centred circle, while the active orbit is drawn
+            // straight into the Canvas at `size`, so it stretched into an ellipse and rode up.
+            // The result was two rings of different radii, with the green footprints sitting off
+            // the grey ones. Filling the available width and forcing 1:1 keeps every layer on the
+            // same circle at any screen size.
+            .widthIn(max = CONTROL_SIZE)
+            .fillMaxWidth()
+            .aspectRatio(1f)
             .graphicsLayer { scaleX = appliedScale; scaleY = appliedScale }
             .clip(CircleShape)
             .pointerInput(Unit) {
@@ -971,6 +1000,12 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
         // extracted/recoloured ZidRun run layers (drawable-nodpi/zidrun_hold_*), so the foot
         // silhouette, contour lines and footprint rhythm stay exactly as designed.
 
+        // Every inner layer is sized as a share of the control rather than in absolute dp, so a
+        // control that had to shrink to fit a narrow screen shrinks the sole and its glow with it.
+        // Fixed dp here would let the sole creep out toward the footprint ring on small phones and
+        // swallow the breathing room the two elements need to read as separate things.
+        val layerScale = maxWidth / CONTROL_SIZE
+
         // 1. Amber backlight — FOOT-SHAPED, not a disc: the asset is the blurred sole silhouette, so
         //    the warm glow radiates from the shoe exactly as in the reference. Sized a little larger
         //    than the sole; brightens with the hold, with a gentle breath when animations are on.
@@ -980,8 +1015,8 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(SOLE_HEIGHT + 92.dp)
-                .width(SOLE_WIDTH + 130.dp)
+                .height((SOLE_HEIGHT + 92.dp) * layerScale)
+                .width((SOLE_WIDTH + 130.dp) * layerScale)
                 .align(Alignment.Center)
                 .graphicsLayer {
                     alpha = 0.20f + progress * 0.42f
@@ -1029,8 +1064,8 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(SOLE_HEIGHT + 8.dp)
-                .width(SOLE_WIDTH + 8.dp)
+                .height((SOLE_HEIGHT + 8.dp) * layerScale)
+                .width((SOLE_WIDTH + 8.dp) * layerScale)
                 .align(Alignment.Center)
                 .alpha(0.6f + progress * 0.4f),
         )
@@ -1042,8 +1077,8 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .height(SOLE_HEIGHT)
-                .width(SOLE_WIDTH)
+                .height(SOLE_HEIGHT * layerScale)
+                .width(SOLE_WIDTH * layerScale)
                 .align(Alignment.Center),
         )
 
@@ -1056,8 +1091,8 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .height(SOLE_HEIGHT + 12.dp)
-                    .width(SOLE_WIDTH + 12.dp)
+                    .height((SOLE_HEIGHT + 12.dp) * layerScale)
+                    .width((SOLE_WIDTH + 12.dp) * layerScale)
                     .align(Alignment.Center)
                     .graphicsLayer {
                         alpha = (1f - aura) * 0.9f
@@ -1075,7 +1110,7 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
                 // Opaque enough to hold up against the glow at full brightness, which is exactly
                 // when the label matters most — a 60% scrim washed out at the end of the hold.
-                .background(ZidRunDarkColors.background.copy(alpha = 0.88f))
+                .background(zidRunOnDarkColors().background.copy(alpha = 0.88f))
                 .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
             contentAlignment = Alignment.Center,
         ) {
@@ -1083,13 +1118,13 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
                 Text(
                     text = stringResource(R.string.runs_hold),
                     style = MaterialTheme.typography.titleLarge,
-                    color = ZidRunDarkColors.primary,
+                    color = zidRunOnDarkColors().primary,
                     textAlign = TextAlign.Center,
                 )
                 Text(
                     text = holdLabel,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = ZidRunDarkColors.text,
+                    color = zidRunOnDarkColors().text,
                     textAlign = TextAlign.Center,
                 )
             }
