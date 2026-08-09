@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiOk, withApi } from "@/lib/api/v1/http";
+import { apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
 import { optionalMobileUser } from "@/lib/api/v1/guard";
 import { getPrisma } from "@/lib/db";
 import { getLocale } from "@/lib/i18n";
@@ -7,6 +7,15 @@ import { clientIp, enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { normalizePath } from "@/lib/analytics/enrich";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Body cap. A screen-view beacon is a couple of hundred bytes; 4 KB is generous.
+ *
+ * This endpoint tolerates an unauthenticated caller, so it must not read an unbounded body —
+ * request.json() would buffer whatever was sent before Zod ever saw it, which turns a beacon into
+ * a memory-pressure primitive for anyone who can reach the host.
+ */
+const MAX_TRACK_BODY_BYTES = 4 * 1024;
 
 const bodySchema = z.object({
   path: z.string().min(1).max(2048),
@@ -40,7 +49,7 @@ export const POST = withApi(async (request) => {
   // runner, and a client that retried a rate-limited beacon would only make it worse.
   if (limited) return apiOk(request, { recorded: false });
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const parsed = bodySchema.safeParse(await readJsonBody(request, MAX_TRACK_BODY_BYTES).catch(() => null));
   if (!parsed.success) {
     // Field names only — never the body, which carries the path the runner was looking at. A
     // beacon dropped in silence is undiagnosable, and a client sending a slightly wrong shape
