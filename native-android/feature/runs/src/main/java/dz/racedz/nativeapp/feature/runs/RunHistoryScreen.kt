@@ -39,6 +39,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunCard
@@ -74,6 +78,23 @@ fun RunHistoryScreen(
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
     val visible = state.visibleRuns
+
+    /*
+     * Refetch whenever this screen comes back to the foreground.
+     *
+     * Without it a run deleted from its detail screen stayed in this list: deleting pops back
+     * here, the list still holds the row it was rendered from, and tapping it opens a detail
+     * screen for a run the server has tombstoned — a 404 for something the app is still showing.
+     * The overview already does exactly this for the same reason; history was simply missed.
+     */
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.load()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(colors.background)) {
         ZidRunTopBar(title = "", onBack = onBack)
