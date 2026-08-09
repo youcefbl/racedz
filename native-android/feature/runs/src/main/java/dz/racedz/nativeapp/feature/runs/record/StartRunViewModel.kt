@@ -94,13 +94,14 @@ class StartRunViewModel(
             }
         }
         viewModelScope.launch {
-            // Structured guided workouts are a subscriber feature. Unknown entitlement (a failed
-            // fetch) locks it, which is the safe default — the server enforces it regardless.
-            val subscribed = when (val result = coach.overview()) {
-                is ApiResult.Success -> result.value.entitlement.tier == "SUBSCRIBED"
+            // Structured guided workouts need coaching access — TRIAL or SUBSCRIBED (tier != NONE),
+            // matching the mid-run coach and what the server enforces. Unknown entitlement (a failed
+            // fetch) locks it, the safe default. Only NONE sees the subscribe prompt.
+            val entitled = when (val result = coach.overview()) {
+                is ApiResult.Success -> result.value.entitlement.tier != "NONE"
                 is ApiResult.Failure -> false
             }
-            _state.update { it.copy(canCustomize = subscribed, entitlementKnown = true) }
+            _state.update { it.copy(canCustomize = entitled, entitlementKnown = true) }
         }
     }
 
@@ -150,11 +151,17 @@ class StartRunViewModel(
         fetchStructure(type, params)
     }
 
+    private var structureRequestSeq = 0
+
     private fun fetchStructure(type: String, params: Map<String, Int>) {
+        val seq = ++structureRequestSeq
         viewModelScope.launch {
-            when (val result = repository.runStructure(type, params)) {
+            val result = repository.runStructure(type, params)
+            // Only the newest request may land: two responses for the same type can arrive out of
+            // order, and starting an older structure than the one shown would be a trust/safety bug.
+            if (seq != structureRequestSeq) return@launch
+            when (result) {
                 is ApiResult.Success ->
-                    // Ignore a stale response if the runner has since changed the type.
                     _state.update { if (it.selectedType == type) it.copy(freeStructure = result.value, structureLoading = false) else it }
                 is ApiResult.Failure ->
                     _state.update { if (it.selectedType == type) it.copy(structureLoading = false) else it }

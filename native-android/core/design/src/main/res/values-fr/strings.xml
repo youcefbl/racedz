@@ -421,6 +421,8 @@
     <string name="runs_param_work">Effort</string>
     <string name="runs_param_recovery">Récupération</string>
     <string name="runs_param_km_value">%1$s km</string>
+    <string name="runs_param_increase">Augmenter %1$s, actuellement %2$s</string>
+    <string name="runs_param_decrease">Diminuer %1$s, actuellement %2$s</string>
     <string name="runs_audio_cues">Cues audio</string>
     <string name="runs_guided_unavailable">Les étapes guidées sont indisponibles — la sortie sera enregistrée comme libre.</string>
     <string name="runs_step_warmup">Échauffement</string>

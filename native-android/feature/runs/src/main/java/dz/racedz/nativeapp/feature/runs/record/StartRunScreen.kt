@@ -175,7 +175,10 @@ fun StartRunScreen(
             // Guided mode runs the plan; Free mode runs the chosen workout type's structure (or
             // nothing, for a plain free run).
             val guidingSession = if (mode == RunMode.Guided) session.session else session.freeStructure
-            beginRecording(context, audioCues, guidingSession, workoutId, onStarted)
+            // Only attach the planned workout when the runner is actually running it (Guided). If they
+            // switched to Free/custom, the run must NOT complete the planned session (adherence bug).
+            val effectiveWorkoutId = workoutId.takeIf { mode == RunMode.Guided }
+            beginRecording(context, audioCues, guidingSession, effectiveWorkoutId, onStarted)
         } else {
             permissionDenied = true
         }
@@ -331,7 +334,13 @@ fun StartRunScreen(
                 TtsInstallNotice()
             }
 
+            // Hold waits while a chosen workout structure is still loading, so a run can never start
+            // on an older structure than the one shown (or on no structure when one was picked).
+            val awaitingStructure = mode == RunMode.Free &&
+                (session.selectedType?.takeIf { it != FREE_RUN_TYPE } != null) &&
+                (session.structureLoading || session.freeStructure == null)
             HoldToBegin(
+                enabled = !awaitingStructure,
                 onTriggered = { launcher.launch(permissions) },
             )
 
@@ -384,9 +393,11 @@ private fun beginRecording(
  * The runner's last known position, or null.
  *
  * A cached fix, not a fresh one: this only seeds the weather lookup, so a settled last-known point is
- * both good enough and instant, where waiting on the GPS to acquire would stall the start screen. Null
- * whenever location has not been granted or nothing is cached — the weather endpoint then falls back
- * to the runner's wilaya. Permission is re-checked here rather than assumed.
+ * both good enough and instant, where waiting on the GPS to acquire would stall the start screen. But
+ * a *stale* fix is worse than none — a days-old point would confidently show the wrong city and
+ * conditions (ALL-R10) — so a fix older than [FRESH_FIX_MS] is discarded and the weather endpoint
+ * falls back to the runner's wilaya (shown as a regional estimate). Null too whenever location was
+ * not granted or nothing is cached. Permission is re-checked here rather than assumed.
  */
 @SuppressLint("MissingPermission")
 private fun lastKnownLocation(context: Context): Location? {
@@ -396,11 +407,16 @@ private fun lastKnownLocation(context: Context): Location? {
         PackageManager.PERMISSION_GRANTED
     if (!fine && !coarse) return null
     val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
-    return runCatching {
+    val fix = runCatching {
         (if (fine) manager.getLastKnownLocation(LocationManager.GPS_PROVIDER) else null)
             ?: manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-    }.getOrNull()
+    }.getOrNull() ?: return null
+    // Discard a stale fix rather than label an old city as "where this run will happen".
+    return fix.takeIf { System.currentTimeMillis() - it.time <= FRESH_FIX_MS }
 }
+
+/** A cached fix older than this (10 min) is treated as no fix for pre-run weather/city. */
+private const val FRESH_FIX_MS = 10 * 60 * 1000L
 
 /**
  * The city/town for a fix, reverse-geocoded on-device, or null.
@@ -705,28 +721,41 @@ private fun WorkoutParamControls(type: String, values: Map<String, Int>, onChang
                     color = zidRunOnDarkColors().text,
                     modifier = Modifier.weight(1f),
                 )
-                StepperButton(symbol = "−", enabled = value > spec.min) { onChange(spec.key, -1) }
+                val label = stringResource(paramLabel(spec.key))
+                val valueText = paramValueText(spec.key, value)
+                StepperButton(
+                    symbol = "−",
+                    enabled = value > spec.min,
+                    contentDescription = stringResource(R.string.runs_param_decrease, label, valueText),
+                ) { onChange(spec.key, -1) }
                 Text(
-                    text = paramValueText(spec.key, value),
+                    text = valueText,
                     style = MaterialTheme.typography.titleSmall,
                     color = zidRunOnDarkColors().textStrong,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.widthIn(min = 64.dp).padding(horizontal = ZidRunDimens.spaceXs),
                 )
-                StepperButton(symbol = "+", enabled = value < spec.max) { onChange(spec.key, +1) }
+                StepperButton(
+                    symbol = "+",
+                    enabled = value < spec.max,
+                    contentDescription = stringResource(R.string.runs_param_increase, label, valueText),
+                ) { onChange(spec.key, +1) }
             }
         }
     }
 }
 
 @Composable
-private fun StepperButton(symbol: String, enabled: Boolean, onClick: () -> Unit) {
+private fun StepperButton(symbol: String, enabled: Boolean, contentDescription: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(44.dp)
             .clip(CircleShape)
+            // Theme-aware palette (this branch) plus the stepper's accessible name (ALL-R08 round):
+            // a bare "+"/"−" is meaningless to a screen reader without it.
             .background(zidRunOnDarkColors().primary.copy(alpha = if (enabled) 0.16f else 0.05f))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -844,7 +873,7 @@ private fun ReadyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
  * it reads at any font scale without needing the artwork redrawn.
  */
 @Composable
-private fun HoldToBegin(onTriggered: () -> Unit) {
+private fun HoldToBegin(onTriggered: () -> Unit, enabled: Boolean = true) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     var holding by remember { mutableStateOf(false) }
@@ -980,8 +1009,11 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             .fillMaxWidth()
             .aspectRatio(1f)
             .graphicsLayer { scaleX = appliedScale; scaleY = appliedScale }
+            // Dimmed and inert while a chosen workout structure is still loading.
+            .alpha(if (enabled) 1f else 0.5f)
             .clip(CircleShape)
-            .pointerInput(Unit) {
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
                 detectTapGestures(
                     onPress = {
                         holding = true
@@ -996,7 +1028,7 @@ private fun HoldToBegin(onTriggered: () -> Unit) {
             .semantics {
                 contentDescription = startLabel
                 role = Role.Button
-                onClick(label = startLabel) { onTriggered(); true }
+                if (enabled) onClick(label = startLabel) { onTriggered(); true }
             },
     ) {
         // Layer order matches the reference build: orange backlight, the muted orbit, the clockwise

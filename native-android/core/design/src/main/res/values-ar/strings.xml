@@ -436,6 +436,8 @@
     <string name="runs_param_work">المجهود</string>
     <string name="runs_param_recovery">الاستشفاء</string>
     <string name="runs_param_km_value">%1$s كم</string>
+    <string name="runs_param_increase">زيد %1$s، دروك %2$s</string>
+    <string name="runs_param_decrease">نقّص %1$s، دروك %2$s</string>
     <string name="runs_audio_cues">التنبيهات الصوتية</string>
     <string name="runs_guided_unavailable">الخطوات الموجّهة ما راهيش متوفرة — تتسجّل كسورتي حرّة.</string>
     <string name="runs_step_warmup">تسخين</string>

@@ -62,6 +62,21 @@ import java.time.ZoneOffset
  * values would pass, and the runner is told which field is wrong inline rather than pressing into a
  * server rejection.
  */
+/**
+ * Maps any Unicode decimal digits to ASCII and any decimal separator (ASCII or Arabic ٫ ، ٬) to a
+ * dot, dropping everything else, so the same field parses whether typed on an Arabic or Latin
+ * keyboard. Does not touch what is displayed — only what is parsed for validation/submit.
+ */
+private fun normalizeNumber(input: String): String = buildString {
+    for (ch in input.trim()) {
+        val digit = Character.digit(ch, 10)
+        when {
+            digit in 0..9 -> append(digit)
+            ch == '.' || ch == ',' || ch == '٫' || ch == '،' || ch == '٬' -> append('.')
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManualRunScreen(
@@ -87,9 +102,11 @@ fun ManualRunScreen(
 
     // Parsed values. Distance accepts a comma decimal, since the French and Arabic keyboards a runner
     // is on here type "5,2" rather than "5.2".
-    val distanceKm = distanceText.trim().replace(',', '.').toDoubleOrNull()
-    val minutes = minutesText.trim().toIntOrNull() ?: 0
-    val seconds = secondsText.trim().toIntOrNull() ?: 0
+    // Normalize Unicode digits and Arabic separators so ٥٫٢ / ٥,٢ / 5.2 all parse — an Arabic-keyboard
+    // user must be able to type the required fields, not just an ASCII one.
+    val distanceKm = normalizeNumber(distanceText).toDoubleOrNull()
+    val minutes = normalizeNumber(minutesText).toIntOrNull() ?: 0
+    val seconds = normalizeNumber(secondsText).toIntOrNull() ?: 0
     val durationSeconds = minutes * 60 + seconds
 
     // Server bounds, mirrored so Save never sends a value the server would refuse.

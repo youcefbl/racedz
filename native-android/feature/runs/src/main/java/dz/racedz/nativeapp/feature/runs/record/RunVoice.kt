@@ -19,16 +19,21 @@ import kotlin.coroutines.resume
  * Spoken cues during a run.
  *
  * Device text-to-speech first: on a run the phone is often out of signal, and a cue that arrives
- * late — or not at all — is worse than one in a plainer voice.
+ * late is worse than one that has to buffer. Speech is queued as ADD so a kilometre split announced
+ * while a step change is still speaking is heard rather than cutting the first off.
  *
- * When the device has no voice for the runner's language, it falls back to the server's synthesized
- * audio. This is not a nicety. The M21 has no `ara-DZA` voice, and the old behaviour was to call
- * `setLanguage(Locale.ENGLISH)` and carry on — which meant an English voice reading Arabic text
- * aloud, phonetic nonsense at the exact moment the runner is being told what to do. Silence would
- * have been better; the runner's own language is better still.
+ * Three rules, two of them (ALL-R08) about not saying the wrong thing:
+ *  - **Never cross-language fallback.** The old code called `setLanguage(Locale.ENGLISH)` when the
+ *    device had no voice for the run's language, so Arabic copy was read aloud by an English engine
+ *    — unintelligible at the exact moment the runner is being told what to do.
+ *  - **Never drop the first cue to a cold engine.** Engine init is asynchronous; a cue spoken before
+ *    it is ready is buffered and flushed once the voice accepts it, so the warm-up is not lost.
+ *  - **Prefer the runner's own language over silence.** Where ALL-R08 could only choose silence,
+ *    a guided-run cue can now be fetched from the server already synthesized in the right language
+ *    (NATGAP-09). Silence remains the floor, not the target: no entitlement, no network or a failed
+ *    fetch and the cue is simply not spoken — never spoken wrongly.
  *
- * Every call is safe before the engine is ready and after it is released; a missing voice, a failed
- * fetch or a dead network simply means no cue, never a crash mid-run.
+ * Every call is safe before the engine is ready and after it is released.
  */
 class RunVoice(
     private val context: Context,
@@ -41,15 +46,10 @@ class RunVoice(
 ) {
 
     private var engine: TextToSpeech? = null
-    private var ready = false
-
-    /**
-     * Whether the device can actually speak [locale].
-     *
-     * The distinction the old code collapsed: "the engine started" is not "the engine can say this
-     * in the runner's language".
-     */
-    private var deviceHasVoice = false
+    private var initDone = false
+    /** True only when the engine has a voice for [locale] — no English fallback. */
+    private var available = false
+    private val pending = mutableListOf<String>()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -65,10 +65,18 @@ class RunVoice(
     init {
         engine = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = engine?.setLanguage(locale)
-                deviceHasVoice =
-                    result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
-                ready = true
+                val result = engine?.setLanguage(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                available = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
+            }
+            initDone = true
+            // Flush anything queued during init, in order — but only if we actually have the voice.
+            val queued: List<String>
+            synchronized(pending) { queued = pending.toList(); pending.clear() }
+            // Flushed through the same decision as a live cue: to the engine when it has the voice,
+            // otherwise to the cloud. Upstream could only drop these when `available` was false;
+            // now they are still spoken, in the right language.
+            queued.forEach { text ->
+                if (available) enqueue(text) else if (fetchCueAudio != null) cloudQueue.trySend(text)
             }
         }
         scope.launch {
@@ -88,7 +96,14 @@ class RunVoice(
      */
     fun sayCue(text: String) {
         if (text.isBlank()) return
-        if (deviceHasVoice || fetchCueAudio == null) {
+        if (!initDone) {
+            // Which path this cue takes depends on `available`, which is not known until init
+            // finishes. Buffer it rather than guessing — guessing device-first would silently drop
+            // the warm-up on a phone with no voice, which is the case this whole class exists for.
+            synchronized(pending) { pending.add(text) }
+            return
+        }
+        if (available || fetchCueAudio == null) {
             say(text)
             return
         }
@@ -102,7 +117,17 @@ class RunVoice(
      * exists to refuse, and sending it would be both a rejected request and the wrong instinct.
      */
     fun say(text: String) {
-        if (!ready || text.isBlank()) return
+        if (text.isBlank()) return
+        if (!initDone) {
+            // Engine still loading: hold the cue so a cold start does not swallow the first one.
+            synchronized(pending) { pending.add(text) }
+            return
+        }
+        if (!available) return
+        enqueue(text)
+    }
+
+    private fun enqueue(text: String) {
         engine?.speak(text, TextToSpeech.QUEUE_ADD, null, text.hashCode().toString())
     }
 
@@ -163,8 +188,11 @@ class RunVoice(
     }
 
     fun release() {
-        ready = false
-        deviceHasVoice = false
+        // Both teardowns: the engine's state and buffer, and the cloud queue's coroutine — leaving
+        // the scope alive would keep a cue playing after the runner left the screen.
+        initDone = false
+        available = false
+        synchronized(pending) { pending.clear() }
         cloudQueue.close()
         scope.cancel()
         engine?.stop()

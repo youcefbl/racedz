@@ -19,9 +19,12 @@ import kotlinx.coroutines.launch
  *
  * Mirrors [dz.racedz.nativeapp.feature.runs.record.RecordRunViewModel]: a single saving flag guards
  * against a double tap, and a failed request leaves the form untouched with an error to retry from,
- * rather than throwing away what was entered. A fresh [UUID] per attempt is fine here — unlike a
- * recorded run there is no half-sent copy on disk to reconcile against, so each Save is its own
- * create.
+ * rather than throwing away what was entered.
+ *
+ * The client id is minted once for this entry and reused on every retry — that is what makes a retry
+ * after a lost response safe: if the first request reached the server but its reply was lost, the
+ * second replays the same row instead of creating a duplicate (the server dedupes on clientId). A new
+ * id is only ever minted for a fresh manual entry (a new screen/ViewModel).
  *
  * The server (runCreateSchema) is the authority on what is acceptable; the screen disables Save until
  * its own mirror of those bounds passes, so this only ever sends values that already look valid.
@@ -30,6 +33,9 @@ class ManualRunViewModel(private val repository: RunsRepository) : ViewModel() {
 
     private val _state = MutableStateFlow(SaveRunUiState())
     val state: StateFlow<SaveRunUiState> = _state.asStateFlow()
+
+    /** Stable for this entry so a lost-response retry replays rather than duplicates. */
+    private val clientId: String = UUID.randomUUID().toString()
 
     fun save(
         title: String?,
@@ -45,7 +51,7 @@ class ManualRunViewModel(private val repository: RunsRepository) : ViewModel() {
 
         viewModelScope.launch {
             val request = CreateRunRequest(
-                clientId = UUID.randomUUID().toString(),
+                clientId = clientId,
                 startedAt = Instant.ofEpochMilli(startedAtEpochMs).toString(),
                 distanceKm = distanceKm,
                 durationSeconds = durationSeconds,

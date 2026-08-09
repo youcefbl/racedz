@@ -1,5 +1,6 @@
 import { apiError, apiOk, ApiError, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
+import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import {
   GUIDED_SESSION_TEMPLATES,
   buildGuidedSession,
@@ -27,6 +28,14 @@ export const GET = withApi(async (request) => {
 
   const limited = enforceRateLimit(rateLimitKey("v1-structure", viewer.id), 60, 60_000);
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many requests. Please slow down."));
+
+  // Structured guided workouts are a coaching feature (owner decision 2026-08-08: TRIAL or
+  // SUBSCRIBED). Enforce it here so the rule cannot be bypassed by a modified client; the app also
+  // gates the UI to match. Plain free runs need nothing and go through /api/v1/runs directly.
+  const entitlement = await resolveCoachEntitlement(viewer.id);
+  if (entitlement.tier === "NONE") {
+    return apiError(request, new ApiError("SUBSCRIPTION_REQUIRED", "Guided workouts need a coaching subscription."));
+  }
 
   const url = new URL(request.url);
   const type = (url.searchParams.get("type") ?? "").trim().toLowerCase();
