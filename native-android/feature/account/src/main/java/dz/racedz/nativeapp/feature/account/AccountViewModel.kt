@@ -58,6 +58,14 @@ class AccountViewModel(
     /** Applies a saved theme/language to the running app. The server is still the source of truth;
      *  this just makes the change visible immediately instead of after the next launch. */
     private val applyAppearance: (theme: String?, language: String?) -> Unit,
+    /**
+     * Revokes this device's push token before the session goes.
+     *
+     * Must run BEFORE signOut(): the call is authenticated, so once the tokens are cleared the
+     * server has no way to know whose subscription to revoke. Suspending and awaited rather than
+     * fire-and-forget for the same reason — a race here leaves the row active.
+     */
+    private val revokePushToken: suspend () -> Unit = {},
     /** Clears device-local traces of the signed-out account (currently the theme mirror). */
     private val onSignedOutCleanup: () -> Unit,
 ) : ViewModel() {
@@ -152,6 +160,11 @@ class AccountViewModel(
 
     fun signOut(onDone: () -> Unit) {
         viewModelScope.launch {
+            // An FCM token belongs to the app INSTALL, not the account. Left registered, the
+            // signed-out runner keeps receiving their training reminders on this phone — and so
+            // does whoever signs in next, since the server would still map the token to the old
+            // user. Revoked first, while the request can still authenticate.
+            revokePushToken()
             session.signOut(SignOutReason.UserAction)
             onSignedOutCleanup()
             onDone()
@@ -161,6 +174,7 @@ class AccountViewModel(
     fun signOutEverywhere(onDone: () -> Unit) {
         viewModelScope.launch {
             _state.update { it.copy(saving = true) }
+            revokePushToken()
             repository.signOutEverywhere()
             onSignedOutCleanup()
             onDone()
