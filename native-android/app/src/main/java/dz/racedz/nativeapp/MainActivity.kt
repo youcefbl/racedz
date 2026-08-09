@@ -62,7 +62,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        receive(intent.data)
+        // Same two sources as onCreate. This path is the COMMON one for a notification: the
+        // Activity is singleTask and usually already exists, so a tap resumes it here rather than
+        // going through onCreate — reading only `data` meant tapping a notification while the app
+        // was open did nothing at all.
+        receive(intent.data ?: pushDestination(intent))
     }
 
     /**

@@ -180,6 +180,8 @@ fun ZidRunApp(
         // Incoming links: the OAuth callback goes to the view model holding the matching PKCE
         // verifier; a race link opens that race. Both are consumed exactly once — replaying a spent
         // authorization code on a configuration change would fail and look like a broken sign-in.
+        var pendingShellTab by remember { mutableStateOf<ShellTab?>(null) }
+
         LaunchedEffect(pendingDeepLink?.id) {
             val link = pendingDeepLink?.uri ?: return@LaunchedEffect
 
@@ -193,9 +195,17 @@ fun ZidRunApp(
                 }
 
                 // A tapped notification, mapped from its website href by pushDestination().
-                link.scheme == "zidrun" && link.host == "runs" ->
-                    navController.navigate(ShellTab.Runs.route)
+                //
+                // The tab is REQUESTED, not navigated to: tab routes belong to the shell's own
+                // nested NavHost, and asking the root controller for "shell/runs" throws and
+                // crashes the app. Anything stacked above the shell is popped first so the tab is
+                // actually visible rather than hidden behind a run detail or a settings screen.
+                link.scheme == "zidrun" && link.host == "runs" -> {
+                    navController.popBackStack(RootDestinations.SHELL, inclusive = false)
+                    pendingShellTab = ShellTab.Runs
+                }
 
+                // Registrations IS a root destination, so this one navigates normally.
                 link.scheme == "zidrun" && link.host == "registrations" ->
                     navController.navigate(RootDestinations.REGISTRATIONS)
 
@@ -375,6 +385,8 @@ fun ZidRunApp(
                 }
 
                 AppShell(
+                    requestedTab = pendingShellTab,
+                    onRequestedTabHandled = { pendingShellTab = null },
                     container = container,
                     appearance = appearance,
                     onOpenRace = { navController.navigate(RootDestinations.raceDetail(it)) },
@@ -761,6 +773,7 @@ internal fun rememberAccountViewModel(
                 (container.coachRepository.overview() as? ApiResult.Success)?.value?.entitlement
             },
             applyAppearance = { theme, language -> appearance.apply(theme, language) },
+            revokePushToken = { container.pushRegistrar.revokeCurrentToken() },
             onSignedOutCleanup = appearance::clear,
         )
     }

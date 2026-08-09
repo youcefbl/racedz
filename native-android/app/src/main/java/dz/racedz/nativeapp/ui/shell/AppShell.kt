@@ -67,6 +67,7 @@ import dz.racedz.nativeapp.feature.coach.CoachViewModel
 import dz.racedz.nativeapp.feature.races.RacesViewModel
 import dz.racedz.nativeapp.feature.runs.RunsOverviewScreen
 import dz.racedz.nativeapp.feature.runs.RunsViewModel
+import androidx.compose.runtime.LaunchedEffect
 import dz.racedz.nativeapp.navigation.ShellTab
 import dz.racedz.nativeapp.rememberAccountViewModel
 
@@ -140,8 +141,29 @@ fun AppShell(
      * feature (RUNPAR-006), not an entitlement gate — an offline launch must not hide the app.
      */
     features: AppFeaturesDto? = null,
+    /**
+     * A tab the app was asked to open — currently by tapping a push notification.
+     *
+     * The tabs are destinations of the nested NavHost below, not of the root graph, so the caller
+     * cannot navigate to them: asking the root controller for "shell/runs" throws
+     * IllegalArgumentException and takes the process with it. It hands the request down instead.
+     */
+    requestedTab: ShellTab? = null,
+    onRequestedTabHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+
+    LaunchedEffect(requestedTab) {
+        val tab = requestedTab ?: return@LaunchedEffect
+        navController.navigate(tab.route) {
+            // Same options as a tab tap, so arriving from a notification leaves the back stack
+            // looking exactly as it would have if the runner had pressed the tab themselves.
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+        onRequestedTabHandled()
+    }
 
     Scaffold(
         containerColor = ZidRunTheme.colors.background,
