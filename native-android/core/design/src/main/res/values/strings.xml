@@ -360,6 +360,8 @@
     <string name="runs_challenge_long_run">Longest run this month</string>
     <string name="runs_challenge_done">Done</string>
     <string name="runs_photos">Photos</string>
+    <string name="push_channel_name">Training and races</string>
+    <string name="push_channel_description">Session reminders, race updates, and messages from your coach.</string>
     <string name="runs_photo_add">Add photo</string>
     <string name="runs_photo_remove">Remove photo</string>
     <string name="runs_visibility_blocked">An activity flagged for review cannot be made public.</string>

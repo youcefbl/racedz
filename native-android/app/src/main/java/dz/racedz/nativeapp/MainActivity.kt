@@ -1,6 +1,7 @@
 package dz.racedz.nativeapp
 
 import android.content.Intent
+import dz.racedz.nativeapp.push.PUSH_HREF_KEY
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -40,7 +41,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        receive(intent?.data)
+        receive(intent?.data ?: pushDestination(intent))
         val container = (application as ZidRunApplication).container
 
         setContent {
@@ -80,3 +81,25 @@ class MainActivity : ComponentActivity() {
 
 /** One incoming link, with an identity that changes even when the URL repeats. */
 data class DeepLinkEvent(val uri: Uri, val id: Long)
+
+/**
+ * Turns a tapped notification's `href` into a link the app already knows how to follow.
+ *
+ * The server addresses notifications with website paths, because that is what email and the web
+ * client need. Only some of them have a native screen — `/account/feed` and `/account/groups/...`
+ * are still web-only (NATGAP-04/05) — so an unmapped destination deliberately returns null and the
+ * app simply opens where it was. Sending the runner somewhere wrong is worse than sending them home.
+ */
+internal fun pushDestination(intent: Intent?): Uri? {
+    val href = intent?.getStringExtra(PUSH_HREF_KEY)?.trim().orEmpty()
+    if (href.isEmpty()) return null
+    // Absolute or relative — the server sends a path, but a full URL costs nothing to tolerate.
+    val path = runCatching { Uri.parse(href).path ?: href }.getOrDefault(href)
+    return when {
+        path.startsWith("/account/runs") -> Uri.parse("zidrun://runs")
+        path.startsWith("/account/registrations") -> Uri.parse("zidrun://registrations")
+        path.startsWith("/races/") ->
+            path.removePrefix("/races/").takeIf { it.isNotBlank() }?.let { Uri.parse("zidrun://race/$it") }
+        else -> null
+    }
+}

@@ -355,6 +355,8 @@
     <string name="runs_challenge_long_run">أطول سورتي هاذ الشهر</string>
     <string name="runs_challenge_done">تمّت</string>
     <string name="runs_photos">التصاور</string>
+    <string name="push_channel_name">التدريب والسباقات</string>
+    <string name="push_channel_description">تذكيرات الحصص، أخبار السباقات، ورسائل الكوتش تاعك.</string>
     <string name="runs_photo_add">زيد تصويرة</string>
     <string name="runs_photo_remove">نحّي التصويرة</string>
     <string name="runs_visibility_blocked">نشاط لازم يتراجع ما يقدرش يولّي عمومي.</string>

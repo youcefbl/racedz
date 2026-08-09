@@ -42,6 +42,13 @@ import dz.racedz.nativeapp.feature.auth.AuthScreen
 import dz.racedz.nativeapp.feature.auth.AuthViewModel
 import dz.racedz.nativeapp.feature.races.RaceDetailScreen
 import dz.racedz.nativeapp.feature.races.RaceDetailViewModel
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import dz.racedz.nativeapp.push.ensurePushChannel
 import dz.racedz.nativeapp.feature.runs.RunDetailScreen
 import dz.racedz.nativeapp.feature.runs.RunDetailViewModel
 import dz.racedz.nativeapp.feature.runs.RunHistoryScreen
@@ -72,6 +79,7 @@ import dz.racedz.nativeapp.feature.registration.RegistrationScreen
 import dz.racedz.nativeapp.feature.registration.RegistrationViewModel
 import dz.racedz.nativeapp.locale.LocaleManager
 import dz.racedz.nativeapp.navigation.RootDestinations
+import dz.racedz.nativeapp.navigation.ShellTab
 import dz.racedz.nativeapp.ui.shell.AppShell
 import dz.racedz.nativeapp.ui.splash.SplashRoute
 import dz.racedz.nativeapp.core.design.R as DesignR
@@ -184,12 +192,62 @@ fun ZidRunApp(
                     }
                 }
 
+                // A tapped notification, mapped from its website href by pushDestination().
+                link.scheme == "zidrun" && link.host == "runs" ->
+                    navController.navigate(ShellTab.Runs.route)
+
+                link.scheme == "zidrun" && link.host == "registrations" ->
+                    navController.navigate(RootDestinations.REGISTRATIONS)
+
                 // Race detail is public, so a link works signed out too — the screen offers
                 // "sign in to register" rather than bouncing the user to a login wall.
                 else -> pendingRaceSlug = raceSlugFrom(link)
             }
 
             onDeepLinkHandled()
+        }
+
+        /*
+         * Keep this device's push token registered for as long as someone is signed in.
+         *
+         * Every launch, not just at sign-in: FCM rotates tokens on its own schedule, and a stale
+         * one stops delivering silently. Registration is idempotent by token server-side, so the
+         * repeat costs a row update. Revoked on sign-out so the next account on this device does
+         * not inherit the previous runner's reminders — the token belongs to the install.
+         *
+         * Entirely best-effort and silent: no Firebase config, no network, a refused request —
+         * all mean the app works exactly as it did before, without push.
+         */
+        val notificationPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { /* Declined is a valid answer: the token stays registered and nothing else changes. */ }
+
+        LaunchedEffect(authState) {
+            if (authState is AuthState.SignedIn) {
+                ensurePushChannel(context)
+                container.pushRegistrar.registerCurrentToken()
+
+                /*
+                 * Ask to post notifications, once signed in.
+                 *
+                 * Without this the whole feature is inert on Android 13+: the token registers, the
+                 * server sends, FCM delivers, and the system drops it on the floor because the app
+                 * has no POST_NOTIFICATIONS grant. Verified on the M21 — the first test push was
+                 * accepted by FCM and simply never appeared. The permission was only ever requested
+                 * at hold-to-begin, so a runner who never started a run, or who declined there,
+                 * would never receive a reminder and would never be told why.
+                 *
+                 * Asked here rather than at launch because a signed-in runner is the only one there
+                 * is anything to notify about. The system shows this at most twice in an app's
+                 * lifetime and ignores it thereafter, so re-asking on later launches is harmless.
+                 */
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
         }
 
         // Pull the account's saved appearance once per signed-in session, so a fresh install or a

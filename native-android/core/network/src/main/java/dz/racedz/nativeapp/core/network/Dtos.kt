@@ -927,6 +927,10 @@ data class CreateRunRequest(
 @Serializable
 data class ConfirmMatchRequest(val workoutId: String)
 
+/** An FCM registration token, with the device model shown in "Signed-in devices". */
+@Serializable
+data class PushSubscriptionRequest(val token: String, val deviceLabel: String? = null)
+
 @Serializable
 data class UpdateRunRequest(
     val baseRevision: Int,

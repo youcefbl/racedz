@@ -4,6 +4,23 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+/*
+ * Push is wired only when this machine actually has a Firebase config.
+ *
+ * `google-services.json` is git-ignored (it is a per-project credential), so a fresh clone, CI, and
+ * anyone building without Firebase access do not have one — and the Google Services plugin fails
+ * the build outright when the file is missing, rather than degrading. Applying it conditionally
+ * keeps the project buildable everywhere; ZidRunMessaging checks the same condition at runtime and
+ * simply does not register a token when Firebase is absent.
+ *
+ * Note the plugin matches the VARIANT's full application id, so every id in use — including the
+ * `.debug` suffix — must be registered in the Firebase project or its build fails.
+ */
+val googleServicesConfig = file("google-services.json")
+if (googleServicesConfig.exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+}
+
 android {
     namespace = "dz.racedz.nativeapp"
     compileSdk = 36
@@ -98,6 +115,11 @@ android {
 }
 
 dependencies {
+    // Push (NATGAP-03). Present in the compile classpath even without google-services.json — the
+    // library is inert until Firebase is initialised, which needs that file.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+
     implementation(project(":core:design"))
     implementation(project(":core:network"))
     implementation(project(":core:auth"))

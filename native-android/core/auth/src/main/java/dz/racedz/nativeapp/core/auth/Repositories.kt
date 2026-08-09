@@ -104,6 +104,18 @@ class AccountRepository(
     suspend fun exportMyData(): ApiResult<kotlinx.serialization.json.JsonElement> =
         session.onResult(client.call { api.exportMyData() })
 
+    /** Registers this device for push. True when the server accepted it. */
+    suspend fun registerPushToken(token: String, deviceLabel: String?): Boolean =
+        client.call {
+            api.registerPushToken(dz.racedz.nativeapp.core.network.PushSubscriptionRequest(token, deviceLabel))
+        } is ApiResult.Success
+
+    /** Revokes this device's push token. */
+    suspend fun revokePushToken(token: String): Boolean =
+        client.call {
+            api.revokePushToken(dz.racedz.nativeapp.core.network.PushSubscriptionRequest(token))
+        } is ApiResult.Success
+
     suspend fun requestAccountDeletion(reason: String?): ApiResult<Unit> {
         val result = session.onResult(client.call { api.requestAccountDeletion(DeletionRequestBody(reason)) })
         return when (result) {

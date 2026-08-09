@@ -340,6 +340,8 @@
     <string name="runs_challenge_long_run">Plus longue sortie ce mois-ci</string>
     <string name="runs_challenge_done">Réussi</string>
     <string name="runs_photos">Photos</string>
+    <string name="push_channel_name">Entraînement et courses</string>
+    <string name="push_channel_description">Rappels de séance, actualités des courses et messages de votre coach.</string>
     <string name="runs_photo_add">Ajouter une photo</string>
     <string name="runs_photo_remove">Retirer la photo</string>
     <string name="runs_visibility_blocked">Une activité à vérifier ne peut pas être rendue publique.</string>

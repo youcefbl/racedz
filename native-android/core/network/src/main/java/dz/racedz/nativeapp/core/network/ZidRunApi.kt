@@ -8,6 +8,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.Multipart
@@ -188,6 +189,14 @@ interface ZidRunApi {
         @Query("lat") lat: Double? = null,
         @Query("lng") lng: Double? = null,
     ): Response<ApiEnvelope<WeatherDto>>
+
+    /** Registers this device's FCM token so the server's dispatch crons can reach it. */
+    @POST("api/v1/me/push-subscriptions")
+    suspend fun registerPushToken(@Body body: PushSubscriptionRequest): Response<ApiEnvelope<JsonObject>>
+
+    /** Revokes it on sign-out, so the next account on this device does not inherit the reminders. */
+    @HTTP(method = "DELETE", path = "api/v1/me/push-subscriptions", hasBody = true)
+    suspend fun revokePushToken(@Body body: PushSubscriptionRequest): Response<ApiEnvelope<JsonObject>>
 
     @GET("api/v1/me/badges")
     suspend fun badges(): Response<ApiEnvelope<BadgesDto>>

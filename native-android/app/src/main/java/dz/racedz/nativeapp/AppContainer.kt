@@ -67,6 +67,17 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
         GpsQuality.trustDisplacementWhenSpeedIsZero = BuildConfig.DEBUG
     }
     val accountRepository = AccountRepository(api, apiClient, sessionManager)
+
+    /**
+     * Push registration. Inert when this build has no Firebase config — see PushRegistrar.
+     * Constructed here so the messaging service, which the system starts on its own, can reach the
+     * same repository the rest of the app uses instead of building a second network stack.
+     */
+    val pushRegistrar = dz.racedz.nativeapp.push.PushRegistrar(
+        context = context.applicationContext,
+        registerToken = { token, label -> accountRepository.registerPushToken(token, label) },
+        revokeToken = { token -> accountRepository.revokePushToken(token) },
+    )
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
 }
 
