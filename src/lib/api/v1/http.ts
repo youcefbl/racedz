@@ -146,19 +146,56 @@ export function withApi<Context>(handler: (request: Request, context: Context) =
   };
 }
 
-/** Reads and JSON-parses a bounded request body. Rejects oversized or malformed payloads. */
+/**
+ * Reads and JSON-parses a bounded request body. Rejects oversized or malformed payloads.
+ *
+ * The limit is enforced WHILE reading, not after. The previous version checked `content-length`
+ * and then called `request.text()` — but a chunked request carries no `content-length`, so it
+ * sailed past the header check and buffered the entire body before the size test ever ran. The cap
+ * described what was accepted, not what was read, which on an endpoint that tolerates an
+ * unauthenticated caller is the whole point of having one.
+ *
+ * The stream is cancelled the moment the cap is passed, so the sender stops rather than being
+ * allowed to finish into a buffer that is about to be thrown away.
+ */
 export async function readJsonBody(request: Request, maxBytes = 64 * 1024): Promise<unknown> {
+  // Still checked first: an honest client that declares an oversized body is refused before a
+  // single byte of it is read.
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > maxBytes) {
     throw new ApiError("BAD_REQUEST", "Request body is too large.");
   }
 
-  const text = await request.text();
-  // content-length is client-supplied; check the bytes we actually received too.
-  if (Buffer.byteLength(text, "utf8") > maxBytes) {
-    throw new ApiError("BAD_REQUEST", "Request body is too large.");
+  const body = request.body;
+  if (!body) return {};
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new ApiError("BAD_REQUEST", "Request body is too large.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    // Releasing a cancelled reader throws in some runtimes; the body is already done with either way.
+    try {
+      reader.releaseLock();
+    } catch {
+      /* no-op */
+    }
   }
-  if (!text) return {};
+
+  if (total === 0) return {};
+  const text = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8");
 
   try {
     return JSON.parse(text) as unknown;
