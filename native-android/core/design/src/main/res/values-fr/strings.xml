@@ -218,6 +218,8 @@
     <string name="privacy_private_profile_body">Masquez votre activité des classements et des autres coureurs.</string>
     <string name="privacy_devices">Appareils connectés</string>
     <string name="privacy_export">Télécharger mes données</string>
+    <string name="privacy_crash_reports">Envoyer les rapports de plantage</string>
+    <string name="privacy_crash_reports_body">Nous aide à trouver et corriger les plantages. Les rapports contiennent l\'erreur et la version de l\'app — jamais votre nom, vos sorties, ni où vous avez couru.</string>
     <string name="privacy_export_body">Une copie de votre profil, de vos inscriptions et de vos sorties, dans un fichier que vous gardez. Les tracés GPS n\'y sont pas : exportez le GPX depuis la sortie concernée.</string>
     <string name="privacy_export_share">Partager mes données ZidRun</string>
     <string name="privacy_export_failed">Impossible de préparer le fichier. Réessayez.</string>

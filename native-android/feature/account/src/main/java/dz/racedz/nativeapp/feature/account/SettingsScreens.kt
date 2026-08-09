@@ -215,7 +215,17 @@ fun ProfilePreferencesScreen(viewModel: AccountViewModel, onBack: () -> Unit) {
 
 /** Privacy toggle, signed-in devices, sign-out-everywhere, and the deletion request. */
 @Composable
-fun PrivacyDataScreen(viewModel: AccountViewModel, onBack: () -> Unit, onSignedOut: () -> Unit) {
+fun PrivacyDataScreen(
+    viewModel: AccountViewModel,
+    onBack: () -> Unit,
+    onSignedOut: () -> Unit,
+    /**
+     * Current value and setter for crash reporting, or null where it does not apply (a build with
+     * no Firebase config). A pair rather than a direct dependency: crash reporting lives in the app
+     * module, which a feature module must not reach into.
+     */
+    crashReporting: Pair<Boolean, (Boolean) -> Unit>? = null,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
@@ -259,6 +269,41 @@ fun PrivacyDataScreen(viewModel: AccountViewModel, onBack: () -> Unit, onSignedO
                         checkedTrackColor = colors.primary,
                     ),
                 )
+            }
+        }
+
+        /*
+         * Crash reporting, disclosed and switchable (NATGAP-16 review).
+         *
+         * It was enabled with no notice and no way to decline, which is not a defensible default
+         * even for data this narrow. The copy states plainly what a report does and does not
+         * contain, so the choice is informed rather than a bare toggle.
+         */
+        crashReporting?.let { (enabled, onChange) ->
+            ZidRunCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.privacy_crash_reports),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.textStrong,
+                        )
+                        Text(
+                            stringResource(R.string.privacy_crash_reports_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textMuted,
+                        )
+                    }
+                    Spacer(Modifier.width(ZidRunDimens.spaceMd))
+                    Switch(
+                        checked = enabled,
+                        onCheckedChange = onChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.onPrimary,
+                            checkedTrackColor = colors.primary,
+                        ),
+                    )
+                }
             }
         }
 

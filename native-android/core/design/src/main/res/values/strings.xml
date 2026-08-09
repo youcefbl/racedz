@@ -235,6 +235,8 @@
     <string name="privacy_private_profile_body">Hide your activity from leaderboards and other runners.</string>
     <string name="privacy_devices">Signed-in devices</string>
     <string name="privacy_export">Download my data</string>
+    <string name="privacy_crash_reports">Send crash reports</string>
+    <string name="privacy_crash_reports_body">Helps us find and fix crashes. Reports contain the error and your app version — never your name, your runs, or where you ran.</string>
     <string name="privacy_export_body">A copy of your profile, race registrations and runs, as a file you can keep. GPS routes are not included — export a run\'s GPX from the run itself.</string>
     <string name="privacy_export_share">Share my ZidRun data</string>
     <string name="privacy_export_failed">Could not prepare the file. Try again.</string>

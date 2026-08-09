@@ -32,18 +32,42 @@ object CrashReporting {
      */
     private fun isAvailable(context: Context): Boolean = FirebaseApp.getApps(context).isNotEmpty()
 
+    private const val PREFS = "zidrun-observability"
+    private const val KEY_ENABLED = "crash-reporting-enabled"
+
     /**
-     * Turns collection on and records the build's identity.
+     * Whether the runner has left crash reporting on. Defaults to on, and is theirs to change.
      *
-     * Collection is enabled explicitly rather than left to the manifest default so that this call
-     * is the single place the decision lives — if a consent gate is added later it belongs here,
-     * not scattered across the SDK's own defaults.
+     * Notice-and-choice, the same model the web uses for cookies: reporting starts enabled because
+     * a crash signal is what makes the app fixable, and it is disclosed in `docs/DATA_INVENTORY.md`
+     * and switchable in Privacy & data. What makes that defensible is what is NOT sent — no user
+     * id, no run data, no location (see the class note). If that ever changes, this becomes an
+     * opt-IN and the default here has to move with it.
+     */
+    fun isEnabled(context: Context): Boolean =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ENABLED, true)
+
+    /** Applies the runner's choice immediately — the SDK honours this without a restart. */
+    fun setEnabled(context: Context, enabled: Boolean) {
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_ENABLED, enabled).apply()
+        if (!isAvailable(context)) return
+        runCatching { FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = enabled }
+    }
+
+    /**
+     * Applies the stored choice and records the build's identity.
+     *
+     * Collection is set explicitly rather than left to the manifest default, so this call is the
+     * single place the decision lives instead of being split between the SDK's defaults and here.
      */
     fun initialise(context: Context, versionName: String, versionCode: Int) {
         if (!isAvailable(context)) return
+        val enabled = isEnabled(context)
         runCatching {
             FirebaseCrashlytics.getInstance().apply {
-                isCrashlyticsCollectionEnabled = true
+                isCrashlyticsCollectionEnabled = enabled
                 setCustomKey("versionName", versionName)
                 setCustomKey("versionCode", versionCode)
             }
