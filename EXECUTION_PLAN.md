@@ -4,7 +4,7 @@
 > Do not create another backlog, phase plan, audit TODO, or progress file. Supporting documents may
 > explain how to test or operate the product, but every open action belongs here.
 
-**Last updated:** 2026-08-08
+**Last updated:** 2026-08-09
 
 **Release readiness:** `█████████████░░░░░░░░░░░░` **52% — 31 of 60 gates complete**
 
@@ -246,13 +246,91 @@ gaps. Recorded here so they are visible and acceptance-bounded.
 | `NATRUN-01` | P2 | **Manual run entry** (no GPS): type distance, duration, effort, date, title, notes | `coach-runs-panel.tsx:410` form → `POST /api/coach/runs` (`source:"MANUAL"` when no route) | Only GPS record; entry hidden (`RunsOverviewScreen.kt:219`, NATPAR-003) | A native form posts `POST /api/v1/runs` with `clientId`, `source:"MANUAL"`, no route; validation mirrors `runCreateSchema` (distance 0.1–500, duration 60–172800s, effort 1–10, startedAt ≤5min future); saved run appears in history. Delivered 2026-08-08 (see commits). |
 | `NATRUN-02` | P2 | **Import from GPX**: pick a `.gpx`, parse trackpoints, save as a run | `gpx.ts` parser + `gpx-import.tsx` → `POST /api/coach/runs/import` | GPX **export** only (WebView handoff); no import (NATPAR-003) | Native parses `<trkpt>` (lat/lng/ele/time) on-device, derives distance (haversine) + duration (timestamps), and posts `POST /api/v1/runs` with `source:"IMPORTED"` + full route. Same guards as web (≥2 points, ≥0.1km, 60–172800s, not future). |
 | `NATRUN-03` | P2 | **Free-run workout-type picker + per-type audio**: choose easy/long/intervals/strides/norwegian and get an audio-guided structure without a plan | `guided-session-picker.tsx` + `GUIDED_SESSION_TEMPLATES` (client-side build); audio profiles in `audio-coaching.ts`/`audio-copy.ts` | Only a **server-plan** guided run (`/api/v1/runs/guided`); one generic voice track; no type picker | Native offers a type picker on Free mode; steps come from the templates (new `GET /api/v1/runs/structure?type=&params` reusing `buildGuidedSession`/`buildWorkoutStructure`, same `GuidedSessionDto` shape) and run through the existing `GuidedSessionController`/`RunVoice`. Essential cues (step announce, splits, done) match; the richer per-type profile commentary (`repSplit`/`oneMinuteLeft`/pace/hydration…) is a follow-up port of `audio-coaching.ts`. |
-| `NATRUN-04` | P3 | **Run photos**, **badges/achievements on runs**, **workout-match confirm UI**, **on-device GPX export**, **account data export surfacing** | various web components | absent on native | Each scoped and prioritized separately post-release; listed so the parity backlog is complete. |
+| `NATRUN-04` | P3 | **Run photos**, **badges/achievements on runs**, **workout-match confirm UI**, **on-device GPX export**, **account data export surfacing** | various web components | run photos and badges **delivered 2026-08-09**; workout-match confirm, on-device GPX export and data-export surfacing remain (now tracked as `NATGAP-07`, `NATGAP-14`, `NATGAP-15`) | Each scoped and prioritized separately post-release; listed so the parity backlog is complete. |
 
 Related finding surfaced while testing (2026-08-08): on the M21 the device TTS has **no Arabic voice**
 (`ara-DZA LANG_NOT_SUPPORTED`), so Arabic cues fall back to an English voice reading Arabic text. A
 native notice now prompts installing a voice (commit `2dd100f`); a deeper fix (skip mismatched-language
 cues, or gate on installed voices) is open. The app-language instability across launches observed
 during testing is the same authority gap as `ROUND2-R11`.
+
+### Full server/Capacitor → native feature gap audit (2026-08-09)
+
+The run-flow comparison above covered Runs only. This is the **whole product**: every shipping
+backend capability and every Capacitor/web surface, checked against what `native-android/` can
+actually reach. Native is the primary mobile client by owner decision (2026-08-02), so each row here
+is something a runner has on the website today and loses on the phone — the retirement checklist for
+the Capacitor artifact, not a wish list.
+
+**How this was derived**, so it can be re-run rather than re-argued:
+
+1. Every web route (`src/app/**/page.tsx`, 69 routes) and every API route (`src/app/api/**/route.ts`,
+   57 web + 36 `/api/v1`) enumerated.
+2. Every endpoint the native client can call extracted from the Retrofit interface
+   (`core/network/ZidRunApi.kt`, 44 declarations) and diffed against `/api/v1`.
+3. Server-action-only features (`"use server"`) found separately — these have **no HTTP contract at
+   all**, so they are invisible to an endpoint diff and are the largest category of missing work.
+4. Native reachability confirmed against `navigation/Destinations.kt` (30 destinations) plus the four
+   signed web-handoff paths, so "the screen exists" was never assumed from a composable existing.
+
+**Three tiers, because the cost differs by an order of magnitude.** Tier B is client-only work. Tier A
+needs an additive `/api/v1` contract first (`NATIVE-003`) and is where the real effort sits. Tier C is
+already reachable but only by throwing the runner into a WebView.
+
+#### Tier B — contract already exists, native simply does not call it
+
+| ID | Priority | Gap | Server | Native today | Done when |
+|---|---|---|---|---|---|
+| `NATGAP-01` | P2 | **Account data export** | `GET /api/v1/me/export` — built, tested, unused by any client but the website | Privacy screen offers the privacy toggle, device sessions, sign-out-everywhere and the deletion request, but no export (`SettingsScreens.kt:243`) | The privacy screen offers "Download my data", calls the existing endpoint, and hands the payload to the system share/save sheet. No server change. |
+
+#### Tier A — shipping backend capability with no mobile contract
+
+Every row needs an additive `/api/v1` route under `NATIVE-003` **and** native UI. None may break the
+website's existing routes or server actions.
+
+| ID | Priority | Gap | Server / Capacitor reference | Native today | Done when |
+|---|---|---|---|---|---|
+| `NATGAP-02` | P2 | **Notification centre** — the runner's inbox: race approvals, coach nudges, group activity, broadcasts | `Notification` + `NotificationDelivery` + `NotificationPreference` models; `/api/notifications/[id]/read`, `/read-all`; `/account/notifications`, `/account/notification-settings` | Nothing. No destination, no endpoint, no unread indicator anywhere in the shell | `/api/v1/notifications` (list, unread count, mark-read, mark-all-read, preferences) exists; a native inbox with an unread badge on the Account tab; per-type preferences editable on-device. |
+| `NATGAP-03` | P1 | **Push notifications** | Capacitor ships `@capacitor/push-notifications` + `native-push.tsx`; `/api/notifications/push-subscriptions`, `/test-push`; broadcast dispatch cron | **No FCM dependency at all** in `native-android/` — not gated off, absent. Training reminders, inactivity nudges and broadcasts cannot reach a native user | Firebase Messaging in the native app, token registered against the existing subscription endpoint, notification taps deep-link to the right destination, and `PR-048`/`PR-049` re-verified for the native package. **This is the one gap that silently disables a whole server subsystem** (three crons already dispatch to it). |
+| `NATGAP-04` | P2 | **Social feed, kudos, follows, people search** | `/api/social/feed`, `/kudos`, `/follow`, `/search`; `Follow` + `RunKudos` models; `feed-view.tsx`, `follow-button.tsx`, `people-search.tsx`; `/account/feed` | Nothing. A native runner can make a run public but can never see anyone else's, give kudos, follow, or be found | `/api/v1/social/*` mirrors the four web endpoints with the same authorization; native feed screen, kudos action on a public run, follow/unfollow, and runner search. |
+| `NATGAP-05` | P2 | **Groups** — private/public running groups, join links, email invites, member roles | `Group` + `GroupMember` models; **server actions only** (`src/app/account/groups/actions.ts`, `src/app/groups/join/[token]/actions.ts`); `/account/groups`, `/groups/join/[token]` | Nothing. Also means a group **join link opened on a phone leaves the native app entirely** | `/api/v1/groups` (list, detail, create, join by token, invite, membership/role management) exists — this is a fresh HTTP contract, since the web has none; native group list/detail; the join-link App Link resolves inside the app. |
+| `NATGAP-06` | P2 | **Wilaya rankings / leaderboards** | `/rankings` page + `src/lib/leaderboard.ts` (`getWilayaLeaderboards`) | Nothing | `GET /api/v1/rankings?wilaya=&window=` returns the same leaderboard the page renders; a native rankings screen with the wilaya and time-window filters. |
+| `NATGAP-07` | P2 | **Workout-match confirmation** — "was this run your Tuesday tempo?" | `POST`/`DELETE /api/coach/runs/[id]/match`; `match-confirm-banner.tsx` | The server still auto-matches and still stores a *suggestion*, but native never shows it, so a suggested match can never be confirmed or rejected from the phone and plan adherence quietly depends on the matcher's guess | `/api/v1/runs/[id]/match` (confirm, reject); the suggestion surfaces as a banner on the run detail screen. Was folded into `NATRUN-04`; broken out because it is a correctness gap, not a nicety. |
+| `NATGAP-08` | P2 | **Human coach notes** — messages an admin coach writes to a runner | `getHumanCoachNotes` (`src/lib/coach-admin.ts`); `/account/coach/notes`; admin composes at `/admin/coach` | Nothing. A note written to a native-only runner is never delivered | `GET /api/v1/coach/notes`; the notes appear in the native Coach tab, with an unread marker. Pairs with `NATGAP-02`. |
+| `NATGAP-09` | P3 | **Cloud TTS fallback for voice cues** | `GET /api/coach/tts` streams OpenAI audio, disk-cached by (locale, text), for devices with no installed voice | `RunVoice.kt` is device TTS only. On the M21 there is no `ara-DZA` voice, so Arabic cues are read by an English voice; native shows an "install a voice" notice instead | `/api/v1/coach/tts` (or the existing route accepting bearer auth); native falls back to streamed audio when `isLanguageAvailable` fails, with the same on-disk cache. Closes the Arabic-cue finding recorded under `NATRUN-03`. |
+| `NATGAP-10` | P3 | **Plan adjustment** | `PATCH /api/coach/plans/[id]`; `coach-plan-panel.tsx` | Native shows the plan week and can act on a workout (`PATCH /api/v1/coach/workouts/[id]`) but cannot adjust the plan itself | `/api/v1/coach/plan` gains the adjust action; the native plan screen exposes it. |
+| `NATGAP-11` | P3 | **Registration certificate / bib** | `/account/registrations/[id]/certificate` | Native lists registrations and opens detail, but cannot produce the certificate a runner brings to bib pickup | Certificate available natively (PDF share sheet) or, at minimum, an explicit signed web handoff rather than a dead end. |
+| `NATGAP-12` | P3 | **Report content / moderation** | `POST /api/reports`; `report-button.tsx`; `Report` model; admin queue at `/admin/reports` | Nothing. Once `NATGAP-04` ships public content to native, this becomes a **release blocker, not a nicety** — user-generated content with no in-app report path | `/api/v1/reports`; a report action wherever native shows another runner's content. Sequence after `NATGAP-04`, never before. |
+| `NATGAP-13` | P3 | **Support tickets** | `/api/support`; `support-chat.tsx`; `/account/support` | Signed web handoff only (`ZidRunApp.kt`) — leaves the app, loses native back behaviour | `/api/v1/support` (thread list, message, attachments); native chat screen. |
+| `NATGAP-14` | P3 | **On-device GPX export** | `/api/coach/runs/[id]/gpx` | Native calls it through a signed web handoff and lets the browser download the file | Native fetches the GPX and hands it to the system share sheet, as the Capacitor app does via Filesystem/Share. |
+| `NATGAP-15` | P3 | **Richer per-type audio coaching** | `audio-coaching.ts`, `audio-copy.ts`, `use-audio-coaching.ts` — rep splits, "one minute left", pace-band guidance, hydration prompts | Native speaks step announcements, kilometre splits and "done" only | The remaining cue families are ported behind the existing `RunVoice`/`GuidedSessionController`. Already named as the follow-up in `NATRUN-03`; kept here so the parity list is complete. |
+| `NATGAP-16` | P3 | **Native crash/error reporting** | Web and Capacitor report to Sentry (`instrumentation-client.ts`) plus `/api/client-errors`; `PR-049` expects a Crashlytics event | **No Crashlytics, Sentry, or error-reporting dependency in `native-android/` at all.** A native crash is currently invisible to operations | Crash and non-fatal reporting wired into the native app with privacy-safe logging (`NATIVE-002`), and `PR-049` re-verified against the native package. Blocks staged rollout more than it blocks a feature. |
+| `NATGAP-17` | P3 | **First-party analytics** | `POST /api/track`; `/admin/analytics` funnel and search-insight reporting | Native sends nothing, so the admin funnel silently under-counts as native adoption grows | Decide explicitly: either a native screen-view event against `/api/v1/track`, or record that native traffic is out of scope for the funnel so the dashboards are read correctly. |
+
+#### Tier C — reachable only by leaving the app
+
+These work today, so they are not blockers; they are recorded because a WebView handoff is not
+parity and each one drops the runner out of native navigation, theming and back behaviour.
+
+| ID | Priority | Surface | Native today | Done when |
+|---|---|---|---|---|
+| `NATGAP-18` | P3 | **Security settings** — MFA enrolment, password change, session review | Handoff to `/account/security`. Native *does* handle MFA **at login** (`AuthViewModel` collects TOTP), so only management is missing | Native MFA enrolment (QR + recovery codes) and password change, or an owner decision that management stays on the web. |
+| `NATGAP-19` | P3 | **Coach subscription purchase** | Handoff to `/account/coach/subscribe` (payment-proof upload) | Either a native subscribe/upload screen reusing `POST /api/v1/uploads`, or a recorded decision that payment stays on the web. Note Play billing policy before choosing. |
+| `NATGAP-20` | P3 | **Blog and marketing/legal pages** — `/blog`, `/about`, `/faq`, `/pricing`, `/contact`, `/terms` | Native has About and Privacy only | Decide per page whether it belongs in the app; anything kept should be a handoff by intent, not by omission. |
+
+#### Deliberately out of scope — recorded so they are not re-audited
+
+- **Organizer console** (`/organizer/**`, `/api/organizer/**`) and **admin console** (`/admin/**`,
+  `/api/admin/**`): staff surfaces. The native app targets runners; both stay on the web.
+- **Nutrition logging** (`/api/coach/nutrition`, `nutrition-view.tsx`, `/account/nutrition`): still
+  live in this repo, but the product moved to **ZidSaha** as a separate app. **Owner decision needed** —
+  either port it to native, or retire the surface here rather than leaving a web feature that the
+  primary mobile client will never have.
+- `/runners` and `/organizers` are marketing landing pages, not runner directories. Not a gap.
+
+**Sequencing note.** `NATGAP-03` (push) and `NATGAP-16` (crash reporting) are rollout infrastructure,
+not features, and both are already implied by open gates (`PR-048`, `PR-049`). They should close before
+the social tier, which is the largest body of work and the one that drags `NATGAP-12` in with it.
 
 ### Owner decision — native Runs adopts the website's visual system (2026-08-01)
 
