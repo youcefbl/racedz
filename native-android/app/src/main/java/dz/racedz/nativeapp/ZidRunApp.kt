@@ -389,6 +389,11 @@ fun ZidRunApp(
                     // banner to come back.
                     onMinimize = { navController.popBackStack(RootDestinations.SHELL, inclusive = false) },
                     coachViewModel = coachViewModel,
+                    // Only guided-run cues reach this; the allowlist behind it refuses anything
+                    // that is not a known coaching phrase.
+                    fetchCueAudio = { text, cueLocale ->
+                        container.coachRepository.cueAudio(text, cueLocale)
+                    },
                 )
             }
 

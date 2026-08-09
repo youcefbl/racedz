@@ -120,6 +120,12 @@ fun RecordingScreen(
     modifier: Modifier = Modifier,
     /** The mid-run coach, for subscribers. Null in previews and where coaching is not wired. */
     coachViewModel: MidRunCoachViewModel? = null,
+    /**
+     * Server-synthesized audio for a cue, used only when the device has no voice for the runner's
+     * language. Null in previews; the endpoint is entitlement-gated, so a refusal simply means the
+     * device voice (or silence) as before.
+     */
+    fetchCueAudio: (suspend (String, String) -> ByteArray?)? = null,
 ) {
     // This screen is dark in every theme, so the system bars must be too (DEV-R01).
     ZidRunDarkSurfaceSystemBars()
@@ -133,8 +139,8 @@ fun RecordingScreen(
 
     // One engine for the life of the screen, shut down on leave so it does not hold audio focus
     // after the run.
-    val voice = remember(RunSettings.audioCuesEnabled) {
-        if (RunSettings.audioCuesEnabled) RunVoice(context, locale) else null
+    val voice = remember(RunSettings.audioCuesEnabled, fetchCueAudio) {
+        if (RunSettings.audioCuesEnabled) RunVoice(context, locale, fetchCueAudio) else null
     }
     DisposableEffect(voice) { onDispose { voice?.release() } }
 
@@ -143,7 +149,7 @@ fun RecordingScreen(
     val splitCount = state.splits.size
     LaunchedEffect(splitCount) {
         val split = state.splits.lastOrNull() ?: return@LaunchedEffect
-        voice?.say(kmCue(context, split.km, ZidRunFormat.pace(split.paceSecondsPerKm)))
+        voice?.sayCue(kmCue(context, split.km, ZidRunFormat.pace(split.paceSecondsPerKm)))
     }
 
     // The first step — the warm-up — is announced once when the guided run begins. advanceIfDue only
@@ -155,7 +161,7 @@ fun RecordingScreen(
         if (guided.session == null || state.status == RecordingStatus.Idle) return@LaunchedEffect
         guided.currentStep?.let {
             announcedFirstStep = true
-            voice?.say(stepCue(context, it))
+            voice?.sayCue(stepCue(context, it))
         }
     }
 
@@ -163,9 +169,9 @@ fun RecordingScreen(
     LaunchedEffect(state.elapsedSeconds, state.distanceMeters) {
         val entered = GuidedSessionController.advanceIfDue(state.elapsedSeconds, state.distanceMeters)
         if (entered != null) {
-            voice?.say(stepCue(context, entered))
+            voice?.sayCue(stepCue(context, entered))
         } else if (guided.isComplete && guided.session != null) {
-            voice?.say(context.getString(R.string.runs_cue_done))
+            voice?.sayCue(context.getString(R.string.runs_cue_done))
         }
     }
 

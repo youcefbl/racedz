@@ -308,6 +308,22 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
  * having subscribed is a state to render, not a failure to retry.
  */
 class CoachRepository(private val api: ZidRunApi, private val client: ApiClient) {
+
+    /**
+     * Audio for one guided-run cue, or null.
+     *
+     * Null on ANY failure — offline, refused, unentitled, a 401 the interceptor could not refresh.
+     * A cue is worth a best-effort request and nothing more: mid-run the alternative is the device
+     * voice or silence, and neither is worth an error dialog over the top of a run. Deliberately
+     * bypasses ApiClient.call, which exists to interpret the JSON envelope this endpoint does not
+     * return.
+     */
+    suspend fun cueAudio(text: String, locale: String): ByteArray? = runCatching {
+        val response = api.coachCueAudio(text, locale)
+        if (!response.isSuccessful) return null
+        response.body()?.use { it.bytes() }
+    }.getOrNull()
+
     suspend fun overview(): ApiResult<CoachOverviewDto> = client.call { api.coachOverview() }
 
     /** This week of the active plan, bounded server-side to one Mon-Sun window. */

@@ -3,6 +3,7 @@ package dz.racedz.nativeapp.core.network
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonElement
 import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -15,6 +16,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 /**
  * The complete surface the native app is allowed to call. Everything returns the shared
@@ -112,6 +114,20 @@ interface ZidRunApi {
     @Headers("$SLOW_CALL_HEADER: 1")
     @POST("api/v1/coach/transcribe")
     suspend fun coachTranscribe(@Part audio: MultipartBody.Part): Response<ApiEnvelope<CoachTranscriptDto>>
+
+    /**
+     * Cloud audio for one guided-run cue, for devices with no voice in the runner's language.
+     *
+     * Raw bytes, not [ApiEnvelope]: this is an MP3 that has to play *now*, mid-stride, and
+     * base64 inside JSON would cost a third more on a mobile connection plus a decode. Called
+     * outside [ApiClient.call] for the same reason — there is no envelope to interpret.
+     */
+    @Streaming
+    @GET("api/v1/coach/tts")
+    suspend fun coachCueAudio(
+        @Query("text") text: String,
+        @Query("locale") locale: String,
+    ): Response<ResponseBody>
 
     @GET("api/v1/coach/plan")
     suspend fun coachPlanWeek(): Response<ApiEnvelope<CoachPlanWeekDto>>

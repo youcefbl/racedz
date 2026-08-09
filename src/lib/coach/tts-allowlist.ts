@@ -84,10 +84,88 @@ const DYNAMIC_PATTERNS: Record<CoachLocale, RegExp[]> = {
   ar: dynamicPatternsFor("ar")
 };
 
+// ---------------------------------------------------------------------------------------------
+// Native Android cue families.
+//
+// The native app builds its cues from Android string resources, not from audio-copy.ts, and the
+// shapes genuinely differ — "Kilometre 4. Pace 5:42/km" where the web says "Kilometre 4. 5 minutes
+// 42." — so none of the patterns above match a single native cue. Without this section every cloud
+// cue from the phone is refused as UNSUPPORTED_CUE, which fails silently (a failed fetch is just
+// no audio) and would have looked like the fallback simply not working.
+//
+// Mirrors native-android/core/design/src/main/res/values*/strings.xml. That duplication is real,
+// so it is guarded rather than trusted: `npm run test:tts-allowlist` parses those XML files and
+// asserts every cue family still passes, and fails if the Android copy is edited without updating
+// this list. Kept exactly as tight as the web families — role words, bounded digits, fixed shapes.
+
+type NativeCueVocabulary = {
+  kilometre: string;
+  pace: string;
+  roles: string[];
+  units: string[];
+  done: string;
+};
+
+const NATIVE_CUES: Record<CoachLocale, NativeCueVocabulary> = {
+  en: {
+    kilometre: "Kilometre",
+    pace: "Pace",
+    roles: ["Warm up", "Work", "Recover", "Cool down", "Steady"],
+    units: ["min", "sec", "m"],
+    done: "Session complete. Cool down when you are ready."
+  },
+  fr: {
+    kilometre: "Kilomètre",
+    pace: "Allure",
+    roles: ["Échauffement", "Effort", "Récupération", "Retour au calme", "Régulier"],
+    units: ["min", "s", "m"],
+    done: "Séance terminée. Retour au calme quand vous voulez."
+  },
+  ar: {
+    kilometre: "كيلومتر",
+    pace: "الإيقاع",
+    roles: ["تسخين", "مجهود", "استرجاع", "تهدئة", "ثابت"],
+    units: ["د", "ثانية", "م"],
+    done: "سالات الحصة. هدّي كي تحب."
+  }
+};
+
+function nativePatternsFor(locale: CoachLocale): RegExp[] {
+  const vocabulary = NATIVE_CUES[locale];
+  const roles = vocabulary.roles.map(escapeRegExp).join("|");
+  const units = vocabulary.units.map(escapeRegExp).join("|");
+  return [
+    // "Kilometre 4. Pace 5:42/km"
+    new RegExp(`^${escapeRegExp(vocabulary.kilometre)} \\d{1,3}\\. ${escapeRegExp(vocabulary.pace)} \\d{1,3}:\\d{2}/km$`, "u"),
+    // "Work. 5 min" — and the bare role an open-ended step produces, where the target is empty.
+    new RegExp(`^(?:${roles})\\.(?: \\d{1,5} (?:${units}))?$`, "u")
+  ];
+}
+
+const NATIVE_PATTERNS: Record<CoachLocale, RegExp[]> = {
+  en: nativePatternsFor("en"),
+  fr: nativePatternsFor("fr"),
+  ar: nativePatternsFor("ar")
+};
+
+/**
+ * Strips Unicode bidi controls before matching.
+ *
+ * The native formatter wraps a pace in a first-strong isolate (U+2068/U+2069) so "5:42/km" reads
+ * left-to-right inside an Arabic sentence. Those characters carry no sound, and leaving them in
+ * would make an otherwise legitimate cue fail an exact match — and would fragment the audio cache
+ * into isolate-bearing and isolate-free copies of the same phrase.
+ */
+function stripBidi(value: string): string {
+  return value.replace(/[\u200E\u200F\u2066-\u2069\u202A-\u202E]/g, "");
+}
+
 /** True when the text is a phrase the guided-run audio coach can legitimately speak. */
 export function isAllowedCueText(text: string, locale: CoachLocale): boolean {
-  const trimmed = text.trim();
+  const trimmed = stripBidi(text).trim();
   if (!trimmed || trimmed.length > 200) return false;
   if (STATIC_PHRASES[locale].has(trimmed)) return true;
-  return DYNAMIC_PATTERNS[locale].some((pattern) => pattern.test(trimmed));
+  if (NATIVE_CUES[locale].done === trimmed) return true;
+  if (DYNAMIC_PATTERNS[locale].some((pattern) => pattern.test(trimmed))) return true;
+  return NATIVE_PATTERNS[locale].some((pattern) => pattern.test(trimmed));
 }

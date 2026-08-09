@@ -28,7 +28,7 @@
     "test:e2e:ui": "node scripts/run-e2e.mjs --ui",
     "test:e2e:visual": "node scripts/run-e2e.mjs tests/visual.e2e.spec.ts",
     "test:e2e:coach": "node scripts/run-e2e.mjs coach.e2e.spec.ts",
-    "test:all": "npm run lint && npm run typecheck && npm run test:coach && npm run test:workout && npm run test:audio && npm run test:run-incident && npm run test:run-stats && npm run test:social-import && npm run test:mfa && npm run test:social-authz && npm run test:groups-moderation && npm run test:e2e",
+    "test:all": "npm run lint && npm run typecheck && npm run test:coach && npm run test:workout && npm run test:audio && npm run test:run-incident && npm run test:run-stats && npm run test:tts-allowlist && npm run test:social-import && npm run test:mfa && npm run test:social-authz && npm run test:groups-moderation && npm run test:e2e",
     "audit:prune": "tsx scripts/prune-admin-audit.ts",
     "analytics:prune": "tsx scripts/prune-pageviews.ts",
     "client-errors:prune": "tsx scripts/prune-client-errors.ts",
@@ -51,6 +51,7 @@
     "check:native-i18n": "tsx scripts/check-native-i18n.ts",
     "test:native-device": "bash scripts/run-native-device-tests.sh",
     "test:coach-mobile": "tsx scripts/test-coach-mobile.ts",
+    "test:tts-allowlist": "tsx scripts/test-tts-allowlist.ts",
     "test:tts-claim": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-tts-claim.ts",
     "test:site-url": "tsx scripts/test-site-url.ts"
   },
