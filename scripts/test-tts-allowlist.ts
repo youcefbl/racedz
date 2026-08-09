@@ -90,6 +90,26 @@ for (const locale of ["en", "fr", "ar"] as CoachLocale[]) {
 
   expectAllowed(locale, "done", get("runs_cue_done"));
 
+  // Mid-step coaching cues (NATGAP-15). Fixed sentences, so any reword on the Android side must be
+  // mirrored in NATIVE_CUES.guidance or the cloud voice silently stops speaking them.
+  for (const key of [
+    "runs_cue_warmup_tip",
+    "runs_cue_warmup_last_minute",
+    "runs_cue_cooldown_tip",
+    "runs_cue_one_minute_left",
+    "runs_cue_mid_step",
+    "runs_cue_last_rep",
+    "runs_cue_halfway",
+    "runs_cue_last_km",
+    "runs_cue_hydrate",
+  ]) {
+    expectAllowed(locale, key, get(key));
+  }
+
+  // "Rep done in 1:30." — ZidRunFormat.duration output, both shapes.
+  expectAllowed(locale, "rep split (m:ss)", format(get("runs_cue_rep_split"), "1:30"));
+  expectAllowed(locale, "rep split (h:mm:ss)", format(get("runs_cue_rep_split"), "1:05:30"));
+
   // The allowlist's whole purpose: this endpoint must not become general text-to-speech. A coach
   // reply is arbitrary generated prose and is spoken by the device only, never sent here.
   expectRefused(locale, "coach prose", "Great work today, your pacing looked much steadier than last week.");

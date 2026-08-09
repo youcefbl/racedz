@@ -470,6 +470,16 @@
     <string name="runs_cue_km">كيلومتر %1$d. الإيقاع %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
     <string name="runs_cue_done">سالات الحصة. هدّي كي تحب.</string>
+    <string name="runs_cue_warmup_tip">ابدأ بهدوء تام. دع جسمك يسخن تدريجيًا.</string>
+    <string name="runs_cue_warmup_last_minute">دقيقة واحدة من الإحماء. استعد للجهد.</string>
+    <string name="runs_cue_cooldown_tip">أحسنت. أرخِ إيقاعك تمامًا ودع تنفسك يهدأ.</string>
+    <string name="runs_cue_one_minute_left">دقيقة واحدة متبقية. اثبت.</string>
+    <string name="runs_cue_mid_step">منتصف التكرار. ابقَ متحكمًا ولا تندفع.</string>
+    <string name="runs_cue_last_rep">آخر تكرار. قدّم أفضل ما عندك.</string>
+    <string name="runs_cue_halfway">منتصف المسافة. أداؤك ممتاز.</string>
+    <string name="runs_cue_last_km">آخر كيلومتر. أنهِ بقوة.</string>
+    <string name="runs_cue_hydrate">اشرب ماء إن استطعت.</string>
+    <string name="runs_cue_rep_split">أنهيت التكرار في %1$s.</string>
     <string name="coach_goal">الهدف</string>
     <string name="coach_today_workout">حصة اليوم</string>
     <string name="coach_target_effort">المجهود المطلوب</string>

@@ -104,6 +104,17 @@ type NativeCueVocabulary = {
   roles: string[];
   units: string[];
   done: string;
+  /**
+   * The mid-step coaching cues (NATGAP-15) — fixed sentences, so they are matched literally.
+   *
+   * Most of these are word-for-word the web's own copy, but they must still be listed: the
+   * generators above only produce a phrase when a *profile* asks for it, and the native engine
+   * decides for itself. A cue absent here is refused as UNSUPPORTED_CUE and, because a failed
+   * fetch is indistinguishable from no audio, is silently never spoken on a device with no voice.
+   */
+  guidance: string[];
+  /** "Rep done in {duration}." — the one native cue with an interpolated value. */
+  repDone: string;
 };
 
 const NATIVE_CUES: Record<CoachLocale, NativeCueVocabulary> = {
@@ -112,21 +123,57 @@ const NATIVE_CUES: Record<CoachLocale, NativeCueVocabulary> = {
     pace: "Pace",
     roles: ["Warm up", "Work", "Recover", "Cool down", "Steady"],
     units: ["min", "sec", "m"],
-    done: "Session complete. Cool down when you are ready."
+    done: "Session complete. Cool down when you are ready.",
+    guidance: [
+      "Start nice and gentle. Let your body warm up gradually.",
+      "One minute of warm-up left. Get ready to work.",
+      "Well done. Ease right off and let your breathing settle.",
+      "One minute left. Hold it there.",
+      "Halfway through the rep. Stay controlled, don't push.",
+      "Last one. Make it count.",
+      "Halfway there. You're doing great.",
+      "Last kilometre. Finish strong.",
+      "Take a drink if you can."
+    ],
+    repDone: "Rep done in"
   },
   fr: {
     kilometre: "Kilomètre",
     pace: "Allure",
     roles: ["Échauffement", "Effort", "Récupération", "Retour au calme", "Régulier"],
     units: ["min", "s", "m"],
-    done: "Séance terminée. Retour au calme quand vous voulez."
+    done: "Séance terminée. Retour au calme quand vous voulez.",
+    guidance: [
+      "Commencez tout doucement. Laissez le corps monter en température.",
+      "Encore une minute d'échauffement. Préparez-vous à travailler.",
+      "Bien joué. Relâchez complètement et laissez la respiration se calmer.",
+      "Encore une minute. Tenez bon.",
+      "Mi-fraction. Restez en contrôle, ne forcez pas.",
+      "Dernière fraction. Donnez tout, proprement.",
+      "Mi-parcours. Vous gérez très bien.",
+      "Dernier kilomètre. Terminez en beauté.",
+      "Pensez à boire si vous le pouvez."
+    ],
+    repDone: "Fraction terminée en"
   },
   ar: {
     kilometre: "كيلومتر",
     pace: "الإيقاع",
     roles: ["تسخين", "مجهود", "استرجاع", "تهدئة", "ثابت"],
     units: ["د", "ثانية", "م"],
-    done: "سالات الحصة. هدّي كي تحب."
+    done: "سالات الحصة. هدّي كي تحب.",
+    guidance: [
+      "ابدأ بهدوء تام. دع جسمك يسخن تدريجيًا.",
+      "دقيقة واحدة من الإحماء. استعد للجهد.",
+      "أحسنت. أرخِ إيقاعك تمامًا ودع تنفسك يهدأ.",
+      "دقيقة واحدة متبقية. اثبت.",
+      "منتصف التكرار. ابقَ متحكمًا ولا تندفع.",
+      "آخر تكرار. قدّم أفضل ما عندك.",
+      "منتصف المسافة. أداؤك ممتاز.",
+      "آخر كيلومتر. أنهِ بقوة.",
+      "اشرب ماء إن استطعت."
+    ],
+    repDone: "أنهيت التكرار في"
   }
 };
 
@@ -135,6 +182,8 @@ function nativePatternsFor(locale: CoachLocale): RegExp[] {
   const roles = vocabulary.roles.map(escapeRegExp).join("|");
   const units = vocabulary.units.map(escapeRegExp).join("|");
   return [
+    // "Rep done in 1:30." — ZidRunFormat.duration, so m:ss or h:mm:ss, not the web's spoken words.
+    new RegExp(`^${escapeRegExp(vocabulary.repDone)} \\d{1,2}:\\d{2}(?::\\d{2})?\\.$`, "u"),
     // "Kilometre 4. Pace 5:42/km"
     new RegExp(`^${escapeRegExp(vocabulary.kilometre)} \\d{1,3}\\. ${escapeRegExp(vocabulary.pace)} \\d{1,3}:\\d{2}/km$`, "u"),
     // "Work. 5 min" — and the bare role an open-ended step produces, where the target is empty.
@@ -166,6 +215,7 @@ export function isAllowedCueText(text: string, locale: CoachLocale): boolean {
   if (!trimmed || trimmed.length > 200) return false;
   if (STATIC_PHRASES[locale].has(trimmed)) return true;
   if (NATIVE_CUES[locale].done === trimmed) return true;
+  if (NATIVE_CUES[locale].guidance.includes(trimmed)) return true;
   if (DYNAMIC_PATTERNS[locale].some((pattern) => pattern.test(trimmed))) return true;
   return NATIVE_PATTERNS[locale].some((pattern) => pattern.test(trimmed));
 }

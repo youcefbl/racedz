@@ -455,6 +455,16 @@
     <string name="runs_cue_km">Kilomètre %1$d. Allure %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
     <string name="runs_cue_done">Séance terminée. Retour au calme quand vous voulez.</string>
+    <string name="runs_cue_warmup_tip">Commencez tout doucement. Laissez le corps monter en température.</string>
+    <string name="runs_cue_warmup_last_minute">Encore une minute d\'échauffement. Préparez-vous à travailler.</string>
+    <string name="runs_cue_cooldown_tip">Bien joué. Relâchez complètement et laissez la respiration se calmer.</string>
+    <string name="runs_cue_one_minute_left">Encore une minute. Tenez bon.</string>
+    <string name="runs_cue_mid_step">Mi-fraction. Restez en contrôle, ne forcez pas.</string>
+    <string name="runs_cue_last_rep">Dernière fraction. Donnez tout, proprement.</string>
+    <string name="runs_cue_halfway">Mi-parcours. Vous gérez très bien.</string>
+    <string name="runs_cue_last_km">Dernier kilomètre. Terminez en beauté.</string>
+    <string name="runs_cue_hydrate">Pensez à boire si vous le pouvez.</string>
+    <string name="runs_cue_rep_split">Fraction terminée en %1$s.</string>
     <string name="coach_goal">Objectif</string>
     <string name="coach_today_workout">Séance du jour</string>
     <string name="coach_target_effort">Effort cible</string>

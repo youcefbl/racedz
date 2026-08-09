@@ -475,6 +475,16 @@
     <string name="runs_cue_km">Kilometre %1$d. Pace %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
     <string name="runs_cue_done">Session complete. Cool down when you are ready.</string>
+    <string name="runs_cue_warmup_tip">Start nice and gentle. Let your body warm up gradually.</string>
+    <string name="runs_cue_warmup_last_minute">One minute of warm-up left. Get ready to work.</string>
+    <string name="runs_cue_cooldown_tip">Well done. Ease right off and let your breathing settle.</string>
+    <string name="runs_cue_one_minute_left">One minute left. Hold it there.</string>
+    <string name="runs_cue_mid_step">Halfway through the rep. Stay controlled, don\'t push.</string>
+    <string name="runs_cue_last_rep">Last one. Make it count.</string>
+    <string name="runs_cue_halfway">Halfway there. You\'re doing great.</string>
+    <string name="runs_cue_last_km">Last kilometre. Finish strong.</string>
+    <string name="runs_cue_hydrate">Take a drink if you can.</string>
+    <string name="runs_cue_rep_split">Rep done in %1$s.</string>
     <string name="coach_goal">Goal</string>
     <string name="coach_today_workout">Today’s workout</string>
     <string name="coach_target_effort">Target effort</string>

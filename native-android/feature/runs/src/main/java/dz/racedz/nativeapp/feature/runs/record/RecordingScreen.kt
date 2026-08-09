@@ -100,6 +100,21 @@ private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.
     return context.getString(R.string.runs_cue_step, context.getString(role), target)
 }
 
+/** Localized text for one mid-step coaching cue. Built outside composition, like the others. */
+private fun cueText(context: android.content.Context, cue: GuidedCueEngine.Cue): String = context.getString(
+    when (cue) {
+        GuidedCueEngine.Cue.WarmupTip -> R.string.runs_cue_warmup_tip
+        GuidedCueEngine.Cue.WarmupLastMinute -> R.string.runs_cue_warmup_last_minute
+        GuidedCueEngine.Cue.CooldownTip -> R.string.runs_cue_cooldown_tip
+        GuidedCueEngine.Cue.OneMinuteLeft -> R.string.runs_cue_one_minute_left
+        GuidedCueEngine.Cue.MidStep -> R.string.runs_cue_mid_step
+        GuidedCueEngine.Cue.LastRep -> R.string.runs_cue_last_rep
+        GuidedCueEngine.Cue.Halfway -> R.string.runs_cue_halfway
+        GuidedCueEngine.Cue.LastKm -> R.string.runs_cue_last_km
+        GuidedCueEngine.Cue.Hydrate -> R.string.runs_cue_hydrate
+    }
+)
+
 /**
  * The during-run screen (03-during-run.png).
  *
@@ -165,13 +180,33 @@ fun RecordingScreen(
         }
     }
 
+    // The mid-step coaching commentary (NATGAP-15). One engine for the life of the screen; it
+    // latches each cue per step so a condition true for a whole minute is still spoken once.
+    val cueEngine = remember { GuidedCueEngine() }
+    DisposableEffect(Unit) { onDispose { cueEngine.reset() } }
+
     // Guided steps advance off the same numbers shown on screen, and each change is spoken once.
     LaunchedEffect(state.elapsedSeconds, state.distanceMeters) {
         val entered = GuidedSessionController.advanceIfDue(state.elapsedSeconds, state.distanceMeters)
         if (entered != null) {
+            // The rep just finished, before announcing the one starting — that is the order the
+            // runner needs it in, and the speech layer queues rather than interrupts.
+            cueEngine.onStepChanged(entered, state.elapsedSeconds)?.let { split ->
+                voice?.sayCue(
+                    context.getString(R.string.runs_cue_rep_split, ZidRunFormat.duration(split.seconds))
+                )
+            }
             voice?.sayCue(stepCue(context, entered))
         } else if (guided.isComplete && guided.session != null) {
             voice?.sayCue(context.getString(R.string.runs_cue_done))
+        } else {
+            // Only while inside a step: on a transition tick the announcements above are enough.
+            cueEngine.onTick(
+                step = guided.currentStep,
+                elapsedSecondsInStep = GuidedSessionController.elapsedInStep(state.elapsedSeconds),
+                metersInStep = GuidedSessionController.metersInStep(state.distanceMeters),
+                totalElapsedSeconds = state.elapsedSeconds,
+            ).forEach { cue -> voice?.sayCue(cueText(context, cue)) }
         }
     }
 
