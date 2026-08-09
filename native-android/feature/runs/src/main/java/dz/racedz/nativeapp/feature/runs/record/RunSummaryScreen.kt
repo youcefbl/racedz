@@ -338,8 +338,11 @@ fun RunSummaryScreen(
                         onSaved = onSaved,
                     )
                 },
-                loading = saveState.saving,
-                enabled = !nothingToSave && !saveState.saving,
+                loading = saveState.saving || saveState.uploadingPhotos,
+                // Also blocked while photos upload. Saving mid-upload posted the run with only the
+                // URLs that had landed, and the rest finished into storage attached to nothing —
+                // the runner loses the photo and the server keeps the bytes forever.
+                enabled = !nothingToSave && !saveState.saving && !saveState.uploadingPhotos,
             )
 
             ZidRunOutlinedButton(
