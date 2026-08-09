@@ -207,38 +207,9 @@ fun ProfilePreferencesScreen(viewModel: AccountViewModel, onBack: () -> Unit) {
             },
         )
 
-        ZidRunDivider()
-
-        ZidRunSectionTitle(stringResource(R.string.profile_appearance))
-        ZidRunLabel(stringResource(R.string.profile_theme))
-        Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-            listOf(
-                "light" to stringResource(R.string.profile_theme_light),
-                "dark" to stringResource(R.string.profile_theme_dark),
-                "race" to stringResource(R.string.profile_theme_race),
-            ).forEach { (value, label) ->
-                ZidRunChoiceChip(
-                    label = label,
-                    selected = user.preferences.theme == value,
-                    onClick = { viewModel.setTheme(value, savedMessage) },
-                )
-            }
-        }
-
-        ZidRunLabel(stringResource(R.string.profile_language))
-        Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
-            listOf(
-                "en" to stringResource(R.string.profile_language_en),
-                "fr" to stringResource(R.string.profile_language_fr),
-                "ar" to stringResource(R.string.profile_language_ar),
-            ).forEach { (value, label) ->
-                ZidRunChoiceChip(
-                    label = label,
-                    selected = user.preferences.language == value,
-                    onClick = { viewModel.setLanguage(value, savedMessage) },
-                )
-            }
-        }
+        // Theme and language used to sit here. They moved to the Account hub: they are switches
+        // people flip casually, and this screen is a form you fill once. Two homes for one setting
+        // is worse than either — deliberately not duplicated.
     }
 }
 

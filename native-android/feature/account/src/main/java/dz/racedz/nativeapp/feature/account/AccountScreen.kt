@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,11 +58,14 @@ import dz.racedz.nativeapp.core.design.ZidRunMenuRow
 import dz.racedz.nativeapp.core.design.ZidRunStatTile
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunDivider
+import dz.racedz.nativeapp.core.design.ZidRunChoiceChip
+import dz.racedz.nativeapp.core.design.ZidRunLabel
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunThemeMode
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.CoachEntitlementDto
 import dz.racedz.nativeapp.core.network.resolveMediaUrl
@@ -93,6 +97,7 @@ fun AccountScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
+    val savedMessage = stringResource(R.string.profile_saved)
 
     Box(modifier = modifier.fillMaxSize().background(colors.background).padding(contentPadding)) {
         when {
@@ -333,6 +338,71 @@ fun AccountScreen(
                                 onClick = { viewModel.signOut(onSignedOut) },
                                 tint = colors.textMuted,
                             )
+                        }
+                    }
+
+                    /*
+                     * Appearance, on the hub rather than two taps inside Profile & preferences.
+                     *
+                     * Theme and language are the two settings people change most and change
+                     * casually — switching to Race for a race, or reading in Arabic — and they were
+                     * behind a screen you only visit to edit your name and phone number. Everything
+                     * else in that screen is a form you fill once; these two are switches you flip.
+                     * They live here alone so the hub does not turn into a second settings page.
+                     */
+                    ZidRunSectionTitle(stringResource(R.string.profile_appearance))
+                    ZidRunCard {
+                        /*
+                         * Both controls fall back to what is ACTUALLY in effect, not to nothing.
+                         *
+                         * `preferences.language` is null until the runner picks one explicitly, and
+                         * on the seeded account it is — so the row rendered with no chip selected
+                         * while the app was plainly running in English. A selector that shows no
+                         * selection reads as broken, and invites a tap that changes nothing. The
+                         * resolved locale and theme are the honest answer to "what am I on now?".
+                         */
+                        val selectedLanguage = user.preferences.language ?: locale.language
+                        val selectedTheme = user.preferences.theme ?: when (ZidRunTheme.mode) {
+                            ZidRunThemeMode.Light -> "light"
+                            ZidRunThemeMode.Dark -> "dark"
+                            ZidRunThemeMode.Race -> "race"
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd)) {
+                            ZidRunLabel(stringResource(R.string.profile_theme))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                            ) {
+                                listOf(
+                                    "light" to stringResource(R.string.profile_theme_light),
+                                    "dark" to stringResource(R.string.profile_theme_dark),
+                                    "race" to stringResource(R.string.profile_theme_race),
+                                ).forEach { (value, label) ->
+                                    ZidRunChoiceChip(
+                                        label = label,
+                                        selected = selectedTheme == value,
+                                        onClick = { viewModel.setTheme(value, savedMessage) },
+                                    )
+                                }
+                            }
+
+                            ZidRunLabel(stringResource(R.string.profile_language))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                            ) {
+                                listOf(
+                                    "en" to stringResource(R.string.profile_language_en),
+                                    "fr" to stringResource(R.string.profile_language_fr),
+                                    "ar" to stringResource(R.string.profile_language_ar),
+                                ).forEach { (value, label) ->
+                                    ZidRunChoiceChip(
+                                        label = label,
+                                        selected = selectedLanguage == value,
+                                        onClick = { viewModel.setLanguage(value, savedMessage) },
+                                    )
+                                }
+                            }
                         }
                     }
 
