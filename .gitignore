@@ -7,6 +7,10 @@ playwright-report
 test-results
 .env
 .env.*
+# Any file whose name ENDS in .env — test-prod.env slipped past the two rules above,
+# which only match a leading dot, and was staged by a `git add -A`. AGENTS.md forbids
+# committing env files at all, so the pattern should match how people actually name them.
+*.env
 !.env.example
 !.env.production.example
 *.log
