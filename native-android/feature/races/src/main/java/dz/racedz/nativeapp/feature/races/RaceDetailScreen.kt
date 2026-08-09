@@ -459,7 +459,14 @@ private fun RaceDetailContent(
              * a scam is the gap. Low emphasis and at the foot of the page on purpose: it must be
              * findable when needed and never compete with registering.
              */
-            ZidRunTextButton(text = stringResource(R.string.report_action), onClick = onReport)
+            ZidRunTextButton(
+                text = stringResource(R.string.report_action),
+                // Reporting requires an account server-side, so a signed-out runner is sent to
+                // sign in rather than through a dialog that can only end in an auth error. The
+                // action stays VISIBLE either way: hiding it would tell someone with a scam
+                // listing in front of them that reporting is not possible at all.
+                onClick = if (isSignedIn) onReport else onSignIn,
+            )
 
             Spacer(Modifier.height(ZidRunDimens.spaceXxl))
         }
