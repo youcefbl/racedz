@@ -21,7 +21,7 @@ Work from top to bottom. Do not start P1/P2 product work while an unblocked P0 i
 
 | Order | Priority | Action | Owner | Done when |
 |---:|---|---|---|---|
-| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) — **currently blocked on owner: this machine authenticates to GitHub as `YoucefLD` and `youcefbl/racedz` returns 403, so ~30 local commits cannot be pushed, no candidate can be tagged and no remote CI can run.** Every order below depends on this one. | Owner (access) → Engineering | Groups commit `4f0453a` is included by owner decision. Finish public/private group, join-link, invitation, authorization, privacy, moderation, and mobile acceptance; push every intended commit; pass remote CI; tag the exact candidate. |
+| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) — **the GitHub 403 is resolved and the owner has pushed: `origin/main` advanced `15bc82d..2a14dfa` (verified 2026-08-09) and local `main` is no longer ahead.** What remains is the rest of the gate, not the access: remote CI green on the exact candidate, and the candidate tagged. Note the native/parity work from 2026-08-09 sits on branch `fix/native-runs-and-parity` and is **not yet pushed or merged**. | Owner (access) → Engineering | Groups commit `4f0453a` is included by owner decision. Finish public/private group, join-link, invitation, authorization, privacy, moderation, and mobile acceptance; push every intended commit; pass remote CI; tag the exact candidate. |
 | 2 | P0 | **Confirm ZidRun production access in Play Console** (`PR-052`) | Owner | After Elmohassib's production-access decision, create/open ZidRun and inspect its Dashboard/Production page. If Production is unlocked, upload ZidRun without repeating the 12-tester cycle; if ZidRun shows its own production-access gate, start its closed track and follow the exact tester requirement shown by Play Console. In either case, review ZidRun's pre-launch, crash/ANR, and policy reports. |
 | 3 | P0 | **Run signed physical-device acceptance** (`PR-050`, `RUN-001`–`RUN-006`) | Engineering + owner | Provision/version the deterministic local device fixture, run the automated debug UI/performance harness plus the complete manual matrix in `docs/NATIVE_REGRESSION_M21.md`, then repeat black-box acceptance on the exact signed candidate against an approved isolated non-production backend. Record commit/APK digest, device/OS/build, passed/failed/not-run case IDs, and raw performance evidence in this file. Debug results never substitute for the signed pass. |
 | 4 | P0 | **Verify native production integrations after device acceptance** (`PR-048`, `PR-049`) | Owner + engineering | With Codex assistance: hosted `assetlinks.json` contains the Play App Signing SHA-256; production push reaches the signed app; notification taps route correctly; a Crashlytics test event appears. |
@@ -291,7 +291,7 @@ website's existing routes or server actions.
 | ID | Priority | Gap | Server / Capacitor reference | Native today | Done when |
 |---|---|---|---|---|---|
 | `NATGAP-02` | P2 | **Notification centre** — the runner's inbox: race approvals, coach nudges, group activity, broadcasts | `Notification` + `NotificationDelivery` + `NotificationPreference` models; `/api/notifications/[id]/read`, `/read-all`; `/account/notifications`, `/account/notification-settings` | Nothing. No destination, no endpoint, no unread indicator anywhere in the shell | `/api/v1/notifications` (list, unread count, mark-read, mark-all-read, preferences) exists; a native inbox with an unread badge on the Account tab; per-type preferences editable on-device. |
-| `NATGAP-03` | P1 | **Push notifications** | Capacitor ships `@capacitor/push-notifications` + `native-push.tsx`; `/api/notifications/push-subscriptions`, `/test-push`; broadcast dispatch cron | **No FCM dependency at all** in `native-android/` — not gated off, absent. Training reminders, inactivity nudges and broadcasts cannot reach a native user | Firebase Messaging in the native app, token registered against the existing subscription endpoint, notification taps deep-link to the right destination, and `PR-048`/`PR-049` re-verified for the native package. **This is the one gap that silently disables a whole server subsystem** (three crons already dispatch to it). |
+| `NATGAP-03` | P1 | **Push notifications** — *owner action first, see below* | Capacitor ships `@capacitor/push-notifications` + `native-push.tsx`; `/api/notifications/push-subscriptions`, `/test-push`; broadcast dispatch cron | **No FCM dependency at all** in `native-android/` — not gated off, absent. Training reminders, inactivity nudges and broadcasts cannot reach a native user | Firebase Messaging in the native app, token registered against the existing subscription endpoint, notification taps deep-link to the right destination, and `PR-048`/`PR-049` re-verified for the native package. **This is the one gap that silently disables a whole server subsystem** (three crons already dispatch to it). |
 | `NATGAP-04` | P2 | **Social feed, kudos, follows, people search** | `/api/social/feed`, `/kudos`, `/follow`, `/search`; `Follow` + `RunKudos` models; `feed-view.tsx`, `follow-button.tsx`, `people-search.tsx`; `/account/feed` | Nothing. A native runner can make a run public but can never see anyone else's, give kudos, follow, or be found | `/api/v1/social/*` mirrors the four web endpoints with the same authorization; native feed screen, kudos action on a public run, follow/unfollow, and runner search. |
 | `NATGAP-05` | P2 | **Groups** — private/public running groups, join links, email invites, member roles | `Group` + `GroupMember` models; **server actions only** (`src/app/account/groups/actions.ts`, `src/app/groups/join/[token]/actions.ts`); `/account/groups`, `/groups/join/[token]` | Nothing. Also means a group **join link opened on a phone leaves the native app entirely** | `/api/v1/groups` (list, detail, create, join by token, invite, membership/role management) exists — this is a fresh HTTP contract, since the web has none; native group list/detail; the join-link App Link resolves inside the app. |
 | `NATGAP-06` | P2 | **Wilaya rankings / leaderboards** | `/rankings` page + `src/lib/leaderboard.ts` (`getWilayaLeaderboards`) | Nothing | `GET /api/v1/rankings?wilaya=&window=` returns the same leaderboard the page renders; a native rankings screen with the wilaya and time-window filters. |
@@ -327,6 +327,26 @@ parity and each one drops the runner out of native navigation, theming and back 
   either port it to native, or retire the surface here rather than leaving a web feature that the
   primary mobile client will never have.
 - `/runners` and `/organizers` are marketing landing pages, not runner directories. Not a gap.
+
+#### Owner action — register the native package in Firebase (blocks `NATGAP-03`, `NATGAP-16`)
+
+The project already has a Firebase config, but it is the **Capacitor app's**, and
+`google-services.json` matches on package name:
+
+| App | Application id | In `google-services.json`? |
+|---|---|---|
+| Capacitor | `dz.racedz.app` | yes — `android/app/google-services.json` |
+| Native | `dz.racedz.nativeapp` (+ `.debug`, `.internal`) | **no** |
+
+The Google Services Gradle plugin matches strictly and fails the build with "No matching client
+found for package name" when the id is absent, so the existing file cannot simply be copied into
+`native-android/app/`. This is a console job, not a code change, and needs no new Firebase project:
+in `racedz-625ae` → Add app → Android, register `dz.racedz.nativeapp` and `dz.racedz.nativeapp.debug`
+(add `.internal` if that track is used), then download the regenerated `google-services.json` — it
+will contain every client — to `native-android/app/`. Because it is the same project, the sender id
+(`9542026153`) and therefore the **server's existing FCM credentials are unchanged**: nothing on the
+sending side needs to move. SHA-256 fingerprints are only needed for App Links / Google Sign-In, not
+for FCM delivery.
 
 **Sequencing note.** `NATGAP-03` (push) and `NATGAP-16` (crash reporting) are rollout infrastructure,
 not features, and both are already implied by open gates (`PR-048`, `PR-049`). They should close before
