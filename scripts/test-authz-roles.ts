@@ -266,6 +266,48 @@ async function run(
       `status=${afterOwnSweep?.status}`
     );
 
+    // ---- Export and private media -------------------------------------------------------------
+    // The registrations CSV is the densest personal data in the product — every entrant's name,
+    // email and phone for a race — so it gets its own case rather than relying on the list check
+    // above, which uses a different function.
+    const exportForOther = await organizer.getOrganizerRaceRegistrations(a.organization.id, b.race.id, {}, { page: 1, limit: 500, skip: 0 });
+    check(
+      "registrations export: A's export of B's race is empty",
+      exportForOther.items.length === 0,
+      `${exportForOther.items.length} row(s) — an export is the densest PII in the product`
+    );
+
+    /*
+     * Payment proofs are financial PII. The public /uploads/coach-payment/* path is 403'd at the
+     * edge, so the authenticated route is the only way to read one, and that route finds the row
+     * by proof URL AND owner. This asserts the premise that makes it safe: knowing the URL is not
+     * enough. A proof is seeded for B and looked up exactly as the route does, once as A and once
+     * as B — the second call is what stops "returns nothing for everyone" passing as secure.
+     */
+    const proofUrl = `/api/coach/subscription/proof/2026-08/${tag}-proof.jpg`;
+    const proof = await prisma.coachSubscriptionRequest.create({
+      data: { userId: b.owner.id, plan: "MONTHLY", paymentProofUrl: proofUrl, status: "PENDING" },
+    });
+    const asAttacker = await prisma.coachSubscriptionRequest.findFirst({
+      where: { paymentProofUrl: proofUrl, userId: a.owner.id },
+      select: { id: true },
+    });
+    check(
+      "payment proof: knowing the URL is not enough for a non-owner",
+      asAttacker === null,
+      asAttacker ? `LEAKED row ${asAttacker.id}` : "owner-scoped lookup found nothing for A"
+    );
+    const asOwner = await prisma.coachSubscriptionRequest.findFirst({
+      where: { paymentProofUrl: proofUrl, userId: b.owner.id },
+      select: { id: true },
+    });
+    check(
+      "payment proof: its owner can still read it",
+      asOwner?.id === proof.id,
+      `found=${asOwner?.id ?? "nothing"}`
+    );
+    await prisma.coachSubscriptionRequest.delete({ where: { id: proof.id } });
+
     // ---- Organization-scoped membership and profile ------------------------------------------
     await expectDenied(
       "getOrganizerMembers: A's member list never contains B's owner",
