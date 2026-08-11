@@ -288,6 +288,22 @@ export async function getOrganizerRaceRegistrations(
   const q = filters.q?.trim();
   const { page, limit, skip } = pagination ?? parsePagination();
 
+  // Ownership BEFORE the sweep (SEC-004). cancelExpiredUnpaidRegistrations writes — it cancels
+  // registrations and gives their places back — and it was called with the caller-supplied
+  // raceEventId before anything checked which organization that race belongs to. The read below
+  // is correctly scoped, so an organizer passing another organization's race id got an empty list
+  // and looked refused; the write on the other tenant's data had already happened. It only ever
+  // affects registrations already past their auto-cancel deadline, so the impact is forcing the
+  // timing of a due cancellation rather than cancelling anything arbitrary — but a caller with no
+  // authority over this race should not be able to cause a write on it at all.
+  const ownsRace = await prisma.raceEvent.findFirst({
+    where: { id: raceEventId, organizationId },
+    select: { id: true },
+  });
+  if (!ownsRace) {
+    return { items: [], total: 0, page, limit, totalPages: 0 };
+  }
+
   await cancelExpiredUnpaidRegistrations(raceEventId);
 
   const where: Prisma.RaceRegistrationWhereInput = {
