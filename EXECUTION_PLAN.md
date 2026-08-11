@@ -21,7 +21,7 @@ Work from top to bottom. Do not start P1/P2 product work while an unblocked P0 i
 
 | Order | Priority | Action | Owner | Done when |
 |---:|---|---|---|---|
-| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) — **the GitHub 403 is resolved and the owner has pushed: `origin/main` advanced `15bc82d..2a14dfa` (verified 2026-08-09) and local `main` is no longer ahead.** What remains is the rest of the gate, not the access: remote CI green on the exact candidate, and the candidate tagged. The 2026-08-09 native/parity work was merged to `main` and pushed (`03a4086`); **7 later review-fix commits (`04910b5`..`a07bd9e`) are still local-only** and must be pushed before a candidate is tagged. | Owner (access) → Engineering | Groups commit `4f0453a` is included by owner decision. Finish public/private group, join-link, invitation, authorization, privacy, moderation, and mobile acceptance; push every intended commit; pass remote CI; tag the exact candidate. |
+| 1 | P0 | **Freeze the release scope and get a green remote candidate** (`PR-056`, `PR-057`) — **the GitHub 403 is resolved and the owner has pushed: `origin/main` advanced `15bc82d..2a14dfa` (verified 2026-08-09) and local `main` is no longer ahead.** **Owner decision 2026-08-09: remote CI is not tracked** — this is a solo project and deployment is manual, so the gate is the local gate suite (`npm run test:all`) passing on the exact candidate, plus the candidate tagged. `.github/workflows/ci.yml` stays in the repo but its result is not a release gate. The 2026-08-09 native/parity work was merged to `main` and pushed (`03a4086`); **7 later review-fix commits (`04910b5`..`a07bd9e`) are still local-only** and must be pushed before a candidate is tagged. | Owner (access) → Engineering | Groups commit `4f0453a` is included by owner decision. Finish public/private group, join-link, invitation, authorization, privacy, moderation, and mobile acceptance; push every intended commit; pass `npm run test:all` locally; tag the exact candidate. |
 | 2 | P0 | **Confirm ZidRun production access in Play Console** (`PR-052`) | Owner | After Elmohassib's production-access decision, create/open ZidRun and inspect its Dashboard/Production page. If Production is unlocked, upload ZidRun without repeating the 12-tester cycle; if ZidRun shows its own production-access gate, start its closed track and follow the exact tester requirement shown by Play Console. In either case, review ZidRun's pre-launch, crash/ANR, and policy reports. |
 | 3 | P0 | **Run signed physical-device acceptance** (`PR-050`, `RUN-001`–`RUN-006`) | Engineering + owner | Provision/version the deterministic local device fixture, run the automated debug UI/performance harness plus the complete manual matrix in `docs/NATIVE_REGRESSION_M21.md`, then repeat black-box acceptance on the exact signed candidate against an approved isolated non-production backend. Record commit/APK digest, device/OS/build, passed/failed/not-run case IDs, and raw performance evidence in this file. Debug results never substitute for the signed pass. |
 | 4 | P0 | **Verify native production integrations after device acceptance** (`PR-048`, `PR-049`) | Owner + engineering | With Codex assistance: hosted `assetlinks.json` contains the Play App Signing SHA-256; production push reaches the signed app; notification taps route correctly; a Crashlytics test event appears. |
@@ -116,6 +116,31 @@ remaining risk, owner, and expiry date for every exception.
 - No new data-collecting feature, third-party SDK, public profile surface, or AI memory field ships until
   its data classification, consent, retention, deletion/export, access, and provider-processing decisions
   are recorded here and tested.
+
+### Security overlay progress — 2026-08-09
+
+Two gates moved from "nothing recorded" to "partly evidenced". Neither is complete; both now have
+executable evidence rather than an assertion.
+
+**`SEC-004` — authorization and tenant isolation.** `npm run test:authz-roles` adds the cross-tenant
+half the gate names and `test-authz-objects.ts` did not cover: organizer A against organizer B across
+reads, mutations, and side effects, each denial paired with the owner's own call succeeding so a
+function broken for everyone cannot pass as secure. **One real finding, fixed:**
+`getOrganizerRaceRegistrations` swept expired unpaid registrations — a write — on the caller-supplied
+race id *before* checking which organization owned it; the correctly-scoped read underneath made it
+look like a refusal. Bounded (it only forces the timing of an already-due cancellation) but a
+deny-by-default violation. The other five organizer functions were already scoped correctly; the
+suite is now the evidence. **Still open:** admin/superadmin function-level (BFLA) coverage over the
+web routes, export/private-media denial tests, and the written route/object matrix.
+
+**`SEC-013` — detection and logging.** `npm run test:sentry-scrub` is the gate's "Sentry scrubbing
+verified", as distinct from "beforeSend is configured". **One real finding, fixed:** the scrubber
+never touched the request URL, so the single-use tokens in `/reset-password/<token>`,
+`/verify-email/<token>`, `/invite/<token>`, `/groups/join/<token>` and `/auth/handoff` — all
+account-takeover primitives — reached Sentry in clear on any unhandled error on those pages.
+`DATA_INVENTORY.md`'s claim that scrubbing was "not yet configured" was also stale and is corrected.
+**Still open:** synthetic alert delivery, log-retention/access review, the incident tabletop, and a
+named incident owner with escalation contacts — all process rather than code.
 
 ## P0 acceptance details
 
