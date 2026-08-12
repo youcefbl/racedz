@@ -350,6 +350,8 @@ overview. The app and those screens remain reachable, but availability is never 
 permission to train. The hold:
 
 - repeats the stop-exercise and emergency guidance;
+- keeps the Coach composer available, but answers later training requests deterministically with no
+  provider call or quota use until clearance;
 - does not store a second copy of the symptom text;
 - survives app restarts and account switches without crossing accounts;
 - is not removed by dismissing or acknowledging the message;
@@ -419,6 +421,10 @@ remaining an untested `when` block inside `ConversationScreen.kt`.
 - retained request ID;
 - pending question;
 - send/retry lifecycle.
+
+Draft text, expanded reply IDs, the uncertain pending turn, and its retained request ID must survive
+Android process recreation. A recovered retry reuses the same request ID; it never buys a second
+provider call merely because Android killed the app in the background.
 
 The server remains authoritative for the persisted transcript.
 
