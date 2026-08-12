@@ -30,7 +30,16 @@ export async function POST(request: Request) {
       throw new CoachError("Voice input is available on the paid subscription only.", 402, "VOICE_REQUIRES_SUBSCRIPTION");
     }
 
-    const formData = await readBoundedFormData(request, MAX_AUDIO_BYTES + MULTIPART_OVERHEAD_BYTES);
+    // Mapped here rather than left to the generic handler: a body over the cap is a 413 the client
+    // can act on, not an unexplained 500.
+    const formData = await readBoundedFormData(request, MAX_AUDIO_BYTES + MULTIPART_OVERHEAD_BYTES).catch(
+      (error: unknown) => {
+        if (error instanceof BodyTooLargeError) {
+          throw new CoachError("That recording is too large. Keep voice notes short.", 413, "AUDIO_TOO_LARGE");
+        }
+        throw error;
+      }
+    );
     const audio = formData.get("audio");
     if (!(audio instanceof File) || audio.size === 0) {
       throw new CoachError("No audio was received.", 400, "MISSING_AUDIO");
