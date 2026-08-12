@@ -279,13 +279,22 @@ function buildInstructions(interactionType: CoachInteractionType) {
   return [...CORE_RULES, ...TYPE_RULES[interactionType]].join("\n");
 }
 
+// USD list prices per 1M tokens: [uncached input, cached input, output]. Matched by prefix so
+// dated snapshots (e.g. "gpt-5.6-luna-2026-07-30") price like their base model.
+const MODEL_PRICES_PER_MTOK: Array<[prefix: string, rates: [number, number, number]]> = [
+  ["gpt-5.4-mini", [0.75, 0.075, 4.5]],
+  ["gpt-5.6-luna", [0.2, 0.02, 1.2]]
+];
+
 // Micro-USD estimate, or NULL when the model has no entry in the price table (combined review
 // U-18). An unknown model — e.g. an OPENAI_COACH_MODEL override — must surface as "unpriced" on
 // the admin cost dashboard, never as zero cost, which reads as free and hides real spend.
 function estimateCostMicroUsd(model: string, inputTokens: number, cachedInputTokens: number, outputTokens: number): number | null {
-  if (!model.startsWith("gpt-5.4-mini")) return null;
+  const rates = MODEL_PRICES_PER_MTOK.find(([prefix]) => model.startsWith(prefix))?.[1];
+  if (!rates) return null;
 
+  const [inputRate, cachedRate, outputRate] = rates;
   const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
-  const usd = (uncachedInputTokens * 0.75 + cachedInputTokens * 0.075 + outputTokens * 4.5) / 1_000_000;
+  const usd = (uncachedInputTokens * inputRate + cachedInputTokens * cachedRate + outputTokens * outputRate) / 1_000_000;
   return Math.round(usd * 1_000_000);
 }
