@@ -134,6 +134,57 @@ function localizeReasons(reasons: string[], locale: CoachLocale): string[] {
   return reasons.map((reason) => SAFETY_REASON_I18N[reason]?.[locale] ?? reason);
 }
 
+/**
+ * `usedSignals` and `dataGaps`, localized the same way — and for the same reason.
+ *
+ * Field test 20260812-01 found an Arabic reply whose "based on" footer read
+ * `runner question · goal · active plan · consistency`, and a second reply in the same run whose
+ * gaps came back in Arabic while another's came back in English. Both fields are model-authored
+ * free text, so asking the model to translate them produced exactly that inconsistency.
+ *
+ * The fix is to stop asking. The prompt now pins both fields to a closed English vocabulary, and
+ * the mapping to the runner's language happens here, deterministically. Unknown strings fall
+ * through unchanged, so a model that invents a signal degrades to English rather than to nothing.
+ */
+const SIGNAL_I18N: Record<string, { fr: string; ar: string }> = {
+  goal: { fr: "objectif", ar: "الهدف" },
+  "active plan": { fr: "plan en cours", ar: "البرنامج الحالي" },
+  "recent runs": { fr: "sorties récentes", ar: "الجريات الأخيرة" },
+  "recent pace": { fr: "allure récente", ar: "الوتيرة الأخيرة" },
+  adherence: { fr: "assiduité", ar: "الانتظام" },
+  consistency: { fr: "régularité", ar: "المواظبة" },
+  sleep: { fr: "sommeil", ar: "النوم" },
+  weather: { fr: "météo", ar: "الطقس" },
+  "analysed run": { fr: "sortie analysée", ar: "الجرية المحلَّلة" },
+  "chronic condition": { fr: "problème de santé chronique", ar: "حالة صحية مزمنة" },
+  "runner question": { fr: "question du coureur", ar: "سؤال العدّاء" },
+  "safety decision": { fr: "décision de sécurité", ar: "قرار السلامة" },
+  "coach memory": { fr: "mémoire du coach", ar: "ذاكرة المدرب" }
+};
+
+const GAP_I18N: Record<string, { fr: string; ar: string }> = {
+  "no recent runs": { fr: "aucune sortie récente", ar: "ما كاش جريات أخيرة" },
+  "no recent pace": { fr: "aucune allure récente", ar: "ما كاش وتيرة أخيرة" },
+  "no sleep logged": { fr: "aucun sommeil enregistré", ar: "ما كاش نوم مسجّل" },
+  "no target race": { fr: "aucune course cible", ar: "ما كاش سباق مستهدف" },
+  "no weather data": { fr: "aucune donnée météo", ar: "ما كاش معطيات الطقس" },
+  "no heart-condition details": {
+    fr: "aucun détail sur le problème cardiaque",
+    ar: "ما كاش تفاصيل على الحالة القلبية"
+  },
+  "no symptom details": { fr: "aucun détail sur les symptômes", ar: "ما كاش تفاصيل على الأعراض" },
+  "no injury details": { fr: "aucun détail sur la blessure", ar: "ما كاش تفاصيل على الإصابة" }
+};
+
+function localizeVocabulary(
+  values: string[],
+  table: Record<string, { fr: string; ar: string }>,
+  locale: CoachLocale
+): string[] {
+  if (locale === "en") return values;
+  return values.map((value) => table[value.trim().toLowerCase()]?.[locale] ?? value);
+}
+
 export function enforceCoachSafety(
   response: CoachResponse,
   decision: CoachSafetyDecision,
@@ -153,6 +204,8 @@ export function enforceCoachSafety(
   return {
     ...response,
     warningSignals,
+    usedSignals: localizeVocabulary(response.usedSignals, SIGNAL_I18N, locale),
+    dataGaps: localizeVocabulary(response.dataGaps, GAP_I18N, locale),
     upcomingWorkouts,
     nextWorkout: upcomingWorkouts[0] ?? null,
     requiresProfessionalAdvice: response.requiresProfessionalAdvice || decision.requiresProfessionalAdvice
