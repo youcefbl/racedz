@@ -61,6 +61,12 @@ Durable owner decisions; status and evidence live in `EXECUTION_PLAN.md`, never 
   No `/api/v1` MFA endpoints will be built.
 - **Cloud TTS speaks guided-run cues only** (allowlist + private cache). Free-text reply playback
   on native uses on-device TTS.
+- **Urgent Coach safety is a persistent, non-locking exercise hold.** Reporting chest pain,
+  fainting, serious breathing difficulty, or another deterministic red flag keeps Runs and Coach
+  reachable, but the app prominently says to stop exercise, seek urgent help when symptoms are
+  current/recurring, and do no running or strenuous activity until a healthcare professional has
+  assessed the runner and cleared return to exercise. The hold disappears only after the runner
+  explicitly confirms that medical clearance; acknowledgement alone is not clearance.
 - **Ramadan mode is post-MVP** (next Ramadan ≈ Feb 2027); the deadline watch stays.
 - **Capacitor is retired as a mobile target.** The native Android app (`native-android/`) is the
   only mobile client; no Capacitor parity work.

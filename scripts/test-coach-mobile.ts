@@ -701,6 +701,28 @@ async function runGovernanceCases() {
   const urgentUsage = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
   check("urgent block consumed zero provider calls", urgentUsage === 0, urgentUsage);
 
+  const safetyAlert = await api("/coach/safety", { token: runner.token });
+  check("urgent block creates a persistent exercise hold", safetyAlert.body?.data?.alert?.status === "ACTIVE", safetyAlert.body);
+  check(
+    "the exercise hold points to the urgent interaction without echoing symptom text",
+    safetyAlert.body?.data?.alert?.sourceInteractionId === urgentRow?.id && !JSON.stringify(safetyAlert.body).includes("chest pain"),
+    safetyAlert.body,
+  );
+  const invalidClearance = await api("/coach/safety", {
+    method: "PATCH",
+    token: runner.token,
+    body: { action: "CONFIRM_MEDICAL_CLEARANCE", confirmed: false },
+  });
+  check("acknowledgement alone cannot clear the exercise hold", invalidClearance.status === 422, invalidClearance.status);
+  const clearance = await api("/coach/safety", {
+    method: "PATCH",
+    token: runner.token,
+    body: { action: "CONFIRM_MEDICAL_CLEARANCE", confirmed: true },
+  });
+  check("explicit medical-clearance confirmation clears the hold", clearance.status === 200, clearance.status);
+  const clearedAlert = await api("/coach/safety", { token: runner.token });
+  check("cleared exercise hold no longer appears", clearedAlert.body?.data?.alert === null, clearedAlert.body);
+
   // 2) Idempotency: replaying the SAME key returns the SAME interaction; reusing the key for a
   //    DIFFERENT payload is refused (U-10 / B83-R05).
   const replay = await api("/coach/interactions", {

@@ -15,6 +15,8 @@ export type CoachSafetyDecision = {
   level: "CLEAR" | "CAUTION" | "BLOCKED";
   reasons: string[];
   requiresProfessionalAdvice: boolean;
+  /** Persisted with an urgent interaction until the runner confirms medical clearance. */
+  exerciseHold?: { status: "ACTIVE" | "CLEARED"; clearedAt?: string };
 };
 
 type SafetyRun = {
@@ -63,7 +65,8 @@ export function urgentSymptomDecision(): CoachSafetyDecision {
   return {
     level: "BLOCKED",
     reasons: ["A reported symptom requires professional assessment."],
-    requiresProfessionalAdvice: true
+    requiresProfessionalAdvice: true,
+    exerciseHold: { status: "ACTIVE" }
   };
 }
 
@@ -71,11 +74,17 @@ export function evaluateCoachSafety(run: SafetyRun, metrics: CoachMetrics, profi
   const text = `${run?.symptoms ?? ""} ${run?.notes ?? ""}`.trim();
   const reasons: string[] = [];
 
-  if (dangerPatterns.some((pattern) => pattern.test(text))) reasons.push("A reported symptom requires professional assessment.");
+  const urgentSymptom = dangerPatterns.some((pattern) => pattern.test(text));
+  if (urgentSymptom) reasons.push("A reported symptom requires professional assessment.");
   if ((run?.painLevel ?? 0) >= 7) reasons.push("The reported pain level is severe.");
 
   if (reasons.length > 0) {
-    return { level: "BLOCKED", reasons, requiresProfessionalAdvice: true };
+    return {
+      level: "BLOCKED",
+      reasons,
+      requiresProfessionalAdvice: true,
+      ...(urgentSymptom ? { exerciseHold: { status: "ACTIVE" as const } } : {})
+    };
   }
 
   const conditions = profile?.chronicConditions ?? [];
@@ -166,11 +175,17 @@ export function enforceCoachSafety(
 }
 
 export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale: "en" | "fr" | "ar"): CoachResponse {
-  const copy = {
+  const urgentCopy = {
+    en: "Stop exercise now. If chest pain, fainting, or trouble breathing is happening now or returns, call Civil Protection on 14 or 1021. Do not run or do strenuous activity until a healthcare professional has checked you and cleared you to return to exercise.",
+    fr: "Arrêtez tout effort maintenant. Si une douleur thoracique, un évanouissement ou une difficulté à respirer est en cours ou revient, appelez la Protection civile au 14 ou au 1021. Ne courez pas et ne faites aucun effort intense avant d'avoir été examiné et autorisé à reprendre par un professionnel de santé.",
+    ar: "حبس أي مجهود ضرك. إذا وجع الصدر، الغشيان، ولا صعوبة التنفس راهي صارية ضرك ولا عاودت، عيّط للحماية المدنية على 14 ولا 1021. ما تجريش وما تدير حتى مجهود قوي حتى يفحصك مختص صحي ويعطيك الموافقة ترجع للرياضة."
+  }[locale];
+  const assessmentCopy = {
     en: "Training advice is paused because the information provided needs professional assessment.",
     fr: "Les conseils d'entraînement sont suspendus car les informations fournies nécessitent une évaluation professionnelle.",
     ar: "تم إيقاف نصائح التدريب لأن المعلومات المقدمة تحتاج إلى تقييم من مختص."
   }[locale];
+  const copy = decision.exerciseHold?.status === "ACTIVE" ? urgentCopy : assessmentCopy;
 
   return {
     responseMode: "ANSWER",

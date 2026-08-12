@@ -49,7 +49,9 @@ const blocked = evaluateCoachSafety(
   metrics
 );
 assert.equal(blocked.level, "BLOCKED");
+assert.equal(blocked.exerciseHold?.status, "ACTIVE");
 assert.equal(buildBlockedCoachResponse(blocked, "fr").requiresProfessionalAdvice, true);
+assert.match(buildBlockedCoachResponse(blocked, "en").summary, /Do not run or do strenuous activity/);
 
 const caution = evaluateCoachSafety({ painLevel: 5, fatigueLevel: 2, symptoms: null, notes: null }, { ...metrics, weeklyDistanceChangePercent: 0 });
 assert.equal(caution.level, "CAUTION");
@@ -145,6 +147,7 @@ console.log("Coach metrics, planning, and safety checks passed.");
   const decision = urgentSymptomDecision();
   assert.equal(decision.level, "BLOCKED");
   assert.equal(decision.requiresProfessionalAdvice, true);
+  assert.equal(decision.exerciseHold?.status, "ACTIVE");
   // The reason string must be one the i18n table translates (safety.ts SAFETY_REASON_I18N).
   const localized = buildBlockedCoachResponse(decision, "ar");
   assert.ok(localized.warningSignals.every((signal) => /[؀-ۿ]/.test(signal)));
@@ -167,7 +170,7 @@ console.log("Coach metrics, planning, and safety checks passed.");
   }
   assert.ok(isAllowedCueText("Workout complete", "en"));
   assert.ok(isAllowedCueText("Séance terminée", "fr"));
-  assert.ok(isAllowedCueText("انتهت الحصة", "ar"));
+  assert.ok(isAllowedCueText("كمّلت الحصة", "ar"));
 
   // Arbitrary prose — chat text, user content, injections — must be refused.
   const refused = [
