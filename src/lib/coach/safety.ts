@@ -111,31 +111,31 @@ export function evaluateCoachSafety(run: SafetyRun, metrics: CoachMetrics, profi
 const SAFETY_REASON_I18N: Record<string, { fr: string; ar: string }> = {
   "A reported symptom requires professional assessment.": {
     fr: "Un symptôme signalé nécessite l'avis d'un professionnel de santé.",
-    ar: "يتطلب أحد الأعراض المُبلَّغ عنها تقييمًا من مختص صحي."
+    ar: "واحد من الأعراض اللي قلت عليهم لازم يشوفو مختص صحي."
   },
   "The reported pain level is severe.": {
     fr: "Le niveau de douleur signalé est élevé.",
-    ar: "مستوى الألم المُبلَّغ عنه مرتفع."
+    ar: "درجة الوجع اللي قلت عليها عالية."
   },
   "A reported heart condition requires medical clearance before intense training.": {
     fr: "Un problème cardiaque signalé nécessite un avis médical avant tout entraînement intense.",
-    ar: "تتطلب حالة قلبية مُبلَّغ عنها استشارة طبية قبل أي تدريب مكثّف."
+    ar: "حالة القلب اللي قلت عليها لازم لها رأي طبي قبل أي تدريب قوي."
   },
   "An ongoing health condition was reported; keep training conservative.": {
     fr: "Un problème de santé persistant a été signalé ; restez prudent dans votre entraînement.",
-    ar: "تم الإبلاغ عن حالة صحية مستمرة؛ لذا احرص على أن يكون تدريبك متحفّظًا."
+    ar: "قلت بلي عندك حالة صحية مستمرة؛ على هاذ الشي لازم تدريبك يبقى خفيف وبالحذر."
   },
   "Pain was reported during recent training.": {
     fr: "Des douleurs ont été signalées lors d'entraînements récents.",
-    ar: "تم الإبلاغ عن آلام خلال التدريبات الأخيرة."
+    ar: "قلت بلي حسّيت بوجع في التدريبات الأخيرة."
   },
   "Recent fatigue is high.": {
     fr: "La fatigue récente est importante.",
-    ar: "مستوى التعب الأخير مرتفع."
+    ar: "التعب تاعك في الأيام الأخيرة عالي."
   },
   "Recent weekly distance increased sharply.": {
     fr: "La distance hebdomadaire a fortement augmenté récemment.",
-    ar: "ازدادت المسافة الأسبوعية كثيرًا مؤخرًا."
+    ar: "المسافة تاع السيمانة زادت بزاف هاذ الأيام."
   }
 };
 
@@ -183,7 +183,7 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
   const assessmentCopy = {
     en: "Training advice is paused because the information provided needs professional assessment.",
     fr: "Les conseils d'entraînement sont suspendus car les informations fournies nécessitent une évaluation professionnelle.",
-    ar: "تم إيقاف نصائح التدريب لأن المعلومات المقدمة تحتاج إلى تقييم من مختص."
+    ar: "حبسنا نصائح التدريب على خاطر المعلومات اللي عطيتها لازم يشوفها مختص."
   }[locale];
   const copy = decision.exerciseHold?.status === "ACTIVE" ? urgentCopy : assessmentCopy;
 

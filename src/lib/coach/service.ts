@@ -22,6 +22,7 @@ import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTransc
 import { buildAdaptivePlan, type PlanPhase } from "@/lib/coach/adaptive-planner";
 import { getActivePlanForContext } from "@/lib/coach/plan-context";
 import { computePersonalRecords, type PersonalRecords } from "@/lib/coach/records";
+import { resolveCoachResponseLocale } from "@/lib/coach/response-locale";
 import { computeBadges, type Badge } from "@/lib/coach/badges";
 import { getNutritionCoachSummary } from "@/lib/coach/nutrition";
 import { localizeWorkout } from "@/lib/coach/workout-i18n";
@@ -1409,6 +1410,12 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
   const goal = await getActiveGoal(userId);
   if (!goal) throw new CoachError("An active coaching goal is required.", 409, "ACTIVE_GOAL_REQUIRED");
+  // The current Arabic question wins for this one answer only. The goal's saved language remains
+  // unchanged, and non-Arabic questions keep following it.
+  const responseLocale = resolveCoachResponseLocale(
+    goal.preferredLocale,
+    input.type === "CHAT" ? input.message : null,
+  );
 
   const selectedRun = input.runId ? await requireOwnedRun(userId, input.runId) : null;
   if (selectedRun?.goalId && selectedRun.goalId !== goal.id) {
@@ -1422,7 +1429,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // rows are not counted against quota, and the persisted row is the content-level audit trail.
   if (containsUrgentSymptomText(input.message)) {
     const decision = urgentSymptomDecision();
-    const response = buildBlockedCoachResponse(decision, goal.preferredLocale);
+    const response = buildBlockedCoachResponse(decision, responseLocale);
     // Conditional ON CONFLICT: only a still-FAILED row may be re-claimed by a retry (19A-R03).
     const claimedUrgent = await prisma.$executeRaw`
       INSERT INTO "CoachInteraction" (
@@ -1449,7 +1456,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const activeExerciseHold = await getCoachSafetyAlert(userId);
   if (activeExerciseHold) {
     const decision = urgentSymptomDecision();
-    const response = buildBlockedCoachResponse(decision, goal.preferredLocale);
+    const response = buildBlockedCoachResponse(decision, responseLocale);
     const persistedSafety: CoachSafetyDecision = {
       level: decision.level,
       reasons: decision.reasons,
@@ -1493,7 +1500,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
   // per-user route rate limit, but that alone still allows thousands of rows/day).
   if (input.type === "CHAT" && !evaluateTopicality(input.message).onTopic) {
-    const response = buildOffTopicCoachResponse(goal.preferredLocale);
+    const response = buildOffTopicCoachResponse(responseLocale);
     const offTopicSafety = { level: "CLEAR" as const, reasons: [], requiresProfessionalAdvice: false };
     const [logged] = await prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*)::bigint AS count FROM "CoachInteraction"
@@ -1572,7 +1579,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   }
 
   if (safety.level === "BLOCKED") {
-    const response = buildBlockedCoachResponse(safety, goal.preferredLocale);
+    const response = buildBlockedCoachResponse(safety, responseLocale);
     await prisma.$executeRaw`
       UPDATE "CoachInteraction"
       SET "status" = 'BLOCKED', "response" = CAST(${JSON.stringify(response)} AS JSONB), "completedAt" = NOW()
@@ -1676,7 +1683,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
   try {
     const generated = await generateCoachResponse(context, interactionId, input.type);
-    const response = enforceCoachSafety(generated.response, safety, skeleton, goal.preferredLocale);
+    const response = enforceCoachSafety(generated.response, safety, skeleton, responseLocale);
 
     // One transaction for everything the successful reply changes (B83-R04): the activated plan,
     // the COMPLETED interaction, and the provider-usage row commit together or not at all. Before
@@ -1818,44 +1825,44 @@ export async function updateTrainingPlanStatus(userId: string, planId: string, s
 // and the week's volume ("Base week · ~45 km") so the plan card says something specific about *this*
 // week and quietly teaches the periodization, instead of reading the same generic line every week.
 const PHASE_SUMMARY_I18N: Record<PlanPhase, { en: string; fr: string; ar: string }> = {
-  BASELINE: { en: "Baseline week", fr: "Semaine de reprise", ar: "أسبوع تأسيس" },
-  BASE: { en: "Base week", fr: "Semaine de base", ar: "أسبوع بناء القاعدة" },
-  BUILD: { en: "Build week", fr: "Semaine de développement", ar: "أسبوع تطوير" },
-  PEAK: { en: "Peak week", fr: "Semaine de pic", ar: "أسبوع الذروة" },
-  TAPER: { en: "Taper week", fr: "Semaine d'affûtage", ar: "أسبوع تخفيف" },
-  RECOVERY: { en: "Recovery week", fr: "Semaine de récupération", ar: "أسبوع استشفاء" }
+  BASELINE: { en: "Baseline week", fr: "Semaine de reprise", ar: "سيمانة رجوع تدريجي" },
+  BASE: { en: "Base week", fr: "Semaine de base", ar: "سيمانة بناء القاعدة" },
+  BUILD: { en: "Build week", fr: "Semaine de développement", ar: "سيمانة تطوير المستوى" },
+  PEAK: { en: "Peak week", fr: "Semaine de pic", ar: "سيمانة أعلى مستوى" },
+  TAPER: { en: "Taper week", fr: "Semaine d'affûtage", ar: "سيمانة تخفيف" },
+  RECOVERY: { en: "Recovery week", fr: "Semaine de récupération", ar: "سيمانة استرجاع" }
 };
 
 const PHASE_INTENT_I18N: Record<PlanPhase, { en: string; fr: string; ar: string }> = {
   BASELINE: {
     en: "easing back into consistent running",
     fr: "pour reprendre une pratique régulière en douceur",
-    ar: "للعودة تدريجيًا إلى الجري المنتظم"
+    ar: "باش ترجع للجري المنتظم بشوية"
   },
   BASE: {
     en: "building your endurance",
     fr: "pour développer votre endurance",
-    ar: "لبناء قدرتك على التحمّل"
+    ar: "باش تبني التحمّل تاعك"
   },
   BUILD: {
     en: "adding some quality work on top of your base",
     fr: "pour ajouter du travail de qualité à votre base",
-    ar: "لإضافة عمل نوعي فوق قاعدتك"
+    ar: "باش تزيد خدمة نوعية فوق القاعدة تاعك"
   },
   PEAK: {
     en: "your biggest training load before the taper",
     fr: "votre charge d'entraînement la plus élevée avant l'affûtage",
-    ar: "أعلى حِمل تدريبي قبل مرحلة التخفيف"
+    ar: "أكبر حِمل تدريب قبل ما تبدا تخفّف"
   },
   TAPER: {
     en: "backing off so you arrive at the start line fresh",
     fr: "pour lever le pied et arriver frais sur la ligne de départ",
-    ar: "لتخفيف الحِمل حتى تصل إلى خط الانطلاق في كامل نشاطك"
+    ar: "باش تخفّف الحِمل وتوصل لخط البداية فريش"
   },
   RECOVERY: {
     en: "recovering properly before the next block",
     fr: "pour bien récupérer avant le prochain bloc",
-    ar: "للتعافي جيدًا قبل الكتلة التدريبية القادمة"
+    ar: "باش ترجع قوتك مليح قبل المرحلة الجاية"
   }
 };
 
@@ -1867,7 +1874,7 @@ function buildAutoPlanSummary(locale: "en" | "fr" | "ar", phase: PlanPhase, week
     return `${phaseLabel} · ~${volume} km — ${intent}. Demandez à votre coach de l'ajuster à tout moment.`;
   }
   if (locale === "ar") {
-    return `${phaseLabel} · ~${volume} كم — ${intent}. اسأل مدربك في أي وقت لتعديله.`;
+    return `${phaseLabel} · ~${volume} كم — ${intent}. سقسي الكوتش في أي وقت باش تبدّلو.`;
   }
   return `${phaseLabel} · ~${volume} km — ${intent}. Ask your coach any time to adjust it.`;
 }

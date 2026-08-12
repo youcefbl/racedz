@@ -400,7 +400,7 @@ async function main() {
       // Mirror the production pipeline: the service always runs the model's reply through safety
       // enforcement, which replaces the model's workouts with the deterministic skeleton (reduced when
       // the safety decision is CAUTION). Asserting on the raw reply would test a layer no runner sees.
-      response = enforceCoachSafety(result.response, ctx.safety, ctx.plan.workouts, ctx.input.goal.preferredLocale);
+      response = enforceCoachSafety(result.response, ctx.safety, ctx.plan.workouts, context.request.responseLocale);
       totalIn += result.usage.inputTokens;
       totalOut += result.usage.outputTokens;
     } catch (error) {

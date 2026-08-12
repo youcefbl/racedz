@@ -31,7 +31,7 @@ function staticPhrasesFor(locale: CoachLocale): Set<string> {
     }
   }
   // The guided-session finish flourish (cues.ts completePhrase) — a literal, mirrored here.
-  phrases.add(locale === "fr" ? "Séance terminée" : locale === "ar" ? "انتهت الحصة" : "Workout complete");
+  phrases.add(locale === "fr" ? "Séance terminée" : locale === "ar" ? "كمّلت الحصة" : "Workout complete");
   return phrases;
 }
 
@@ -53,7 +53,7 @@ const DURATION_PATTERN: Record<CoachLocale, string> = {
 const TARGET_PATTERN: Record<CoachLocale, string> = {
   en: "(?:\\d{1,5} m|\\d{1,3}(?:\\.\\d)? km|\\d{1,3}:\\d{2}|Open)",
   fr: "(?:\\d{1,5} m|\\d{1,3}(?:\\.\\d)? km|\\d{1,3}:\\d{2}|Libre)",
-  ar: "(?:\\d{1,5} m|\\d{1,3}(?:\\.\\d)? km|\\d{1,3}:\\d{2}|حر)"
+  ar: "(?:\\d{1,5} m|\\d{1,3}(?:\\.\\d)? km|\\d{1,3}:\\d{2}|بلا حد)"
 };
 
 function escapeRegExp(value: string): string {
@@ -69,7 +69,7 @@ function dynamicPatternsFor(locale: CoachLocale): RegExp[] {
   const roles = ROLES.map((role) => escapeRegExp(roleLabel(role, locale))).join("|");
   const separator = locale === "ar" ? "،" : ",";
   const kilometre = locale === "fr" ? "Kilomètre" : locale === "ar" ? "الكيلومتر" : "Kilometre";
-  const repDone = locale === "fr" ? "Fraction terminée en" : locale === "ar" ? "أنهيت التكرار في" : "Rep done in";
+  const repDone = locale === "fr" ? "Fraction terminée en" : locale === "ar" ? "كمّلت التكرار في" : "Rep done in";
   return [
     new RegExp(`^${kilometre} \\d{1,3}\\. ${duration}\\.$`, "u"),
     new RegExp(`^${repDone} ${duration}\\.$`, "u"),
@@ -158,22 +158,22 @@ const NATIVE_CUES: Record<CoachLocale, NativeCueVocabulary> = {
   },
   ar: {
     kilometre: "كيلومتر",
-    pace: "الإيقاع",
+    pace: "الريتم",
     roles: ["تسخين", "مجهود", "استرجاع", "تهدئة", "ثابت"],
     units: ["د", "ثانية", "م"],
-    done: "سالات الحصة. هدّي كي تحب.",
+    done: "كمّلت الحصة. هدّي كي تحب.",
     guidance: [
-      "ابدأ بهدوء تام. دع جسمك يسخن تدريجيًا.",
-      "دقيقة واحدة من الإحماء. استعد للجهد.",
-      "أحسنت. أرخِ إيقاعك تمامًا ودع تنفسك يهدأ.",
-      "دقيقة واحدة متبقية. اثبت.",
-      "منتصف التكرار. ابقَ متحكمًا ولا تندفع.",
-      "آخر تكرار. قدّم أفضل ما عندك.",
-      "منتصف المسافة. أداؤك ممتاز.",
-      "آخر كيلومتر. أنهِ بقوة.",
-      "اشرب ماء إن استطعت."
+      "ابدا بالهانية وخلي جسمك يسخن بالشوية.",
+      "بقات دقيقة فالتسخين. وجّد روحك للمجهود.",
+      "مليح. هبّط الريتم وخلي النفس يهدأ.",
+      "بقات دقيقة وحدة. خليك في نفس الريتم.",
+      "وصلت للنص. تحكّم فالريتم وما تزيدش بزاف.",
+      "آخر تكرار. عطيلو واش عندك.",
+      "وصلت لنص المسافة. راك داير مليح.",
+      "آخر كيلومتر. كمّل بقوة.",
+      "اشرب شوية ما إذا تقدر."
     ],
-    repDone: "أنهيت التكرار في"
+    repDone: "كمّلت التكرار فـ"
   }
 };
 

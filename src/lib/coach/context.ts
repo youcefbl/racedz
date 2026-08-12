@@ -6,6 +6,7 @@ import type { ActivePlanContext } from "@/lib/coach/plan-context";
 import type { CoachMetrics, ConsistencyAssessment, IntensityDistribution, MetricRun } from "@/lib/coach/metrics";
 import { computeSplits } from "@/lib/coach/run-stats";
 import type { PersonalRecords } from "@/lib/coach/records";
+import { resolveCoachResponseLocale } from "@/lib/coach/response-locale";
 import type { CoachInteractionInput, CoachWorkout } from "@/lib/coach/schemas";
 import type { CoachSafetyDecision } from "@/lib/coach/safety";
 import type { ForecastConditions, RunWeather } from "@/lib/coach/weather";
@@ -210,7 +211,12 @@ export function buildRunnerCoachContext(input: {
     request: {
       type: input.interaction.type,
       runnerQuestion: input.interaction.message ?? null,
-      responseLocale: input.goal.preferredLocale
+      // A live Arabic question gets an Algerian-Arabic answer even when the saved Coach language
+      // is French or English. Other messages continue to follow the saved preference.
+      responseLocale: resolveCoachResponseLocale(
+        input.goal.preferredLocale,
+        input.interaction.type === "CHAT" ? input.interaction.message : null,
+      )
     }
   };
 

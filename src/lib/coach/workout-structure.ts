@@ -283,15 +283,15 @@ export function buildGuidedSession(template: GuidedSessionTemplate, params: Reco
 const ROLE_LABELS: Record<StepRole, Record<CoachLocale, string>> = {
   WARMUP: { en: "Warm-up", fr: "Échauffement", ar: "إحماء" },
   WORK: { en: "Work", fr: "Effort", ar: "مجهود" },
-  RECOVERY: { en: "Recovery", fr: "Récupération", ar: "استشفاء" },
-  STEADY: { en: "Steady", fr: "Rythme régulier", ar: "وتيرة ثابتة" },
-  COOLDOWN: { en: "Cool-down", fr: "Retour au calme", ar: "تهدئة" }
+  RECOVERY: { en: "Recovery", fr: "Récupération", ar: "استرجاع" },
+  STEADY: { en: "Steady", fr: "Rythme régulier", ar: "ريتم ثابت" },
+  COOLDOWN: { en: "Cool-down", fr: "Retour au calme", ar: "تهدئة الريتم" }
 };
 
 const INTENSITY_LABELS: Record<StepIntensity, Record<CoachLocale, string>> = {
   EASY: { en: "Easy", fr: "Facile", ar: "سهل" },
-  MODERATE: { en: "Moderate", fr: "Modéré", ar: "معتدل" },
-  HARD: { en: "Hard", fr: "Intense", ar: "شديد" }
+  MODERATE: { en: "Moderate", fr: "Modéré", ar: "متوسط" },
+  HARD: { en: "Hard", fr: "Intense", ar: "قوي" }
 };
 
 export function roleLabel(role: StepRole, locale: CoachLocale): string {
@@ -312,7 +312,7 @@ export function describeTarget(target: StepTarget, locale: CoachLocale): string 
     const s = target.seconds % 60;
     return `${m}:${String(s).padStart(2, "0")}`;
   }
-  return locale === "ar" ? "حر" : locale === "fr" ? "Libre" : "Open";
+  return locale === "ar" ? "بلا حد" : locale === "fr" ? "Libre" : "Open";
 }
 
 // Compact one-line summary, e.g. "Warm-up 10:00 · 6 × (400 m / 1:30) · Cool-down 10:00".

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Central Algerian Darija (Algiers), using Arabic script. -->
 <resources>
     <string name="app_name">ZidRun</string>
 
@@ -7,11 +8,11 @@
 
     <string name="nav_races">السباقات</string>
     <string name="nav_runs">الجري</string>
-    <string name="nav_coach">المدرب</string>
+    <string name="nav_coach">الكوتش</string>
     <string name="nav_account">الحساب</string>
 
-    <string name="placeholder_coming_soon">قريباً</string>
-    <string name="placeholder_runs_body">الجري الموجّه وتسجيل GPS جايين مع مرحلة الجري.</string>
-    <string name="placeholder_coach_body">المدرب الذكي تاعك جاي مع مرحلة الكوتش.</string>
+    <string name="placeholder_coming_soon">قريب</string>
+    <string name="placeholder_runs_body">تسجيل الجَريات بالـGPS والتوجيه الصوتي راهم جايين قريب.</string>
+    <string name="placeholder_coach_body">الكوتش الذكي تاعك راهو جاي قريب.</string>
 
 </resources>

@@ -6,7 +6,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { CoachError } from "@/lib/coach/errors";
 import { coachResponseSchema, type CoachResponse } from "@/lib/coach/schemas";
 
-export const COACH_PROMPT_VERSION = "coach-v13-2026-08-12";
+export const COACH_PROMPT_VERSION = "coach-v14-2026-08-12";
 const DEFAULT_MODEL = "gpt-5.4-mini";
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
@@ -208,7 +208,7 @@ function normalizeErrorCode(code: string | null | undefined) {
 
 type CoachInteractionType = "INITIAL_PLAN" | "POST_RUN" | "WEEKLY_REVIEW" | "CHAT";
 
-// Rules shared by every interaction type (prompt v12). Type-specific rules live in the per-type
+// Rules shared by every interaction type (prompt v14). Type-specific rules live in the per-type
 // suffixes below — one static instructions string per type, so each variant is a stable, cacheable
 // prefix and no reply pays attention/token cost for another type's rules (combined review U-21).
 const CORE_RULES = [
@@ -218,7 +218,7 @@ const CORE_RULES = [
   "Return only the requested structured response in the runner's requested language.",
   // Arabic register (combined review U-12): darija is this product's documented Arabic voice
   // (docs/coach-design/COACH_DESIGN_FLOW.md), and the AI must speak it too.
-  "When responseLocale is 'ar': write warm, simple Algerian Arabic (darija-leaning, Arabic script) — this product's Arabic voice is Algerian darija, not formal MSA. Use Algerian (Algiers) forms, never Moroccan or Tunisian ones: تاع not ديال, راح not غادي, ضرك not دابا/توّا, وين not فين, مليح not مزيان, حبيت/تحب not بغيت/تبغي, على خاطر not حيت, bare imperfective (نجري، تجري) not the Moroccan كنـ/كتـ prefixes. When the runner writes in darija or in Latin-script arabizi, mirror their register (keep replying in Arabic script unless they clearly prefer Latin script). French running vocabulary (tempo, fractionné, sortie longue) is natural in Algerian usage; keep it.",
+  "MANDATORY ARABIC VOICE — when responseLocale is 'ar', every runner-facing field must be in warm central-Algerian (Algiers) Darija. The live runnerQuestion is the style sample: mirror the runner's level of casualness, sentence length, pronouns, and familiar vocabulary when those choices are natural in Algiers. If the question is formal Arabic, stay clear and respectful but still answer in Algerian Darija, not MSA. If it contains Moroccan or Tunisian forms, understand them but NEVER repeat or imitate them; translate them into Algiers forms. Use تاع not ديال, راح not غادي, ضرك not دابا/توّا, وين not فين, مليح not مزيان/باهي, حبيت/تحب not بغيت/تبغي, على خاطر not حيت, بزاف not برشا, نقدر not نجّم, and bare imperfective (نجري، تجري) not Moroccan كنـ/كتـ prefixes. Reply in Arabic script even when the runner writes Arabizi, unless they explicitly ask for Latin script. French running words such as tempo, fractionné, and sortie longue are natural in Algerian speech and may be kept. This Arabic-only rule must not change French or English replies.",
   "Personalise everything to THIS runner using the provided goal, physical profile (age, sex, weight, BMI, resting HR, injuries, chronic conditions), computed metrics, and the recentConversation. Refer to their actual numbers and goal; do not give generic advice.",
   "Use recentConversation to stay coherent: build on what the runner already asked and what you already advised instead of repeating it.",
   "Use runner.location and environment (current weather + today's forecast) to make advice locally relevant: when it is hot, humid, or rainy, suggest running at cooler times of day (early morning or evening), adjusting pace/effort expectations, hydration, and — only if conditions are genuinely unsafe — an easier or indoor alternative. Do not invent weather; only reference environment when it is present, and treat approxLocation:true as 'near your area'.",

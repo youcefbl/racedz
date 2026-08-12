@@ -119,7 +119,32 @@ function baseInput(over: Partial<Input> = {}): Input {
     const { context } = assembleCoachContext(baseInput({ goal: baseGoal({ preferredLocale: locale }) }), NOW);
     assert.equal(context.request.responseLocale, locale);
   }
-  console.log("PASS — responseLocale follows the goal locale (en/fr/ar)");
+  for (const message of [
+    "واش ندير في حصة اليوم؟", // Algerian Arabic
+    "كيف أتعامل مع التعب بعد التدريب؟", // formal Arabic
+    "دابا شنو ندير فهاد الحصة؟", // Moroccan Arabic: understand, answer in Algerian
+    "rani 3ayan bezaf, wach ndir?", // Arabizi
+  ]) {
+    const { context } = assembleCoachContext(
+      baseInput({ goal: baseGoal({ preferredLocale: "fr" }), interaction: { type: "CHAT", message } }),
+      NOW,
+    );
+    assert.equal(context.request.responseLocale, "ar", `Arabic question must force ar: ${message}`);
+  }
+
+  const french = assembleCoachContext(
+    baseInput({ goal: baseGoal({ preferredLocale: "fr" }), interaction: { type: "CHAT", message: "Comment va ma semaine ?" } }),
+    NOW,
+  );
+  assert.equal(french.context.request.responseLocale, "fr");
+
+  const nonChat = assembleCoachContext(
+    baseInput({ goal: baseGoal({ preferredLocale: "en" }), interaction: { type: "POST_RUN", runId: "r1", message: "حلل الجَرية" } }),
+    NOW,
+  );
+  assert.equal(nonChat.context.request.responseLocale, "en", "only live chat questions override the saved locale");
+
+  console.log("PASS — Arabic chat overrides the saved locale; other interactions keep it");
 }
 
 // ---- 5. Untrusted runner content is carried as DATA (not stripped) ----
