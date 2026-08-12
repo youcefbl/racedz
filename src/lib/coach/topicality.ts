@@ -49,7 +49,10 @@ export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachRes
   const copy = {
     en: "I'm your ZidRun running coach, so I can only help with running, training, recovery, and race preparation. Ask me about your runs, your plan, or how to train for your goal.",
     fr: "Je suis votre coach de course ZidRun : je ne peux aider que pour la course, l'entraînement, la récupération et la préparation aux courses. Posez-moi une question sur vos sorties, votre plan ou votre objectif.",
-    ar: "أنا مدرب الجري الخاص بك في ZidRun، لذا يمكنني المساعدة فقط في الجري والتدريب والاستشفاء والتحضير للسباقات. اسألني عن حصصك أو خطتك أو هدفك."
+    // Darija, not MSA. This copy predates the app rendering the server's blocked text (COACH-F2),
+    // so it was effectively invisible; now it is what an Arabic-speaking runner actually reads, and
+    // a formal-MSA refusal in the middle of a darija conversation reads as a different product.
+    ar: "أنا المدرب تاعك في ZidRun، نقدر نعاونك غير في الجري والتدريب والاستشفاء وتحضير السباقات. سقسيني على الحصص تاعك، ولا على البرنامج، ولا على الهدف."
   }[locale];
 
   return {
