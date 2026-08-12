@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DATA_GAP_KEYS, PROVENANCE_KEYS } from "@/lib/coach/provenance";
 
 export const coachLocaleSchema = z.enum(["en", "fr", "ar"]);
 
@@ -221,7 +222,10 @@ export const coachWorkoutSchema = z.object({
 });
 
 export const coachResponseSchema = z.object({
+  responseMode: z.enum(["ANSWER", "CLARIFY"]),
   summary: z.string().min(1).max(1200),
+  nextAction: z.string().min(1).max(300).nullable(),
+  quickReplies: z.array(z.string().min(1).max(120)).max(4),
   progressAssessment: z.string().min(1).max(1200),
   positiveSignals: z.array(z.string().min(1).max(300)).max(6),
   warningSignals: z.array(z.string().min(1).max(300)).max(6),
@@ -233,8 +237,10 @@ export const coachResponseSchema = z.object({
   // and a nullable single follow-up keep the response strict-mode compatible.
   // Which context signals the coach actually leaned on (e.g. "adherence", "recent pace", "sleep").
   usedSignals: z.array(z.string().min(1).max(80)).max(8),
+  usedSignalKeys: z.array(z.enum(PROVENANCE_KEYS)).max(8),
   // Important information that was missing, so the coach flags uncertainty instead of inventing facts.
   dataGaps: z.array(z.string().min(1).max(200)).max(6),
+  missingSignalKeys: z.array(z.enum(DATA_GAP_KEYS)).max(6),
   // At most one clarifying question when personalization is limited by missing data; null otherwise.
   followUpQuestion: z.string().min(1).max(300).nullable(),
   // Durable facts the runner stated in THIS conversation that are worth remembering (Phase 3). The

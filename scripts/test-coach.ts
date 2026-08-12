@@ -56,7 +56,10 @@ assert.equal(caution.level, "CAUTION");
 
 const safeResponse = enforceCoachSafety(
   {
+    responseMode: "ANSWER",
     summary: "Summary",
+    nextAction: null,
+    quickReplies: [],
     progressAssessment: "Progress",
     positiveSignals: [],
     warningSignals: [],
@@ -70,7 +73,9 @@ const safeResponse = enforceCoachSafety(
     recoveryAdvice: [],
     requiresProfessionalAdvice: false,
     usedSignals: [],
+    usedSignalKeys: [],
     dataGaps: [],
+    missingSignalKeys: [],
     followUpQuestion: null,
     memoryCandidates: []
   },

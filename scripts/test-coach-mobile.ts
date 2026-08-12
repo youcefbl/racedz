@@ -572,14 +572,19 @@ async function runReplyShapeCase() {
       status: "COMPLETED",
       userMessage: "How should I approach my next run?",
       response: {
+        responseMode: "ANSWER",
         summary: "Keep it easy.",
+        nextAction: "Keep tomorrow easy.",
+        quickReplies: ["How easy?"],
         progressAssessment: "You are building consistently.",
         positiveSignals: ["Three weeks in a row"],
         warningSignals: ["Do not turn the long run into a speed session", "High humidity today"],
         recoveryAdvice: ["Hydrate before you leave"],
         requiresProfessionalAdvice: true,
         usedSignals: ["goal", "recentRuns"],
+        usedSignalKeys: ["RECENT_RUNS"],
         dataGaps: ["No sleep logged"],
+        missingSignalKeys: ["NO_SLEEP_LOGGED"],
         followUpQuestion: "How did your knee feel afterwards?",
         nextWorkout: null,
         upcomingWorkouts: [],
@@ -597,9 +602,14 @@ async function runReplyShapeCase() {
   check("warningSignals reach the client", (message?.response?.warningSignals ?? []).length === 2, message?.response?.warningSignals);
   check("requiresProfessionalAdvice reaches the client", message?.response?.requiresProfessionalAdvice === true, message?.response);
   check("progressAssessment reaches the client", typeof message?.response?.progressAssessment === "string", message?.response?.progressAssessment);
+  check("responseMode reaches the client", message?.response?.responseMode === "ANSWER", message?.response?.responseMode);
+  check("nextAction reaches the client", message?.response?.nextAction === "Keep tomorrow easy.", message?.response?.nextAction);
+  check("quick replies reach the client", message?.response?.quickReplies?.[0] === "How easy?", message?.response?.quickReplies);
   check("dataGaps reach the client", (message?.response?.dataGaps ?? []).length === 1, message?.response?.dataGaps);
   check("recoveryAdvice reaches the client", (message?.response?.recoveryAdvice ?? []).length === 1, message?.response?.recoveryAdvice);
   check("followUpQuestion reaches the client", typeof message?.response?.followUpQuestion === "string", message?.response?.followUpQuestion);
+  check("closed provenance keys reach the client", message?.response?.usedSignalKeys?.includes("RECENT_RUNS"), message?.response?.usedSignalKeys);
+  check("closed missing-context keys reach the client", message?.response?.missingSignalKeys?.includes("NO_SLEEP_LOGGED"), message?.response?.missingSignalKeys);
   check("the safety verdict travels as its own field", message?.safety?.level === "CAUTION", message?.safety);
 
   // The context contract's exclusions, checked at the edge the client actually sees.

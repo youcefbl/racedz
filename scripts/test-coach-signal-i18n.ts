@@ -34,7 +34,10 @@ const clearDecision = () =>
 
 function reply(usedSignals: string[], dataGaps: string[]): CoachResponse {
   return {
+    responseMode: "ANSWER",
     summary: "s",
+    nextAction: null,
+    quickReplies: [],
     progressAssessment: null,
     positiveSignals: [],
     warningSignals: [],
@@ -43,7 +46,9 @@ function reply(usedSignals: string[], dataGaps: string[]): CoachResponse {
     recoveryAdvice: [],
     requiresProfessionalAdvice: false,
     usedSignals,
+    usedSignalKeys: [],
     dataGaps,
+    missingSignalKeys: [],
     followUpQuestion: null,
     memoryCandidates: []
   } as unknown as CoachResponse;

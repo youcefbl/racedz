@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/v1/http";
 import type { CoachError } from "@/lib/coach/errors";
+import { dataGapKeys, provenanceKeys } from "@/lib/coach/provenance";
 
 /**
  * Shared shaping for the coach payloads the mobile facade returns.
@@ -12,15 +13,20 @@ import type { CoachError } from "@/lib/coach/errors";
  */
 
 type CoachReplyShape = {
+  responseMode?: "ANSWER" | "CLARIFY";
   summary?: string;
   message?: string;
+  nextAction?: string | null;
+  quickReplies?: string[];
   progressAssessment?: string;
   positiveSignals?: string[];
   warningSignals?: string[];
   recoveryAdvice?: string[];
   requiresProfessionalAdvice?: boolean;
   usedSignals?: string[];
+  usedSignalKeys?: string[];
   dataGaps?: string[];
+  missingSignalKeys?: string[];
   followUpQuestion?: string | null;
 };
 
@@ -51,14 +57,19 @@ export function coachReplyDto(raw: unknown) {
   if (!summary) return null;
   const reply = (typeof raw === "object" && raw !== null ? raw : {}) as CoachReplyShape;
   return {
+    responseMode: reply.responseMode === "CLARIFY" ? "CLARIFY" : "ANSWER",
     summary,
+    nextAction: typeof reply.nextAction === "string" && reply.nextAction.length > 0 ? reply.nextAction : null,
+    quickReplies: asStrings(reply.quickReplies).slice(0, 4),
     progressAssessment: reply.progressAssessment ?? null,
     positiveSignals: asStrings(reply.positiveSignals),
     warningSignals: asStrings(reply.warningSignals),
     recoveryAdvice: asStrings(reply.recoveryAdvice),
     requiresProfessionalAdvice: reply.requiresProfessionalAdvice === true,
     usedSignals: asStrings(reply.usedSignals),
+    usedSignalKeys: provenanceKeys([...asStrings(reply.usedSignalKeys), ...asStrings(reply.usedSignals)]),
     dataGaps: asStrings(reply.dataGaps),
+    missingSignalKeys: dataGapKeys([...asStrings(reply.missingSignalKeys), ...asStrings(reply.dataGaps)]),
     followUpQuestion: typeof reply.followUpQuestion === "string" ? reply.followUpQuestion : null,
   };
 }

@@ -55,23 +55,23 @@ const PROVENANCE_COPY: Record<ProvenanceKey, Copy> = {
   GOAL: { en: "your goal", fr: "votre objectif", ar: "الهدف تاعك" },
   ACTIVE_PLAN: { en: "your current plan", fr: "votre plan actuel", ar: "البرنامج تاعك" },
   RECENT_RUNS: { en: "your recent runs", fr: "vos sorties récentes", ar: "الجريات الأخيرة تاعك" },
-  PLAN_ADHERENCE: { en: "how closely you followed the plan", fr: "votre suivi du plan", ar: "قدّاش تبعتي البرنامج" },
+  PLAN_ADHERENCE: { en: "how closely you followed the plan", fr: "votre suivi du plan", ar: "شحال تبعت البرنامج" },
   CONSISTENCY: { en: "your consistency", fr: "votre régularité", ar: "المواظبة تاعك" },
   SLEEP: { en: "your sleep", fr: "votre sommeil", ar: "النوم تاعك" },
-  WEATHER: { en: "the weather", fr: "la météo", ar: "الطقس" },
-  ANALYSED_RUN: { en: "the run you asked about", fr: "la sortie analysée", ar: "الجرية اللي سقسيتي عليها" },
+  WEATHER: { en: "the weather", fr: "la météo", ar: "المِيتيو" },
+  ANALYSED_RUN: { en: "the run you asked about", fr: "la sortie analysée", ar: "الجَرية اللي سقسيت عليها" },
   RUNNER_QUESTION: { en: "your question", fr: "votre question", ar: "السؤال تاعك" },
   HEALTH_CONTEXT: { en: "the health details you shared", fr: "les informations de santé que vous avez partagées", ar: "المعلومات الصحية اللي عطيتيها" },
-  SAFETY_DECISION: { en: "a safety check", fr: "une vérification de sécurité", ar: "تحقّق تاع السلامة" },
-  COACH_MEMORY: { en: "what your coach remembers", fr: "ce que votre coach retient", ar: "واش فاكرو المدرب" }
+  SAFETY_DECISION: { en: "a safety check", fr: "une vérification de sécurité", ar: "مراجعة السلامة" },
+  COACH_MEMORY: { en: "what your coach remembers", fr: "ce que votre coach retient", ar: "واش فاكرو الكوتش" }
 };
 
 const DATA_GAP_COPY: Record<DataGapKey, Copy> = {
   NO_RECENT_RUNS: { en: "no recent runs", fr: "aucune sortie récente", ar: "ما كاش جريات أخيرة" },
-  NO_RECENT_PACE: { en: "no recent pace", fr: "aucune allure récente", ar: "ما كاش وتيرة أخيرة" },
+  NO_RECENT_PACE: { en: "no recent pace", fr: "aucune allure récente", ar: "ما كاش ريتم جديد" },
   NO_SLEEP_LOGGED: { en: "no sleep logged", fr: "aucun sommeil enregistré", ar: "ما كاش نوم مسجّل" },
   NO_TARGET_RACE: { en: "no target race", fr: "aucune course cible", ar: "ما كاش سباق مستهدف" },
-  NO_WEATHER_DATA: { en: "no weather data", fr: "aucune donnée météo", ar: "ما كاش معطيات الطقس" },
+  NO_WEATHER_DATA: { en: "no weather data", fr: "aucune donnée météo", ar: "ما كاش معلومات على المِيتيو" },
   NO_HEALTH_DETAILS: { en: "no health details", fr: "aucune information de santé", ar: "ما كاش معلومات صحية" },
   NO_SYMPTOM_DETAILS: { en: "no symptom details", fr: "aucun détail sur les symptômes", ar: "ما كاش تفاصيل على الأعراض" },
   NO_INJURY_DETAILS: { en: "no injury details", fr: "aucun détail sur la blessure", ar: "ما كاش تفاصيل على الإصابة" }
@@ -150,6 +150,16 @@ export function resolveDataGapKey(raw: string): DataGapKey | null {
   return alias && (DATA_GAP_KEYS as readonly string[]).includes(alias) ? (alias as DataGapKey) : null;
 }
 
+/** Closed, deduplicated provenance keys for API/client transport. Unknown model values vanish. */
+export function provenanceKeys(values: readonly string[]): ProvenanceKey[] {
+  return [...new Set(values.map(resolveProvenanceKey).filter((key): key is ProvenanceKey => key !== null))];
+}
+
+/** Closed, deduplicated missing-context keys for API/client transport. */
+export function dataGapKeys(values: readonly string[]): DataGapKey[] {
+  return [...new Set(values.map(resolveDataGapKey).filter((key): key is DataGapKey => key !== null))];
+}
+
 /**
  * Model output → localized copy, unknown values dropped and duplicates collapsed.
  *
@@ -158,11 +168,9 @@ export function resolveDataGapKey(raw: string): DataGapKey | null {
  * your recent runs" would look like a bug to the runner.
  */
 export function localizeProvenance(values: readonly string[], locale: "en" | "fr" | "ar"): string[] {
-  const keys = values.map(resolveProvenanceKey).filter((key): key is ProvenanceKey => key !== null);
-  return [...new Set(keys)].map((key) => PROVENANCE_COPY[key][locale]);
+  return provenanceKeys(values).map((key) => PROVENANCE_COPY[key][locale]);
 }
 
 export function localizeDataGaps(values: readonly string[], locale: "en" | "fr" | "ar"): string[] {
-  const keys = values.map(resolveDataGapKey).filter((key): key is DataGapKey => key !== null);
-  return [...new Set(keys)].map((key) => DATA_GAP_COPY[key][locale]);
+  return dataGapKeys(values).map((key) => DATA_GAP_COPY[key][locale]);
 }

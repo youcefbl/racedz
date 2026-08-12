@@ -52,11 +52,14 @@ export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachRes
     // Darija, not MSA. This copy predates the app rendering the server's blocked text (COACH-F2),
     // so it was effectively invisible; now it is what an Arabic-speaking runner actually reads, and
     // a formal-MSA refusal in the middle of a darija conversation reads as a different product.
-    ar: "أنا المدرب تاعك في ZidRun، نقدر نعاونك غير في الجري والتدريب والاستشفاء وتحضير السباقات. سقسيني على الحصص تاعك، ولا على البرنامج، ولا على الهدف."
+    ar: "أنا الكوتش تاعك في ZidRun، نقدر نعاونك غير في الجري والتدريب والاسترجاع وتحضير السباقات. سقسيني على الحصص تاعك، ولا على البرنامج، ولا على الهدف."
   }[locale];
 
   return {
+    responseMode: "ANSWER",
     summary: copy,
+    nextAction: null,
+    quickReplies: [],
     progressAssessment: copy,
     positiveSignals: [],
     warningSignals: [],
@@ -65,7 +68,9 @@ export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachRes
     recoveryAdvice: [],
     requiresProfessionalAdvice: false,
     usedSignals: [],
+    usedSignalKeys: [],
     dataGaps: [],
+    missingSignalKeys: [],
     followUpQuestion: null,
     memoryCandidates: []
   };

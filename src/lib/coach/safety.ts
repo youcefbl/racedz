@@ -173,7 +173,10 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
   }[locale];
 
   return {
+    responseMode: "ANSWER",
     summary: copy,
+    nextAction: null,
+    quickReplies: [],
     progressAssessment: copy,
     positiveSignals: [],
     warningSignals: localizeReasons(decision.reasons, locale),
@@ -182,7 +185,9 @@ export function buildBlockedCoachResponse(decision: CoachSafetyDecision, locale:
     recoveryAdvice: [copy],
     requiresProfessionalAdvice: true,
     usedSignals: [],
+    usedSignalKeys: [],
     dataGaps: [],
+    missingSignalKeys: [],
     followUpQuestion: null,
     memoryCandidates: []
   };
