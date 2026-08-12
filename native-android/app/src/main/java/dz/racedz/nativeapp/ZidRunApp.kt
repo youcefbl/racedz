@@ -551,7 +551,9 @@ fun ZidRunApp(
                     // Keyed by run so arriving from a different run's "Analyze" gets its own model
                     // rather than reusing the previous run's focus.
                     key = "coach-chat-${runId ?: "general"}",
-                    factory = SimpleViewModelFactory { ConversationViewModel(container.coachRepository, runId) },
+                    factory = SavedStateViewModelFactory(entry) { handle ->
+                        ConversationViewModel(container.coachRepository, runId, handle)
+                    },
                 )
                 ConversationScreen(
                     viewModel = chatViewModel,

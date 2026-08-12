@@ -2,6 +2,7 @@ package dz.racedz.nativeapp.feature.coach
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.SavedStateHandle
 import dz.racedz.nativeapp.core.auth.CoachRepository
 import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
@@ -79,9 +80,17 @@ class ConversationViewModel(
     private val repository: CoachRepository,
     /** The run this conversation is about, when it was opened from "Analyze run". */
     val runId: String? = null,
+    /** Retains local drafts and uncertain-request identity if Android recreates the process. */
+    private val savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ConversationUiState())
+    private val _state = MutableStateFlow(
+        ConversationUiState(
+            draft = savedState?.get<String>(KEY_DRAFT).orEmpty(),
+            expandedReplyIds = savedState?.get<ArrayList<String>>(KEY_EXPANDED_REPLIES)?.toSet().orEmpty(),
+            pendingQuestion = savedState?.get<String>(KEY_PENDING_QUESTION),
+        )
+    )
     val state: StateFlow<ConversationUiState> = _state.asStateFlow()
 
     init {
@@ -123,11 +132,11 @@ class ConversationViewModel(
     // deliberately synchronous and can stay open ~120s, so "timeout, then Retry" is the main
     // mobile failure mode — with a retained key the retry replays the stored interaction instead
     // of buying a second provider call and quota charge. A different payload gets a fresh key.
-    private var retainedRequestPayload: String? = null
-    private var retainedRequestId: String? = null
+    private var retainedRequestPayload: String? = savedState?.get(KEY_REQUEST_PAYLOAD)
+    private var retainedRequestId: String? = savedState?.get(KEY_REQUEST_ID)
 
     /** True when the failed turn awaiting Retry is a run analysis rather than a typed question. */
-    private var pendingRunAnalysis = false
+    private var pendingRunAnalysis = savedState?.get<Boolean>(KEY_PENDING_RUN_ANALYSIS) == true
 
     private fun requestIdFor(payload: String): String {
         val existing = retainedRequestId
@@ -135,16 +144,22 @@ class ConversationViewModel(
         val fresh = UUID.randomUUID().toString()
         retainedRequestPayload = payload
         retainedRequestId = fresh
+        savedState?.set(KEY_REQUEST_PAYLOAD, payload)
+        savedState?.set(KEY_REQUEST_ID, fresh)
         return fresh
     }
 
     private fun clearRetainedRequest() {
         retainedRequestPayload = null
         retainedRequestId = null
+        savedState?.remove<String>(KEY_REQUEST_PAYLOAD)
+        savedState?.remove<String>(KEY_REQUEST_ID)
     }
 
     fun updateDraft(value: String) {
-        _state.update { it.copy(draft = value.take(1200)) }
+        val bounded = value.take(1200)
+        savedState?.set(KEY_DRAFT, bounded)
+        _state.update { it.copy(draft = bounded) }
         dismissSendError()
     }
 
@@ -157,6 +172,7 @@ class ConversationViewModel(
     fun toggleDetails(messageId: String) = _state.update { state ->
         val ids = state.expandedReplyIds.toMutableSet()
         if (!ids.add(messageId)) ids.remove(messageId)
+        savedState?.set(KEY_EXPANDED_REPLIES, ArrayList(ids))
         state.copy(expandedReplyIds = ids)
     }
 
@@ -183,6 +199,8 @@ class ConversationViewModel(
         if (trimmed.isEmpty() || _state.value.generating) return
 
         val requestId = requestIdFor("CHAT|" + trimmed)
+        savedState?.set(KEY_PENDING_QUESTION, trimmed)
+        savedState?.set(KEY_DRAFT, "")
         _state.update { it.copy(generating = true, pendingQuestion = trimmed, sendError = null, draft = "") }
         viewModelScope.launch {
             when (val result = repository.ask(AskCoachRequest(type = "CHAT", message = trimmed, requestId = requestId))) {
@@ -193,6 +211,7 @@ class ConversationViewModel(
                     // failed, Retry replays the stored reply server-side instead of paying again.
                     if (reload()) {
                         clearRetainedRequest()
+                        savedState?.remove<String>(KEY_PENDING_QUESTION)
                         _state.update { it.copy(generating = false, pendingQuestion = null) }
                     } else {
                         _state.update { it.copy(generating = false, sendError = null) }
@@ -223,6 +242,7 @@ class ConversationViewModel(
         val run = runId ?: return
         if (_state.value.generating) return
         pendingRunAnalysis = true
+        savedState?.set(KEY_PENDING_RUN_ANALYSIS, true)
         val requestId = requestIdFor("POST_RUN|" + run)
         _state.update { it.copy(generating = true, pendingQuestion = null, sendError = null) }
         viewModelScope.launch {
@@ -231,6 +251,7 @@ class ConversationViewModel(
                     if (reload()) {
                         clearRetainedRequest()
                         pendingRunAnalysis = false
+                        savedState?.remove<Boolean>(KEY_PENDING_RUN_ANALYSIS)
                     }
                     _state.update { it.copy(generating = false) }
                 }
@@ -247,14 +268,27 @@ class ConversationViewModel(
 
     /** Clears a failed attempt once the runner has acknowledged it by typing again. */
     fun dismissSendError() {
-        if (_state.value.sendError != null) {
+        val state = _state.value
+        if (state.sendError != null || (!state.generating && state.pendingQuestion != null) || pendingRunAnalysis) {
             pendingRunAnalysis = false
+            savedState?.remove<Boolean>(KEY_PENDING_RUN_ANALYSIS)
+            clearRetainedRequest()
+            savedState?.remove<String>(KEY_PENDING_QUESTION)
             _state.update { it.copy(sendError = null, pendingQuestion = null, consentRequired = false) }
         }
     }
 
     /** True when Retry can actually do something — a consent gate is not cleared by retrying. */
     fun canRetry(): Boolean = !_state.value.consentRequired && (_state.value.pendingQuestion != null || pendingRunAnalysis)
+
+    private companion object {
+        const val KEY_DRAFT = "coach_chat_draft"
+        const val KEY_EXPANDED_REPLIES = "coach_chat_expanded_replies"
+        const val KEY_PENDING_QUESTION = "coach_chat_pending_question"
+        const val KEY_REQUEST_PAYLOAD = "coach_chat_request_payload"
+        const val KEY_REQUEST_ID = "coach_chat_request_id"
+        const val KEY_PENDING_RUN_ANALYSIS = "coach_chat_pending_run_analysis"
+    }
 
 
     // ---- voice note (COACHPAR-001) -------------------------------------------------------------
