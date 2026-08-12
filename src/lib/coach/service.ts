@@ -46,6 +46,7 @@ import {
   type EnforcedCoachResponse
 } from "@/lib/coach/safety";
 import { CoachError } from "@/lib/coach/errors";
+import { getCoachSafetyAlert } from "@/lib/coach/safety-hold";
 import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { getActiveCoachHealthConsent, recordCoachHealthConsent, type CoachConsentClient } from "@/lib/coach/consent";
 import { getMemoryForContext, writeMemories } from "@/lib/coach/memory-store";
@@ -1439,6 +1440,37 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
     }
     return { id: interactionId, status: "BLOCKED" as const, response, safety: decision, plan: null };
+  }
+
+  // Keep Coach reachable while an urgent exercise hold is active, but do not let a later question
+  // route around the no-exercise instruction by reaching the provider. The original interaction
+  // remains the single source of truth for the persistent hold; this row records the attempted
+  // follow-up without creating another hold that the runner would need to clear.
+  const activeExerciseHold = await getCoachSafetyAlert(userId);
+  if (activeExerciseHold) {
+    const decision = urgentSymptomDecision();
+    const response = buildBlockedCoachResponse(decision, goal.preferredLocale);
+    const persistedSafety: CoachSafetyDecision = {
+      level: decision.level,
+      reasons: decision.reasons,
+      requiresProfessionalAdvice: decision.requiresProfessionalAdvice,
+    };
+    const claimedHeldInteraction = await prisma.$executeRaw`
+      INSERT INTO "CoachInteraction" (
+        "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+      ) VALUES (
+        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
+        CAST(${JSON.stringify(persistedSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
+      )
+      ON CONFLICT ("id") DO UPDATE SET
+        "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
+      WHERE "CoachInteraction"."status" = 'FAILED'
+    `;
+    if (claimedHeldInteraction === 0) {
+      throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
+    }
+    return { id: interactionId, status: "BLOCKED" as const, response, safety: persistedSafety, plan: null };
   }
 
   // Consent at the provider boundary (B83-R01): coaching sends health context (body data, injury

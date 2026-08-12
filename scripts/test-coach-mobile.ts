@@ -708,6 +708,27 @@ async function runGovernanceCases() {
     safetyAlert.body?.data?.alert?.sourceInteractionId === urgentRow?.id && !JSON.stringify(safetyAlert.body).includes("chest pain"),
     safetyAlert.body,
   );
+  const heldInteraction = await api("/coach/interactions", {
+    method: "POST",
+    token: runner.token,
+    body: { type: "CHAT", message: "what pace should my tempo run be?", requestId: randomUUID() },
+  });
+  check(
+    "an active exercise hold keeps Coach reachable but blocks later training advice",
+    heldInteraction.status === 201 && heldInteraction.body?.data?.status === "BLOCKED",
+    heldInteraction.body,
+  );
+  const usageWhileHeld = await prisma.aiUsageLog.count({ where: { userId: runner.id } });
+  check("an active exercise hold reaches no provider and consumes no quota", usageWhileHeld === urgentUsage, {
+    before: urgentUsage,
+    after: usageWhileHeld,
+  });
+  const safetyAlertAfterFollowUp = await api("/coach/safety", { token: runner.token });
+  check(
+    "a held follow-up does not replace the original safety alert",
+    safetyAlertAfterFollowUp.body?.data?.alert?.sourceInteractionId === urgentRow?.id,
+    safetyAlertAfterFollowUp.body,
+  );
   const invalidClearance = await api("/coach/safety", {
     method: "PATCH",
     token: runner.token,
