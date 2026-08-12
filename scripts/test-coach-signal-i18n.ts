@@ -66,6 +66,12 @@ check(
   ar.usedSignals.every((s) => !/[a-z]/i.test(s)),
   ar.usedSignals.join(" · ")
 );
+const arHealth = run(["health context", "plan adherence", "analysed run"], [], "ar");
+check(
+  "Arabic provenance does not assume the runner's gender",
+  !arHealth.usedSignals.some((signal) => /عطيتي|تبعتي|سقسيتي/.test(signal)),
+  arHealth.usedSignals.join(" · ")
+);
 check(
   "Arabic gaps are Arabic",
   ar.dataGaps.every((g) => !/[a-z]/i.test(g)),

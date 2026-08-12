@@ -61,7 +61,7 @@ const PROVENANCE_COPY: Record<ProvenanceKey, Copy> = {
   WEATHER: { en: "the weather", fr: "la météo", ar: "المِيتيو" },
   ANALYSED_RUN: { en: "the run you asked about", fr: "la sortie analysée", ar: "الجَرية اللي سقسيت عليها" },
   RUNNER_QUESTION: { en: "your question", fr: "votre question", ar: "السؤال تاعك" },
-  HEALTH_CONTEXT: { en: "the health details you shared", fr: "les informations de santé que vous avez partagées", ar: "المعلومات الصحية اللي عطيتيها" },
+  HEALTH_CONTEXT: { en: "the health details you shared", fr: "les informations de santé que vous avez partagées", ar: "المعلومات الصحية اللي شاركتها" },
   SAFETY_DECISION: { en: "a safety check", fr: "une vérification de sécurité", ar: "مراجعة السلامة" },
   COACH_MEMORY: { en: "what your coach remembers", fr: "ce que votre coach retient", ar: "واش فاكرو الكوتش" }
 };
