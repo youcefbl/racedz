@@ -626,6 +626,8 @@
     <string name="coach_chat_empty_body">Entraînement, allure, récupération — votre coach connaît votre plan et votre historique.</string>
     <string name="coach_chat_blocked">Votre coach ne peut pas répondre à cela. Si cela concerne votre santé, consultez un médecin.</string>
     <string name="coach_chat_off_topic">Votre coach ne traite que la course, l\'entraînement, la récupération et la préparation aux courses. Posez une question sur vos sorties, votre plan ou votre objectif.</string>
+    <string name="coach_notice_urgent_a11y">Avis de sécurité urgent</string>
+    <string name="coach_notice_warning_a11y">Avis de sécurité</string>
     <string name="coach_chat_failed">La réponse n’est pas arrivée. Réessayez.</string>
     <string name="coach_chat_safety">Cette réponse contient une note de sécurité — lisez-la avec le conseil.</string>
     <string name="coach_chat_professional">Faites examiner cela par un médecin ou un kinésithérapeute. Votre coach donne des conseils d\'entraînement, pas un diagnostic.</string>
