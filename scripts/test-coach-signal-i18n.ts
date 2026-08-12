@@ -6,15 +6,20 @@
  * account — one reply with Arabic gaps and another with English ones. Both fields are
  * model-authored, so asking the model to translate them is what produced the inconsistency.
  *
- * The contract is now: the model emits a closed English vocabulary, the server maps it. This
- * asserts the mapping, and asserts the fallback, because a model that invents a value must degrade
- * to English rather than to a blank line.
+ * The contract is a CLOSED vocabulary (brief §8.5): the model emits keys, the server maps them, and
+ * anything not in the vocabulary is discarded rather than rendered raw.
+ *
+ * The first version of this file asserted the opposite — that unknown values pass through unchanged
+ * — which made the test require the very behaviour the finding was about: a value the prompt never
+ * listed still reaching an Arabic runner in English. A prompt instruction is not a contract; the
+ * provider can return anything, so the boundary has to drop what it does not recognise.
  *
  *   npm run test:coach-signal-i18n
  */
 import { enforceCoachSafety } from "../src/lib/coach/safety";
 import type { CoachResponse } from "../src/lib/coach/schemas";
 import type { CoachSafetyDecision } from "../src/lib/coach/safety";
+import { DATA_GAP_KEYS, PROVENANCE_KEYS } from "../src/lib/coach/provenance";
 
 let passed = 0;
 let failed = 0;
@@ -63,25 +68,57 @@ check(
 );
 
 const fr = run(FOOTER, ["no recent runs"], "fr");
-check("the French footer is French", fr.usedSignals.includes("objectif"), fr.usedSignals.join(" · "));
+check("the French footer is French", fr.usedSignals.includes("votre objectif"), fr.usedSignals.join(" · "));
 check("French gaps are French", fr.dataGaps.includes("aucune sortie récente"), fr.dataGaps.join(" · "));
 
-// ---- English is untouched -------------------------------------------------------------------------
+// ---- English is copy too, not the raw keys -----------------------------------------------------
 const en = run(FOOTER, ["no recent runs"], "en");
-check("English passes through unchanged", en.usedSignals.join("|") === FOOTER.join("|"), en.usedSignals.join(" · "));
-
-// ---- Unknown values degrade to English, never to nothing --------------------------------------------
-// The whole point of a fallback: a model that invents a signal must not blank the footer.
-const odd = run(["goal", "phase of the moon"], ["no telemetry uplink"], "ar");
 check(
-  "an unknown signal survives as-is alongside a translated one",
-  odd.usedSignals.length === 2 && odd.usedSignals.includes("phase of the moon") && odd.usedSignals.includes("الهدف"),
-  odd.usedSignals.join(" · ")
+  "English renders readable copy, not the keys",
+  en.usedSignals.includes("your goal") && !en.usedSignals.includes("GOAL"),
+  en.usedSignals.join(" · ")
+);
+
+// ---- Unknown values are DISCARDED, never rendered raw ------------------------------------------
+// The whole point of closing the vocabulary. Dropping a chip costs a line of provenance; rendering
+// an unmapped English string in an Arabic reply costs the sentence.
+const odd = run(["GOAL", "phase of the moon"], ["no telemetry uplink"], "ar");
+check(
+  "an unknown signal is dropped, the known one kept",
+  odd.usedSignals.length === 1 && !/[a-z]/i.test(odd.usedSignals[0]),
+  odd.usedSignals.join(" · ") || "(empty)"
 );
 check(
-  "an unknown gap survives as-is",
-  odd.dataGaps.length === 1 && odd.dataGaps[0] === "no telemetry uplink",
-  odd.dataGaps.join(" · ")
+  "an unknown gap is dropped entirely",
+  odd.dataGaps.length === 0,
+  odd.dataGaps.join(" · ") || "(empty)"
+);
+check(
+  "English output cannot contain an unmapped value either",
+  run(["GOAL", "phase of the moon"], [], "en").usedSignals.length === 1,
+  run(["GOAL", "phase of the moon"], [], "en").usedSignals.join(" · ")
+);
+
+// ---- Aliases from before the vocabulary closed still resolve --------------------------------------
+// Observed in run 20260812-01; a model that saw the old prompt keeps emitting them.
+const legacy = run(["runner question", "active plan", "chronic condition"], ["no heart-condition details"], "ar");
+check(
+  "legacy phrasings still resolve to keys",
+  legacy.usedSignals.length === 3 && legacy.usedSignals.every((s) => !/[a-z]/i.test(s)),
+  legacy.usedSignals.join(" · ")
+);
+check(
+  "a health gap is generalized, never naming the condition",
+  legacy.dataGaps.length === 1 && !/heart|قلب/i.test(legacy.dataGaps[0]),
+  legacy.dataGaps.join(" · ")
+);
+
+// ---- Duplicates collapse ---------------------------------------------------------------------------
+// "recent runs" and "recent pace" both resolve to RECENT_RUNS; repeating the copy looks like a bug.
+check(
+  "values collapsing to one key render once",
+  run(["recent runs", "recent pace"], [], "ar").usedSignals.length === 1,
+  run(["recent runs", "recent pace"], [], "ar").usedSignals.join(" · ")
 );
 
 // ---- Case and spacing from the model must not break the lookup --------------------------------------
@@ -94,29 +131,28 @@ check(
 
 // ---- Every vocabulary value the prompt allows must actually be mapped --------------------------------
 // A key in the prompt with no entry here would reach an Arabic runner in English — the original bug.
-const PROMPT_SIGNALS = [
-  "goal", "active plan", "recent runs", "recent pace", "adherence", "consistency",
-  "sleep", "weather", "analysed run", "chronic condition", "runner question",
-  "safety decision", "coach memory"
-];
-const PROMPT_GAPS = [
-  "no recent runs", "no recent pace", "no sleep logged", "no target race",
-  "no weather data", "no heart-condition details", "no symptom details", "no injury details"
-];
-for (const locale of ["fr", "ar"] as const) {
-  const all = run(PROMPT_SIGNALS, PROMPT_GAPS, locale);
-  const untranslatedSignals = all.usedSignals.filter((s, i) => s === PROMPT_SIGNALS[i]);
-  const untranslatedGaps = all.dataGaps.filter((g, i) => g === PROMPT_GAPS[i]);
+// A key in the vocabulary with no copy would render as nothing at all, which is the failure mode
+// the discard rule creates. Every key must survive in every locale.
+for (const locale of ["en", "fr", "ar"] as const) {
+  const signals = run([...PROVENANCE_KEYS], [], locale).usedSignals;
   check(
-    `every prompt-allowed signal is mapped in ${locale}`,
-    untranslatedSignals.length === 0,
-    untranslatedSignals.length ? `missing: ${untranslatedSignals.join(", ")}` : "all mapped"
+    `every provenance key renders in ${locale}`,
+    signals.length === PROVENANCE_KEYS.length && signals.every((s) => s.trim().length > 0),
+    `${signals.length}/${PROVENANCE_KEYS.length}`
   );
+  const gaps = run([], [...DATA_GAP_KEYS], locale).dataGaps;
   check(
-    `every prompt-allowed gap is mapped in ${locale}`,
-    untranslatedGaps.length === 0,
-    untranslatedGaps.length ? `missing: ${untranslatedGaps.join(", ")}` : "all mapped"
+    `every data-gap key renders in ${locale}`,
+    gaps.length === DATA_GAP_KEYS.length && gaps.every((g) => g.trim().length > 0),
+    `${gaps.length}/${DATA_GAP_KEYS.length}`
   );
+  if (locale !== "en") {
+    check(
+      `no key leaks Latin text in ${locale}`,
+      locale === "fr" || signals.every((s) => !/[a-z]/i.test(s)),
+      signals.filter((s) => /[a-z]/i.test(s)).join(" · ") || "none"
+    );
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
