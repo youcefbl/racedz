@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
@@ -437,7 +438,9 @@ private fun RunnerBubble(text: String) {
                 .background(colors.primary)
                 .padding(ZidRunDimens.spaceMd),
         ) {
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.onPrimary)
+            // The runner writes in whatever language they like — darija, arabizi, French — which
+            // need not match the app's layout direction.
+            Text(ZidRunFormat.isolate(text), style = MaterialTheme.typography.bodyMedium, color = colors.onPrimary)
         }
     }
 }
@@ -484,11 +487,10 @@ private fun MessageTurn(
                 val urgent = message.safety?.level == "BLOCKED"
                 val serverText = message.response?.summary?.takeIf { it.isNotBlank() }
                 Notice(
-                    serverText?.let { ZidRunFormat.isolate(it) }
-                        ?: stringResource(
-                            if (urgent) R.string.coach_chat_blocked else R.string.coach_chat_off_topic
-                        ),
-                    warning = urgent,
+                    serverText ?: stringResource(
+                        if (urgent) R.string.coach_chat_blocked else R.string.coach_chat_off_topic
+                    ),
+                    level = if (urgent) NoticeLevel.URGENT else NoticeLevel.INFO,
                 )
             }
 
@@ -523,7 +525,7 @@ private fun MessageTurn(
         // reply. Only when it says something: every reply carries a verdict, and the vast majority
         // are CLEAR, so announcing those would train the runner to ignore the one that isn't.
         if (message.status == "COMPLETED" && message.safety?.isNotable == true) {
-            Notice(stringResource(R.string.coach_chat_safety), warning = true)
+            Notice(stringResource(R.string.coach_chat_safety), level = NoticeLevel.WARNING)
         }
     }
 }
@@ -549,14 +551,14 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         if (reply.requiresProfessionalAdvice) {
-            Notice(stringResource(R.string.coach_chat_professional), warning = true)
+            Notice(stringResource(R.string.coach_chat_professional), level = NoticeLevel.WARNING)
         }
 
         if (reply.summary.isNotBlank()) {
             Text(ZidRunFormat.isolate(reply.summary), style = MaterialTheme.typography.bodyMedium, color = colors.text)
         }
         reply.progressAssessment?.takeIf { it.isNotBlank() }?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)
+            Text(ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)
         }
 
         reply.positiveSignals.forEach { SignalRow(it, Icons.Filled.CheckCircle, colors.success) }
@@ -600,7 +602,9 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
                 color = colors.textMuted,
             )
             Text(
-                reply.usedSignals.joinToString(" · "),
+                // Isolated per item, not once around the join: an unmapped English signal sitting
+                // between two Arabic ones would otherwise drag the separators out of order.
+                reply.usedSignals.joinToString(" · ") { ZidRunFormat.isolate(it) },
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textMuted,
             )
@@ -608,7 +612,7 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
 
         reply.followUpQuestion?.takeIf { it.isNotBlank() }?.let {
             ZidRunDivider()
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.primary)
+            Text(ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodyMedium, color = colors.primary)
             // Answering means typing: the affordance focuses the composer, never pre-fills or
             // auto-sends anything on the runner's behalf.
             ZidRunTextButton(
@@ -627,29 +631,80 @@ private fun SignalRow(text: String, icon: androidx.compose.ui.graphics.vector.Im
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp).padding(top = 2.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = ZidRunTheme.colors.text)
+        // Isolated: this row carries model-authored text in the runner's coach language, which is
+        // not necessarily the app's language.
+        Text(ZidRunFormat.isolate(text), style = MaterialTheme.typography.bodySmall, color = ZidRunTheme.colors.text)
     }
 }
 
+/**
+ * How loudly a notice speaks.
+ *
+ * Three levels rather than a boolean because two were not enough to order the states correctly.
+ * Field test 20260812-01 found the prominence inverted: CAUTION ("read this alongside the advice")
+ * rendered as a full-width orange banner, while a BLOCKED reply triggered by reported chest pain
+ * and near-fainting rendered as a muted informational chip. The more serious state was the quieter
+ * one.
+ *
+ * INFO is for a refusal that carries no health meaning (an off-topic question). WARNING is the
+ * safety note attached to an answer the runner still gets. URGENT is for the case where training
+ * advice has been withheld and the runner is being sent to a professional — the only state that
+ * uses the danger palette, so it cannot be confused with the everyday caution.
+ */
+private enum class NoticeLevel { INFO, WARNING, URGENT }
+
 @Composable
-private fun Notice(text: String, warning: Boolean = false) {
+private fun Notice(text: String, level: NoticeLevel = NoticeLevel.INFO) {
     val colors = ZidRunTheme.colors
-    val tint = if (warning) colors.accent else colors.info
+    val tint = when (level) {
+        NoticeLevel.INFO -> colors.info
+        NoticeLevel.WARNING -> colors.accent
+        NoticeLevel.URGENT -> colors.danger
+    }
+    val container = when (level) {
+        NoticeLevel.INFO -> colors.infoSoft
+        NoticeLevel.WARNING -> colors.accentSoft
+        NoticeLevel.URGENT -> colors.dangerSoft
+    }
+    // Never colour alone: the icon changes with the level too, so the ordering survives for a
+    // runner who cannot separate orange from red.
+    val icon = when (level) {
+        NoticeLevel.INFO -> Icons.Filled.Info
+        NoticeLevel.WARNING -> Icons.Filled.Warning
+        NoticeLevel.URGENT -> Icons.Filled.Error
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-            .background(if (warning) colors.accentSoft else colors.infoSoft)
+            .background(container)
+            .then(
+                // The urgent state gets a border as well, so it still reads as the loudest notice
+                // on a screen where several may stack.
+                if (level == NoticeLevel.URGENT) {
+                    Modifier.border(1.dp, colors.danger, RoundedCornerShape(ZidRunDimens.cornerLg))
+                } else {
+                    Modifier
+                }
+            )
             .padding(ZidRunDimens.spaceMd),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
     ) {
         Icon(
-            if (warning) Icons.Filled.Warning else Icons.Filled.Info,
+            icon,
             contentDescription = null,
             tint = tint,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(if (level == NoticeLevel.URGENT) 22.dp else 18.dp),
         )
-        Text(text, style = MaterialTheme.typography.bodySmall, color = tint)
+        Text(
+            ZidRunFormat.isolate(text),
+            style = if (level == NoticeLevel.URGENT) {
+                MaterialTheme.typography.bodyMedium
+            } else {
+                MaterialTheme.typography.bodySmall
+            },
+            color = tint,
+        )
     }
 }
