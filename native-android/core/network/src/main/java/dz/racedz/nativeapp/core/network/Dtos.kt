@@ -546,7 +546,8 @@ data class CoachReplyDto(
      * signal chips are left out — they are provenance for the eye, and reading a list of field
      * names aloud helps nobody.
      */
-    fun spokenText(): String = buildList {
+    fun spokenText(safetyAnnouncement: String? = null): String = buildList {
+        safetyAnnouncement?.takeIf { it.isNotBlank() }?.let { add(it) }
         add(summary)
         nextAction?.takeIf { it.isNotBlank() }?.let { add(it) }
         progressAssessment?.takeIf { it.isNotBlank() }?.let { add(it) }
@@ -555,7 +556,11 @@ data class CoachReplyDto(
         addAll(recoveryAdvice)
         addAll(dataGaps)
         followUpQuestion?.takeIf { it.isNotBlank() }?.let { add(it) }
-    }.filter { it.isNotBlank() }.joinToString(". ")
+    }.map { it.trim() }
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { sentence ->
+            if (sentence.lastOrNull() in setOf('.', '!', '?', '؟', '…')) sentence else "$sentence."
+        }
 }
 
 /** The deterministic safety verdict, evaluated server-side before and around the reply. */

@@ -621,7 +621,7 @@
     <string name="coach_reply_stop_speaking">Arrêter la lecture</string>
     <string name="coach_reply_speech_unsupported">Aucune voix installée pour cette langue sur votre téléphone.</string>
     <string name="coach_reply_speech_unavailable">La lecture à voix haute n\'est pas disponible sur ce téléphone.</string>
-    <string name="coach_chat_thinking">Votre coach réfléchit…</string>
+    <string name="coach_chat_thinking">Vérification de votre plan et de vos sorties récentes…</string>
     <string name="coach_chat_empty_title">Posez n’importe quelle question</string>
     <string name="coach_chat_empty_body">Entraînement, allure, récupération — votre coach connaît votre plan et votre historique.</string>
     <string name="coach_chat_blocked">Votre coach ne peut pas répondre à cela. Si cela concerne votre santé, consultez un médecin.</string>

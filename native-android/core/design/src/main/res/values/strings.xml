@@ -640,7 +640,7 @@
     <string name="coach_reply_stop_speaking">Stop reading</string>
     <string name="coach_reply_speech_unsupported">No voice is installed for this language on your phone.</string>
     <string name="coach_reply_speech_unavailable">Reading aloud is not available on this phone.</string>
-    <string name="coach_chat_thinking">Your coach is thinking…</string>
+    <string name="coach_chat_thinking">Checking your plan and recent runs…</string>
     <string name="coach_chat_empty_title">Ask your coach anything</string>
     <string name="coach_chat_empty_body">Training, pacing, recovery, or how a run felt — your coach has your plan and your history.</string>
     <string name="coach_chat_blocked">Your coach cannot answer that one. If this is about your health, please speak to a doctor.</string>

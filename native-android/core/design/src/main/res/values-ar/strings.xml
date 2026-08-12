@@ -639,7 +639,7 @@
     <string name="coach_reply_stop_speaking">وقّف القراية</string>
     <string name="coach_reply_speech_unsupported">ما كاينش صوت مركّب لهاذ اللغة في تليفونك.</string>
     <string name="coach_reply_speech_unavailable">القراية بصوت عالي ماشي متاحة في هاذ التليفون.</string>
-    <string name="coach_chat_thinking">المدرب راهو يخمّم…</string>
+    <string name="coach_chat_thinking">نراجع برنامجك والخرجات الأخيرة تاعك…</string>
     <string name="coach_chat_empty_title">اسأل المدرب واش ما تحب</string>
     <string name="coach_chat_empty_body">التدريب، الإيقاع، الاسترجاع — المدرب عندو البرنامج والتاريخ تاعك.</string>
     <string name="coach_chat_blocked">المدرب ما يقدرش يجاوب على هذي. إذا كانت على صحتك، شوف طبيب.</string>

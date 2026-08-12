@@ -247,7 +247,13 @@ fun ConversationScreen(
                                 if (speakingId == message.id) {
                                     speaker.stop()
                                 } else {
-                                    val text = message.response?.spokenText()
+                                    val response = message.response
+                                    val safetyAnnouncement = if (response?.requiresProfessionalAdvice == true) {
+                                        context.getString(R.string.coach_chat_professional)
+                                    } else {
+                                        null
+                                    }
+                                    val text = response?.spokenText(safetyAnnouncement)
                                     if (text.isNullOrBlank()) {
                                         speechNotice = R.string.coach_reply_speech_unavailable
                                     } else {
@@ -419,6 +425,7 @@ private fun PendingTurn(question: String?, generating: Boolean, failed: Boolean,
         question?.takeIf { it.isNotBlank() }?.let { RunnerBubble(it) }
         if (generating) {
             Row(
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
             ) {
