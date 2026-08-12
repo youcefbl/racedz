@@ -30,6 +30,15 @@ export type SecurityEventType =
   | "mobile_refresh_reuse_detected"
   | "mobile_pkce_verifier_mismatch"
   | "mobile_logout_all"
+  // Organization membership. These change who can manage a tenant's races, its entrant lists and
+  // its money, and they were the one sensitive-change class with no trail at all (SEC-004): not an
+  // AdminAuditLog row, because that table is for platform-admin actions and is pruned at 31 days,
+  // and these are an organizer's own actions inside their organization.
+  | "org_member_role_changed"
+  | "org_member_removed"
+  | "org_member_invited"
+  | "org_invitation_revoked"
+  | "org_invitation_accepted"
   | "data_export_generated"
   | "account_deletion_requested";
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
+import { logSecurityEvent } from "@/lib/security-log";
 import { notifyRaceResultPublished } from "@/lib/notifications";
 import { buildPaginationMeta, parsePagination, type PaginatedResult, type PaginationParams } from "@/lib/pagination";
 import { createUniqueRaceSlug } from "@/lib/race-slugs";
@@ -708,12 +709,23 @@ export async function inviteOrganizationUser({
     }
   }
 
-  return upsertOrganizationInvitation({
+  const invitation = await upsertOrganizationInvitation({
     organizationId,
     email: parsed.data.email,
     role: parsed.data.role,
     invitedById
   });
+
+  // The email is masked by the redactor before it is written; "which invitation" stays answerable
+  // without the log becoming a list of addresses.
+  logSecurityEvent("org_member_invited", {
+    organizationId,
+    invitedById,
+    email: parsed.data.email,
+    role: parsed.data.role
+  });
+
+  return invitation;
 }
 
 export async function revokeOrganizationInvitation({
@@ -739,6 +751,8 @@ export async function revokeOrganizationInvitation({
     WHERE "id" = ${invitationId}
       AND "organizationId" = ${organizationId}
   `;
+
+  logSecurityEvent("org_invitation_revoked", { organizationId, invitationId });
 }
 
 export async function resendOrganizationInvitation({
@@ -900,6 +914,12 @@ export async function acceptOrganizationInvitation({ token, userId }: { token: s
         "acceptedAt" = NOW()
       WHERE "id" = ${invitation.id}
     `;
+
+    logSecurityEvent("org_invitation_accepted", {
+      organizationId: invitation.organizationId,
+      invitationId: invitation.id,
+      userId
+    });
 
     return invitation;
   });
@@ -1379,7 +1399,7 @@ export async function updateOrganizationMemberRole({
       await assertOrganizationKeepsOwner(tx, organizationId);
     }
 
-    return tx.organizationMember.update({
+    const updated = await tx.organizationMember.update({
       where: {
         id: target.id
       },
@@ -1387,6 +1407,16 @@ export async function updateOrganizationMemberRole({
         role
       }
     });
+
+    logSecurityEvent("org_member_role_changed", {
+      organizationId,
+      actorMemberId,
+      targetMemberId: target.id,
+      previousRole: target.role,
+      newRole: role
+    });
+
+    return updated;
   });
 }
 
@@ -1427,6 +1457,13 @@ export async function removeOrganizationMember({
     if (target.role === "OWNER") {
       await assertOrganizationKeepsOwner(tx, organizationId);
     }
+
+    logSecurityEvent("org_member_removed", {
+      organizationId,
+      actorMemberId,
+      targetMemberId: target.id,
+      removedRole: target.role
+    });
 
     return tx.organizationMember.delete({
       where: {
