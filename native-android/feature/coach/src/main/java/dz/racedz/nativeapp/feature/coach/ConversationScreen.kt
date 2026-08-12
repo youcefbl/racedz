@@ -464,10 +464,33 @@ private fun MessageTurn(
         message.userMessage?.takeIf { it.isNotBlank() }?.let { RunnerBubble(it) }
 
         when (message.status) {
-            // BLOCKED is a deliberate refusal by the safety layer, not a fault. Saying "something
-            // went wrong" would invite the runner to rephrase and try again, which is the opposite
-            // of what a block is for.
-            "BLOCKED" -> Notice(stringResource(R.string.coach_chat_blocked))
+            // BLOCKED is a deliberate refusal, not a fault. Saying "something went wrong" would
+            // invite the runner to rephrase and try again, which is the opposite of what a block
+            // is for.
+            //
+            // But a block has TWO causes and they must not read the same. The safety layer sets
+            // safety.level = BLOCKED for a reported symptom; the topicality pre-filter blocks an
+            // off-topic question with safety.level still CLEAR. This used to key off `status`
+            // alone and render one fixed string for both, which field test 20260812-01 caught
+            // doing real damage in both directions: a question that merely missed the topic filter
+            // told the runner to see a doctor, and "I felt chest pain and almost fainted" lost the
+            // server's specific "needs professional assessment" wording to the same generic line.
+            //
+            // So: the server's own text is shown when it sent one — it is already written in the
+            // runner's coach language and is more specific than anything canned here — and the
+            // string resources are the fallback for an empty body. The urgent case is the only one
+            // styled as a warning, so the louder treatment tracks the more serious state.
+            "BLOCKED" -> {
+                val urgent = message.safety?.level == "BLOCKED"
+                val serverText = message.response?.summary?.takeIf { it.isNotBlank() }
+                Notice(
+                    serverText?.let { ZidRunFormat.isolate(it) }
+                        ?: stringResource(
+                            if (urgent) R.string.coach_chat_blocked else R.string.coach_chat_off_topic
+                        ),
+                    warning = urgent,
+                )
+            }
 
             "FAILED" -> Notice(stringResource(R.string.coach_chat_failed))
 

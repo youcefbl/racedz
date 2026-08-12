@@ -644,6 +644,7 @@
     <string name="coach_chat_empty_title">Ask your coach anything</string>
     <string name="coach_chat_empty_body">Training, pacing, recovery, or how a run felt — your coach has your plan and your history.</string>
     <string name="coach_chat_blocked">Your coach cannot answer that one. If this is about your health, please speak to a doctor.</string>
+    <string name="coach_chat_off_topic">Your coach only covers running, training, recovery, and race preparation. Ask about your runs, your plan, or your goal.</string>
     <string name="coach_chat_failed">That answer did not come through. Try asking again.</string>
     <string name="coach_chat_safety">This answer includes a safety note — read it alongside the advice.</string>
     <string name="coach_chat_professional">Please have this looked at by a doctor or physiotherapist. Your coach gives training guidance, not a diagnosis.</string>

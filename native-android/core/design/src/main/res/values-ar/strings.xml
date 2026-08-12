@@ -643,6 +643,7 @@
     <string name="coach_chat_empty_title">اسأل المدرب واش ما تحب</string>
     <string name="coach_chat_empty_body">التدريب، الإيقاع، الاسترجاع — المدرب عندو البرنامج والتاريخ تاعك.</string>
     <string name="coach_chat_blocked">المدرب ما يقدرش يجاوب على هذي. إذا كانت على صحتك، شوف طبيب.</string>
+    <string name="coach_chat_off_topic">المدرب تاعك يهدر غير على الجري والتدريب والاستشفاء وتحضير السباقات. سقسي على الجريات تاعك، ولا على البرنامج، ولا على الهدف.</string>
     <string name="coach_chat_failed">الجواب ما وصلش. عاود اسأل.</string>
     <string name="coach_chat_safety">هذا الجواب فيه ملاحظة أمان — اقراها مع النصيحة.</string>
     <string name="coach_chat_professional">لازم تشوف طبيب ولا مختص في العلاج الطبيعي. الكوتش يعطيك توجيه في التدريب، ماشي تشخيص طبي.</string>
