@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { getPrisma } from "@/lib/db";
 import { createNativeAuthToken, upsertGoogleUserFromPayload } from "@/lib/native-auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { readBoundedJson } from "@/lib/http/body";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
   let idToken: string | null = null;
   try {
-    const body = (await request.json()) as { idToken?: unknown };
+    const body = (await readBoundedJson(request, 8 * 1024)) as { idToken?: unknown };
     idToken = typeof body?.idToken === "string" ? body.idToken : null;
   } catch {
     /* invalid JSON — handled below */

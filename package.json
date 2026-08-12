@@ -22,6 +22,7 @@
     "test:mfa": "tsx scripts/test-mfa.ts",
     "test:social-authz": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-social-authz.ts",
     "test:route-authz": "tsx scripts/test-route-authz-matrix.ts",
+    "test:body-limits": "tsx scripts/test-body-limits.ts",
     "test:sentry-scrub": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-sentry-scrub.ts",
     "test:authz-roles": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-authz-roles.ts",
     "test:authz-objects": "tsx scripts/test-authz-objects.ts",

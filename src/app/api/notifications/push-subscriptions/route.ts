@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { revokePushSubscription, upsertPushSubscription } from "@/lib/notifications";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { readBoundedJson } from "@/lib/http/body";
 
 const pushSubscriptionSchema = z.object({
   token: z.string().min(20),
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   const limited = enforceRateLimit(rateLimitKey("notifications-api", session.user.id), 60, 5 * 60_000);
   if (limited) return limited;
 
-  const parsed = pushSubscriptionSchema.safeParse(await request.json().catch(() => null));
+  const parsed = pushSubscriptionSchema.safeParse(await readBoundedJson(request).catch(() => null));
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid push subscription." }, { status: 400 });
@@ -44,7 +45,7 @@ export async function DELETE(request: Request) {
   const limited = enforceRateLimit(rateLimitKey("notifications-api", session.user.id), 60, 5 * 60_000);
   if (limited) return limited;
 
-  const parsed = pushSubscriptionSchema.pick({ token: true }).safeParse(await request.json().catch(() => null));
+  const parsed = pushSubscriptionSchema.pick({ token: true }).safeParse(await readBoundedJson(request).catch(() => null));
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid push subscription." }, { status: 400 });

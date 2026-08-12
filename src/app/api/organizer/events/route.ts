@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrganizerRace, OrganizerError, getOrganizerRaces, requireApprovedOrganizer } from "@/lib/organizer";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { LARGE_MAX_BODY_BYTES, readBoundedJson } from "@/lib/http/body";
 
 export async function GET() {
   const { session, organization } = await requireApprovedOrganizer();
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const race = await createOrganizerRace({
       organizationId: organization.id,
-      input: await request.json()
+      input: await readBoundedJson(request, LARGE_MAX_BODY_BYTES)
     });
 
     return NextResponse.json({ data: race }, { status: 201 });

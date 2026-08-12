@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { toggleKudos } from "@/lib/social";
+import { readBoundedJson } from "@/lib/http/body";
 
 // Toggle kudos on a run. Body: { runId }. Returns { kudoed, count }.
 export async function POST(request: Request) {
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   const limited = enforceRateLimit(rateLimitKey("social-kudos", session.user.id), 120, 60_000);
   if (limited) return limited;
 
-  const body = (await request.json().catch(() => null)) as { runId?: unknown } | null;
+  const body = (await readBoundedJson(request).catch(() => null)) as { runId?: unknown } | null;
   const runId = typeof body?.runId === "string" ? body.runId : "";
   if (!runId) return NextResponse.json({ error: "A runId is required." }, { status: 400 });
 

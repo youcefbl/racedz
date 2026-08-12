@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { auth } from "@/auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { createReport, ReportError, reportInputSchema } from "@/lib/reports";
+import { BodyTooLargeError, InvalidJsonError, readBoundedJson } from "@/lib/http/body";
 
 // User-facing report submission. Login required; rate-limited per user.
 export async function POST(request: Request) {
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   try {
-    const body = await request.json();
+    const body = await readBoundedJson(request);
     const input = reportInputSchema.parse(body);
     const report = await createReport({ reporterId: session.user.id, input });
     return NextResponse.json({ data: { id: report.id } }, { status: 201 });
@@ -29,7 +30,10 @@ export async function POST(request: Request) {
     if (error instanceof ReportError) {
       return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
-    if (error instanceof SyntaxError) {
+    if (error instanceof BodyTooLargeError) {
+      return NextResponse.json({ error: error.message, code: "PAYLOAD_TOO_LARGE" }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonError) {
       return NextResponse.json({ error: "Invalid request.", code: "INVALID_JSON" }, { status: 400 });
     }
     console.error("Unhandled report API error", error);

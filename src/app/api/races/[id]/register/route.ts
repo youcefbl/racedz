@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { createRaceRegistrationForUser, RegistrationError } from "@/lib/registrations";
+import { readBoundedJson } from "@/lib/http/body";
 
 type RegisterRouteContext = {
   params: Promise<{ id: string }>;
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest, context: RegisterRouteContext) 
     const registration = await createRaceRegistrationForUser({
       userId: session.user.id,
       raceEventId: id,
-      input: await request.json()
+      input: await readBoundedJson(request)
     });
 
     return NextResponse.json({ data: registration }, { status: 201 });

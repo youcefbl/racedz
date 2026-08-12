@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { getAdminSupportThread, normalizeSupportBody, postAdminSupportMessage } from "@/lib/support";
+import { readBoundedJson } from "@/lib/http/body";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = await readBoundedJson(request);
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { clientIp, enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { BEACON_MAX_BODY_BYTES, readBoundedJson } from "@/lib/http/body";
 
 // Public, unauthenticated crash beacon. Called by client error boundaries via
 // navigator.sendBeacon/fetch. Deliberately fail-soft: reporting a crash must never itself
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   let parsed: z.infer<typeof bodySchema>;
   try {
-    parsed = bodySchema.parse(JSON.parse(await request.text()));
+    parsed = bodySchema.parse(await readBoundedJson(request, BEACON_MAX_BODY_BYTES));
   } catch {
     return noContent();
   }

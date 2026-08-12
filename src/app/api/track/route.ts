@@ -18,6 +18,7 @@ import {
   VISITOR_COOKIE,
   VISITOR_COOKIE_MAX_AGE
 } from "@/lib/analytics/constants";
+import { BEACON_MAX_BODY_BYTES, readBoundedJson } from "@/lib/http/body";
 
 // Public, unauthenticated page-view beacon. Called by the client tracker on every
 // route change via navigator.sendBeacon. Deliberately lightweight and fail-soft:
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
   // Parse the beacon payload (sendBeacon may send text/plain, so read raw text).
   let parsed: z.infer<typeof bodySchema>;
   try {
-    parsed = bodySchema.parse(JSON.parse(await request.text()));
+    parsed = bodySchema.parse(await readBoundedJson(request, BEACON_MAX_BODY_BYTES));
   } catch {
     return noContent();
   }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { toggleFollow } from "@/lib/social";
+import { readBoundedJson } from "@/lib/http/body";
 
 // Toggle following a runner. Body: { userId }. Idempotent — returns the resulting follow state.
 export async function POST(request: Request) {
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   const limited = enforceRateLimit(rateLimitKey("social-follow", session.user.id), 60, 60_000);
   if (limited) return limited;
 
-  const body = (await request.json().catch(() => null)) as { userId?: unknown } | null;
+  const body = (await readBoundedJson(request).catch(() => null)) as { userId?: unknown } | null;
   const targetId = typeof body?.userId === "string" ? body.userId : "";
   if (!targetId) return NextResponse.json({ error: "A userId is required." }, { status: 400 });
 
