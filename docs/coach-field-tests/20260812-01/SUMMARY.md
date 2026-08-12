@@ -19,9 +19,10 @@ Re-run with `npx tsx scripts/coach-field-test.ts <run-id>` (makes real, billed p
 
 ## Verdict
 
-**Not a pass at the time of the run.** F1 and F2 have since been fixed and re-verified server-side
-(`afb85a1`, `3d06748`); the on-device appearance of the two block styles is still unconfirmed. F3–F8
-remain open. Re-run this test to regenerate the transcripts and compare.
+**Not a pass at the time of the run. Every finding except F8 has since been fixed and confirmed on
+the device** (`afb85a1`, `3d06748`, `fa58dfc`, `a1e3ad7`, `00c5d4e`, `6cf7dd9`). See
+`screens/07` and `screens/08` for the after state. F8 (English loanwords in darija prose) is a prompt
+nicety and is left open. Re-run the test to regenerate the transcripts and compare.
 
 **Original verdict.** **Not a pass.** Two P1 defects, both in the refusal path, one of which makes the app tell a runner asking a routine recovery question to see a doctor. Everything the runbook asks about *plan quality, register, invented facts, safety escalation and account isolation* held up well — and the Darija itself is genuinely good.
 
@@ -81,7 +82,7 @@ which also corrects the F3 inversion for this pair. Re-verified server-side that
 diverge (`COMPLETED`/`CLEAR`, `BLOCKED`/`CLEAR`, `BLOCKED`/`BLOCKED`). **Still to confirm on device:**
 how the two block styles actually look.
 
-### F3 · P2 · Safety prominence is inverted
+### F3 · P2 · Safety prominence is inverted — **FIXED** (`a1e3ad7`)
 
 CAUTION renders as a full-width orange banner with a warning glyph. BLOCKED — the *more* urgent
 state, triggered here by chest pain and near-fainting — renders as a small muted blue info chip
@@ -90,7 +91,13 @@ less urgent state is currently the louder one.
 
 Credit where due: neither state relies on colour alone — both carry an icon and text.
 
-### F4 · P2 · `usedSignals` shows raw English in the Arabic UI
+Fixed by giving `Notice` three levels instead of a boolean. URGENT is the only one using the danger
+palette, and adds a border, a larger glyph and body text so it stays the loudest element when
+notices stack. The icon changes with the level too, so the ordering survives without colour vision.
+Confirmed on device (`screens/08`): the chest-pain block is a bordered red notice sitting above the
+orange caution.
+
+### F4 · P2 · `usedSignals` shows raw English in the Arabic UI — **FIXED** (`fa58dfc`)
 
 The "استنادًا إلى" (based on) footer reads
 `runner question · goal · active plan · consistency · missing environment data`, and for P09
@@ -102,7 +109,13 @@ joins them verbatim, so the app has nothing to translate. Fixing it needs either
 vocabulary the client can localise, or the model localising the field the way it already localises
 `dataGaps`.
 
-### F5 · P2 · Bidi — English sentences render with punctuation at the wrong end
+Fixed with the first option, server-side so the website benefits too: the prompt pins both fields to
+a closed English vocabulary and `enforceCoachSafety` maps them, exactly as it already did for safety
+reasons. Unknown values pass through in English rather than vanishing. `npm run test:coach-signal-i18n`
+asserts that every value the prompt allows has an fr and ar translation, so extending the prompt
+without extending the table fails the suite. Confirmed on device (`screens/07`).
+
+### F5 · P2 · Bidi — English sentences render with punctuation at the wrong end — **FIXED** (`a1e3ad7`)
 
 In the RTL layout, English content shows terminal punctuation leading instead of trailing:
 
@@ -113,16 +126,22 @@ The plan card handles this correctly (its strings carry `⁨…⁩` isolates), s
 missing the isolate the rest of the app uses. Visible whenever coach language ≠ app language, which
 is a supported combination — P09 is exactly that (Arabic UI, English coach).
 
-### F6 · P3 · `dataGaps` localisation is inconsistent
+Fixed by routing the remaining model-authored strings through `ZidRunFormat.isolate`. Confirmed on
+device (`screens/08`): the sentence now ends with its full stop.
+
+### F6 · P3 · `dataGaps` localisation is inconsistent — **FIXED** (`fa58dfc`)
 
 Same account, same run: `P10-A-Q3` returned Arabic gaps
 (`ما كايناش معطيات الطقس المحلية…`) while `P10-A-Q1` returned English ones
 (`no recent runs`, `no recent pace`, `no sleep logged`). Model-side inconsistency.
 
-### F7 · P3 · Distance units switch script between surfaces
+### F7 · P3 · Distance units switch script between surfaces — **FIXED** (`00c5d4e`)
 
 Plan cards render `2,0 km` / `4,0 km` (Latin `km`); the account screen and the coach's own prose use
 `كم`. Decimal comma is used consistently and correctly.
+
+Fixed: the unit is a parameter reading `runs_unit_km` rather than a hardcoded literal, with only the
+digits LTR-isolated so an Arabic label is not forced left-to-right. Confirmed on device: `⁦4,0⁩ كم`.
 
 ### F8 · observation · English loanwords in Darija prose
 
