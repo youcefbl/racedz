@@ -19,10 +19,23 @@ Re-run with `npx tsx scripts/coach-field-test.ts <run-id>` (makes real, billed p
 
 ## Verdict
 
-**Not a pass at the time of the run. Every finding except F8 has since been fixed and confirmed on
-the device** (`afb85a1`, `3d06748`, `fa58dfc`, `a1e3ad7`, `00c5d4e`, `6cf7dd9`). See
-`screens/07` and `screens/08` for the after state. F8 (English loanwords in darija prose) is a prompt
-nicety and is left open. Re-run the test to regenerate the transcripts and compare.
+**Not a pass at the time of the run.** Every finding has since been addressed in code and the
+user-visible behaviour re-confirmed on the device (`screens/07`, `screens/08`) — but **the gate does
+not close yet**, and a review of that work found the first round of fixes incomplete in three ways,
+now also fixed:
+
+- F4/F6's vocabulary was not actually closed. It translated known values and passed unknown ones
+  through, so a value the prompt never listed still reached an Arabic runner in English. Now a
+  closed key vocabulary that discards what it does not recognise (`b6394aa`).
+- F3's urgent colour failed WCAG AA in the light theme, and measuring the rest found the warning
+  pair worse still at 2.52:1 (`59c1c89`).
+- F3/F5/F7 had no automated coverage — the safety decision sat in a Composable and the coach module
+  had no test sources at all (`bb8b4bf`).
+
+**Still open:** the deterministic urgent response says advice is paused for "professional
+assessment" but not what to do about it. Real urgent-care wording, including which Algerian
+emergency number to name, is owner-reviewed medical copy and is not invented here. F8 (English
+loanwords in darija prose) is a prompt nicety, also open.
 
 **Original verdict.** **Not a pass.** Two P1 defects, both in the refusal path, one of which makes the app tell a runner asking a routine recovery question to see a doctor. Everything the runbook asks about *plan quality, register, invented facts, safety escalation and account isolation* held up well — and the Darija itself is genuinely good.
 
