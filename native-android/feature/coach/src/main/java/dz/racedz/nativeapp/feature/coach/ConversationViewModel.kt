@@ -41,6 +41,10 @@ data class ConversationUiState(
     val transcribing: Boolean = false,
     /** Why the last voice attempt did not produce text, if it did not. */
     val voiceError: VoiceError? = null,
+    /** Composer text, including local quick-reply and repair drafts. Never sent without Send. */
+    val draft: String = "",
+    /** Reply ids whose secondary details the runner explicitly opened. */
+    val expandedReplyIds: Set<String> = emptySet(),
 ) {
     /** Voice input is a paid feature, so the mic is only offered to subscribers. */
     val canUseVoice: Boolean get() = conversation.entitlement.tier == "SUBSCRIBED"
@@ -117,6 +121,23 @@ class ConversationViewModel(
         retainedRequestId = null
     }
 
+    fun updateDraft(value: String) {
+        _state.update { it.copy(draft = value.take(1200)) }
+        dismissSendError()
+    }
+
+    /** Local-only: selecting a suggested answer never spends quota or creates a request id. */
+    fun selectQuickReply(value: String) = updateDraft(value)
+
+    /** Local-only repair lead. The caller supplies fixed app-localized copy, never model text. */
+    fun startRepair(lead: String) = updateDraft(lead)
+
+    fun toggleDetails(messageId: String) = _state.update { state ->
+        val ids = state.expandedReplyIds.toMutableSet()
+        if (!ids.add(messageId)) ids.remove(messageId)
+        state.copy(expandedReplyIds = ids)
+    }
+
     /**
      * Re-sends the failed attempt with its RETAINED request key (19A-R06): if the server already
      * generated the reply, this replays it for free.
@@ -140,7 +161,7 @@ class ConversationViewModel(
         if (trimmed.isEmpty() || _state.value.generating) return
 
         val requestId = requestIdFor("CHAT|" + trimmed)
-        _state.update { it.copy(generating = true, pendingQuestion = trimmed, sendError = null) }
+        _state.update { it.copy(generating = true, pendingQuestion = trimmed, sendError = null, draft = "") }
         viewModelScope.launch {
             when (val result = repository.ask(AskCoachRequest(type = "CHAT", message = trimmed, requestId = requestId))) {
                 is ApiResult.Success -> {

@@ -521,7 +521,10 @@ data class CoachOverviewDto(
  */
 @Serializable
 data class CoachReplyDto(
+    val responseMode: String = "ANSWER",
     val summary: String = "",
+    val nextAction: String? = null,
+    val quickReplies: List<String> = emptyList(),
     val progressAssessment: String? = null,
     val positiveSignals: List<String> = emptyList(),
     val warningSignals: List<String> = emptyList(),
@@ -531,6 +534,8 @@ data class CoachReplyDto(
     val dataGaps: List<String> = emptyList(),
     /** The context signals the advice actually rests on — the "Based on" chips (B83-R09). */
     val usedSignals: List<String> = emptyList(),
+    val usedSignalKeys: List<String> = emptyList(),
+    val missingSignalKeys: List<String> = emptyList(),
     val followUpQuestion: String? = null,
 ) {
     /**
@@ -543,6 +548,7 @@ data class CoachReplyDto(
      */
     fun spokenText(): String = buildList {
         add(summary)
+        nextAction?.takeIf { it.isNotBlank() }?.let { add(it) }
         progressAssessment?.takeIf { it.isNotBlank() }?.let { add(it) }
         addAll(positiveSignals)
         addAll(warningSignals)

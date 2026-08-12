@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,9 +34,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
@@ -98,7 +100,6 @@ fun ConversationScreen(
     // Focus target for the follow-up "Answer" affordance (B83-R09): answering the coach's
     // question means typing, so the action lands the runner in the composer.
     val composerFocus = remember { FocusRequester() }
-    var draft by remember { mutableStateOf("") }
 
     // Voice note + reply playback (COACHPAR-001). Both are held by the screen rather than the view
     // model because both own Android resources — a microphone and a bound TTS service — that must
@@ -222,6 +223,16 @@ fun ConversationScreen(
                         MessageTurn(
                             message,
                             onAnswerFollowUp = { composerFocus.requestFocus() },
+                            onSelectQuickReply = { reply ->
+                                viewModel.selectQuickReply(reply)
+                                composerFocus.requestFocus()
+                            },
+                            onRepair = {
+                                viewModel.startRepair(context.getString(R.string.coach_chat_repair_lead))
+                                composerFocus.requestFocus()
+                            },
+                            detailsExpanded = message.id in state.expandedReplyIds,
+                            onToggleDetails = { viewModel.toggleDetails(message.id) },
                             speaking = speakingId == message.id,
                             onToggleSpeech = {
                                 if (speakingId == message.id) {
@@ -324,7 +335,8 @@ fun ConversationScreen(
                                         // The text lands in the composer for the runner to READ and
                                         // edit. It is never sent for them: recognition mishears, and
                                         // an unapproved question still spends a daily message.
-                                        draft = if (draft.isBlank()) transcript else "${draft.trim()} $transcript"
+                                        val draft = state.draft
+                                        viewModel.updateDraft(if (draft.isBlank()) transcript else "${draft.trim()} $transcript")
                                         composerFocus.requestFocus()
                                     }
                                     ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -349,11 +361,8 @@ fun ConversationScreen(
                         Spacer(Modifier.width(ZidRunDimens.spaceXs))
                     }
                     ZidRunTextField(
-                        value = draft,
-                        onValueChange = {
-                            draft = it.take(1200)
-                            viewModel.dismissSendError()
-                        },
+                        value = state.draft,
+                        onValueChange = viewModel::updateDraft,
                         label = stringResource(R.string.coach_chat_hint),
                         // Disabled while a reply is generating: a second question would spend
                         // another credit before the first is answered.
@@ -373,10 +382,9 @@ fun ConversationScreen(
                         val sendLabel = stringResource(R.string.coach_chat_send)
                         IconButton(
                             onClick = {
-                                viewModel.send(draft)
-                                draft = ""
+                                viewModel.send(state.draft)
                             },
-                            enabled = draft.isNotBlank(),
+                            enabled = state.draft.isNotBlank(),
                             modifier = Modifier
                                 .size(ZidRunDimens.minTouchTarget)
                                 .semantics { contentDescription = sendLabel },
@@ -384,7 +392,7 @@ fun ConversationScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = null,
-                                tint = if (draft.isNotBlank()) colors.primary else colors.textMuted,
+                                tint = if (state.draft.isNotBlank()) colors.primary else colors.textMuted,
                             )
                         }
                     }
@@ -451,6 +459,10 @@ private fun RunnerBubble(text: String) {
 private fun MessageTurn(
     message: CoachMessageDto,
     onAnswerFollowUp: () -> Unit,
+    onSelectQuickReply: (String) -> Unit,
+    onRepair: () -> Unit,
+    detailsExpanded: Boolean,
+    onToggleDetails: () -> Unit,
     speaking: Boolean = false,
     onToggleSpeech: () -> Unit = {},
 ) {
@@ -471,19 +483,36 @@ private fun MessageTurn(
         when (val presentation = presentCoachMessage(message)) {
             // The decision itself lives in presentCoachMessage() so it can be unit-tested; this
             // branch only turns it into pixels.
-            is CoachMessagePresentation.Notice -> Notice(
-                presentation.serverText ?: stringResource(
-                    when (presentation.fallback) {
-                        NoticeFallback.URGENT_SAFETY -> R.string.coach_chat_blocked
-                        NoticeFallback.OFF_TOPIC -> R.string.coach_chat_off_topic
-                        NoticeFallback.FAILED -> R.string.coach_chat_failed
-                    }
-                ),
-                level = presentation.level,
-            )
+            is CoachMessagePresentation.Notice -> {
+                Notice(
+                    presentation.serverText ?: stringResource(
+                        when (presentation.fallback) {
+                            NoticeFallback.URGENT_SAFETY -> R.string.coach_chat_blocked
+                            NoticeFallback.OFF_TOPIC -> R.string.coach_chat_off_topic
+                            NoticeFallback.FAILED -> R.string.coach_chat_failed
+                        }
+                    ),
+                    level = presentation.level,
+                )
+                if (presentation.repairAvailable) {
+                    ZidRunTextButton(
+                        text = stringResource(R.string.coach_chat_not_meant),
+                        onClick = onRepair,
+                        fillWidth = false,
+                    )
+                }
+            }
 
-            CoachMessagePresentation.Reply -> message.response?.let { reply ->
-                CoachReplyCard(reply, onAnswerFollowUp)
+            is CoachMessagePresentation.Reply -> message.response?.let { reply ->
+                CoachReplyCard(
+                    reply = reply,
+                    presentation = presentation,
+                    detailsExpanded = detailsExpanded,
+                    onToggleDetails = onToggleDetails,
+                    onAnswerFollowUp = onAnswerFollowUp,
+                    onSelectQuickReply = onSelectQuickReply,
+                    onRepair = onRepair,
+                )
                 // Read aloud by the DEVICE's own voice, not the server's cue endpoint — that one is
                 // allow-listed to guided-run phrases on purpose, and a reply is arbitrary text.
                 val speakLabel = stringResource(
@@ -524,8 +553,17 @@ private fun MessageTurn(
  * Warnings and the banner are the reason this is a structured card rather than a paragraph — they
  * used to be dropped entirely on the way to the phone.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
+private fun CoachReplyCard(
+    reply: CoachReplyDto,
+    presentation: CoachMessagePresentation.Reply,
+    detailsExpanded: Boolean,
+    onToggleDetails: () -> Unit,
+    onAnswerFollowUp: () -> Unit,
+    onSelectQuickReply: (String) -> Unit,
+    onRepair: () -> Unit,
+) {
     val colors = ZidRunTheme.colors
     Column(
         modifier = Modifier
@@ -540,74 +578,118 @@ private fun CoachReplyCard(reply: CoachReplyDto, onAnswerFollowUp: () -> Unit) {
             Notice(stringResource(R.string.coach_chat_professional), level = NoticeLevel.WARNING)
         }
 
-        if (reply.summary.isNotBlank()) {
-            Text(ZidRunFormat.isolate(reply.summary), style = MaterialTheme.typography.bodyMedium, color = colors.text)
-        }
-        reply.progressAssessment?.takeIf { it.isNotBlank() }?.let {
-            Text(ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)
+        if (presentation.summary.isNotBlank()) {
+            Text(ZidRunFormat.isolate(presentation.summary), style = MaterialTheme.typography.bodyMedium, color = colors.textStrong)
         }
 
-        reply.positiveSignals.forEach { SignalRow(it, Icons.Filled.CheckCircle, colors.success) }
-        // Never colour alone: the icon and the position after the positives both carry the meaning,
-        // so the distinction survives for a runner who cannot separate green from orange.
+        presentation.nextAction?.let {
+            ZidRunDivider()
+            Text(stringResource(R.string.coach_chat_what_now), style = MaterialTheme.typography.titleSmall, color = colors.primary)
+            Text(ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodyMedium, color = colors.text)
+        }
+
+        // Safety guidance is never collapsed behind details.
         reply.warningSignals.forEach { SignalRow(it, Icons.Filled.Warning, colors.accent) }
 
-        if (reply.recoveryAdvice.isNotEmpty()) {
-            ZidRunDivider()
-            Text(
-                stringResource(R.string.coach_chat_recovery),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.primary,
-            )
-            reply.recoveryAdvice.forEach {
-                Text("• " + ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodySmall, color = colors.text)
-            }
-        }
-
-        // What the coach did NOT have. Shown so a hedged answer reads as missing data rather than
-        // as the coach being vague — this is the visible half of the anti-hallucination contract.
-        if (reply.dataGaps.isNotEmpty()) {
-            ZidRunDivider()
-            Text(
-                stringResource(R.string.coach_chat_data_gaps),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.textMuted,
-            )
-            reply.dataGaps.forEach {
-                Text("• " + ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
-            }
-        }
-
-        // The signals the advice actually rests on — the "Based on" transparency chips the web
-        // shows for the same reply (B83-R09). Never render more or less than the website here.
-        if (reply.usedSignals.isNotEmpty()) {
-            ZidRunDivider()
-            Text(
-                stringResource(R.string.coach_chat_based_on),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.textMuted,
-            )
-            Text(
-                // Isolated per item, not once around the join: an unmapped English signal sitting
-                // between two Arabic ones would otherwise drag the separators out of order.
-                reply.usedSignals.joinToString(" · ") { ZidRunFormat.isolate(it) },
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textMuted,
-            )
-        }
-
-        reply.followUpQuestion?.takeIf { it.isNotBlank() }?.let {
+        presentation.followUpQuestion?.let {
             ZidRunDivider()
             Text(ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodyMedium, color = colors.primary)
-            // Answering means typing: the affordance focuses the composer, never pre-fills or
-            // auto-sends anything on the runner's behalf.
+            if (presentation.quickReplies.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+                ) {
+                    presentation.quickReplies.forEach { option ->
+                        ZidRunTextButton(
+                            text = ZidRunFormat.isolate(option),
+                            onClick = { onSelectQuickReply(option) },
+                            fillWidth = false,
+                        )
+                    }
+                }
+            }
+            ZidRunTextButton(text = stringResource(R.string.coach_chat_answer), onClick = onAnswerFollowUp, fillWidth = false)
+        }
+
+        if (presentation.hasDetails) {
+            ZidRunDivider()
             ZidRunTextButton(
-                text = stringResource(R.string.coach_chat_answer),
-                onClick = onAnswerFollowUp,
+                text = stringResource(
+                    if (detailsExpanded) R.string.coach_chat_hide_details else R.string.coach_chat_show_details
+                ),
+                onClick = onToggleDetails,
                 fillWidth = false,
             )
         }
+
+        if (detailsExpanded) {
+            reply.progressAssessment?.takeIf { it.isNotBlank() }?.let {
+                Text(ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodyMedium, color = colors.textMuted)
+            }
+            reply.positiveSignals.forEach { SignalRow(it, Icons.Filled.CheckCircle, colors.success) }
+            if (reply.recoveryAdvice.isNotEmpty()) {
+                Text(stringResource(R.string.coach_chat_recovery), style = MaterialTheme.typography.titleSmall, color = colors.primary)
+                reply.recoveryAdvice.forEach {
+                    Text("• " + ZidRunFormat.isolate(it), style = MaterialTheme.typography.bodySmall, color = colors.text)
+                }
+            }
+        }
+
+        val usedLabels = presentation.usedSignalKeys.mapNotNull { provenanceLabel(it) }
+        val missingLabels = presentation.missingSignalKeys.mapNotNull { missingSignalLabel(it) }
+        if (usedLabels.isNotEmpty() || missingLabels.isNotEmpty()) {
+            ZidRunDivider()
+            Text(stringResource(R.string.coach_chat_why_advice), style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
+            if (usedLabels.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.coach_chat_based_sentence, usedLabels.joinToString(", ")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+            }
+            if (missingLabels.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.coach_chat_missing_sentence, missingLabels.joinToString(", ")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                )
+            }
+        }
+
+        if (presentation.repairAvailable) {
+            ZidRunTextButton(text = stringResource(R.string.coach_chat_not_meant), onClick = onRepair, fillWidth = false)
+        }
     }
+}
+
+@Composable
+private fun provenanceLabel(key: String): String? = when (key) {
+    "GOAL" -> stringResource(R.string.coach_signal_goal)
+    "ACTIVE_PLAN" -> stringResource(R.string.coach_signal_active_plan)
+    "RECENT_RUNS" -> stringResource(R.string.coach_signal_recent_runs)
+    "PLAN_ADHERENCE" -> stringResource(R.string.coach_signal_plan_adherence)
+    "CONSISTENCY" -> stringResource(R.string.coach_signal_consistency)
+    "SLEEP" -> stringResource(R.string.coach_signal_sleep)
+    "WEATHER" -> stringResource(R.string.coach_signal_weather)
+    "ANALYSED_RUN" -> stringResource(R.string.coach_signal_analysed_run)
+    "RUNNER_QUESTION" -> stringResource(R.string.coach_signal_runner_question)
+    "HEALTH_CONTEXT" -> stringResource(R.string.coach_signal_health_context)
+    "SAFETY_DECISION" -> stringResource(R.string.coach_signal_safety_decision)
+    "COACH_MEMORY" -> stringResource(R.string.coach_signal_coach_memory)
+    else -> null
+}
+
+@Composable
+private fun missingSignalLabel(key: String): String? = when (key) {
+    "NO_RECENT_RUNS" -> stringResource(R.string.coach_gap_recent_runs)
+    "NO_RECENT_PACE" -> stringResource(R.string.coach_gap_recent_pace)
+    "NO_SLEEP_LOGGED" -> stringResource(R.string.coach_gap_sleep)
+    "NO_TARGET_RACE" -> stringResource(R.string.coach_gap_target_race)
+    "NO_WEATHER_DATA" -> stringResource(R.string.coach_gap_weather)
+    "NO_HEALTH_DETAILS" -> stringResource(R.string.coach_gap_health)
+    "NO_SYMPTOM_DETAILS" -> stringResource(R.string.coach_gap_symptoms)
+    "NO_INJURY_DETAILS" -> stringResource(R.string.coach_gap_injury)
+    else -> null
 }
 
 @Composable

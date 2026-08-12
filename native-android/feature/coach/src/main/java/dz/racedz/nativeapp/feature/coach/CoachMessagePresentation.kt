@@ -30,7 +30,16 @@ enum class NoticeFallback { URGENT_SAFETY, OFF_TOPIC, FAILED }
 sealed interface CoachMessagePresentation {
 
     /** Render the full structured reply card. */
-    data object Reply : CoachMessagePresentation
+    data class Reply(
+        val summary: String,
+        val nextAction: String?,
+        val followUpQuestion: String?,
+        val quickReplies: List<String>,
+        val usedSignalKeys: List<String>,
+        val missingSignalKeys: List<String>,
+        val hasDetails: Boolean,
+        val repairAvailable: Boolean,
+    ) : CoachMessagePresentation
 
     /**
      * Render a single notice instead of a reply.
@@ -43,6 +52,7 @@ sealed interface CoachMessagePresentation {
         val level: NoticeLevel,
         val serverText: String?,
         val fallback: NoticeFallback,
+        val repairAvailable: Boolean,
     ) : CoachMessagePresentation
 }
 
@@ -68,6 +78,7 @@ fun presentCoachMessage(message: CoachMessageDto): CoachMessagePresentation = wh
             level = if (urgent) NoticeLevel.URGENT else NoticeLevel.INFO,
             serverText = message.response?.summary?.takeIf { it.isNotBlank() },
             fallback = if (urgent) NoticeFallback.URGENT_SAFETY else NoticeFallback.OFF_TOPIC,
+            repairAvailable = !urgent,
         )
     }
 
@@ -77,7 +88,23 @@ fun presentCoachMessage(message: CoachMessageDto): CoachMessagePresentation = wh
         level = NoticeLevel.INFO,
         serverText = null,
         fallback = NoticeFallback.FAILED,
+        repairAvailable = false,
     )
 
-    else -> CoachMessagePresentation.Reply
+    else -> {
+        val reply = message.response
+        CoachMessagePresentation.Reply(
+            summary = reply?.summary.orEmpty(),
+            nextAction = reply?.nextAction?.takeIf { it.isNotBlank() },
+            followUpQuestion = reply?.followUpQuestion?.takeIf { it.isNotBlank() },
+            quickReplies = reply?.quickReplies.orEmpty().filter { it.isNotBlank() }.take(4),
+            usedSignalKeys = reply?.usedSignalKeys.orEmpty(),
+            missingSignalKeys = reply?.missingSignalKeys.orEmpty(),
+            hasDetails = reply != null && (
+                !reply.progressAssessment.isNullOrBlank() || reply.positiveSignals.isNotEmpty() ||
+                    reply.warningSignals.isNotEmpty() || reply.recoveryAdvice.isNotEmpty()
+                ),
+            repairAvailable = reply != null,
+        )
+    }
 }

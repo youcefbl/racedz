@@ -40,6 +40,7 @@ class CoachMessagePresentationTest {
         assertEquals(NoticeLevel.INFO, result.level)
         assertEquals("I only cover running.", result.serverText)
         assertEquals(NoticeFallback.OFF_TOPIC, result.fallback)
+        assertEquals(true, result.repairAvailable)
     }
 
     @Test
@@ -59,6 +60,7 @@ class CoachMessagePresentationTest {
         assertEquals(NoticeLevel.URGENT, result.level)
         assertEquals("Training advice is paused pending assessment.", result.serverText)
         assertEquals(NoticeFallback.URGENT_SAFETY, result.fallback)
+        assertEquals(false, result.repairAvailable)
     }
 
     @Test
@@ -94,18 +96,17 @@ class CoachMessagePresentationTest {
     fun `a completed reply renders the card even when safety is CAUTION`() {
         // CAUTION is a note attached to an answer the runner still gets — it must not swallow the
         // reply the way a block does.
-        assertEquals(
-            CoachMessagePresentation.Reply,
-            presentCoachMessage(message("COMPLETED", safetyLevel = "CAUTION", summary = "Keep it easy."))
-        )
+        val result = presentCoachMessage(message("COMPLETED", safetyLevel = "CAUTION", summary = "Keep it easy."))
+            as CoachMessagePresentation.Reply
+        assertEquals("Keep it easy.", result.summary)
+        assertEquals(true, result.repairAvailable)
     }
 
     @Test
     fun `a completed reply with clear safety renders the card`() {
-        assertEquals(
-            CoachMessagePresentation.Reply,
-            presentCoachMessage(message("COMPLETED", safetyLevel = "CLEAR", summary = "Nice work."))
-        )
+        val result = presentCoachMessage(message("COMPLETED", safetyLevel = "CLEAR", summary = "Nice work."))
+            as CoachMessagePresentation.Reply
+        assertEquals("Nice work.", result.summary)
     }
 
     @Test
@@ -119,9 +120,29 @@ class CoachMessagePresentationTest {
 
     @Test
     fun `an unknown status is treated as a reply rather than swallowed`() {
-        assertEquals(
-            CoachMessagePresentation.Reply,
-            presentCoachMessage(message("SOMETHING_NEW", summary = "…"))
-        )
+        val result = presentCoachMessage(message("SOMETHING_NEW", summary = "…"))
+            as CoachMessagePresentation.Reply
+        assertEquals("…", result.summary)
+    }
+
+    @Test
+    fun `reply presentation keeps answer-first fields and caps quick replies`() {
+        val result = presentCoachMessage(
+            CoachMessageDto(
+                id = "m2",
+                response = CoachReplyDto(
+                    summary = "Answer first.",
+                    nextAction = "Keep tomorrow easy.",
+                    followUpQuestion = "When does fatigue appear?",
+                    quickReplies = listOf("After running", "All day", "After poor sleep", "With pain", "extra"),
+                    usedSignalKeys = listOf("GOAL", "RECENT_RUNS"),
+                    missingSignalKeys = listOf("NO_SLEEP_LOGGED"),
+                ),
+            )
+        ) as CoachMessagePresentation.Reply
+        assertEquals("Keep tomorrow easy.", result.nextAction)
+        assertEquals(4, result.quickReplies.size)
+        assertEquals(listOf("GOAL", "RECENT_RUNS"), result.usedSignalKeys)
+        assertEquals(listOf("NO_SLEEP_LOGGED"), result.missingSignalKeys)
     }
 }
