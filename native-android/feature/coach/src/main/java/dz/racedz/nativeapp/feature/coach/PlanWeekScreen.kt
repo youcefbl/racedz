@@ -433,6 +433,7 @@ private fun WorkoutDetailCard(
     onSkip: (String?) -> Unit,
     onMove: (LocalDate) -> Unit,
 ) {
+    val kmUnit = stringResource(R.string.runs_unit_km)
     val colors = ZidRunTheme.colors
     var expander by remember(workout.id) { mutableStateOf<String?>(null) }
 
@@ -446,7 +447,7 @@ private fun WorkoutDetailCard(
             Text(ZidRunFormat.isolate(workout.title), style = MaterialTheme.typography.displaySmall, color = colors.textStrong)
             Text(
                 text = listOfNotNull(
-                    workout.targetDistanceKm?.let { ZidRunFormat.kilometres(it, locale) },
+                    workout.targetDistanceKm?.let { ZidRunFormat.kilometres(it, locale, kmUnit) },
                     workout.targetDurationMin?.let {
                         stringResource(R.string.runs_step_minutes, ZidRunFormat.count(it, locale))
                     },

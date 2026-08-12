@@ -74,7 +74,16 @@ object ZidRunFormat {
      * form above. Always one decimal, because the strip aligns three values side by side and a bare
      * "10" next to "420" reads as a different unit.
      */
-    fun kilometres(km: Double, locale: Locale): String = ltr(String.format(locale, "%.1f km", km))
+    /**
+     * [unit] is the localized unit label (`R.string.runs_unit_km`), not a hardcoded "km".
+     *
+     * Field test 20260812-01 found the same screen showing `2,0 km` on a plan card while the
+     * account summary and the coach's own Arabic prose said `كم` — the unit switched script
+     * depending on which surface rendered it. Only the DIGITS are LTR-isolated; the unit sits
+     * outside the isolate so an Arabic label is laid out by the paragraph, not forced left-to-right.
+     */
+    fun kilometres(km: Double, locale: Locale, unit: String = "km"): String =
+        ltr(String.format(locale, "%.1f", km)) + "\u00A0" + unit
 
     /** "5.72" — a bare two-decimal distance, for places that show the unit separately. */
     /**

@@ -557,9 +557,10 @@ private fun DistanceSelector(
  */
 @Composable
 private fun CategoryStats(category: RaceCategoryDto, locale: java.util.Locale) {
+    val kmUnit = stringResource(R.string.runs_unit_km)
     val colors = ZidRunTheme.colors
     val cells = buildList {
-        add(Triple(Icons.Filled.Straighten, ZidRunFormat.kilometres(category.distanceKm, locale), R.string.race_stat_distance))
+        add(Triple(Icons.Filled.Straighten, ZidRunFormat.kilometres(category.distanceKm, locale, kmUnit), R.string.race_stat_distance))
         category.elevationGainM?.let {
             add(Triple(Icons.Filled.Terrain, stringResource(R.string.race_stat_elevation_value, it), R.string.race_stat_elevation))
         }
