@@ -289,3 +289,63 @@ async function createRegistration(userId: string, raceEventId: string, input: Ra
     timeout: 20_000
   });
 }
+
+/**
+ * Who may read a race registration's payment proof.
+ *
+ * A proof is a photo of a bank transfer or CCP receipt — financial PII, and the most sensitive
+ * single file this app stores on a runner's behalf. Three parties have a real reason to see one:
+ * the runner who uploaded it, an admin resolving a dispute, and a member of the organization
+ * running *that* race, who has to confirm the payment. Nobody else, including an organizer of a
+ * different race.
+ *
+ * This lives here rather than inline in the route so the rule can be tested against seeded rows
+ * (`npm run test:authz-exports`). An authorization rule that only exists inside a route handler can
+ * only be verified by reading it, and reading it is how the organization half — the part that needs
+ * a second query and is easy to get subtly wrong — stays unverified.
+ *
+ * Returns a discriminated result rather than a boolean so the caller can tell "no such proof" from
+ * "not yours" while still answering 404 to both, and so the denial can be security-logged with a
+ * reason.
+ */
+export type ProofAccessDecision =
+  | { allowed: true; via: "owner" | "admin" | "organizer"; proofUrl: string }
+  | { allowed: false; reason: "not_found" | "forbidden" };
+
+export async function decideRegistrationProofAccess({
+  registrationId,
+  viewerId,
+  viewerRole,
+}: {
+  registrationId: string;
+  viewerId: string;
+  viewerRole?: string | null;
+}): Promise<ProofAccessDecision> {
+  const registration = await getPrisma().raceRegistration.findUnique({
+    where: { id: registrationId },
+    select: {
+      userId: true,
+      paymentProofUrl: true,
+      raceEvent: { select: { organizationId: true } },
+    },
+  });
+
+  if (!registration || !registration.paymentProofUrl) return { allowed: false, reason: "not_found" };
+
+  const proofUrl = registration.paymentProofUrl;
+  if (registration.userId === viewerId) return { allowed: true, via: "owner", proofUrl };
+  if (viewerRole === "ADMIN" || viewerRole === "SUPERADMIN") return { allowed: true, via: "admin", proofUrl };
+
+  const organizationId = registration.raceEvent.organizationId;
+  if (organizationId) {
+    // Membership of THIS race's organization. Scoped on both columns: a member of any organization
+    // would otherwise be a member of every organization.
+    const membership = await getPrisma().organizationMember.findFirst({
+      where: { userId: viewerId, organizationId },
+      select: { id: true },
+    });
+    if (membership) return { allowed: true, via: "organizer", proofUrl };
+  }
+
+  return { allowed: false, reason: "forbidden" };
+}

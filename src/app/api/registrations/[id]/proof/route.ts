@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getPrisma } from "@/lib/db";
+import { decideRegistrationProofAccess } from "@/lib/registrations";
 import { resolvePaymentProofPath } from "@/lib/storage";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { logSecurityEvent } from "@/lib/security-log";
@@ -26,35 +26,23 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (limited) return limited;
 
   const { id } = await context.params;
-  const registration = await getPrisma().raceRegistration.findUnique({
-    where: { id },
-    select: {
-      userId: true,
-      paymentProofUrl: true,
-      raceEvent: { select: { organizationId: true } }
-    }
+  const decision = await decideRegistrationProofAccess({
+    registrationId: id,
+    viewerId: session.user.id,
+    viewerRole: session.user.role
   });
-  if (!registration || !registration.paymentProofUrl) {
+
+  if (!decision.allowed) {
+    // Only an actual refusal is logged. "No such proof" is not an authorization event, and logging
+    // it would bury the real ones under every stale link and mistyped id.
+    if (decision.reason === "forbidden") {
+      logSecurityEvent("private_file_denied", { userId: session.user.id, registrationId: id, resource: "registration-payment-proof" });
+    }
+    // Both answer 404: telling an unauthorized caller that the proof exists is itself a disclosure.
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const isOwner = registration.userId === session.user.id;
-  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPERADMIN";
-  const isOrganizerForRace =
-    !isOwner && registration.raceEvent.organizationId
-      ? Boolean(
-          await getPrisma().organizationMember.findFirst({
-            where: { userId: session.user.id, organizationId: registration.raceEvent.organizationId },
-            select: { id: true }
-          })
-        )
-      : false;
-  if (!isOwner && !isAdmin && !isOrganizerForRace) {
-    logSecurityEvent("private_file_denied", { userId: session.user.id, registrationId: id, resource: "registration-payment-proof" });
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
-  }
-
-  const filePath = resolvePaymentProofPath(registration.paymentProofUrl);
+  const filePath = resolvePaymentProofPath(decision.proofUrl);
   if (!filePath) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   try {
