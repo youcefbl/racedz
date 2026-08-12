@@ -6,6 +6,11 @@ import type { CoachResponse } from "@/lib/coach/schemas";
  * The AI coach should only answer running / training / recovery questions. This pre-filter
  * catches clearly off-topic messages before any paid model call. The system prompt is the
  * second line of defence for anything subtle that slips through.
+ *
+ * The two failure directions do NOT cost the same, so the vocabulary errs toward letting things
+ * through. A false negative costs one billed call that the prompt then refuses anyway. A false
+ * positive tells a runner their genuine training question is not about running — and, because the
+ * app renders a block as a refusal, teaches them the coach cannot help. Breadth is the point.
  */
 
 // Broad multilingual running / training / recovery vocabulary (EN / FR / AR).
@@ -14,8 +19,23 @@ const onTopicPatterns: RegExp[] = [
   /\b(run(?:ning|ner|s)?|jog|race|races|racing|marathon|half[- ]?marathon|sprint|pace|paces|tempo|interval|fartlek|stride|cadence|split|negative split|taper|warm[- ]?up|cool[- ]?down|cross[- ]?train|treadmill|track|trail|5k|10k|21k|42k|km|kilomet|mile|long run|easy run|recovery|rest day|workout|training|train|plan|fitness|endurance|stamina|vo2|heart rate|hr zone|effort|fatigue|injur|knee|shin|calf|hamstring|achilles|plantar|ankle|hip|cramp|blister|stretch|mobility|hydrat|nutrition|fuel|gel|carb|protein|electrolyte|shoe|trainers|sweat|breath)/i,
   // French
   /\b(cour(?:ir|se|ses|eur)|jogging|allure|rythme|fractionn|seuil|sortie longue|récupération|échauffement|entra[iî]nement|s[ée]ance|plan|endurance|blessure|genou|mollet|tendon|cheville|hanche|étirement|hydrat|nutrition|foul[ée]e|cadence|fréquence cardiaque|fatigue|marathon|trail|piste|tapis)/i,
-  // Arabic
-  /(جري|الجري|ركض|الركض|سباق|ماراثون|وتيرة|إيقاع|تدريب|حصة|خطة|تحمل|إصابة|ركبة|عضلة|كاحل|إطالة|إحماء|استشفاء|تغذية|ترطيب|نبض|تعب|مسافة|كيلومتر|هرولة)/
+  // Arabic (MSA)
+  /(جري|الجري|ركض|الركض|سباق|ماراثون|وتيرة|إيقاع|تدريب|حصة|خطة|تحمل|إصابة|ركبة|عضلة|كاحل|إطالة|إحماء|استشفاء|تغذية|ترطيب|نبض|تعب|مسافة|كيلومتر|هرولة)/,
+  // Algerian darija, Arabic script.
+  //
+  // This list is not a nicety. The product's documented Arabic voice IS darija, and the system
+  // prompt tells the coach to write it and to mirror the runner's darija — so a gate that knows
+  // only MSA refuses precisely the register the app invites runners to use. Field test
+  // 20260812-01 caught `وش نديري كي نحس روحي عيانة؟` ("what do I do when I feel exhausted?")
+  // being refused as off-topic: MSA `تعب` was listed, darija `عيان` was not.
+  //
+  // Topic words only — deliberately NOT the darija interrogatives (`واش ندير`, `وش نديري`),
+  // which carry no subject and would let anything through.
+  /(عيان|عيا|معيي|تعبان|نحبس|حبست|سمانة|سيمانة|سورتي|خرجة|كلم|برنامج|مدرب|تمرين|نتمرن|راحة|نرتاح|وجع|يوجع|ضرني|يضرني|مجهود|صباط|نجري|تجري|يجري)/,
+  // Latin-script darija (arabizi), where 3 = ع and 7 = ح. The prompt explicitly supports a runner
+  // writing this way, so it needs coverage here too. The English and French patterns above already
+  // catch the many French loanwords Algerians use for running (sortie, allure, seuil).
+  /(3ayan|3aya|3yit|3ya|njri|tejri|tjri|\bjri\b|tmrin|tamrin|nrta7|rah?ti|wja3|ywaj3|s7iti|nhbes)/i
 ];
 
 export function evaluateTopicality(message: string | null | undefined): { onTopic: boolean } {
