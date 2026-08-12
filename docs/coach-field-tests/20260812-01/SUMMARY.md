@@ -19,15 +19,24 @@ Re-run with `npx tsx scripts/coach-field-test.ts <run-id>` (makes real, billed p
 
 ## Verdict
 
-**Not a pass.** Two P1 defects, both in the refusal path, one of which makes the app tell a runner asking a routine recovery question to see a doctor. Everything the runbook asks about *plan quality, register, invented facts, safety escalation and account isolation* held up well — and the Darija itself is genuinely good.
+**Not a pass at the time of the run.** F1 and F2 have since been fixed and re-verified server-side
+(`afb85a1`, `3d06748`); the on-device appearance of the two block styles is still unconfirmed. F3–F8
+remain open. Re-run this test to regenerate the transcripts and compare.
+
+**Original verdict.** **Not a pass.** Two P1 defects, both in the refusal path, one of which makes the app tell a runner asking a routine recovery question to see a doctor. Everything the runbook asks about *plan quality, register, invented facts, safety escalation and account isolation* held up well — and the Darija itself is genuinely good.
 
 ## Findings
 
-### F1 · P1 · A Darija recovery question is refused as off-topic
+### F1 · P1 · A Darija recovery question is refused as off-topic — **FIXED** (`afb85a1`)
 
 `وش نديري كي نحس روحي عيانة؟` — "what do I do when I feel exhausted?" — is refused with the
 off-topic message. Reproduced identically on both fresh accounts, in ~40 ms, with no provider call,
 so it is deterministic and not a model behaviour.
+
+Fixed in `afb85a1` by adding darija and arabizi topic vocabulary, covered by
+`npm run test:coach-topicality` (20 checks, both directions). Re-verified: the same question now
+returns `COMPLETED`/`CLEAR` with a real coached answer —
+*«كي تحسي روحك عيانة، ما تكمليش بالقوة»* ("when you feel exhausted, don't force it").
 
 Cause: [`src/lib/coach/topicality.ts:18`](../../../src/lib/coach/topicality.ts#L18). The Arabic
 on-topic vocabulary is **MSA only** — `جري`, `تدريب`, `تعب`, `إصابة`. The question is in Darija:
@@ -43,7 +52,7 @@ app invites them to write is the exact input that gets refused. Latin-script ara
 Note the gate is otherwise the right idea and cheap — it saves a billed call. The vocabulary is the
 defect, not the mechanism.
 
-### F2 · P1 · Every BLOCKED reply renders one native string, whatever the reason
+### F2 · P1 · Every BLOCKED reply renders one native string, whatever the reason — **FIXED** (`3d06748`)
 
 [`ConversationScreen.kt:470`](../../../native-android/feature/coach/src/main/java/dz/racedz/nativeapp/feature/coach/ConversationScreen.kt#L470)
 maps `status == "BLOCKED"` to a single fixed string and discards the server's response body:
@@ -64,6 +73,13 @@ Two bad outcomes, both confirmed on device:
 The server already distinguishes these: `safety.level` was `CLEAR` for the off-topic block and
 `BLOCKED` for the symptom. The app keys off `status`, which is overloaded for both, and never reads
 `safety.level`.
+
+Fixed in `3d06748`: the server's own text is rendered when present (already in the runner's coach
+language and more specific than anything canned), string resources are the fallback, a new
+`coach_chat_off_topic` covers the non-urgent case, and only the urgent case is styled as a warning —
+which also corrects the F3 inversion for this pair. Re-verified server-side that the three paths
+diverge (`COMPLETED`/`CLEAR`, `BLOCKED`/`CLEAR`, `BLOCKED`/`BLOCKED`). **Still to confirm on device:**
+how the two block styles actually look.
 
 ### F3 · P2 · Safety prominence is inverted
 
