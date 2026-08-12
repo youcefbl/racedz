@@ -180,6 +180,13 @@ by shape (16 KB beacons, 8 KB id-token exchange, 256 KB long-form, 64 KB default
 `npm run test:body-limits` proves the cap holds for a chunked body with no `content-length` — the
 case a header check cannot see — and walks every route to fail on any raw body read.
 
+**Corrected after review (2026-08-12):** the first pass covered only `.json()`/`.text()`, so six
+upload routes still called `request.formData()` and checked `file.size` afterwards — the whole
+multipart payload already parsed into memory. `readBoundedFormData` puts the bound underneath the
+parser (the body stream is piped through a counting transform that errors past the cap), and the
+scanner now matches `formData()` too. Caps are the existing file limits plus a boundary-overhead
+allowance so a file exactly at the limit is still accepted.
+
 Six security tests, including that one, were defined as npm scripts that `test:all` never invoked;
 they are now grouped as `npm run test:security` and run as part of `test:all`.
 
