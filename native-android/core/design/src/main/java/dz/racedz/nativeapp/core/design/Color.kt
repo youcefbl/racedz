@@ -33,6 +33,23 @@ data class ZidRunColors(
     val dangerSoft: Color,
     val info: Color,
     val infoSoft: Color,
+    /**
+     * Text and icon colours for content sitting ON the matching `*Soft` background.
+     *
+     * The brand colours are tuned to be read against the page, not against their own tint, and three
+     * pairs failed WCAG AA for normal-weight body text once measured: light `accent` on `accentSoft`
+     * at 2.52:1, light `danger` on `dangerSoft` at 4.41:1, and race `info` on `infoSoft` at 4.48:1
+     * — all below 4.5:1. The accent pair is the worst and carries the safety caution, which is the
+     * one notice that must stay readable.
+     *
+     * Separate tokens rather than darkening the brand colours themselves: `accent` and `danger` are
+     * used on plain surfaces elsewhere, where they already pass and where changing them would shift
+     * the app's colour identity. Where a theme's base colour already passes, the token is simply the
+     * base colour.
+     */
+    val accentContent: Color,
+    val dangerContent: Color,
+    val infoContent: Color,
     val focus: Color,
     /**
      * Accent used on the near-black hero surfaces (`surfaceStrong`): the featured race card and the
@@ -70,6 +87,9 @@ val ZidRunLightColors = ZidRunColors(
     dangerSoft = Color(0xFFFEF2F2),
     info = Color(0xFF2563EB),
     infoSoft = Color(0xFFEFF6FF),
+    accentContent = Color(0xFF9A3412), // 6.70:1 on accentSoft
+    dangerContent = Color(0xFFB91C1C), // 5.91:1 on dangerSoft
+    infoContent = Color(0xFF2563EB), // 4.75:1 — already passes
     focus = Color(0xFFF47A20),
     heroAccent = Color(0xFFA3E635),
     onHeroAccent = Color(0xFF0A1A05),
@@ -108,6 +128,10 @@ val ZidRunDarkColors = ZidRunColors(
     dangerSoft = Color(0xFF2E0F0F),
     info = Color(0xFF60A5FA),
     infoSoft = Color(0xFF10203A),
+    // 7.56:1, 6.37:1, 6.40:1 on their soft backgrounds — all pass, so no separate value.
+    accentContent = Color(0xFFFB923C),
+    dangerContent = Color(0xFFF87171),
+    infoContent = Color(0xFF60A5FA),
     focus = Color(0xFFFB923C),
     heroAccent = Color(0xFFA3E635),
     onHeroAccent = Color(0xFF0A1A05),
@@ -139,6 +163,9 @@ val ZidRunRaceColors = ZidRunColors(
     dangerSoft = Color(0xFF3A0714),
     info = Color(0xFF9B5CFF),
     infoSoft = Color(0xFF211039),
+    accentContent = Color(0xFFFF2BD6), // 5.14:1
+    dangerContent = Color(0xFFFF3864), // 4.92:1
+    infoContent = Color(0xFFA97BFF), // base is 4.48:1, just under; lifted to 5.81:1
     focus = Color(0xFF39FF14),
     // The race theme's whole point is the neon accent, so the hero follows it rather than the lime.
     heroAccent = Color(0xFF39FF14),
