@@ -144,6 +144,40 @@ function localizeReasons(reasons: string[], locale: CoachLocale): string[] {
   return reasons.map((reason) => SAFETY_REASON_I18N[reason]?.[locale] ?? reason);
 }
 
+const QUICK_REPLY_LINK_OR_ROUTE_PATTERN = /(?:https?:\/\/|www\.|zidrun:\/\/|\/api\/|^\s*\/)/iu;
+const QUICK_REPLY_COMMAND_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/u;
+
+/**
+ * Enforces the interaction semantics that JSON Schema cannot express reliably in strict-output
+ * mode. Quick replies remain editable text drafts, but URL/route/command-shaped values are dropped
+ * before they can cross the API boundary. An incomplete CLARIFY response degrades to ANSWER rather
+ * than presenting a clarification UI with no usable way to answer it.
+ */
+export function normalizeCoachInteraction(response: CoachResponse): CoachResponse {
+  const quickReplies = [...new Set(
+    response.quickReplies
+      .map((reply) => reply.trim())
+      .filter((reply) =>
+        reply.length > 0 &&
+        !QUICK_REPLY_LINK_OR_ROUTE_PATTERN.test(reply) &&
+        !QUICK_REPLY_COMMAND_PATTERN.test(reply)
+      )
+  )].slice(0, 4);
+  const followUpQuestion = response.followUpQuestion?.trim() || null;
+  const validClarification =
+    response.responseMode === "CLARIFY" &&
+    followUpQuestion !== null &&
+    quickReplies.length >= 2;
+
+  return {
+    ...response,
+    responseMode: validClarification ? "CLARIFY" : "ANSWER",
+    nextAction: validClarification ? null : response.nextAction,
+    quickReplies,
+    followUpQuestion,
+  };
+}
+
 
 export function enforceCoachSafety(
   response: CoachResponse,
@@ -153,6 +187,7 @@ export function enforceCoachSafety(
   skeleton: ReadonlyArray<CoachWorkout & Partial<Pick<PlannedWorkout, "targetPaceSecondsPerKm">>>,
   locale: CoachLocale
 ): EnforcedCoachResponse {
+  response = normalizeCoachInteraction(response);
   const upcomingWorkouts = skeleton.map((entry) => {
     const paced: PlannedWorkout = { ...entry, targetPaceSecondsPerKm: entry.targetPaceSecondsPerKm ?? null };
     const workout = decision.level === "CAUTION" ? reduceWorkout(paced) : paced;

@@ -9,6 +9,7 @@ import {
   containsUrgentSymptomText,
   enforceCoachSafety,
   evaluateCoachSafety,
+  normalizeCoachInteraction,
   urgentSymptomDecision
 } from "../src/lib/coach/safety";
 
@@ -91,6 +92,25 @@ assert.ok(safeResponse.upcomingWorkouts.every((workout) => workout.instructions 
 // The plan must be returned in the runner's selected coach language, not English.
 assert.ok(safeResponse.upcomingWorkouts.every((workout) => /[؀-ۿ]/.test(workout.title)));
 assert.ok(safeResponse.upcomingWorkouts.every((workout) => /[؀-ۿ]/.test(workout.instructions)));
+
+const clarificationBase = {
+  ...safeResponse,
+  responseMode: "CLARIFY" as const,
+  nextAction: "This must be removed while clarifying.",
+  followUpQuestion: "When does the fatigue appear?",
+  quickReplies: ["After running", "All day"],
+};
+const validClarification = normalizeCoachInteraction(clarificationBase);
+assert.equal(validClarification.responseMode, "CLARIFY");
+assert.equal(validClarification.nextAction, null);
+assert.deepEqual(validClarification.quickReplies, ["After running", "All day"]);
+
+const invalidClarification = normalizeCoachInteraction({
+  ...clarificationBase,
+  quickReplies: ["https://example.com", "/api/coach", "DELETE_PLAN", "After running"],
+});
+assert.equal(invalidClarification.responseMode, "ANSWER");
+assert.deepEqual(invalidClarification.quickReplies, ["After running"]);
 
 console.log("Coach metrics, planning, and safety checks passed.");
 
