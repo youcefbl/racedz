@@ -94,3 +94,75 @@ export async function readBoundedJson(request: Request, maxBytes = DEFAULT_MAX_B
     throw new InvalidJsonError();
   }
 }
+
+/**
+ * Multipart boundary overhead: part headers, the boundary markers, and the trailing CRLFs.
+ * Small and roughly fixed, but a body cap set to exactly the file cap would reject a file that is
+ * exactly at the limit, so the allowance is added rather than assumed away.
+ */
+export const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+
+/**
+ * Reads a bounded multipart body.
+ *
+ * `request.formData()` has the same problem `request.json()` had, and it matters more here: by the
+ * time the handler can look at `file.size`, the entire upload has been parsed into memory. Every
+ * upload route in this app checked the size that way — a validation rule applied to something
+ * already paid for, not a limit.
+ *
+ * There is no streaming multipart parser in the Web API, so the bound goes on the layer underneath:
+ * the body stream is piped through a counting transform that errors past the cap, and `formData()`
+ * runs against that. The parser then fails partway instead of completing, which is the point — the
+ * bytes after the limit are never read.
+ *
+ * `maxBytes` is the whole-body cap, so pass the file cap plus {@link MULTIPART_OVERHEAD_BYTES}.
+ *
+ * @throws {BodyTooLargeError} the body exceeded `maxBytes`
+ */
+export async function readBoundedFormData(request: Request, maxBytes: number): Promise<FormData> {
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError(maxBytes);
+
+  const body = request.body;
+  if (!body) return request.formData();
+
+  let total = 0;
+  let exceeded = false;
+  const counter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      total += chunk.byteLength;
+      if (total > maxBytes) {
+        exceeded = true;
+        controller.error(new BodyTooLargeError(maxBytes));
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  });
+
+  // pipeTo with an explicit catch, NOT pipeThrough. Erroring the transform on purpose rejects the
+  // pipe, and pipeThrough leaves that rejection unobserved — which Node treats as an unhandled
+  // rejection and, by default, terminates the process for. An oversized upload must be refused,
+  // not turned into a way to take the server down.
+  void body.pipeTo(counter.writable).catch(() => undefined);
+  const bounded = counter.readable;
+
+  // Only content-type is carried over: it holds the multipart boundary the parser needs. Passing
+  // content-length along with a stream body is rejected as a mismatch by the runtime.
+  const contentType = request.headers.get("content-type");
+  const rebuilt = new Request(request.url, {
+    method: request.method,
+    headers: contentType ? { "content-type": contentType } : undefined,
+    body: bounded,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+
+  try {
+    return await rebuilt.formData();
+  } catch (error) {
+    // The parser reports its own failure when the stream is cut mid-part; the reason we cut it is
+    // the one worth reporting.
+    if (exceeded) throw new BodyTooLargeError(maxBytes);
+    throw error;
+  }
+}

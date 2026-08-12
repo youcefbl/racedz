@@ -5,6 +5,7 @@ import { resolveCoachEntitlement } from "@/lib/coach/entitlement";
 import { transcribeCoachVoiceNote } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { BodyTooLargeError, MULTIPART_OVERHEAD_BYTES, readBoundedFormData } from "@/lib/http/body";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,12 @@ export const POST = withApi(async (request) => {
       throw new CoachError("Voice input is available on the paid subscription only.", 402, "VOICE_REQUIRES_SUBSCRIPTION");
     }
 
-    const formData = await request.formData().catch(() => null);
+    const formData = await readBoundedFormData(request, MAX_AUDIO_BYTES + MULTIPART_OVERHEAD_BYTES).catch((error) => {
+      if (error instanceof BodyTooLargeError) {
+        throw new CoachError("That recording is too large. Keep voice notes short.", 413, "AUDIO_TOO_LARGE");
+      }
+      return null;
+    });
     const audio = formData?.get("audio");
     if (!(audio instanceof File) || audio.size === 0) {
       throw new CoachError("No audio was received.", 400, "MISSING_AUDIO");

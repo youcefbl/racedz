@@ -2,6 +2,8 @@ import { apiError, apiOk, ApiError, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { saveImageUpload, UploadError, type ImageUploadFile } from "@/lib/storage";
+import { MAX_IMAGE_BYTES } from "@/lib/storage";
+import { BodyTooLargeError, MULTIPART_OVERHEAD_BYTES, readBoundedFormData } from "@/lib/http/body";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,10 @@ export const POST = withApi(async (request) => {
   const limited = enforceRateLimit(rateLimitKey("v1-upload", viewer.id), 30, 10 * 60_000);
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many uploads. Try again shortly."));
 
-  const formData = await request.formData().catch(() => null);
+  const formData = await readBoundedFormData(request, MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES).catch((error) => {
+    if (error instanceof BodyTooLargeError) throw new ApiError("BAD_REQUEST", "Image must be 5 MB or smaller.");
+    return null;
+  });
   const file = formData?.get("file");
   if (!(file instanceof File) || file.size === 0) {
     throw new ApiError("VALIDATION_FAILED", "Choose an image to upload.");

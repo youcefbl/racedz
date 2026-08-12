@@ -9,10 +9,12 @@
  *      limit a defence rather than a validation rule; a cap applied after `await request.json()`
  *      has already paid the cost it was meant to avoid.
  *
- *   2. No route bypasses it. A single handler calling `request.json()` directly reopens the hole
- *      for that endpoint, and it is a one-line mistake to make in a new route. So this walks every
- *      route in the app and fails on a raw body read, the same way the authz matrix walks every
- *      route and fails on a missing guard.
+ *   2. No route bypasses it. A single handler calling `request.json()` or `request.formData()`
+ *      directly reopens the hole for that endpoint, and it is a one-line mistake to make in a new
+ *      route. So this walks every route in the app and fails on a raw body read, the same way the
+ *      authz matrix walks every route and fails on a missing guard. formData() was missed on the
+ *      first pass here, and six upload routes stayed unbounded behind a scanner that reported
+ *      everything as covered — which is the argument for the scanner, not against it.
  *
  *   npm run test:body-limits
  */
@@ -23,6 +25,8 @@ import {
   BodyTooLargeError,
   DEFAULT_MAX_BODY_BYTES,
   InvalidJsonError,
+  MULTIPART_OVERHEAD_BYTES,
+  readBoundedFormData,
   readBoundedJson,
 } from "../src/lib/http/body";
 
@@ -69,6 +73,44 @@ function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, (match) => match.replace(/[^\n]/g, " "))
     .replace(/(^|[^:])\/\/[^\n]*/g, (_match, prefix: string) => prefix);
+}
+
+/**
+ * A multipart body arriving in chunks, like a real upload off a socket. Hand-built rather than
+ * serialized from a FormData so the bytes are produced by a stream we can measure.
+ */
+function streamedMultipart(fileBytes: number, chunkBytes = 64 * 1024) {
+  const boundary = "----zidrunbodylimits";
+  const head =
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="file"; filename="upload.jpg"\r\n` +
+    `Content-Type: image/jpeg\r\n\r\n`;
+  const tail = `\r\n--${boundary}--\r\n`;
+  const counter = { pulled: 0 };
+  let sent = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(head));
+    },
+    pull(controller) {
+      if (sent >= fileBytes) {
+        controller.enqueue(new TextEncoder().encode(tail));
+        controller.close();
+        return;
+      }
+      const size = Math.min(chunkBytes, fileBytes - sent);
+      sent += size;
+      counter.pulled += size;
+      controller.enqueue(new Uint8Array(size).fill(0x61));
+    },
+  });
+  const request = new Request("https://zidrun.com/api/uploads", {
+    method: "POST",
+    body: stream,
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  return { request, counter };
 }
 
 async function expectRejected(label: string, run: () => Promise<unknown>) {
@@ -146,9 +188,55 @@ async function main() {
     check("malformed JSON is reported as such", invalid instanceof InvalidJsonError, `${(invalid as Error)?.name}`);
   }
 
-  // ---- 6. No route reads a body without the bound ----------------------------------------------------
+  // ---- 6. Multipart uploads are bounded too -----------------------------------------------------
+  // Built as a real streamed body rather than by handing a FormData to Request: the latter makes
+  // undici serialize in-process, which is not how a request arrives at the server and produces a
+  // different cancellation path. `pulled` again separates "refused" from "refused after reading it
+  // all", which is the entire question for an upload endpoint.
+  {
+    const { request, counter } = streamedMultipart(8 * 1024 * 1024);
+    await expectRejected("an 8 MB upload is refused against a 1 MB cap", () =>
+      readBoundedFormData(request, 1024 * 1024 + MULTIPART_OVERHEAD_BYTES)
+    );
+    check(
+      "...and the upload is cut off rather than parsed in full",
+      counter.pulled <= 2 * 1024 * 1024,
+      `read ${Math.round(counter.pulled / 1024)} KB of 8192 KB before cancelling`
+    );
+  }
+
+  {
+    const { request } = streamedMultipart(4 * 1024);
+    const form = await readBoundedFormData(request, 5 * 1024 * 1024);
+    const file = form.get("file");
+    check(
+      "a normal upload still parses",
+      file instanceof File && file.size === 4 * 1024,
+      file instanceof File ? `${file.size} bytes` : "no file"
+    );
+  }
+
+  {
+    // A file exactly at the cap must still be accepted — this is what MULTIPART_OVERHEAD_BYTES is
+    // for. Without the allowance, the boundary and part headers push a legal file over the limit.
+    const cap = 256 * 1024;
+    const { request } = streamedMultipart(cap);
+    const form = await readBoundedFormData(request, cap + MULTIPART_OVERHEAD_BYTES);
+    const file = form.get("file");
+    check(
+      "a file exactly at the cap is accepted, boundary overhead included",
+      file instanceof File && file.size === cap,
+      file instanceof File ? `${file.size} bytes` : "REJECTED a legal file"
+    );
+  }
+
+  // ---- 7. No route reads a body without the bound ----------------------------------------------------
   const API_ROOT = path.join(process.cwd(), "src", "app", "api");
-  const RAW_READ = /\b(?:request|req)\s*\.\s*(?:json|text)\s*\(\s*\)/;
+  // formData() is included deliberately. It was missed the first time round, and it is the worse
+  // case of the two: every upload route checked `file.size` AFTER awaiting formData(), by which
+  // point the whole multipart payload had already been parsed into memory. A size check that runs
+  // after the read is a validation rule, not a limit.
+  const RAW_READ = /\b(?:request|req)\s*\.\s*(?:json|text|formData)\s*\(\s*\)/;
 
   /** Routes allowed to read raw, with the reason. Adding here should feel like a decision. */
   const RAW_READ_ALLOWED: Record<string, string> = {};
@@ -177,7 +265,7 @@ async function main() {
       check(
         `${relative} bounds its body read`,
         false,
-        `line ${line} reads the body directly — use readBoundedJson from @/lib/http/body`
+        `line ${line} reads the body directly — use readBoundedJson or readBoundedFormData from @/lib/http/body`
       );
     } else {
       passed += 1;

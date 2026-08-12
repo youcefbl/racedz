@@ -7,7 +7,8 @@ export const uploadScopes = ["avatar", "race", "organization", "payment", "run",
 
 export type UploadScope = (typeof uploadScopes)[number];
 
-const maxImageBytes = 5 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const maxImageBytes = MAX_IMAGE_BYTES;
 
 const imageExtensionsByMimeType = new Map([
   ["image/jpeg", "jpg"],

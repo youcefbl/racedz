@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { isUploadScope, saveImageUpload, UploadError, type ImageUploadFile, type UploadScope } from "@/lib/storage";
+import { MAX_IMAGE_BYTES } from "@/lib/storage";
+import { BodyTooLargeError, MULTIPART_OVERHEAD_BYTES, readBoundedFormData } from "@/lib/http/body";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -17,8 +19,11 @@ export async function POST(request: Request) {
   let formData: FormData;
 
   try {
-    formData = await request.formData();
-  } catch {
+    formData = await readBoundedFormData(request, MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES);
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) {
+      return NextResponse.json({ error: "Image must be 5 MB or smaller." }, { status: 413 });
+    }
     return NextResponse.json({ error: "Could not read uploaded file. Try a smaller JPG, PNG, WebP, or GIF image." }, { status: 400 });
   }
   const file = formData.get("file");

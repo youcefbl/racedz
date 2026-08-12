@@ -5,6 +5,7 @@ import { CoachError } from "@/lib/coach/errors";
 import { coachErrorResponse } from "@/lib/coach/http";
 import { transcribeCoachVoiceNote } from "@/lib/coach/service";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { BodyTooLargeError, MULTIPART_OVERHEAD_BYTES, readBoundedFormData } from "@/lib/http/body";
 
 // Voice input for the coach: accepts a short audio note (multipart form field "audio"),
 // transcribes it to text, and returns the transcript for the user to review/edit then send.
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       throw new CoachError("Voice input is available on the paid subscription only.", 402, "VOICE_REQUIRES_SUBSCRIPTION");
     }
 
-    const formData = await request.formData();
+    const formData = await readBoundedFormData(request, MAX_AUDIO_BYTES + MULTIPART_OVERHEAD_BYTES);
     const audio = formData.get("audio");
     if (!(audio instanceof File) || audio.size === 0) {
       throw new CoachError("No audio was received.", 400, "MISSING_AUDIO");

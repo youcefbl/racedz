@@ -5,9 +5,10 @@ import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, requestId, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { toRegistrationDto } from "@/lib/api/v1/dto";
-import { resolvePaymentProofPath, saveImageUpload, UploadError, type ImageUploadFile } from "@/lib/storage";
+import { MAX_IMAGE_BYTES, resolvePaymentProofPath, saveImageUpload, UploadError, type ImageUploadFile } from "@/lib/storage";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 import { logSecurityEvent } from "@/lib/security-log";
+import { BodyTooLargeError, MULTIPART_OVERHEAD_BYTES, readBoundedFormData } from "@/lib/http/body";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +81,9 @@ export const POST = withApi(async (request, context: Context) => {
 
   let formData: FormData;
   try {
-    formData = await request.formData();
-  } catch {
+    formData = await readBoundedFormData(request, MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES);
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) throw new ApiError("BAD_REQUEST", "Image must be 5 MB or smaller.");
     throw new ApiError("BAD_REQUEST", "Could not read the uploaded file. Try a smaller JPG, PNG, or WebP image.");
   }
 
