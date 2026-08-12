@@ -824,7 +824,7 @@ export async function getOrganizationInvitationByToken(token: string) {
 }
 
 export async function acceptOrganizationInvitation({ token, userId }: { token: string; userId: string }) {
-  return getPrisma().$transaction(async (tx) => {
+  const accepted = await getPrisma().$transaction(async (tx) => {
     const rows = await tx.$queryRaw<OrganizationInvitationDetail[]>`
       SELECT
         invitation."id",
@@ -915,14 +915,17 @@ export async function acceptOrganizationInvitation({ token, userId }: { token: s
       WHERE "id" = ${invitation.id}
     `;
 
-    logSecurityEvent("org_invitation_accepted", {
-      organizationId: invitation.organizationId,
-      invitationId: invitation.id,
-      userId
-    });
-
     return invitation;
   });
+
+  // After commit: see the note in removeOrganizationMember.
+  logSecurityEvent("org_invitation_accepted", {
+    organizationId: accepted.organizationId,
+    invitationId: accepted.id,
+    userId
+  });
+
+  return accepted;
 }
 
 export async function createOrganizerRace({
@@ -1371,7 +1374,7 @@ export async function updateOrganizationMemberRole({
   targetMemberId: string;
   role: "OWNER" | "ADMIN" | "MEMBER";
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const result = await getPrisma().$transaction(async (tx) => {
     const target = await tx.organizationMember.findFirst({
       where: {
         id: targetMemberId,
@@ -1408,16 +1411,19 @@ export async function updateOrganizationMemberRole({
       }
     });
 
-    logSecurityEvent("org_member_role_changed", {
-      organizationId,
-      actorMemberId,
-      targetMemberId: target.id,
-      previousRole: target.role,
-      newRole: role
-    });
-
-    return updated;
+    return { updated, previousRole: target.role };
   });
+
+  // After commit: see the note in removeOrganizationMember.
+  logSecurityEvent("org_member_role_changed", {
+    organizationId,
+    actorMemberId,
+    targetMemberId: result.updated.id,
+    previousRole: result.previousRole,
+    newRole: role
+  });
+
+  return result.updated;
 }
 
 export async function removeOrganizationMember({
@@ -1431,7 +1437,7 @@ export async function removeOrganizationMember({
   actorRole: "OWNER" | "ADMIN" | "MEMBER";
   targetMemberId: string;
 }) {
-  return getPrisma().$transaction(async (tx) => {
+  const removed = await getPrisma().$transaction(async (tx) => {
     const target = await tx.organizationMember.findFirst({
       where: {
         id: targetMemberId,
@@ -1458,19 +1464,23 @@ export async function removeOrganizationMember({
       await assertOrganizationKeepsOwner(tx, organizationId);
     }
 
-    logSecurityEvent("org_member_removed", {
-      organizationId,
-      actorMemberId,
-      targetMemberId: target.id,
-      removedRole: target.role
-    });
-
     return tx.organizationMember.delete({
       where: {
         id: target.id
       }
     });
   });
+
+  // Logged only after the transaction commits. A security log that reports a removal which was
+  // then rolled back is worse than no log: it is the record an incident review would trust.
+  logSecurityEvent("org_member_removed", {
+    organizationId,
+    actorMemberId,
+    targetMemberId: removed.id,
+    removedRole: removed.role
+  });
+
+  return removed;
 }
 
 async function getEditableOrganizerRace(organizationId: string, raceEventId: string) {
