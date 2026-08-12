@@ -96,6 +96,12 @@ interface ZidRunApi {
     @GET("api/v1/coach")
     suspend fun coachOverview(): Response<ApiEnvelope<CoachOverviewDto>>
 
+    @GET("api/v1/coach/safety")
+    suspend fun coachSafety(): Response<ApiEnvelope<CoachSafetyStateDto>>
+
+    @PATCH("api/v1/coach/safety")
+    suspend fun clearCoachSafety(@Body body: CoachSafetyClearanceRequest): Response<ApiEnvelope<JsonObject>>
+
     @GET("api/v1/coach/interactions")
     suspend fun coachConversation(@Query("before") before: String? = null): Response<ApiEnvelope<CoachConversationDto>>
 

@@ -708,6 +708,12 @@
     <string name="coach_chat_why_advice">Why this advice?</string>
     <string name="coach_chat_not_meant">Not what I meant</string>
     <string name="coach_chat_repair_lead">What I meant was…</string>
+    <string name="coach_exercise_hold_title">Stop exercise until medically cleared</string>
+    <string name="coach_exercise_hold_body">If chest pain, fainting, or trouble breathing is happening now or returns, call Civil Protection on 14 or 1021. Do not run or do strenuous activity until a healthcare professional has checked you and cleared your return.</string>
+    <string name="coach_exercise_hold_action">I have medical clearance</string>
+    <string name="coach_exercise_hold_confirm_title">Confirm medical clearance</string>
+    <string name="coach_exercise_hold_confirm_body">Only confirm if a healthcare professional assessed you and said you may return to exercise. Feeling better or dismissing this warning is not medical clearance.</string>
+    <string name="coach_exercise_hold_confirm_action">Confirm clearance</string>
     <string name="coach_chat_based_sentence">This advice is based on %1$s.</string>
     <string name="coach_chat_missing_sentence">Your coach did not have %1$s.</string>
     <string name="coach_signal_goal">your goal</string>

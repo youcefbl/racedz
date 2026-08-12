@@ -55,6 +55,7 @@ import dz.racedz.nativeapp.core.design.ZidRunBrandBar
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
+import dz.racedz.nativeapp.core.design.ZidRunExerciseHoldNotice
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunTheme
@@ -193,6 +194,13 @@ fun RunsOverviewScreen(
                             modifier = Modifier.size(16.dp),
                         )
                     }
+                }
+
+                state.safetyAlert?.let {
+                    ZidRunExerciseHoldNotice(
+                        clearing = state.safetyClearing,
+                        onConfirmMedicalClearance = viewModel::confirmMedicalClearance,
+                    )
                 }
 
                 val latest = state.latestRun

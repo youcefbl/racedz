@@ -25,6 +25,8 @@ import dz.racedz.nativeapp.core.network.SleepHistoryDto
 import dz.racedz.nativeapp.core.network.CoachTranscriptDto
 import dz.racedz.nativeapp.core.network.CoachPlanWeekDto
 import dz.racedz.nativeapp.core.network.CoachOverviewDto
+import dz.racedz.nativeapp.core.network.CoachSafetyClearanceRequest
+import dz.racedz.nativeapp.core.network.CoachSafetyStateDto
 import dz.racedz.nativeapp.core.network.CreateCoachGoalRequest
 import dz.racedz.nativeapp.core.network.GuidedSessionDto
 import dz.racedz.nativeapp.core.network.WeatherDto
@@ -40,6 +42,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.json.JsonObject
 
 /** Race discovery and detail. Read-only; every visibility rule is applied server-side. */
 class RacesRepository(private val api: ZidRunApi, private val client: ApiClient) {
@@ -229,6 +232,11 @@ class RegistrationRepository(
  */
 class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) {
 
+    suspend fun coachSafety(): ApiResult<CoachSafetyStateDto> = client.call { api.coachSafety() }
+
+    suspend fun clearCoachSafety(): ApiResult<JsonObject> =
+        client.call { api.clearCoachSafety(CoachSafetyClearanceRequest()) }
+
     /**
      * Every run the caller has, not just the first page.
      *
@@ -399,6 +407,11 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
     }.getOrNull()
 
     suspend fun overview(): ApiResult<CoachOverviewDto> = client.call { api.coachOverview() }
+
+    suspend fun safety(): ApiResult<CoachSafetyStateDto> = client.call { api.coachSafety() }
+
+    suspend fun clearSafety(): ApiResult<JsonObject> =
+        client.call { api.clearCoachSafety(CoachSafetyClearanceRequest()) }
 
     /** This week of the active plan, bounded server-side to one Mon-Sun window. */
     suspend fun conversation(before: String? = null): ApiResult<CoachConversationDto> =

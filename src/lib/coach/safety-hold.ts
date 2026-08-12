@@ -31,17 +31,6 @@ export async function getCoachSafetyAlert(userId: string): Promise<CoachSafetyAl
 
 /** Clears only the caller's latest hold after an explicit medical-clearance attestation. */
 export async function confirmCoachMedicalClearance(userId: string): Promise<boolean> {
-  const rows = await getPrisma().$queryRaw<Array<{ id: string }>>`
-    SELECT "id" FROM "CoachInteraction"
-    WHERE "userId" = ${userId}
-      AND "status" = 'BLOCKED'
-      AND "safety" #>> '{exerciseHold,status}' = 'ACTIVE'
-    ORDER BY "createdAt" DESC
-    LIMIT 1
-  `;
-  const row = rows[0];
-  if (!row) return false;
-
   const clearedAt = new Date().toISOString();
   const changed = await getPrisma().$executeRaw`
     UPDATE "CoachInteraction"
@@ -51,9 +40,8 @@ export async function confirmCoachMedicalClearance(userId: string): Promise<bool
       CAST(${JSON.stringify({ status: "CLEARED", clearedAt })} AS jsonb),
       true
     )
-    WHERE "id" = ${row.id}
-      AND "userId" = ${userId}
+    WHERE "userId" = ${userId}
       AND "safety" #>> '{exerciseHold,status}' = 'ACTIVE'
   `;
-  return changed === 1;
+  return changed > 0;
 }

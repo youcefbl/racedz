@@ -57,6 +57,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunDisplayTitle
 import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
+import dz.racedz.nativeapp.core.design.ZidRunExerciseHoldNotice
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
@@ -143,6 +144,13 @@ fun CoachScreen(
                         if (state.isTrial) {
                             TrialPill(trialEndsAt = overview.entitlement.trialEndsAt)
                         }
+                    }
+
+                    state.safetyAlert?.let {
+                        ZidRunExerciseHoldNotice(
+                            clearing = state.safetyClearing,
+                            onConfirmMedicalClearance = viewModel::confirmMedicalClearance,
+                        )
                     }
 
                     if (!state.hasCoaching) {

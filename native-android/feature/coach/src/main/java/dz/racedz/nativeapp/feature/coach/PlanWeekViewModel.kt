@@ -7,6 +7,7 @@ import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.CoachPlanWeekDto
+import dz.racedz.nativeapp.core.network.CoachSafetyAlertDto
 import dz.racedz.nativeapp.core.network.WorkoutActionRequest
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,8 @@ data class PlanWeekUiState(
     val actionError: String? = null,
     /** Set for one read after a change lands, so the screen can confirm what actually happened. */
     val confirmation: PlanChange? = null,
+    val safetyAlert: CoachSafetyAlertDto? = null,
+    val safetyClearing: Boolean = false,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
 }
@@ -46,6 +49,21 @@ class PlanWeekViewModel(private val repository: CoachRepository) : ViewModel() {
             when (val result = repository.planWeek()) {
                 is ApiResult.Success -> _state.update { it.copy(week = result.value, loading = false, error = null) }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
+            }
+        }
+        viewModelScope.launch {
+            val result = repository.safety()
+            if (result is ApiResult.Success) _state.update { it.copy(safetyAlert = result.value.alert) }
+        }
+    }
+
+    fun confirmMedicalClearance() {
+        if (_state.value.safetyClearing) return
+        _state.update { it.copy(safetyClearing = true) }
+        viewModelScope.launch {
+            when (repository.clearSafety()) {
+                is ApiResult.Success -> _state.update { it.copy(safetyAlert = null, safetyClearing = false) }
+                is ApiResult.Failure -> _state.update { it.copy(safetyClearing = false) }
             }
         }
     }

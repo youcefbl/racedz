@@ -8,6 +8,7 @@ import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AskCoachRequest
 import dz.racedz.nativeapp.core.network.CoachConversationDto
+import dz.racedz.nativeapp.core.network.CoachSafetyAlertDto
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +46,8 @@ data class ConversationUiState(
     val draft: String = "",
     /** Reply ids whose secondary details the runner explicitly opened. */
     val expandedReplyIds: Set<String> = emptySet(),
+    val safetyAlert: CoachSafetyAlertDto? = null,
+    val safetyClearing: Boolean = false,
 ) {
     /** Voice input is a paid feature, so the mic is only offered to subscribers. */
     val canUseVoice: Boolean get() = conversation.entitlement.tier == "SUBSCRIBED"
@@ -93,6 +96,25 @@ class ConversationViewModel(
                     it.copy(conversation = result.value, loading = false, error = null)
                 }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
+            }
+        }
+        loadSafety()
+    }
+
+    private fun loadSafety() {
+        viewModelScope.launch {
+            val result = repository.safety()
+            if (result is ApiResult.Success) _state.update { it.copy(safetyAlert = result.value.alert) }
+        }
+    }
+
+    fun confirmMedicalClearance() {
+        if (_state.value.safetyClearing) return
+        _state.update { it.copy(safetyClearing = true) }
+        viewModelScope.launch {
+            when (repository.clearSafety()) {
+                is ApiResult.Success -> _state.update { it.copy(safetyAlert = null, safetyClearing = false) }
+                is ApiResult.Failure -> _state.update { it.copy(safetyClearing = false) }
             }
         }
     }
@@ -175,6 +197,7 @@ class ConversationViewModel(
                     } else {
                         _state.update { it.copy(generating = false, sendError = null) }
                     }
+                    loadSafety()
                 }
                 is ApiResult.Failure -> _state.update {
                     // The question is kept in [pendingQuestion] so the runner can see what they

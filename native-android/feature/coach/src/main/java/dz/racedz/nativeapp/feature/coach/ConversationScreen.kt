@@ -57,6 +57,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.ZidRunDivider
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
+import dz.racedz.nativeapp.core.design.ZidRunExerciseHoldNotice
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
@@ -139,6 +140,14 @@ fun ConversationScreen(
             .imePadding(),
     ) {
         ZidRunTopBar(title = stringResource(R.string.coach_chat_title), onBack = onBack)
+
+        state.safetyAlert?.let {
+            ZidRunExerciseHoldNotice(
+                clearing = state.safetyClearing,
+                onConfirmMedicalClearance = viewModel::confirmMedicalClearance,
+                modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg, vertical = ZidRunDimens.spaceSm),
+            )
+        }
 
         when {
             state.loading -> ZidRunLoading(label = stringResource(R.string.common_loading))

@@ -687,6 +687,12 @@
     <string name="coach_chat_why_advice">Pourquoi ce conseil ?</string>
     <string name="coach_chat_not_meant">Ce n’est pas ce que je voulais dire</string>
     <string name="coach_chat_repair_lead">Ce que je voulais dire…</string>
+    <string name="coach_exercise_hold_title">Arrêtez l’effort jusqu’à l’autorisation médicale</string>
+    <string name="coach_exercise_hold_body">Si une douleur thoracique, un évanouissement ou une difficulté à respirer est en cours ou revient, appelez la Protection civile au 14 ou au 1021. Ne courez pas et ne faites aucun effort intense avant d’avoir été examiné et autorisé à reprendre.</string>
+    <string name="coach_exercise_hold_action">J’ai une autorisation médicale</string>
+    <string name="coach_exercise_hold_confirm_title">Confirmer l’autorisation médicale</string>
+    <string name="coach_exercise_hold_confirm_body">Confirmez uniquement si un professionnel de santé vous a examiné et vous a autorisé à reprendre l’effort. Se sentir mieux ou fermer cet avertissement ne suffit pas.</string>
+    <string name="coach_exercise_hold_confirm_action">Confirmer l’autorisation</string>
     <string name="coach_chat_based_sentence">Ce conseil se base sur %1$s.</string>
     <string name="coach_chat_missing_sentence">Votre coach n’avait pas %1$s.</string>
     <string name="coach_signal_goal">votre objectif</string>

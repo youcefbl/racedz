@@ -7,6 +7,7 @@ import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.BadgesDto
+import dz.racedz.nativeapp.core.network.CoachSafetyAlertDto
 import dz.racedz.nativeapp.core.network.RunDto
 import java.time.Instant
 import java.time.ZoneId
@@ -74,6 +75,8 @@ data class RunsUiState(
      * unreachable badges endpoint must not take the runs page down with it.
      */
     val badges: BadgesDto? = null,
+    val safetyAlert: CoachSafetyAlertDto? = null,
+    val safetyClearing: Boolean = false,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val isEmpty: Boolean get() = !loading && error == null && runs.isEmpty()
@@ -267,6 +270,25 @@ class RunsViewModel(private val repository: RunsRepository) : ViewModel() {
             }
         }
         loadBadges()
+        loadSafety()
+    }
+
+    private fun loadSafety() {
+        viewModelScope.launch {
+            val result = repository.coachSafety()
+            if (result is ApiResult.Success) _state.update { it.copy(safetyAlert = result.value.alert) }
+        }
+    }
+
+    fun confirmMedicalClearance() {
+        if (_state.value.safetyClearing) return
+        _state.update { it.copy(safetyClearing = true) }
+        viewModelScope.launch {
+            when (repository.clearCoachSafety()) {
+                is ApiResult.Success -> _state.update { it.copy(safetyAlert = null, safetyClearing = false) }
+                is ApiResult.Failure -> _state.update { it.copy(safetyClearing = false) }
+            }
+        }
     }
 
     /**

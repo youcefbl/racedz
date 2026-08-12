@@ -709,6 +709,12 @@
     <string name="coach_chat_why_advice">علاش هاذ النصيحة؟</string>
     <string name="coach_chat_not_meant">ماشي هاذا واش قصدت</string>
     <string name="coach_chat_repair_lead">قصدي…</string>
+    <string name="coach_exercise_hold_title">حبس المجهود حتى يعطيك المختص الموافقة</string>
+    <string name="coach_exercise_hold_body">إذا وجع الصدر، الغشيان، ولا صعوبة التنفس راهي صارية ضرك ولا عاودت، عيّط للحماية المدنية على 14 ولا 1021. ما تجريش وما تدير حتى مجهود قوي حتى يفحصك مختص صحي ويعطيك الموافقة ترجع.</string>
+    <string name="coach_exercise_hold_action">عندي الموافقة الطبية</string>
+    <string name="coach_exercise_hold_confirm_title">أكّد الموافقة الطبية</string>
+    <string name="coach_exercise_hold_confirm_body">أكّد غير إذا فحصك مختص صحي وقالك تقدر ترجع للرياضة. كي تحس روحك خير ولا تسدّ هاذ التحذير، هاذا ماشي موافقة طبية.</string>
+    <string name="coach_exercise_hold_confirm_action">أكّد الموافقة</string>
     <string name="coach_chat_based_sentence">هاذ النصيحة مبنية على %1$s.</string>
     <string name="coach_chat_missing_sentence">الكوتش ما كانش عندو %1$s.</string>
     <string name="coach_signal_goal">الهدف تاعك</string>

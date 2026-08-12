@@ -7,6 +7,7 @@ import dz.racedz.nativeapp.core.network.ApiCallException
 import dz.racedz.nativeapp.core.network.ApiErrorCode
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.CoachOverviewDto
+import dz.racedz.nativeapp.core.network.CoachSafetyAlertDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,8 @@ data class CoachUiState(
     val overview: CoachOverviewDto? = null,
     val loading: Boolean = true,
     val error: ApiCallException? = null,
+    val safetyAlert: CoachSafetyAlertDto? = null,
+    val safetyClearing: Boolean = false,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
 
@@ -38,7 +41,10 @@ class CoachViewModel(private val repository: CoachRepository) : ViewModel() {
         load()
     }
 
-    fun load() = fetch(showSpinner = true)
+    fun load() {
+        fetch(showSpinner = true)
+        fetchSafety()
+    }
 
     /**
      * Re-reads the overview without blanking the screen.
@@ -50,7 +56,28 @@ class CoachViewModel(private val repository: CoachRepository) : ViewModel() {
      * app. A spinner would be its own bug here: the screen already has correct content, and
      * replacing it with a loader on every resume makes the tab flicker.
      */
-    fun refresh() = fetch(showSpinner = _state.value.overview == null)
+    fun refresh() {
+        fetch(showSpinner = _state.value.overview == null)
+        fetchSafety()
+    }
+
+    private fun fetchSafety() {
+        viewModelScope.launch {
+            val result = repository.safety()
+            if (result is ApiResult.Success) _state.update { it.copy(safetyAlert = result.value.alert) }
+        }
+    }
+
+    fun confirmMedicalClearance() {
+        if (_state.value.safetyClearing) return
+        _state.update { it.copy(safetyClearing = true) }
+        viewModelScope.launch {
+            when (repository.clearSafety()) {
+                is ApiResult.Success -> _state.update { it.copy(safetyAlert = null, safetyClearing = false) }
+                is ApiResult.Failure -> _state.update { it.copy(safetyClearing = false) }
+            }
+        }
+    }
 
     private fun fetch(showSpinner: Boolean) {
         if (showSpinner) _state.update { it.copy(loading = true, error = null) }

@@ -568,6 +568,22 @@ data class CoachSafetyDto(
     val isNotable: Boolean get() = level != "CLEAR" || requiresProfessionalAdvice
 }
 
+@Serializable
+data class CoachSafetyAlertDto(
+    val status: String = "ACTIVE",
+    val sourceInteractionId: String = "",
+    val triggeredAt: String = "",
+)
+
+@Serializable
+data class CoachSafetyStateDto(val alert: CoachSafetyAlertDto? = null)
+
+@Serializable
+data class CoachSafetyClearanceRequest(
+    val action: String = "CONFIRM_MEDICAL_CLEARANCE",
+    val confirmed: Boolean = true,
+)
+
 /**
  * One turn of the coach conversation.
  *
