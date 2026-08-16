@@ -21,6 +21,7 @@ object RunSettings {
     private const val FILE_NAME = "run_settings"
     private const val KEY_AUTO_PAUSE = "auto_pause"
     private const val KEY_CUE_INTERVAL_M = "cue_interval_m"
+    private const val KEY_COUNTDOWN = "countdown"
 
     /** Distance between spoken progress cues, in metres. Also the sole source of the choices offered. */
     enum class CueInterval(val meters: Int) {
@@ -45,6 +46,7 @@ object RunSettings {
     // In-memory fallbacks for when no prefs are attached (unit tests, previews).
     private var autoPauseFallback = true
     private var cueIntervalFallback = CueInterval.OneKm
+    private var countdownFallback = false
 
     /** Pause the clock automatically while the runner is standing still (traffic light, a stop). */
     var autoPauseEnabled: Boolean
@@ -52,6 +54,14 @@ object RunSettings {
         set(value) {
             autoPauseFallback = value
             prefs?.edit()?.putBoolean(KEY_AUTO_PAUSE, value)?.apply()
+        }
+
+    /** A 3-2-1 after the hold before anything starts (NATRUN-06.7). Off by default. */
+    var countdownEnabled: Boolean
+        get() = prefs?.getBoolean(KEY_COUNTDOWN, false) ?: countdownFallback
+        set(value) {
+            countdownFallback = value
+            prefs?.edit()?.putBoolean(KEY_COUNTDOWN, value)?.apply()
         }
 
     var cueInterval: CueInterval

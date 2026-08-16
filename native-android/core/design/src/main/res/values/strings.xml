@@ -491,6 +491,10 @@
     <string name="runs_step_metres">%1$s m</string>
     <!-- Strava-parity pass (docs/RUNS_STRAVA_PARITY_2026-08-16.md): auto-pause, cue interval, state cues. -->
     <string name="runs_auto_paused_still">Auto-paused — standing still. The clock restarts when you move.</string>
+    <string name="runs_countdown">Countdown</string>
+    <string name="runs_countdown_help">3-2-1 after you hold, before anything starts</string>
+    <string name="runs_countdown_starting_in">Starting in</string>
+    <string name="runs_countdown_nothing_recorded">Nothing is recorded yet</string>
     <string name="runs_auto_pause">Auto-pause</string>
     <string name="runs_auto_pause_help">Stops the clock while you stand still</string>
     <string name="runs_cue_interval">Voice update every</string>

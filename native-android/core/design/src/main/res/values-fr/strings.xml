@@ -470,6 +470,10 @@
     <string name="runs_step_seconds">%1$s s</string>
     <string name="runs_step_metres">%1$s m</string>
     <string name="runs_auto_paused_still">Pause auto — vous êtes à l\'arrêt. Le chrono repart dès que vous bougez.</string>
+    <string name="runs_countdown">Compte à rebours</string>
+    <string name="runs_countdown_help">3-2-1 après le maintien, avant que rien ne démarre</string>
+    <string name="runs_countdown_starting_in">Départ dans</string>
+    <string name="runs_countdown_nothing_recorded">Rien n\'est encore enregistré</string>
     <string name="runs_auto_pause">Pause automatique</string>
     <string name="runs_auto_pause_help">Arrête le chrono quand vous êtes à l\'arrêt</string>
     <string name="runs_cue_interval">Annonce vocale tous les</string>

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -157,6 +158,8 @@ fun StartRunScreen(
         mutableStateOf(if (workoutId != null) RunMode.Guided else RunMode.Free)
     }
     var audioCues by rememberSaveable { mutableStateOf(true) }
+    // The start that is waiting behind the countdown; null when no countdown is showing.
+    var pendingStart by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     // Notifications are requested alongside location: the foreground service needs a visible
     // notification, and without the permission the runner sees no indication that GPS is on.
@@ -179,10 +182,25 @@ fun StartRunScreen(
             // Only attach the planned workout when the runner is actually running it (Guided). If they
             // switched to Free/custom, the run must NOT complete the planned session (adherence bug).
             val effectiveWorkoutId = workoutId.takeIf { mode == RunMode.Guided }
-            beginRecording(context, audioCues, guidingSession, effectiveWorkoutId, onStarted)
+            val begin = { beginRecording(context, audioCues, guidingSession, effectiveWorkoutId, onStarted) }
+            // Optional 3-2-1 (NATRUN-06.7): only after the hold and the grant, and nothing — no
+            // recorder, service, cue or clock — starts until it reaches zero.
+            if (RunSettings.countdownEnabled) pendingStart = begin else begin()
         } else {
             permissionDenied = true
         }
+    }
+
+    pendingStart?.let { start ->
+        CountdownOverlay(
+            audioCues = audioCues,
+            onFinished = {
+                pendingStart = null
+                start()
+            },
+            onCancelled = { pendingStart = null },
+        )
+        return
     }
 
     Column(
@@ -344,6 +362,9 @@ fun StartRunScreen(
             // Auto-pause: stops the clock at a red light. Persisted across runs (Strava keeps the
             // same choice under Record → Settings), so it is read from and written to RunSettings.
             AutoPauseRow()
+
+            // Optional countdown before the start (NATRUN-06.7), off by default; persisted.
+            CountdownRow()
 
             // Hold waits while a chosen workout structure is still loading, so a run can never start
             // on an older structure than the one shown (or on no structure when one was picked).
@@ -732,6 +753,57 @@ private fun CueIntervalPicker() {
                 )
             }
         }
+    }
+}
+
+/** The countdown switch (off by default), same row as auto-pause. */
+@Composable
+private fun CountdownRow() {
+    var enabled by remember { mutableStateOf(RunSettings.countdownEnabled) }
+    fun set(value: Boolean) {
+        enabled = value
+        RunSettings.countdownEnabled = value
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(zidRunOnDarkColors().surface)
+            .clickable(role = Role.Switch) { set(!enabled) }
+            .padding(ZidRunDimens.spaceMd)
+            .semantics(mergeDescendants = true) { },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Timer,
+            contentDescription = null,
+            tint = if (enabled) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
+        )
+        Spacer(Modifier.width(ZidRunDimens.spaceMd))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.runs_countdown),
+                style = MaterialTheme.typography.titleSmall,
+                color = zidRunOnDarkColors().textStrong,
+            )
+            Text(
+                text = stringResource(R.string.runs_countdown_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = zidRunOnDarkColors().textMuted,
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = { set(it) },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = zidRunOnDarkColors().onPrimary,
+                checkedTrackColor = zidRunOnDarkColors().primary,
+                checkedBorderColor = zidRunOnDarkColors().primary,
+                uncheckedThumbColor = zidRunOnDarkColors().textMuted,
+                uncheckedTrackColor = zidRunOnDarkColors().surfaceMuted,
+                uncheckedBorderColor = zidRunOnDarkColors().borderStrong,
+            ),
+        )
     }
 }
 

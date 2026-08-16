@@ -485,6 +485,10 @@
     <string name="runs_step_seconds">%1$s ثانية</string>
     <string name="runs_step_metres">%1$s م</string>
     <string name="runs_auto_paused_still">حبسنا الوقت وحدنا — راك واقف. الكرونو يعاود يمشي كي تتحرك.</string>
+    <string name="runs_countdown">العدّ التنازلي</string>
+    <string name="runs_countdown_help">3-2-1 من بعد ما تحبس، قبل ما يبدا أي حاجة</string>
+    <string name="runs_countdown_starting_in">نبداو في</string>
+    <string name="runs_countdown_nothing_recorded">مازال ما تسجّل والو</string>
     <string name="runs_auto_pause">حبس أوتوماتيكي</string>
     <string name="runs_auto_pause_help">يحبس الكرونو كي تكون واقف</string>
     <string name="runs_cue_interval">توجيه صوتي كل</string>
