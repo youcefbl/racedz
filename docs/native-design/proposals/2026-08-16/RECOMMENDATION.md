@@ -51,3 +51,35 @@ edit sheet (built from existing components, delivered as NATRUN-06 (a)/(b)).
 
 - Colours, radii, type and spacing are the existing tokens; no new component vocabulary.
 - All new tables use tabular numerals; every control ≥ 44 dp; RTL mirrors layout, never the map.
+
+## Owner decision (2026-08-16) — approved with changes
+
+All eight asks approved with these changes, now binding for the implementation:
+
+1. Best efforts: fixed 1/5/10 km rows; PR server-authoritative; **do not scan history on read** —
+   persist a bounded derived record per run × distance (`runId, userId, distanceM, seconds,
+   startIndex, endIndex`, indexed by runner + distance) computed when GPS/imported data is
+   accepted, backfilled lazily once; only VALID runs with trustworthy timestamps; ties earn no PR;
+   design the comparison so a future sport type compares within sport. Detail DTO returns
+   `bestEfforts: [{ distanceM, seconds, isPersonalBest }]` (no indexes unless the UI needs them).
+2. Manual laps: **server persistence** as `RunnerRun.laps Json` of `[{ atMeters, atSeconds }]`,
+   ≤ 100, strictly increasing, within the run's final duration/distance, no near-zero laps,
+   owner-scoped; carried in create/save and the durable outbox; derived distance/time/pace via one
+   shared tested helper; no PATCH until lap editing exists.
+3. Live row: Cadence replaces Moving time, but as a **short rolling-window live cadence** ("—" until
+   enough valid samples), never the delayed whole-run average; average cadence stays on summary
+   and details. No automatic "unavailable" announcement; expose the state in semantics on focus.
+4. Lap in the left thumb slot with a **flag/lap/stopwatch icon** (not the circular arrow), immediate
+   haptic + visible confirmation. Do not reserve long-press-header for the touch guard; propose a
+   discoverable placement when NATRUN-07.7 starts.
+5. Recenter: as proposed; must not cover attribution/route/controls; the map must actually pan and
+   have a follow state (implement pan/follow in this slice, no dead button).
+6. Countdown: cancel or backgrounding cancels the start; recording/elapsed/tracking/cues begin at
+   zero; screen stays awake; tone/haptic follow audio + reduced-motion settings; no AI/quota.
+7. Share image: real theme logo asset (mock revised); **preview before the share sheet**; an
+   **Include route** choice, default off for private runs and on for public runs; never name,
+   notes, coordinates, health data or hidden identifiers; private temp files cleaned up; actions
+   row wraps at 360 dp / FR / AR / 1.3× (mock revised).
+8. km/mi: Account → Settings with the existing choice pattern; **account-synced** preference,
+   Metric default for Algeria and existing accounts; canonical metric storage, presentation-only
+   conversion everywhere listed.

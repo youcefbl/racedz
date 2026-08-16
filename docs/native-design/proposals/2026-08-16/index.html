@@ -130,7 +130,7 @@
 </div>
 
 <h1 style="font-size:16px">B · During Run — cadence in the secondary row, position marker + recenter, Lap control</h1>
-<p class="note">Matches 03-during-run.png: secondary row becomes <b>Cadence · Elevation · Calories</b> (moving time moves to the summary/detail where it already is). The map gets the approved position marker (primary ring dot) plus a 44 dp recenter control that appears only after the runner pans. The left control slot — the mock's Lock, which is NATRUN-07 — carries <b>Lap</b> for now, in the same 48 dp circle language as Finish. Cadence reads "—" until ≥60 s of steps exist.</p>
+<p class="note">Matches 03-during-run.png: secondary row becomes <b>Cadence · Elevation · Calories</b> (moving time moves to the summary/detail where it already is). The map gets the approved position marker (primary ring dot) plus a 44 dp recenter control that appears only after the runner pans. The left control slot — the mock's Lock, which is NATRUN-07 — carries <b>Lap</b> for now, in the same 48 dp circle language as Finish. Cadence is <b>live</b>: steps over a rolling ~20 s window, "—" until the window has enough valid samples or while stopped; the whole-run average stays on the summary and details.</p>
 <div class="row">
   <div class="phone live"><div class="cap" style="background:#151517;color:#9B9BA1;border-color:#2A2A2E">Always dark · During Run</div>
     <div class="screen">
@@ -151,7 +151,7 @@
         <div class="recenter" title="Recenter">◎</div>
       </div>
       <div class="controls">
-        <div class="ctl"><div class="circle" style="background:rgba(74,222,128,.18);color:#4ADE80">⟲</div>Lap</div>
+        <div class="ctl"><div class="circle" style="background:rgba(74,222,128,.18);color:#4ADE80">⏱</div>Lap</div>
         <div class="pill-btn">❚❚&nbsp; Pause</div>
         <div class="ctl"><div class="circle" style="background:rgba(251,146,60,.18);color:#FB923C">⚑</div>Finish</div>
       </div>
@@ -173,21 +173,43 @@
 <div class="row">
   <div class="share light" style="background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
     <svg class="route" viewBox="0 0 270 338"><path d="M50 250 C 90 200, 120 260, 150 190 S 210 120, 235 140" fill="none" stroke="#15803D" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="250" r="6" fill="#15803D"/><circle cx="235" cy="140" r="6" fill="#F47A20"/></svg>
-    <div class="logo" style="color:#15803D;position:relative">ZidRun</div>
+    <img src="../../../../public/brand/zidrun-logo.svg" alt="ZidRun" style="height:22px;width:auto;position:relative">
     <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
   </div>
   <div class="share dark" style="background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
     <svg class="route" viewBox="0 0 270 338"><path d="M50 250 C 90 200, 120 260, 150 190 S 210 120, 235 140" fill="none" stroke="#4ADE80" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="250" r="6" fill="#4ADE80"/><circle cx="235" cy="140" r="6" fill="#FB923C"/></svg>
-    <div class="logo" style="color:#4ADE80;position:relative">ZidRun</div>
+    <img src="../../../../public/brand/zidrun-logo-dark.svg" alt="ZidRun" style="height:22px;width:auto;position:relative">
     <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
   </div>
   <div class="share race" style="background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
     <svg class="route" viewBox="0 0 270 338"><path d="M50 250 C 90 200, 120 260, 150 190 S 210 120, 235 140" fill="none" stroke="#39FF14" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="250" r="6" fill="#39FF14"/><circle cx="235" cy="140" r="6" fill="#FF2BD6"/></svg>
-    <div class="logo" style="color:#39FF14;position:relative">ZidRun</div>
+    <img src="../../../../public/brand/zidrun-logo-race.svg" alt="ZidRun" style="height:22px;width:auto;position:relative">
     <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
   </div>
 </div>
-<p class="note">Wordmark above is placeholder text; the implementation uses <code>public/brand/zidrun-logo*.svg</code> rasterised per theme.</p>
+<p class="note">Logos are the real <code>public/brand/zidrun-logo{,-dark,-race}.svg</code> assets, rasterised per theme at generation time.</p>
+<h1 style="font-size:16px">D2 · Share preview (before the Android share sheet)</h1>
+<p class="note">A preview screen shows exactly what will be shared, with an <b>Include route</b> switch (default off for private runs, on for public runs). Share hands a private cache file to the system sheet; the file is deleted after the sheet returns and any older exports are swept.</p>
+<div class="row">
+  <div class="phone light"><div class="cap">Light · Share preview (private run → route off)</div>
+    <div class="screen">
+      <div class="title-sm">Share image</div>
+      <div class="share light" style="width:100%;aspect-ratio:4/5;background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
+        <img src="../../../../public/brand/zidrun-logo.svg" alt="ZidRun" style="height:22px;width:auto;position:relative">
+        <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
+      </div>
+      <div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="title-sm">Include route</div><div class="body-sm">Off for private runs. The map shows the shape only, no streets or coordinates.</div></div><div style="width:44px;height:24px;border-radius:12px;background:var(--surface-muted);border:1px solid var(--border-strong)"></div></div>
+      <div class="actions"><div class="btn primary">Share</div><div class="btn outline">Cancel</div></div>
+    </div>
+  </div>
+  <div class="phone dark"><div class="cap">Dark · action row wraps (FR / AR / 1.3×)</div>
+    <div class="screen">
+      <div class="body-sm">Run Details actions at 360 dp with long labels: buttons wrap into two rows instead of three cramped columns (Compose FlowRow, each ≥ 48 dp tall).</div>
+      <div class="actions" style="flex-wrap:wrap"><div class="btn outline" style="flex:1 1 45%">Partager l’image</div><div class="btn outline" style="flex:1 1 45%">Exporter le GPX</div><div class="btn primary" style="flex:1 1 100%">Analyser la course</div></div>
+      <div class="actions" style="flex-wrap:wrap;direction:rtl"><div class="btn outline" style="flex:1 1 45%">شارك تصويرة</div><div class="btn outline" style="flex:1 1 45%">صدّر GPX</div><div class="btn primary" style="flex:1 1 100%">حلّل الجَرية</div></div>
+    </div>
+  </div>
+</div>
 <p class="note" style="padding-bottom:40px">E · km/mi is a row in Account → Settings using the existing menu-row + choice-chip pattern; no new visual.</p>
 </body>
 </html>
