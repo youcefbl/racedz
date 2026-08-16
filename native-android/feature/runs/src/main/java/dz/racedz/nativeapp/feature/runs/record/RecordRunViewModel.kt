@@ -110,6 +110,8 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 workoutId = recording.workoutId,
                 // Lets the server tell a run from a ride; null on devices with no step counter.
                 avgCadence = recording.avgCadenceSpm,
+                // From a connected BLE sensor only (NATRUN-07.3); null without one.
+                averageHeartRate = recording.averageHeartRate,
                 // Coach questions asked mid-run, for the server to link to this run once it exists.
                 coachInteractionIds = recording.askedCoachIds.takeIf { it.isNotEmpty() },
                 // The summary screen's choice, from the recording state so a retry (or a restore

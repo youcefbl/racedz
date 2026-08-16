@@ -992,6 +992,8 @@ data class CreateRunRequest(
      * on devices without the sensor or permission, in which case the server falls back to speed.
      */
     val avgCadence: Int? = null,
+    /** Mean bpm from a connected BLE sensor over the run (NATRUN-07.3); absent without one. */
+    val averageHeartRate: Int? = null,
     /**
      * The planned session this run was logged for, carried from "Log this run" all the way through
      * the save. Without it the server's matcher has to guess afterwards whether the run counted

@@ -123,6 +123,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
 
         startStepCounter()
         startBarometer()
+        startHeartRate()
 
         val serviceScope = CoroutineScope(Dispatchers.Main).also { scope = it }
         ticker = serviceScope.launch {
@@ -145,6 +146,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
             (getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(this)
         }
         stopStepCounter()
+        stopHeartRate()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -155,6 +157,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
             (getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(this)
         }
         stopStepCounter()
+        stopHeartRate()
         super.onDestroy()
     }
 
@@ -181,6 +184,24 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         val counter = manager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return
         manager.registerListener(this, counter, SensorManager.SENSOR_DELAY_NORMAL)
         sensorManager = manager
+    }
+
+    /**
+     * BLE heart rate (NATRUN-07.3): connect the paired sensor for the life of the recording; the
+     * monitor reconnects with backoff on its own and the recorder only ever sees real samples.
+     */
+    private fun startHeartRate() {
+        val address = RunSettings.hrSensorAddress ?: return
+        val monitor = dz.racedz.nativeapp.feature.runs.record.hr.HeartRateMonitor.shared(this)
+        monitor.onSample = { bpm -> RunRecorder.onHeartRate(bpm) }
+        monitor.connect(address)
+    }
+
+    private fun stopHeartRate() {
+        val monitor = dz.racedz.nativeapp.feature.runs.record.hr.HeartRateMonitor.shared(this)
+        monitor.onSample = null
+        monitor.disconnect()
+        RunRecorder.onHeartRateLost()
     }
 
     /**

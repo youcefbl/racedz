@@ -58,6 +58,10 @@ data class RecordingState(
      * while stopped, or on devices with no step counter. The whole-run [avgCadenceSpm] is separate.
      */
     val liveCadenceSpm: Int? = null,
+    /** Latest heart rate from a connected sensor (NATRUN-07.3); null without one. Never estimated. */
+    val heartRateBpm: Int? = null,
+    /** Mean of the sensor samples received while recording; posted as averageHeartRate. */
+    val averageHeartRate: Int? = null,
     /** Touch guard (NATRUN-07.7): the live screen ignores taps until the runner holds to unlock. */
     val touchLocked: Boolean = false,
     /** "GPS" or "BARO" (NATRUN-07.6): where elevation gain and route altitude come from this run. */
@@ -339,6 +343,7 @@ object RunRecorder {
     private var stationarySeconds: Double = 0.0
     private val paceWindow = PaceWindow()
     private val cadenceWindow = CadenceWindow()
+    private val heartRate = dz.racedz.nativeapp.feature.runs.record.hr.HeartRateAverager()
     /** Present only while the service reports a pressure sensor (NATRUN-07.6). */
     private var barometer: Barometer? = null
     private val route = mutableListOf<RoutePointDto>()
@@ -396,6 +401,7 @@ object RunRecorder {
         paceWindow.clear()
         cadenceWindow.clear()
         barometer?.reset()
+        heartRate.reset()
         recordedSteps = 0
         lastStepCounter = -1
         coachInteractionIds.clear()
@@ -550,6 +556,7 @@ object RunRecorder {
         source = "GPS",
         workoutId = workoutId,
         avgCadence = avgCadenceSpm,
+        averageHeartRate = averageHeartRate,
         coachInteractionIds = askedCoachIds.takeIf { it.isNotEmpty() },
         // Never public for a run that fails the on-foot test — the server would refuse it anyway,
         // and a retry must not keep asking.
@@ -569,6 +576,17 @@ object RunRecorder {
         val cadence = cadenceWindow.cadenceSpm(now)
         _state.update { it.copy(elapsedSeconds = elapsedSeconds(), currentPaceSecondsPerKm = pace, liveCadenceSpm = cadence) }
     }
+
+    /** One sample from the sensor (NATRUN-07.3); counted only while recording. */
+    fun onHeartRate(bpm: Int) {
+        val status = _state.value.status
+        if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) return
+        heartRate.add(bpm)
+        _state.update { it.copy(heartRateBpm = bpm, averageHeartRate = heartRate.average) }
+    }
+
+    /** The sensor is gone: no live number, the average so far stands. */
+    fun onHeartRateLost() = _state.update { it.copy(heartRateBpm = null) }
 
     /** Touch guard on/off (NATRUN-07.7). Lives here so minimise/return keeps the lock. */
     fun setTouchLocked(locked: Boolean) {

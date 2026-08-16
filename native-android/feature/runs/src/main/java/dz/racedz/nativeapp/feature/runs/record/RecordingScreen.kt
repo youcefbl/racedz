@@ -449,12 +449,25 @@ fun RecordingScreen(
                 tint = zidRunOnDarkColors().primary,
                 modifier = Modifier.weight(1f),
             )
-            LiveTile(
-                label = stringResource(R.string.runs_avg_pace),
-                value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
-                tint = zidRunOnDarkColors().accent,
-                modifier = Modifier.weight(1f),
-            )
+            // With a heart-rate sensor connected the second tile is Heart rate (03-during-run.png,
+            // owner decision 2026-08-16) and Avg pace moves to the secondary row; without one nothing
+            // changes. Never a number that did not come from the sensor.
+            val hrConnected = state.heartRateBpm != null
+            if (hrConnected) {
+                LiveTile(
+                    label = stringResource(R.string.runs_heart_rate),
+                    value = "${ZidRunFormat.count(state.heartRateBpm!!, locale)} ${stringResource(R.string.runs_hr_unit)}",
+                    tint = zidRunOnDarkColors().accent,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                LiveTile(
+                    label = stringResource(R.string.runs_avg_pace),
+                    value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
+                    tint = zidRunOnDarkColors().accent,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         Spacer(Modifier.height(ZidRunDimens.spaceSm))
@@ -482,11 +495,19 @@ fun RecordingScreen(
                 modifier = Modifier.weight(1f),
             )
             StatHairline()
-            SmallStat(
-                label = stringResource(R.string.runs_stat_calories),
-                value = state.calories?.toString() ?: "—",
-                modifier = Modifier.weight(1f),
-            )
+            if (state.heartRateBpm != null) {
+                SmallStat(
+                    label = stringResource(R.string.runs_avg_pace),
+                    value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                SmallStat(
+                    label = stringResource(R.string.runs_stat_calories),
+                    value = state.calories?.toString() ?: "—",
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         // Completed splits, newest first, in the same row language as Run Details (index · bar ·

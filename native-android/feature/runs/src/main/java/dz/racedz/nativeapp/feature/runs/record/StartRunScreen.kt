@@ -370,6 +370,9 @@ fun StartRunScreen(
             // Optional countdown before the start (NATRUN-06.7), off by default; persisted.
             CountdownRow()
 
+            // BLE heart-rate sensor (NATRUN-07.3): pair once here; the service connects per run.
+            dz.racedz.nativeapp.feature.runs.record.hr.HeartRateSensorRow()
+
             // Hold waits while a chosen workout structure is still loading, so a run can never start
             // on an older structure than the one shown (or on no structure when one was picked).
             val awaitingStructure = mode == RunMode.Free &&

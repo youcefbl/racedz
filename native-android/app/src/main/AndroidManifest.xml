@@ -27,6 +27,14 @@
       no step counter records fine without it.
     -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- BLE heart-rate sensor (NATRUN-07.3). Runtime-requested from the sensor row only; scanning is
+         declared as never used for location so Android does not gate it on the location permission
+         on API 31+. Optional hardware: phones without BLE simply show "not supported". -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false" />
 
     <!--

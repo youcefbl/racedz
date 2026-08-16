@@ -23,6 +23,8 @@ object RunSettings {
     private const val KEY_CUE_INTERVAL_M = "cue_interval_m"
     private const val KEY_COUNTDOWN = "countdown"
     private const val KEY_SPORT = "sport"
+    private const val KEY_HR_ADDRESS = "hr_address"
+    private const val KEY_HR_NAME = "hr_name"
 
     /**
      * Distance between spoken progress cues, as a multiple of the account's distance unit (0.5 / 1 /
@@ -66,6 +68,14 @@ object RunSettings {
             autoPauseFallback = value
             prefs?.edit()?.putBoolean(KEY_AUTO_PAUSE, value)?.apply()
         }
+
+    /** The paired heart-rate sensor (NATRUN-07.3), or null. Per device, not per account. */
+    var hrSensorAddress: String?
+        get() = prefs?.getString(KEY_HR_ADDRESS, null)
+        set(value) { prefs?.edit()?.putString(KEY_HR_ADDRESS, value)?.apply() }
+    var hrSensorName: String?
+        get() = prefs?.getString(KEY_HR_NAME, null)
+        set(value) { prefs?.edit()?.putString(KEY_HR_NAME, value)?.apply() }
 
     /** The last activity kind chosen on the start screen (NATRUN-07.1); RUN by default. */
     var lastSport: String
