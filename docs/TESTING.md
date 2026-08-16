@@ -30,6 +30,16 @@ npm run test:e2e
 npm run test:e2e:visual
 ```
 
+The `/api/v1` contract suites are **not** part of `test:all`, because they drive a dev server and
+the dev database that `test:all` does not start. Run them as a group whenever the mobile facade,
+the Coach response shape, or the safety-hold endpoints change — a green `test:all` says nothing
+about any of them:
+
+```bash
+npm run dev            # canonical origin, in another terminal
+npm run test:live-api  # test:mobile-api + test:coach-mobile
+```
+
 The browser runner derives a database ending in `_e2e` by default, resets it, applies migrations,
 and seeds deterministic fixtures. The reset script refuses any database name that does not end in
 `_e2e` or `_ci`. Visual snapshots may be updated only after inspecting the changed images.
