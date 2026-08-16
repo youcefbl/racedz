@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, BrainCircuit, CheckCircle2, ChevronUp, HeartPulse, Loader2, MessageSquareText, MessageCircleQuestion, Mic, Send, ShieldAlert, Sparkles, Square, UserCog } from "lucide-react";
+import { AlertTriangle, BrainCircuit, CheckCircle2, ChevronUp, HeartPulse, Loader2, MessageSquareText, MessageCircleQuestion, Mic, Send, ShieldAlert, Sparkles, Square, Target, UserCog } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { coachRequest } from "@/components/coach/api";
 import type { CoachCopy } from "@/components/coach/copy";
@@ -53,6 +53,13 @@ export function CoachConversation({
     // Honour reduced motion (B83-R10): the smooth scroll is a courtesy, not the behavior.
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     composerRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+  }
+
+  // A quick reply is the same gesture with the coach's own suggested wording already typed in: the
+  // runner still reads it, may edit it, and must press Send themselves.
+  function selectQuickReply(value: string) {
+    setMessage(value);
+    answerFollowUp();
   }
 
   // Merge the loaded older pages under the live window, de-duped by id (a just-asked interaction can
@@ -199,6 +206,7 @@ export function CoachConversation({
                   copy={copy}
                   highlight={interaction.id === focusInteractionId}
                   onAnswerFollowUp={answerFollowUp}
+                  onSelectQuickReply={selectQuickReply}
                 />
               ))}
             </div>
@@ -292,13 +300,15 @@ function InteractionMessage({
   locale,
   copy,
   highlight = false,
-  onAnswerFollowUp
+  onAnswerFollowUp,
+  onSelectQuickReply
 }: {
   interaction: CoachInteraction;
   locale: CoachLocale;
   copy: CoachCopy;
   highlight?: boolean;
   onAnswerFollowUp?: () => void;
+  onSelectQuickReply?: (value: string) => void;
 }) {
   const response = interaction.response;
   const failed = interaction.status === "FAILED";
@@ -344,6 +354,18 @@ function InteractionMessage({
             </p>
           ) : null}
           <p className="text-sm leading-6 text-gray-800">{response.summary}</p>
+          {/* The one concrete recommendation (prompt v14). The prompt splits the direct answer from
+              the action deliberately — "do not hide the answer in progressAssessment" — so a
+              surface that renders only the summary silently drops what the runner should DO. */}
+          {response.nextAction ? (
+            <div className="mt-3 rounded-md bg-teal-50/60 p-3">
+              <p className="flex items-center gap-2 text-xs font-bold text-teal-800">
+                <Target className="size-4" aria-hidden="true" />
+                {copy.nextActionTitle}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-gray-800">{response.nextAction}</p>
+            </div>
+          ) : null}
           <p className="mt-2 text-sm leading-6 text-gray-600">{response.progressAssessment}</p>
           {(response.positiveSignals ?? []).map((signal) => (
             <p key={signal} className="mt-3 flex gap-2 text-sm text-gray-700"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" aria-hidden="true" />{signal}</p>
@@ -391,15 +413,34 @@ function InteractionMessage({
           ) : null}
 
           {response.followUpQuestion ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-brand-teal/30 bg-teal-50/40 p-3">
-              <p className="flex gap-2 text-sm text-gray-800">
-                <MessageCircleQuestion className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
-                <span><span className="font-bold">{copy.coachAsks}:</span> {response.followUpQuestion}</span>
-              </p>
-              {onAnswerFollowUp ? (
-                <Button type="button" variant="secondary" size="sm" onClick={onAnswerFollowUp}>
-                  {copy.answerFollowUp}
-                </Button>
+            <div className="mt-3 rounded-md border border-brand-teal/30 bg-teal-50/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="flex gap-2 text-sm text-gray-800">
+                  <MessageCircleQuestion className="mt-0.5 size-4 shrink-0 text-brand-teal" aria-hidden="true" />
+                  <span><span className="font-bold">{copy.coachAsks}:</span> {response.followUpQuestion}</span>
+                </p>
+                {onAnswerFollowUp ? (
+                  <Button type="button" variant="secondary" size="sm" onClick={onAnswerFollowUp}>
+                    {copy.answerFollowUp}
+                  </Button>
+                ) : null}
+              </div>
+              {/* Drafts, not actions: picking one fills the composer so the runner can read and edit
+                  it before sending. Sending for them would spend a coach message they never
+                  approved — the same rule the native quick replies follow. */}
+              {onSelectQuickReply && (response.quickReplies ?? []).length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(response.quickReplies ?? []).map((quickReply) => (
+                    <button
+                      key={quickReply}
+                      type="button"
+                      onClick={() => onSelectQuickReply(quickReply)}
+                      className="inline-flex min-h-11 items-center rounded-full border border-gray-300 bg-white px-3 py-1.5 text-start text-xs font-semibold text-gray-700 transition hover:border-brand-teal hover:text-brand-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal"
+                    >
+                      {quickReply}
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </div>
           ) : null}

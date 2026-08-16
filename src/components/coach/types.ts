@@ -141,6 +141,14 @@ export type CoachResponse = {
   usedSignals?: string[];
   dataGaps?: string[];
   followUpQuestion?: string | null;
+  // Answer-first interaction contract (prompt v14). The prompt now tells the model to keep the
+  // direct answer in `summary` and put the one concrete recommendation in `nextAction`, so a
+  // surface that renders only `summary` drops half of every reply. Optional for the same reason as
+  // above: replies stored before v14 have neither field.
+  responseMode?: "ANSWER" | "CLARIFY";
+  nextAction?: string | null;
+  /** Draft answers to `followUpQuestion`. They fill the composer; they are never sent for them. */
+  quickReplies?: string[];
 };
 
 export type CoachInteraction = {
