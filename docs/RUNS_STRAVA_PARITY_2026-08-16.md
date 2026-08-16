@@ -69,3 +69,29 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
   are keyed on `RecordingStatus` transitions and skip the initial Acquiring→Recording edge (that is
   "started"). Settings persist in `SharedPreferences` (`run_settings`), except `audioCuesEnabled`,
   which stays per-run on purpose (see `RunSettings`).
+
+## NATRUN-07 contract decisions (written before each item, per the owner's rule)
+
+### 07.1 Sport type (decided 2026-08-16)
+
+- **Storage:** Prisma enum `RunSport { RUN, WALK, TRAIL, RIDE }`, column `RunnerRun.sport` with
+  `@default(RUN)`; migration adds the enum + column, existing rows become `RUN` — backward
+  compatible for every client that does not send it.
+- **API:** `POST /api/v1/runs` (and the web create schema) accept `sport` (optional, default
+  `RUN`); every run DTO returns `sport`; `GET /api/v1/runs?sport=RUN|WALK|TRAIL|RIDE` filters.
+  No PATCH of sport (a mistaken sport is a delete-and-re-record; editing it would silently move a
+  run in and out of records).
+- **Validity / non-foot rule:** the motion check (`detectNonFootActivity`) runs for `RUN`, `WALK`
+  and `TRAIL` only. A `RIDE` is never flagged non-foot (it is not on foot by declaration) but is
+  also never counted where a run counts: excluded from best efforts/PRs, running badges, coach
+  running volume, and the on-foot streak — the same places a SUSPECT run is excluded today.
+- **Best efforts / PR:** derived only for `RUN` and `TRAIL`; the PR comparison is **within the
+  same sport** (`RunBestEffort` gains no column — the comparison joins the run's `sport`), which is
+  what the owner asked the 06.3 design to allow for.
+- **Native:** a sport chip row on the start screen (Run · Walk · Trail · Ride, default Run, last
+  choice remembered per device in `RunSettings`), carried in `RecordingState.sport` →
+  `CreateRunRequest.sport` → outbox; the on-device non-foot warning is skipped for a ride; history
+  rows and Run Details show a sport icon/label; history gains a sport filter row; manual entry and
+  GPX import get the same chip row (default Run).
+- **Not in this slice:** per-sport pace zones/coach advice, ride-specific metrics (speed instead
+  of pace), sport-specific badges.
