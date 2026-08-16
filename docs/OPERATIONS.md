@@ -124,6 +124,22 @@ Required production groups are documented in `.env.example`. At minimum verify:
 Never expose server credentials through `NEXT_PUBLIC_*`, reuse development secrets, commit `.env`, or
 leave bootstrap passwords configured.
 
+## Backups on the production host (installed 2026-08-16)
+
+- Script: `/usr/local/sbin/zidrun-backup.sh` (root only), cron `/etc/cron.d/zidrun-backup` at
+  03:30 UTC daily. Log: `/var/log/zidrun-backup.log`; success stamp `/var/backups/zidrun/LAST_OK`.
+- What: `pg_dump -Fc` of `racedz` and `zidsaha` + tar of the two uploads volumes, each gzip'd and
+  encrypted with GPG AES-256 (symmetric) using `/root/.zidrun-backup.pass`; 14-day local retention
+  under `/var/backups/zidrun/{db,uploads}`.
+- **Owner actions still required:** copy `/root/.zidrun-backup.pass` to a password manager (a
+  backup nobody can decrypt is not a backup) and add an offsite copy (Hetzner Storage Box / object
+  storage via `rclone`) plus a failure alert on a stale `LAST_OK` — until then this is single-host.
+- Restore (DB): `gpg -d --batch --passphrase-file /root/.zidrun-backup.pass FILE.dump.gz.gpg | gunzip |
+  docker exec -i racedz_postgres_prod pg_restore -U racedz -d racedz --clean --if-exists`.
+  Rehearse into a throwaway `postgres:16-alpine` container first (as done on 2026-08-16).
+- Restore (uploads): `gpg -d … FILE.tar.gz.gpg | docker run --rm -i -v zidrun_racedz_uploads:/dst
+  alpine tar -C /dst -xzf -`.
+
 ## Backup and restore acceptance
 
 1. Confirm automated PostgreSQL backups, retention, encryption, and failure alerts.

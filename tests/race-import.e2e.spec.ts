@@ -7,7 +7,17 @@ const prisma = getPrisma();
 let raceId: string | undefined;
 
 test.afterAll(async () => {
-  if (raceId) await prisma.raceEvent.delete({ where: { id: raceId } }).catch(() => undefined);
+  // The imported race is PUBLISHED by the end of the test, and until it is gone it sits in the
+  // home page's "Open registrations" — where the visual-regression spec, running in another
+  // worker, would photograph it. The delete used to fail silently on the RaceEditHistory row that
+  // "Save admin edits" writes (no cascade), so the race outlived this file and broke every
+  // visual baseline. Clear the dependents first, and fail loudly if the race still cannot go.
+  if (raceId) {
+    await prisma.raceEditHistory.deleteMany({ where: { raceEventId: raceId } });
+    await prisma.raceRegistration.deleteMany({ where: { raceEventId: raceId } });
+    await prisma.raceCategory.deleteMany({ where: { raceEventId: raceId } });
+    await prisma.raceEvent.delete({ where: { id: raceId } });
+  }
   await prisma.$disconnect();
 });
 

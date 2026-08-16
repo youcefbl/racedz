@@ -1,8 +1,17 @@
+# Bounded container logs (SEC-013): json-file capped at 10 MB x 5 per service so a chatty
+# process can never fill the 38 GB root disk. Applied on the next `docker compose up`.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: racedz_postgres_prod
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-racedz}
       POSTGRES_USER: ${POSTGRES_USER:-racedz}
@@ -22,6 +31,7 @@ services:
     image: racedz-app:latest
     container_name: racedz_app_prod
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,6 +71,7 @@ services:
     image: alpine:3.20
     container_name: racedz_cron_prod
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       app:
         condition: service_healthy
@@ -116,6 +127,7 @@ services:
     image: caddy:2-alpine
     container_name: racedz_caddy_prod
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - app
     ports:
