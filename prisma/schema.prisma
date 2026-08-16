@@ -58,6 +58,7 @@ model User {
   raceAnnouncements           RaceAnnouncement[]
   runnerGoals                 RunnerGoal[]
   runnerRuns                  RunnerRun[]
+  runBestEfforts    RunBestEffort[]
   trainingPlans               TrainingPlan[]
   coachSnapshots              CoachSnapshot[]
   coachMemories               CoachMemory[]
@@ -655,6 +656,9 @@ model RunnerRun {
   // auto-classified, so a data-entry typo doesn't get flagged the way a real car drive would.
   validity                RunValidity         @default(VALID)
   validityReason          String?
+  /// When the run's best efforts (RunBestEffort rows) were derived, so a run with none — too short,
+  /// no timestamps — is not re-analysed on every read. Null = not yet computed (lazy backfill).
+  bestEffortsComputedAt   DateTime?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -663,12 +667,37 @@ model RunnerRun {
   workout      TrainingWorkout?   @relation(fields: [workoutId], references: [id], onDelete: SetNull)
   interactions CoachInteraction[]
   kudos        RunKudos[]
+  bestEfforts  RunBestEffort[]
 
   @@unique([userId, clientId])
   @@index([userId, startedAt])
   @@index([goalId, startedAt])
   /// Cursor for delta sync: "everything of mine that changed since X", tombstones included.
   @@index([userId, updatedAt])
+}
+
+/// The fastest 1 km / 5 km / 10 km inside one run (NATRUN-06.3), derived once from the route when
+/// the run is accepted (or on a one-time lazy backfill) and never recomputed on read. Bounded: at
+/// most one row per run and target distance. The personal-record comparison is an indexed lookup
+/// over a runner's rows, so opening Run Details does not scan every historical route.
+model RunBestEffort {
+  id         String   @id @default(cuid())
+  runId      String
+  userId     String
+  distanceM  Int
+  /// Whole seconds over the effort.
+  seconds    Int
+  /// Route point indexes bounding the effort — kept for a future "highlight this segment" UI; not
+  /// exposed by the API today.
+  startIndex Int
+  endIndex   Int
+  createdAt  DateTime @default(now())
+
+  run  RunnerRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, distanceM])
+  @@index([userId, distanceM, seconds])
 }
 
 model TrainingPlan {

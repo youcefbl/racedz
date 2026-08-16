@@ -321,6 +321,12 @@
     <string name="runs_empty_hero_sub">سجّل بالـGPS وشوف سيمانتك تتعمّر كيلومتر بكيلومتر.</string>
     <string name="runs_record_first">سجّل أول جَرية تاعك</string>
     <string name="runs_cd_history">الجَريات تاعك</string>
+    <string name="runs_best_efforts">أحسن الأوقات</string>
+    <string name="runs_best_effort_distance">المسافة</string>
+    <string name="runs_best_effort_time">الوقت</string>
+    <string name="runs_best_effort_short">الجَرية أقصر من %1$s</string>
+    <string name="runs_best_effort_pr">ريكور</string>
+    <string name="runs_best_effort_pr_a11y">ريكور شخصي</string>
     <string name="runs_splits">الأشواط</string>
     <string name="runs_split_km">كم</string>
     <string name="runs_split_pace">الريتم</string>

@@ -1,3 +1,4 @@
+import { bestEffortsForRun, ensureBestEffortsBackfilled } from "@/lib/coach/best-efforts-service";
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
@@ -37,11 +38,17 @@ export const GET = withApi(async (request, context: Context) => {
   // claimed. Only asked for an unlinked, still-matchable run.
   const workout = await resolveWorkoutContext(viewer.id, run);
 
+  // Best efforts are persisted rows, not a scan (NATRUN-06.3). Runs saved before the table existed
+  // are analysed once, in bounded batches, the first times this runner opens any detail.
+  await ensureBestEffortsBackfilled(viewer.id);
+  const bestEfforts = await bestEffortsForRun(viewer.id, run.id);
+
   return apiOk(request, {
     ...toRunDto(run, run.route ?? null),
     splits: computeSplits(points),
     paceSeries: paceSeries(points),
     elevationSeries: elevationSeries(points),
+    bestEfforts,
     ...workout,
   });
 });

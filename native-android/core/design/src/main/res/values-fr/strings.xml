@@ -306,6 +306,12 @@
     <string name="runs_empty_hero_sub">Enregistrez avec le GPS et regardez votre semaine se remplir, kilomètre après kilomètre.</string>
     <string name="runs_record_first">Enregistrer votre première sortie</string>
     <string name="runs_cd_history">Historique des sorties</string>
+    <string name="runs_best_efforts">Meilleurs efforts</string>
+    <string name="runs_best_effort_distance">Distance</string>
+    <string name="runs_best_effort_time">Temps</string>
+    <string name="runs_best_effort_short">Course plus courte que %1$s</string>
+    <string name="runs_best_effort_pr">Record</string>
+    <string name="runs_best_effort_pr_a11y">record personnel</string>
     <string name="runs_splits">Tours</string>
     <string name="runs_split_km">KM</string>
     <string name="runs_split_pace">ALLURE</string>

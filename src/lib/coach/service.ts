@@ -1,3 +1,4 @@
+import { computeAndStoreBestEfforts } from "@/lib/coach/best-efforts-service";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -657,6 +658,14 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     } catch (milestoneError) {
       console.error("[coach] failed to record performance milestones", milestoneError);
     }
+  }
+
+  // Best efforts (NATRUN-06.3): derived once here, never on read. Ineligible runs (manual, flagged,
+  // no timestamps) are stamped with none so the lazy backfill skips them. Non-fatal for the save.
+  try {
+    await computeAndStoreBestEfforts(runId);
+  } catch (effortError) {
+    console.error("[coach] failed to derive best efforts", effortError);
   }
 
   // Both are goal-scoped: the snapshot summarises progress toward a goal, and the safety evaluation

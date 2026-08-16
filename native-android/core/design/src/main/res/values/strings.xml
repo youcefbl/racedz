@@ -324,6 +324,12 @@
     <string name="runs_empty_hero_sub">Record with GPS and watch this week fill up, kilometre by kilometre.</string>
     <string name="runs_record_first">Record your first run</string>
     <string name="runs_cd_history">Run history</string>
+    <string name="runs_best_efforts">Best efforts</string>
+    <string name="runs_best_effort_distance">Distance</string>
+    <string name="runs_best_effort_time">Time</string>
+    <string name="runs_best_effort_short">Run shorter than %1$s</string>
+    <string name="runs_best_effort_pr">PR</string>
+    <string name="runs_best_effort_pr_a11y">personal record</string>
     <string name="runs_splits">Splits</string>
     <string name="runs_split_km">KM</string>
     <string name="runs_split_pace">PACE</string>

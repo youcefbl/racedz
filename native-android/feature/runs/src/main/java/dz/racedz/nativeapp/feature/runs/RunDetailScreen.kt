@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -319,6 +320,14 @@ fun RunDetailScreen(
                             }
                         }
                     }
+                }
+
+                // Best efforts (NATRUN-06.3): the three fixed distances, each either measured or
+                // explained. Only for runs with a measured route — a manual entry can never have
+                // one, and a card of three "unavailable" rows would be noise. PR is the server's
+                // verdict; nothing is inferred here.
+                if (run.source != "MANUAL" && run.validity == "VALID" && (run.route?.size ?: 0) > 1) {
+                    BestEffortsCard(run = run, locale = locale)
                 }
 
                 // Availability is answered per metric (P234-R03): one chart rendering must not
@@ -860,6 +869,94 @@ private fun EditRunSheet(
                 onClick = onDismiss,
                 enabled = !state.mutating,
             )
+        }
+    }
+}
+
+/** Distances the card always lists, in metres. Mirrors BEST_EFFORT_DISTANCES_M on the server. */
+private val BEST_EFFORT_DISTANCES_M = listOf(1_000, 5_000, 10_000)
+
+@Composable
+private fun BestEffortsCard(run: dz.racedz.nativeapp.core.network.RunDetailDto, locale: java.util.Locale) {
+    val colors = ZidRunTheme.colors
+    val prLabel = stringResource(R.string.runs_best_effort_pr)
+    val prA11y = stringResource(R.string.runs_best_effort_pr_a11y)
+    ZidRunSectionHeader(title = stringResource(R.string.runs_best_efforts))
+    ZidRunCard {
+        Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    stringResource(R.string.runs_best_effort_distance).uppercase(locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textMuted,
+                    modifier = Modifier.width(64.dp),
+                )
+                Text(
+                    stringResource(R.string.runs_best_effort_time).uppercase(locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textMuted,
+                    modifier = Modifier.width(72.dp),
+                )
+                Text(
+                    stringResource(R.string.runs_split_pace),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textMuted,
+                )
+            }
+            BEST_EFFORT_DISTANCES_M.forEach { distanceM ->
+                val effort = run.bestEfforts.firstOrNull { it.distanceM == distanceM }
+                val distanceLabel = ZidRunFormat.distance(distanceM / 1000.0, locale)
+                val a11y = if (effort != null) {
+                    "$distanceLabel ${ZidRunFormat.duration(effort.seconds)}" +
+                        (if (effort.isPersonalBest) ", $prA11y" else "")
+                } else {
+                    stringResource(R.string.runs_best_effort_short, distanceLabel)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 32.dp)
+                        .semantics(mergeDescendants = true) { contentDescription = a11y },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        distanceLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (effort != null) colors.text else colors.textMuted,
+                        modifier = Modifier.width(64.dp),
+                    )
+                    if (effort != null) {
+                        Text(
+                            ZidRunFormat.duration(effort.seconds),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.textStrong,
+                            modifier = Modifier.width(72.dp),
+                        )
+                        Text(
+                            ZidRunFormat.pace((effort.seconds * 1000.0 / distanceM).toInt()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.text,
+                        )
+                        if (effort.isPersonalBest) {
+                            Spacer(Modifier.weight(1f))
+                            // Same pill as the top-bar visibility state; primary on primarySoft.
+                            ZidRunPill(text = prLabel, color = colors.primary)
+                        }
+                    } else {
+                        Text(
+                            "—",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.textMuted,
+                            modifier = Modifier.width(72.dp),
+                        )
+                        Text(
+                            stringResource(R.string.runs_best_effort_short, distanceLabel),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textMuted,
+                        )
+                    }
+                }
+            }
         }
     }
 }

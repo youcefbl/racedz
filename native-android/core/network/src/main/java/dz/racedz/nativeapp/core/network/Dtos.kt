@@ -449,6 +449,19 @@ data class RunDetailDto(
     val workoutMatchSource: String? = null,
     /** A planned workout this unlinked run probably completed, for the runner to accept or decline. */
     val suggestedMatch: SuggestedMatchDto? = null,
+    /**
+     * Fastest 1 km / 5 km / 10 km inside this run, server-derived (NATRUN-06.3). Empty for runs
+     * with no timestamps, shorter than 1 km, or not VALID. Only distances the run covers appear.
+     */
+    val bestEfforts: List<BestEffortDto> = emptyList(),
+)
+
+/** One best effort. [isPersonalBest] is the server's verdict against the runner's other runs. */
+@Serializable
+data class BestEffortDto(
+    val distanceM: Int = 0,
+    val seconds: Int = 0,
+    val isPersonalBest: Boolean = false,
 )
 
 /** A planned workout the matcher thinks this run completed, awaiting the runner's answer. */
