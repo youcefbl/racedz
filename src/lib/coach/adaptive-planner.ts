@@ -41,6 +41,12 @@ export type AdaptivePlannerInput = {
   // metrics window cannot tell these apart — both show zero recent runs — but the difference decides
   // whether "welcome back" or "let's get started" is the true thing to say.
   consistencyStatus?: ConsistencyAssessment["status"] | null;
+  // Age in years, from the account's date of birth. Null when it was never supplied — every rule
+  // below then leaves the plan exactly as it was, so a missing birthday costs nothing.
+  age?: number | null;
+  // From the goal's own weight and height, both of which onboarding already collects. Null unless
+  // both are present: a BMI guessed from weight alone would be a fabricated health number.
+  bmi?: number | null;
 };
 
 export type AdaptivePlan = {
@@ -57,7 +63,7 @@ export type AdaptivePlan = {
 // Session kinds are richer than the stored workout type: STRIDES is stored as an EASY run (it is an
 // easy run with short pickups) but reads and paces differently, which is what lets a beginner get a
 // gentle first taste of speed instead of structured intervals.
-type SessionKind = "LONG_RUN" | "TEMPO" | "INTERVAL" | "EASY" | "RECOVERY" | "STRIDES";
+type SessionKind = "LONG_RUN" | "TEMPO" | "INTERVAL" | "EASY" | "RECOVERY" | "STRIDES" | "WALK_RUN";
 
 const KIND_TO_TYPE: Record<SessionKind, CoachWorkout["workoutType"]> = {
   LONG_RUN: "LONG_RUN",
@@ -65,7 +71,11 @@ const KIND_TO_TYPE: Record<SessionKind, CoachWorkout["workoutType"]> = {
   INTERVAL: "INTERVAL",
   EASY: "EASY",
   RECOVERY: "RECOVERY",
-  STRIDES: "EASY"
+  STRIDES: "EASY",
+  // Stored as EASY for the same reason STRIDES is: the schema's workout types describe running
+  // intensity, and adding a WALK type would ripple through the native app, the website, and three
+  // translation tables. The title and instructions carry the distinction where the runner reads it.
+  WALK_RUN: "EASY"
 };
 
 // Pace targets are derived from the runner's own recent average pace, as a multiplier per session kind
@@ -77,7 +87,10 @@ const PACE_FACTOR: Record<SessionKind, number> = {
   STRIDES: 1.1, // the easy portion; the pickups themselves are by feel, not by pace
   LONG_RUN: 1.08,
   TEMPO: 0.93,
-  INTERVAL: 0.88
+  INTERVAL: 0.88,
+  // Duration only — see derivePace(). A walk-run alternates two speeds, so its average is a way to
+  // estimate how long the session takes, never a pace to hold.
+  WALK_RUN: 1.35
 };
 
 // Sanity rails so a corrupt or freak average (a walk, a GPS glitch) can never yield an absurd target.
@@ -87,6 +100,9 @@ const MAX_PACE_SECONDS_PER_KM = 900; // 15:00/km — slower than a walk-run
 // Derive a numeric pace target (seconds per km) for a session, or null when there is no trustworthy
 // reference pace to derive it from.
 function derivePace(kind: SessionKind, referencePaceSecondsPerKm: number | null): number | null {
+  // A walk-run has no single pace to aim at. Publishing the blended average as a target would tell
+  // someone to walk their walking intervals at a running pace, which is the opposite of the point.
+  if (kind === "WALK_RUN") return null;
   if (referencePaceSecondsPerKm === null) return null;
   if (referencePaceSecondsPerKm < MIN_PACE_SECONDS_PER_KM || referencePaceSecondsPerKm > MAX_PACE_SECONDS_PER_KM) return null;
   const target = referencePaceSecondsPerKm * PACE_FACTOR[kind];
@@ -99,6 +115,92 @@ const WEEKLY_CEILING: Record<Experience, number> = { BEGINNER: 45, INTERMEDIATE:
 const WEEKLY_FLOOR: Record<Experience, number> = { BEGINNER: 8, INTERMEDIATE: 15, ADVANCED: 25 };
 // Rest matters more for beginners: cap how many days a week actually carry a run.
 const MAX_RUN_DAYS: Record<Experience, number> = { BEGINNER: 4, INTERMEDIATE: 6, ADVANCED: 7 };
+
+// ---- Age and body-composition load rules (COACHPAR-004, owner decision 2026-08-16) --------------
+//
+// Onboarding already collects date of birth, weight and height, and the AI prose was already using
+// all three — so a 68-year-old read age-aware *advice* attached to the same seven-day zero-rest week
+// a 24-year-old got. These rules put the same facts into the schedule.
+//
+// Every rule below can only make a week EASIER: each is a cap or a reduction, never an increase.
+// That is deliberate. These are population heuristics applied to an individual, so the failure
+// direction has to be under-prescription — a runner who is fitter than their band assumes loses a
+// little progress, while the reverse risks injuring the exact people least able to absorb it.
+//
+// A missing value disables its own rule rather than guessing a default.
+
+/**
+ * Running days a week by age band — recovery between hard days lengthens with age, so the cap is on
+ * frequency rather than on any single session. Applied as a ceiling alongside the experience cap, so
+ * a 72-year-old advanced runner gets 4 running days, not 7.
+ */
+const AGE_RUN_DAY_CAPS: ReadonlyArray<{ fromAge: number; cap: number }> = [
+  { fromAge: 70, cap: 4 },
+  { fromAge: 60, cap: 5 },
+  { fromAge: 50, cap: 6 }
+];
+
+/**
+ * BMI at or above this is treated as joint-protective territory.
+ *
+ * 30 rather than the 25 that clinically reads as "overweight": BMI does not distinguish muscle from
+ * fat, and a great many perfectly healthy runners sit in the 25–27 band. 30 is also already this
+ * product's threshold for heavy-weight coaching tips (`isHeavyWeight`, src/lib/coach/tips.ts), so
+ * the plan and the tips now agree instead of contradicting each other.
+ */
+const JOINT_PROTECTIVE_BMI = 30;
+
+/** Below this, a beginner is eased in but still running; at or above it they start on walk-runs. */
+const WALK_RUN_BMI = 30;
+
+/** How the runner's age and body composition change the week. All fields are reductions. */
+type LoadProfile = {
+  /** Ceiling on running days, or null when nothing constrains it. */
+  runDayCap: number | null;
+  /** Multiplier on weekly volume. */
+  volumeMultiplier: number;
+  /** Quality sessions removed from whatever the phase would otherwise carry. */
+  qualityReduction: number;
+  /** Hard ceiling on quality sessions, or null when only the reduction applies. */
+  qualityCap: number | null;
+  /** True when repeated hard impact is off the table — intervals become tempo. */
+  lowImpact: boolean;
+  /** True when easy running is replaced by walk-run intervals. */
+  walkRun: boolean;
+};
+
+function resolveLoadProfile(input: AdaptivePlannerInput, adaptations: string[]): LoadProfile {
+  const age = input.age ?? null;
+  const bmi = input.bmi ?? null;
+  const exp = input.experienceLevel;
+
+  const ageCap = age === null ? null : (AGE_RUN_DAY_CAPS.find((band) => age >= band.fromAge)?.cap ?? null);
+  if (ageCap !== null && ageCap < MAX_RUN_DAYS[exp]) {
+    adaptations.push(`Running days capped at ${ageCap} to leave more recovery between sessions.`);
+  }
+  // Older runners also lose one quality session: it is the repeated hard efforts, not the easy
+  // volume, that need the longer recovery the frequency cap is already making room for.
+  const ageQualityReduction = age !== null && age >= 60 ? 1 : 0;
+
+  const jointProtective = bmi !== null && bmi >= JOINT_PROTECTIVE_BMI;
+  const walkRun = jointProtective && bmi >= WALK_RUN_BMI && exp === "BEGINNER";
+
+  if (walkRun) {
+    adaptations.push("Starting with walk-run intervals rather than continuous running, to build up with less impact.");
+  } else if (jointProtective) {
+    adaptations.push("Impact kept lower this week: easier volume and no hard interval session.");
+  }
+
+  return {
+    runDayCap: jointProtective ? Math.min(ageCap ?? 5, 5) : ageCap,
+    volumeMultiplier: jointProtective ? 0.85 : 1,
+    qualityReduction: ageQualityReduction + (jointProtective ? 1 : 0),
+    // Someone starting on walk-runs has no business doing a tempo session in the same week.
+    qualityCap: walkRun ? 0 : null,
+    lowImpact: jointProtective,
+    walkRun
+  };
+}
 
 // Per-goal shape: how long the long run leans, what quality work dominates, and a volume multiplier
 // (marathoners carry more; 5K/fitness less). This is the main source of "different goals → different plans".
@@ -144,11 +246,16 @@ export function buildAdaptivePlan(input: AdaptivePlannerInput, now = new Date())
   const returning = input.metrics.runCountLast7Days === 0 && input.metrics.distanceLast28DaysKm < WEEKLY_FLOOR[exp];
 
   const adaptations: string[] = [];
+  const load = resolveLoadProfile(input, adaptations);
   const effectiveWeeklyKm = effectiveWeeklyVolumeKm(input);
   const phase = determinePhase({ weeksToRace, exp, input, effectiveWeeklyKm, returning, isFitnessGoal, adaptations });
-  const weeklyVolumeKm = computeWeeklyVolume({ phase, exp, params, input, effectiveWeeklyKm, returning, adaptations });
+  // Applied after the phase's own volume maths rather than inside it, so the reduction is visible as
+  // one multiplier on the finished number instead of being smeared through every branch.
+  const weeklyVolumeKm = round1(
+    computeWeeklyVolume({ phase, exp, params, input, effectiveWeeklyKm, returning, adaptations }) * load.volumeMultiplier
+  );
 
-  const week = buildWeek({ phase, exp, params, isFitnessGoal, weeklyVolumeKm, input, now });
+  const week = buildWeek({ phase, exp, params, isFitnessGoal, weeklyVolumeKm, input, now, load });
 
   return {
     phase,
@@ -297,7 +404,8 @@ function buildWeek({
   isFitnessGoal,
   weeklyVolumeKm,
   input,
-  now
+  now,
+  load
 }: {
   phase: PlanPhase;
   exp: Experience;
@@ -306,6 +414,7 @@ function buildWeek({
   weeklyVolumeKm: number;
   input: AdaptivePlannerInput;
   now: Date;
+  load: LoadProfile;
 }): { workouts: PlannedWorkout[]; longRunKm: number; qualityCount: number } {
   const available = new Set(input.availableTrainingDays);
   const cursor = startOfUtcDay(now);
@@ -318,8 +427,12 @@ function buildWeek({
   }
   if (trainingDates.length === 0) return { workouts: [], longRunKm: 0, qualityCount: 0 };
 
-  // Cap how many of the available days carry a run (rest matters, especially for beginners).
-  const runDayCount = Math.min(trainingDates.length, MAX_RUN_DAYS[exp]);
+  // Cap how many of the available days carry a run (rest matters, especially for beginners), then
+  // apply the age/body-composition ceiling on top — whichever is tighter wins.
+  const runDayCount = Math.max(
+    1,
+    Math.min(trainingDates.length, MAX_RUN_DAYS[exp], load.runDayCap ?? Number.POSITIVE_INFINITY)
+  );
   const runDates = pickRunDates(trainingDates, runDayCount, input.preferredLongRunDay);
 
   // Long run: a share of weekly volume, capped by recent longest (+10%), the goal cap, and shortened in taper.
@@ -336,7 +449,11 @@ function buildWeek({
   if (phase === "RECOVERY" || phase === "BASELINE") longRunKm = Math.min(longRunKm, weeklyVolumeKm * 0.35);
   longRunKm = round1(Math.max(4, Math.min(longRunKm, weeklyVolumeKm * 0.5)));
 
-  const qualityCount = runDates.length <= 2 ? 0 : qualitySessionsFor(phase, exp);
+  const baseQuality = runDates.length <= 2 ? 0 : qualitySessionsFor(phase, exp);
+  const qualityCount = Math.max(
+    0,
+    Math.min(baseQuality - load.qualityReduction, load.qualityCap ?? Number.POSITIVE_INFINITY)
+  );
   // Assign the long run to the preferred day (or the last run day), then quality sessions spaced out.
   const longRunDate = runDates.find((d) => d.getUTCDay() === input.preferredLongRunDay) ?? runDates[runDates.length - 1];
   const qualityDates = pickQualityDates(runDates, longRunDate, qualityCount);
@@ -347,10 +464,18 @@ function buildWeek({
   const easyBudget = Math.max(0, weeklyVolumeKm - longRunKm - qualityKm * qualityDates.length);
   const easyEach = easyDates.length > 0 ? round1(Math.max(exp === "BEGINNER" ? 2 : 3, easyBudget / easyDates.length)) : 0;
 
-  const qualityKind = pickQualityKind(params.qualityBias, exp);
+  // Repeated hard impact is what a joint-protective week removes; a controlled tempo effort at
+  // conversational-plus intensity is not the same load as interval reps, so it stays.
+  const qualityKind = load.lowImpact ? "TEMPO" : pickQualityKind(params.qualityBias, exp);
   const referencePace = input.metrics.averagePaceLast28DaysSecondsPerKm;
 
   const workouts: PlannedWorkout[] = runDates.map((date) => {
+    // Walk-run replaces every continuous-running session, the long one included: a longer walk-run
+    // still builds time on feet, which is the thing that matters at this stage.
+    if (load.walkRun) {
+      const km = date === longRunDate ? longRunKm : easyEach || round1(weeklyVolumeKm / runDates.length);
+      return workout(date, "WALK_RUN", km, phase, isFitnessGoal, referencePace, exp);
+    }
     if (date === longRunDate) return workout(date, "LONG_RUN", longRunKm, phase, isFitnessGoal, referencePace, exp);
     if (qualityDates.includes(date)) return workout(date, qualityKind, qualityKm, phase, isFitnessGoal, referencePace, exp);
     const easyKind: SessionKind = phase === "RECOVERY" || phase === "BASELINE" ? "RECOVERY" : "EASY";
@@ -427,6 +552,26 @@ export const PHASE_LABEL: Record<PlanPhase, string> = {
 // with no run history gets distance only, until they have logged enough for a reference pace.
 const DURATION_ROUNDING_MIN = 5;
 
+/**
+ * The blended pace a walk-run actually covers ground at, used ONLY to turn a distance into minutes.
+ *
+ * Never returned as `targetPaceSecondsPerKm` — see derivePace(). Falls back to a plain brisk-walking
+ * assumption when there is no run history, because a beginner on walk-runs is precisely the runner
+ * least likely to have any, and "no time target at all" is the less useful answer here.
+ */
+const ASSUMED_WALK_RUN_SECONDS_PER_KM = 570; // 9:30/km — a brisk walk broken up by easy jogging
+
+function walkRunDurationPace(referencePaceSecondsPerKm: number | null): number {
+  if (
+    referencePaceSecondsPerKm === null ||
+    referencePaceSecondsPerKm < MIN_PACE_SECONDS_PER_KM ||
+    referencePaceSecondsPerKm > MAX_PACE_SECONDS_PER_KM
+  ) {
+    return ASSUMED_WALK_RUN_SECONDS_PER_KM;
+  }
+  return clamp(referencePaceSecondsPerKm * PACE_FACTOR.WALK_RUN, MIN_PACE_SECONDS_PER_KM, MAX_PACE_SECONDS_PER_KM);
+}
+
 function beginnerDurationMin(kind: SessionKind, distanceKm: number, paceSecondsPerKm: number | null, exp: Experience): number | null {
   if (exp !== "BEGINNER" || paceSecondsPerKm === null) return null;
   // Quality work stays distance/effort-led; the time target is for the easy running that fills the week.
@@ -479,6 +624,14 @@ function workout(
       timedInstructions:
         "Jog gently for the time shown — the point is to move and recover, not to train. Distance does not matter here."
     },
+    WALK_RUN: {
+      title: "Walk-run session",
+      intensity: "Easy throughout — never out of breath",
+      instructions:
+        "Alternate 2 minutes of easy jogging with 2 minutes of brisk walking, and repeat for the whole session. The walk is part of the training, not a failure — it is what lets you build up week after week without the pounding of continuous running. If the jogging leaves you breathless, make it slower or shorter and walk a little longer.",
+      timedInstructions:
+        "Alternate 2 minutes of easy jogging with 2 minutes of brisk walking for the time shown, and let the distance be whatever it turns out to be. The walk is part of the training, not a failure — it is what lets you build up week after week without the pounding of continuous running. If the jogging leaves you breathless, make it slower or shorter and walk a little longer."
+    },
     STRIDES: {
       title: "Easy run + strides",
       intensity: "Relaxed, with short relaxed pickups",
@@ -490,7 +643,10 @@ function workout(
   };
   const s = spec[kind] ?? spec.EASY;
   const pace = derivePace(kind, referencePaceSecondsPerKm);
-  const durationMin = beginnerDurationMin(kind, km, pace, exp);
+  // A walk-run publishes no pace target, but time is exactly the right frame for it — so its
+  // duration is estimated from the blended walk/jog factor rather than from the absent target.
+  const durationReference = kind === "WALK_RUN" ? walkRunDurationPace(referencePaceSecondsPerKm) : pace;
+  const durationMin = beginnerDurationMin(kind, km, durationReference, exp);
   return {
     scheduledFor: date.toISOString(),
     workoutType: KIND_TO_TYPE[kind],

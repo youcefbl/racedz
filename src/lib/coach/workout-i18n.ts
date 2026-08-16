@@ -19,6 +19,10 @@ const workoutText: Record<string, { fr: string; ar: string }> = {
     ar: "مجهود خفيف تقدر تهدر معاه"
   },
   "Very easy": { fr: "Très facile", ar: "خفيف بزاف" },
+  "Easy throughout — never out of breath": {
+    fr: "Facile du début à la fin — jamais essoufflé",
+    ar: "خفيف من البداية للتالي — ما تلهثش"
+  },
   // Instructions
   "Keep the effort controlled. Stop and seek appropriate advice if concerning symptoms appear.": {
     fr: "Gardez un effort contrôlé. Arrêtez-vous et demandez un avis médical si des symptômes inquiétants apparaissent.",
@@ -44,6 +48,9 @@ const workoutText: Record<string, { fr: string; ar: string }> = {
   Intervals: { fr: "Fractionné", ar: "فترات سريعة" },
   "Recovery jog": { fr: "Footing de récupération", ar: "جَرية استرجاع" },
   "Easy run + strides": { fr: "Sortie facile + accélérations", ar: "جَرية خفيفة + تسارعات قصيرة" },
+  // Walk-run (COACHPAR-004): the entry point for a beginner whose BMI puts continuous running at a
+  // joint-load disadvantage. The copy has to make the walking sound like training, because it is.
+  "Walk-run session": { fr: "Séance marche-course", ar: "حصة مشي وجري" },
   // Intensity
   "Comfortable, conversational effort": {
     fr: "Effort confortable, vous pouvez parler",
@@ -89,6 +96,14 @@ const workoutText: Record<string, { fr: string; ar: string }> = {
   "Jog gently for the time shown — the point is to move and recover, not to train. Distance does not matter here.": {
     fr: "Trottinez doucement pendant la durée indiquée — l'objectif est de bouger et de récupérer, pas de s'entraîner. La distance n'a aucune importance ici.",
     ar: "اجري بشوية المدّة اللي باينة — الهدف تتحرّك وترجّع قوتك، ماشي تدير تدريب قوي. المسافة ما تهمّش هنا."
+  },
+  "Alternate 2 minutes of easy jogging with 2 minutes of brisk walking, and repeat for the whole session. The walk is part of the training, not a failure — it is what lets you build up week after week without the pounding of continuous running. If the jogging leaves you breathless, make it slower or shorter and walk a little longer.": {
+    fr: "Alternez 2 minutes de trot facile et 2 minutes de marche rapide, et répétez pendant toute la séance. La marche fait partie de l'entraînement, ce n'est pas un échec — c'est elle qui vous permet de progresser semaine après semaine sans les chocs de la course continue. Si le trot vous essouffle, ralentissez-le ou raccourcissez-le et marchez un peu plus longtemps.",
+    ar: "بدّل بين دقيقتين جري خفيف ودقيقتين مشي سريع، وعاود هكدا طول الحصة. المشي جزء من التدريب، ماشي فشل — هو اللي يخليك تتقدّم سيمانة ورا سيمانة بلا ضغط الجري المتواصل. إذا الجري يقطّعلك النَفَس، هدّيه ولا قصّرو وزيد امشي شوية أكثر."
+  },
+  "Alternate 2 minutes of easy jogging with 2 minutes of brisk walking for the time shown, and let the distance be whatever it turns out to be. The walk is part of the training, not a failure — it is what lets you build up week after week without the pounding of continuous running. If the jogging leaves you breathless, make it slower or shorter and walk a little longer.": {
+    fr: "Alternez 2 minutes de trot facile et 2 minutes de marche rapide pendant la durée indiquée, et laissez la distance être ce qu'elle sera. La marche fait partie de l'entraînement, ce n'est pas un échec — c'est elle qui vous permet de progresser semaine après semaine sans les chocs de la course continue. Si le trot vous essouffle, ralentissez-le ou raccourcissez-le et marchez un peu plus longtemps.",
+    ar: "بدّل بين دقيقتين جري خفيف ودقيقتين مشي سريع المدّة اللي باينة، وخلي المسافة تجي كيما جات. المشي جزء من التدريب، ماشي فشل — هو اللي يخليك تتقدّم سيمانة ورا سيمانة بلا ضغط الجري المتواصل. إذا الجري يقطّعلك النَفَس، هدّيه ولا قصّرو وزيد امشي شوية أكثر."
   },
   "Stay out for the time shown and let the distance be whatever it turns out to be — time on your feet is what builds endurance at this stage. Keep it easy and steady, fuel and hydrate, and stop if anything hurts.": {
     fr: "Restez dehors pendant la durée indiquée et laissez la distance être ce qu'elle sera — à ce stade, c'est le temps passé à courir qui construit l'endurance. Restez facile et régulier, alimentez-vous et hydratez-vous, et arrêtez-vous en cas de douleur.",

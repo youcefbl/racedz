@@ -1048,11 +1048,26 @@ export async function getPlanAdherence(userId: string): Promise<PlanAdherence> {
 // Map the stored goal + recent metrics + adherence into the adaptive planner (Phase 2). Returns the full
 // plan (phase, adaptations, and the week of workouts) so callers can also feed the phase + why-load-changed
 // notes into the AI context. This is the deterministic backbone; the AI only explains/personalizes it.
+/**
+ * BMI from the goal's own weight and height.
+ *
+ * Both or nothing: weight alone cannot distinguish a tall runner from a heavy one, and a BMI guessed
+ * from half the inputs would be a fabricated health number driving a training decision.
+ */
+function goalBmi(goal: GoalRow): number | null {
+  if (!goal.weightKg || !goal.heightCm || goal.weightKg <= 0 || goal.heightCm <= 0) return null;
+  const heightM = goal.heightCm / 100;
+  return Math.round((goal.weightKg / (heightM * heightM)) * 10) / 10;
+}
+
 function buildAdaptivePlanForGoal(
   goal: GoalRow,
   metrics: CoachMetrics,
   adherence: PlanAdherence | null,
-  consistencyStatus: ConsistencyAssessment["status"] | null = null
+  consistencyStatus: ConsistencyAssessment["status"] | null = null,
+  // Age lives on the account, not the goal, so it is passed in by the caller that already has it.
+  // Null is a supported state — the planner then leaves every age rule inactive.
+  age: number | null = null
 ) {
   return buildAdaptivePlan({
     goalType: goal.goalType,
@@ -1066,7 +1081,9 @@ function buildAdaptivePlanForGoal(
     preferredLongRunDay: goal.preferredLongRunDay,
     metrics,
     adherence,
-    consistencyStatus
+    consistencyStatus,
+    age,
+    bmi: goalBmi(goal)
   });
 }
 
@@ -1554,8 +1571,6 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   const activePlan = await getActivePlanForContext(userId);
   // Long-term memory: relevant, budget-capped facts from earlier conversations (Phase 3).
   const memory = await getMemoryForContext(userId, goal.id);
-  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence, consistency.status);
-  const skeleton = adaptivePlan.workouts;
 
   // The claim: a fresh request inserts its row; a retry of a FAILED row re-claims it via the
   // CONDITIONAL ON CONFLICT (only rows still FAILED flip back to PENDING). Zero affected rows
@@ -1595,6 +1610,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     sex: profileRows[0]?.gender ?? null,
     age: ageFromDateOfBirth(profileRows[0]?.dateOfBirth ?? null)
   };
+
+  // Built here rather than above the claim because the planner now needs the runner's age, and age
+  // lives on the account row this query just read. Nothing between the two points used the skeleton.
+  const adaptivePlan = buildAdaptivePlanForGoal(goal, metrics, adherence, consistency.status, profile.age);
+  const skeleton = adaptivePlan.workouts;
   const location = profileRows[0]?.wilaya || profileRows[0]?.city
     ? { wilaya: profileRows[0]?.wilaya ?? null, city: profileRows[0]?.city ?? null }
     : null;
@@ -1947,11 +1967,17 @@ export async function ensureCurrentWeekPlan(userId: string): Promise<{ created: 
   const metrics = calculateCoachMetrics(runs);
   // Adapt the auto-rolled week to how the plan just ended (we closed missed sessions above first).
   const adherence = await getPlanAdherence(userId);
+  // The auto-rolled week must obey the same age rules as a requested one; without this the runner's
+  // plan would quietly get harder every time it rolled over on its own.
+  const ageRows = await prisma.$queryRaw<Array<{ dateOfBirth: Date | null }>>`
+    SELECT "dateOfBirth" FROM "User" WHERE "id" = ${userId} LIMIT 1
+  `;
   const adaptivePlan = buildAdaptivePlanForGoal(
     goal,
     metrics,
     adherence,
-    assessConsistency(runs, goal.availableTrainingDays.length).status
+    assessConsistency(runs, goal.availableTrainingDays.length).status,
+    ageFromDateOfBirth(ageRows[0]?.dateOfBirth ?? null)
   );
   const skeleton = adaptivePlan.workouts;
   if (skeleton.length === 0) return { created: false };

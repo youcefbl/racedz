@@ -375,6 +375,122 @@ const HALF_PLAN = {
   }
 }
 
+// ── Age and body composition change the schedule, not just the prose (COACHPAR-004) ─────────────
+// The finding: cases C (24, advanced, 7 days) and G (68, advanced, 7 days) produced identical
+// seven-day zero-rest weeks. Age and weight were in the AI context, so the *advice* was aware of
+// them while the *plan* was not. Each rule below must only ever make a week easier.
+{
+  const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+  const advanced = {
+    goalType: "GENERAL_FITNESS" as const,
+    experienceLevel: "ADVANCED" as const,
+    targetDate: new Date("2026-11-01T00:00:00.000Z"),
+    targetDistanceKm: null,
+    currentWeeklyDistanceKm: 60,
+    peakWeeklyDistanceKm: 70,
+    longestRecentRunKm: 20,
+    availableTrainingDays: EVERY_DAY,
+    preferredLongRunDay: 0,
+    metrics: metricsFrom([0, 1, 2, 3].flatMap((w) => [15, 10, 10, 10, 8].map((d, i) => ({ daysAgo: w * 7 + i + 1, distanceKm: d }))))
+  };
+
+  const young = buildAdaptivePlan({ ...advanced, age: 24 }, NOW);
+  const noAge = buildAdaptivePlan({ ...advanced, age: null }, NOW);
+  const fifties = buildAdaptivePlan({ ...advanced, age: 54 }, NOW);
+  const sixties = buildAdaptivePlan({ ...advanced, age: 68 }, NOW);
+  const seventies = buildAdaptivePlan({ ...advanced, age: 72 }, NOW);
+
+  check("age 24 advanced still gets the full seven days", young.workouts.length === 7, `${young.workouts.length}`);
+  check("a missing age changes nothing", noAge.workouts.length === young.workouts.length);
+  check("age 54 drops to six running days", fifties.workouts.length === 6, `${fifties.workouts.length}`);
+  check("age 68 drops to five running days", sixties.workouts.length === 5, `${sixties.workouts.length}`);
+  check("age 72 drops to four running days", seventies.workouts.length === 4, `${seventies.workouts.length}`);
+  check(
+    "the 68-year-old no longer gets the 24-year-old's week — the original finding",
+    sixties.workouts.length < young.workouts.length
+  );
+  check("older runners lose a quality session, not just a day", sixties.qualitySessions < young.qualitySessions,
+    `${sixties.qualitySessions} vs ${young.qualitySessions}`);
+  check("every age rule only ever reduces load", [fifties, sixties, seventies].every((p) => p.workouts.length <= young.workouts.length));
+  check("the age adaptation is explained, not silent", sixties.adaptations.some((a) => /Running days capped/.test(a)),
+    sixties.adaptations.join(" | "));
+}
+
+// BMI drives impact, not distance targets. 30 is the threshold, matching isHeavyWeight() in tips.ts.
+{
+  const beginner = {
+    goalType: "GENERAL_FITNESS" as const,
+    experienceLevel: "BEGINNER" as const,
+    targetDate: new Date("2026-11-01T00:00:00.000Z"),
+    targetDistanceKm: null,
+    currentWeeklyDistanceKm: 12,
+    peakWeeklyDistanceKm: null,
+    longestRecentRunKm: 4,
+    availableTrainingDays: [1, 3, 5, 6],
+    preferredLongRunDay: 6,
+    metrics: metricsFrom([{ daysAgo: 2, distanceKm: 4 }, { daysAgo: 5, distanceKm: 3 }, { daysAgo: 9, distanceKm: 4 }])
+  };
+
+  const healthy = buildAdaptivePlan({ ...beginner, bmi: 22 }, NOW);
+  const overweight = buildAdaptivePlan({ ...beginner, bmi: 27.5 }, NOW);
+  const obese = buildAdaptivePlan({ ...beginner, bmi: 33 }, NOW);
+
+  check("BMI 22 beginner runs, and never walk-runs", healthy.workouts.every((w) => !/Walk-run/.test(w.title)),
+    healthy.workouts.map((w) => w.title).join(" | "));
+  check(
+    "BMI 27.5 is left alone — BMI cannot tell muscle from fat, so 25-30 is not a training decision",
+    overweight.workouts.length === healthy.workouts.length && overweight.weeklyVolumeKm === healthy.weeklyVolumeKm
+  );
+  check("BMI 33 beginner gets walk-run sessions instead", obese.workouts.every((w) => /Walk-run/.test(w.title)),
+    obese.workouts.map((w) => w.title).join(" | "));
+  check("a walk-run publishes no pace target to hold", obese.workouts.every((w) => w.targetPaceSecondsPerKm === null));
+  check("a walk-run is measured in time", obese.workouts.every((w) => w.targetDurationMin !== null && w.targetDurationMin > 0),
+    obese.workouts.map((w) => String(w.targetDurationMin)).join(" | "));
+  check("a walk-run week carries no quality session", obese.qualitySessions === 0, `${obese.qualitySessions}`);
+  check("the walk-run week is lighter, never heavier", obese.weeklyVolumeKm <= healthy.weeklyVolumeKm,
+    `${obese.weeklyVolumeKm} vs ${healthy.weeklyVolumeKm}`);
+  check("the walk-run choice is explained", obese.adaptations.some((a) => /walk-run/i.test(a)), obese.adaptations.join(" | "));
+
+  // An experienced heavy runner keeps running — the rule is about impact, not about capability.
+  const heavyAdvanced = buildAdaptivePlan(
+    { ...beginner, experienceLevel: "ADVANCED" as const, currentWeeklyDistanceKm: 55, availableTrainingDays: [0, 1, 2, 3, 4, 5, 6], bmi: 33 },
+    NOW
+  );
+  check("a heavy ADVANCED runner is not put on walk-runs", heavyAdvanced.workouts.every((w) => !/Walk-run/.test(w.title)),
+    heavyAdvanced.workouts.map((w) => w.title).join(" | "));
+  check("but they lose the interval session", heavyAdvanced.workouts.every((w) => w.workoutType !== "INTERVAL"),
+    heavyAdvanced.workouts.map((w) => w.workoutType).join(" | "));
+}
+
+// The walk-run copy must not reach a French or Arabic beginner in English.
+{
+  const obese = buildAdaptivePlan(
+    {
+      goalType: "GENERAL_FITNESS" as const,
+      experienceLevel: "BEGINNER" as const,
+      targetDate: new Date("2026-11-01T00:00:00.000Z"),
+      targetDistanceKm: null,
+      currentWeeklyDistanceKm: 12,
+      peakWeeklyDistanceKm: null,
+      longestRecentRunKm: 4,
+      availableTrainingDays: [1, 3, 5, 6],
+      preferredLongRunDay: 6,
+      metrics: metricsFrom([{ daysAgo: 2, distanceKm: 4 }, { daysAgo: 5, distanceKm: 3 }, { daysAgo: 9, distanceKm: 4 }]),
+      bmi: 33
+    },
+    NOW
+  );
+  for (const locale of ["fr", "ar"] as const) {
+    const localized = obese.workouts.map((w) => localizeWorkout(w, locale));
+    check(`${locale}: the walk-run title is translated`, localized.every((w) => !/Walk-run/.test(w.title)),
+      localized.map((w) => w.title).join(" | "));
+    check(`${locale}: the walk-run instructions are translated`, localized.every((w) => !/^Alternate 2 minutes/.test(w.instructions)),
+      localized.map((w) => w.instructions.slice(0, 24)).join(" | "));
+    check(`${locale}: the walk-run intensity is translated`, localized.every((w) => !/Easy throughout/.test(w.intensity)),
+      localized.map((w) => w.intensity).join(" | "));
+  }
+}
+
 console.log(`adaptive planner: ${passed}/${passed + failures.length} checks passed`);
 if (failures.length > 0) {
   console.error("\nFAILED:");
