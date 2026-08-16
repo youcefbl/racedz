@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NATRUN-06 visual proposal — 2026-08-16</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Tokens copied 1:1 from native-android/core/design/Color.kt, Dimens.kt, Type.kt (Manrope). */
+  :root { --space-xs:4px; --space-sm:8px; --space-md:12px; --space-lg:16px; --space-xl:24px;
+          --corner-sm:8px; --corner-lg:16px; --pill:999px; }
+  .light { --bg:#F9FAFB; --surface:#FFFFFF; --surface-muted:#F3F4F6; --text-strong:#111827; --text:#374151;
+           --text-muted:#6B7280; --border:#E5E7EB; --border-strong:#D1D5DB; --primary:#15803D; --on-primary:#FFFFFF;
+           --primary-soft:#ECFDF3; --accent:#F47A20; --accent-soft:#FFF3E9; --accent-content:#9A3412; --danger:#DC2626; }
+  .dark  { --bg:#0A0A0B; --surface:#151517; --surface-muted:#1F1F22; --text-strong:#FAFAFA; --text:#D4D4D6;
+           --text-muted:#9B9BA1; --border:#2A2A2E; --border-strong:#3D3D42; --primary:#4ADE80; --on-primary:#04240F;
+           --primary-soft:#0E2A18; --accent:#FB923C; --accent-soft:#2E1508; --accent-content:#FB923C; --danger:#F87171; }
+  .race  { --bg:#090511; --surface:#160B24; --surface-muted:#251039; --text-strong:#FFF7FF; --text:#F2DDFF;
+           --text-muted:#CFB6DF; --border:#45205E; --border-strong:#7133FF; --primary:#39FF14; --on-primary:#0A1A05;
+           --primary-soft:#102B0A; --accent:#FF2BD6; --accent-soft:#3A0A33; --accent-content:#FF2BD6; --danger:#FF6B6B; }
+  html,body{margin:0;background:#e9e9ee;font-family:Manrope,"Segoe UI",system-ui,sans-serif;color:#111827}
+  h1{font-size:20px;margin:24px 24px 4px} p.lead{margin:0 24px 16px;color:#374151;max-width:72ch}
+  .row{display:flex;gap:24px;flex-wrap:wrap;padding:0 24px 32px;align-items:flex-start}
+  .phone{width:360px;border-radius:24px;overflow:hidden;background:var(--bg);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.18)}
+  .phone .cap{font-size:11px;color:#6B7280;text-align:center;padding:6px;background:#fff;border-bottom:1px solid #E5E7EB}
+  .screen{padding:var(--space-lg);display:flex;flex-direction:column;gap:var(--space-lg)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--corner-lg);padding:var(--space-lg)}
+  .title-sm{font-weight:500;font-size:14px;line-height:20px;color:var(--text-strong)}
+  .body-sm{font-size:12px;line-height:18px;color:var(--text-muted)}
+  .label{font-weight:500;font-size:11px;line-height:16px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.02em}
+  .num{font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse}
+  td,th{padding:6px 0;font-size:14px;line-height:20px;text-align:start}
+  th{font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase}
+  td.pace{font-weight:600;color:var(--text-strong)}
+  .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--pill);font-size:11px;font-weight:600;
+        background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary)}
+  .light .chip{color:#15803D} /* 4.5:1 on primarySoft */
+  .muted-row td{color:var(--text-muted)}
+  .actions{display:flex;gap:var(--space-md)}
+  .btn{flex:1;min-height:48px;border-radius:var(--pill);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
+  .btn.outline{border:1px solid var(--border-strong);color:var(--text-strong)}
+  .btn.primary{background:var(--primary);color:var(--on-primary)}
+  /* during run */
+  .live{background:#0A0A0B;color:#D4D4D6}
+  .live .big{font-size:44px;line-height:50px;font-weight:600;color:#FAFAFA;letter-spacing:-.02em;text-align:center}
+  .live .clock{font-size:30px;line-height:36px;font-weight:600;color:#FAFAFA;text-align:center}
+  .tiles{display:flex;gap:var(--space-md)}
+  .tile{flex:1;border-radius:var(--corner-lg);padding:var(--space-md);border:1px solid rgba(74,222,128,.34);background:rgba(74,222,128,.10)}
+  .tile.acc{border-color:rgba(251,146,60,.34);background:rgba(251,146,60,.10)}
+  .tile .label{color:#4ADE80}.tile.acc .label{color:#FB923C}
+  .tile .v{font-size:21px;line-height:27px;font-weight:600;color:#FAFAFA}
+  .stats{display:flex;align-items:center}
+  .stats>div{flex:1;text-align:center}.stats .v{font-size:16px;line-height:22px;font-weight:600;color:#FAFAFA}
+  .stats .hair{flex:0 0 1px;height:34px;background:#2A2A2E}
+  .map{position:relative;height:190px;border-radius:var(--corner-lg);border:1px solid #2A2A2E;background:#151517;overflow:hidden}
+  .map svg{position:absolute;inset:0;width:100%;height:100%}
+  .recenter{position:absolute;inset-inline-end:10px;bottom:10px;width:44px;height:44px;border-radius:50%;background:#1F1F22;
+            border:1px solid #3D3D42;display:flex;align-items:center;justify-content:center;color:#FAFAFA}
+  .attrib{position:absolute;inset-inline-start:8px;bottom:8px;font-size:10px;color:#9B9BA1}
+  .controls{display:flex;align-items:center;gap:var(--space-md)}
+  .circle{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+  .ctl{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:500}
+  .pill-btn{flex:1;min-height:64px;border-radius:var(--pill);background:#1F1F22;color:#FAFAFA;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px}
+  /* countdown */
+  .count{position:relative;height:640px;background:#0A0A0B;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .count .n{font-size:44px;line-height:50px;font-weight:600;color:#FAFAFA}
+  .count .ring{width:180px;height:180px;border-radius:50%;border:6px solid #2A2A2E;border-top-color:#4ADE80;display:flex;align-items:center;justify-content:center}
+  .count .cancel{position:absolute;bottom:32px;left:16px;right:16px;min-height:56px;border:1px solid #3D3D42;border-radius:var(--pill);color:#FAFAFA;display:flex;align-items:center;justify-content:center;font-weight:600}
+  /* share card */
+  .share{width:270px;aspect-ratio:4/5;border-radius:16px;position:relative;overflow:hidden;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between}
+  .share .logo{font-weight:800;letter-spacing:-.02em;font-size:16px}
+  .share .route{position:absolute;inset:0}
+  .share .st{display:flex;gap:16px}.share .st b{display:block;font-size:22px;line-height:26px;font-variant-numeric:tabular-nums}
+  .share .st span{font-size:11px;text-transform:uppercase;letter-spacing:.02em}
+  .note{font-size:12px;color:#374151;margin:0 24px 8px;max-width:72ch}
+</style>
+</head>
+<body>
+<h1>NATRUN-06 — visual proposal (2026-08-16)</h1>
+<p class="lead">Only the pieces that have no approved reference. Everything is composed from existing tokens and components; nothing new in colour, type, radius or spacing. Light + dark shown; race follows the same token swap.</p>
+
+<h1 style="font-size:16px">A · Run Details — Best efforts card, Laps card, Share action</h1>
+<p class="note">Same card treatment as Splits (05-run-details.png). Best efforts shows only rows the run is long enough for; "PR" chip is server-authoritative. Manual laps sit in their own card, splits stay untouched. "Share image" replaces the mock's "Share privately" wording in the same slot.</p>
+<div class="row">
+  <div class="phone light"><div class="cap">Light · Run Details (fragment)</div>
+    <div class="screen">
+      <div class="card">
+        <div class="title-sm" style="margin-bottom:8px">Best efforts</div>
+        <table>
+          <tr><th>Distance</th><th>Time</th><th>Pace</th><th></th></tr>
+          <tr><td>1 km</td><td class="pace num">4:58</td><td class="num">4:58 /km</td><td><span class="chip">PR</span></td></tr>
+          <tr><td>5 km</td><td class="pace num">27:12</td><td class="num">5:26 /km</td><td></td></tr>
+          <tr class="muted-row"><td>10 km</td><td>—</td><td colspan="2" class="body-sm">Run shorter than 10 km</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="title-sm" style="margin-bottom:8px">Laps <span class="body-sm">· manual</span></div>
+        <table>
+          <tr><th>#</th><th>Distance</th><th>Time</th><th>Pace</th></tr>
+          <tr><td>1</td><td class="num">1.20 km</td><td class="num">6:31</td><td class="pace num">5:26</td></tr>
+          <tr><td>2</td><td class="num">0.80 km</td><td class="num">4:02</td><td class="pace num">5:03</td></tr>
+          <tr><td>3</td><td class="num">1.65 km</td><td class="num">9:11</td><td class="pace num">5:34</td></tr>
+        </table>
+      </div>
+      <div class="actions"><div class="btn outline">Share image</div><div class="btn outline">Export GPX</div><div class="btn primary">Analyse</div></div>
+    </div>
+  </div>
+  <div class="phone dark"><div class="cap">Dark · same fragment</div>
+    <div class="screen">
+      <div class="card">
+        <div class="title-sm" style="margin-bottom:8px">Best efforts</div>
+        <table>
+          <tr><th>Distance</th><th>Time</th><th>Pace</th><th></th></tr>
+          <tr><td>1 km</td><td class="pace num">4:58</td><td class="num">4:58 /km</td><td><span class="chip">PR</span></td></tr>
+          <tr><td>5 km</td><td class="pace num">27:12</td><td class="num">5:26 /km</td><td></td></tr>
+          <tr class="muted-row"><td>10 km</td><td>—</td><td colspan="2" class="body-sm">Run shorter than 10 km</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="title-sm" style="margin-bottom:8px">Laps <span class="body-sm">· manual</span></div>
+        <table>
+          <tr><th>#</th><th>Distance</th><th>Time</th><th>Pace</th></tr>
+          <tr><td>1</td><td class="num">1.20 km</td><td class="num">6:31</td><td class="pace num">5:26</td></tr>
+          <tr><td>2</td><td class="num">0.80 km</td><td class="num">4:02</td><td class="pace num">5:03</td></tr>
+        </table>
+      </div>
+      <div class="actions"><div class="btn outline">Share image</div><div class="btn outline">Export GPX</div><div class="btn primary">Analyse</div></div>
+    </div>
+  </div>
+</div>
+
+<h1 style="font-size:16px">B · During Run — cadence in the secondary row, position marker + recenter, Lap control</h1>
+<p class="note">Matches 03-during-run.png: secondary row becomes <b>Cadence · Elevation · Calories</b> (moving time moves to the summary/detail where it already is). The map gets the approved position marker (primary ring dot) plus a 44 dp recenter control that appears only after the runner pans. The left control slot — the mock's Lock, which is NATRUN-07 — carries <b>Lap</b> for now, in the same 48 dp circle language as Finish. Cadence reads "—" until ≥60 s of steps exist.</p>
+<div class="row">
+  <div class="phone live"><div class="cap" style="background:#151517;color:#9B9BA1;border-color:#2A2A2E">Always dark · During Run</div>
+    <div class="screen">
+      <div style="text-align:center;font-size:16px;font-weight:600;color:#4ADE80">● Recording <span style="color:#4ADE80;font-weight:400;font-size:12px">&nbsp;▮▮▮ Strong GPS</span></div>
+      <div class="big num">5.72 <span style="font-size:18px;color:#9B9BA1;font-weight:600">km</span></div>
+      <div class="clock num">32:18</div>
+      <div class="tiles"><div class="tile"><div class="label">Current pace</div><div class="v num">5:32</div></div>
+                         <div class="tile acc"><div class="label">Avg pace</div><div class="v num">5:38</div></div></div>
+      <div class="stats"><div><div class="v num">172</div><div class="label">Cadence spm</div></div><div class="hair"></div>
+                         <div><div class="v num">+42 m</div><div class="label">Elevation</div></div><div class="hair"></div>
+                         <div><div class="v num">386</div><div class="label">Calories</div></div></div>
+      <div class="map">
+        <svg viewBox="0 0 328 190"><path d="M20 150 C 60 120, 90 160, 130 110 S 200 60, 250 90 S 290 70, 296 62" fill="none" stroke="#4ADE80" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="20" cy="150" r="5" fill="#4ADE80"/>
+          <circle cx="296" cy="62" r="11" fill="rgba(74,222,128,.25)"/><circle cx="296" cy="62" r="6" fill="#FAFAFA" stroke="#4ADE80" stroke-width="3"/>
+          <polygon points="296,44 291,54 301,54" fill="#FAFAFA"/></svg>
+        <div class="attrib">© OpenStreetMap</div>
+        <div class="recenter" title="Recenter">◎</div>
+      </div>
+      <div class="controls">
+        <div class="ctl"><div class="circle" style="background:rgba(74,222,128,.18);color:#4ADE80">⟲</div>Lap</div>
+        <div class="pill-btn">❚❚&nbsp; Pause</div>
+        <div class="ctl"><div class="circle" style="background:rgba(251,146,60,.18);color:#FB923C">⚑</div>Finish</div>
+      </div>
+    </div>
+  </div>
+  <div class="phone live"><div class="cap" style="background:#151517;color:#9B9BA1;border-color:#2A2A2E">C · Countdown (optional, off by default)</div>
+    <div class="count">
+      <div style="font-size:14px;color:#9B9BA1">Starting in</div>
+      <div class="ring"><div class="n num">3</div></div>
+      <div style="font-size:12px;color:#9B9BA1">GPS ready · nothing is recorded yet</div>
+      <div class="cancel">Cancel</div>
+    </div>
+  </div>
+</div>
+<p class="note">Countdown: full-bleed dark surface after the hold completes; one number in displayLarge inside a primary ring that empties per second (reduced motion: number only, no ring); short beep + haptic per second, "Go" on zero; the 56 dp Cancel sits in the thumb zone and returns to the start screen with nothing recorded, no service, no cue, no quota.</p>
+
+<h1 style="font-size:16px">D · Share image (route-only, brand card, 1080×1350)</h1>
+<p class="note">Route drawn as a line on the theme surface — no tiles, so no attribution obligation and no readable street context (privacy). Logo from public/brand (light/dark/race variant), distance · time · pace, date; no notes, no coordinates, no name. Bitmap generated off-main, ≤ 1080×1350, shared through the existing FileProvider cache dir.</p>
+<div class="row">
+  <div class="share light" style="background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
+    <svg class="route" viewBox="0 0 270 338"><path d="M50 250 C 90 200, 120 260, 150 190 S 210 120, 235 140" fill="none" stroke="#15803D" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="250" r="6" fill="#15803D"/><circle cx="235" cy="140" r="6" fill="#F47A20"/></svg>
+    <div class="logo" style="color:#15803D;position:relative">ZidRun</div>
+    <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
+  </div>
+  <div class="share dark" style="background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
+    <svg class="route" viewBox="0 0 270 338"><path d="M50 250 C 90 200, 120 260, 150 190 S 210 120, 235 140" fill="none" stroke="#4ADE80" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="250" r="6" fill="#4ADE80"/><circle cx="235" cy="140" r="6" fill="#FB923C"/></svg>
+    <div class="logo" style="color:#4ADE80;position:relative">ZidRun</div>
+    <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
+  </div>
+  <div class="share race" style="background:var(--surface);color:var(--text-strong);border:1px solid var(--border)">
+    <svg class="route" viewBox="0 0 270 338"><path d="M50 250 C 90 200, 120 260, 150 190 S 210 120, 235 140" fill="none" stroke="#39FF14" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="250" r="6" fill="#39FF14"/><circle cx="235" cy="140" r="6" fill="#FF2BD6"/></svg>
+    <div class="logo" style="color:#39FF14;position:relative">ZidRun</div>
+    <div class="st" style="position:relative"><div><b>5.72</b><span>km</span></div><div><b>32:18</b><span>time</span></div><div><b>5:38</b><span>/km</span></div></div>
+  </div>
+</div>
+<p class="note">Wordmark above is placeholder text; the implementation uses <code>public/brand/zidrun-logo*.svg</code> rasterised per theme.</p>
+<p class="note" style="padding-bottom:40px">E · km/mi is a row in Account → Settings using the existing menu-row + choice-chip pattern; no new visual.</p>
+</body>
+</html>
