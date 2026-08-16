@@ -19,6 +19,8 @@
  *     provenance becomes localised copy on the device.
  */
 
+import { SUPERSEDED_PROVENANCE_COPY } from "@/lib/coach/provenance-legacy";
+
 export const PROVENANCE_KEYS = [
   "GOAL",
   "ACTIVE_PLAN",
@@ -135,19 +137,56 @@ const CANONICAL_ALIASES: Record<string, ProvenanceKey | DataGapKey> = Object.fro
   Object.entries(ALIASES).map(([phrase, key]) => [canonical(phrase), key])
 );
 
+/**
+ * Localized copy → key, so a STORED reply resolves as well as a fresh one.
+ *
+ * `enforceCoachSafety` localizes these fields before persisting, which means a `CoachInteraction`
+ * row holds "الهدف تاعك", never `GOAL`. The native reply card resolves the stored value back to a
+ * key and renders its own on-device label — so without this index every interaction written before
+ * `usedSignalKeys` existed loses its whole provenance block on the phone, in every language.
+ *
+ * Built from the live copy plus [SUPERSEDED_PROVENANCE_COPY], because rewriting a phrase must not
+ * orphan the rows already carrying the old one. Resolution stays closed: a value that matches
+ * neither the vocabulary, an alias, nor any copy this product has ever shipped is still discarded.
+ */
+const CANONICAL_COPY: Record<string, ProvenanceKey | DataGapKey> = (() => {
+  const index: Record<string, ProvenanceKey | DataGapKey> = {};
+  const add = (phrase: string, key: ProvenanceKey | DataGapKey) => {
+    const normalized = canonical(phrase);
+    // First writer wins: live copy is registered before the superseded generations, so a phrase
+    // that was reused for a different key cannot have its current meaning overwritten by history.
+    if (normalized && !(normalized in index)) index[normalized] = key;
+  };
+  for (const [key, copy] of Object.entries(PROVENANCE_COPY) as [ProvenanceKey, Copy][]) {
+    for (const locale of ["en", "fr", "ar"] as const) add(copy[locale], key);
+  }
+  for (const [key, copy] of Object.entries(DATA_GAP_COPY) as [DataGapKey, Copy][]) {
+    for (const locale of ["en", "fr", "ar"] as const) add(copy[locale], key);
+  }
+  for (const { key, phrases } of SUPERSEDED_PROVENANCE_COPY) {
+    for (const phrase of phrases) add(phrase, key);
+  }
+  return index;
+})();
+
+function resolveAny(raw: string): ProvenanceKey | DataGapKey | null {
+  const key = canonical(raw);
+  return CANONICAL_ALIASES[key] ?? CANONICAL_COPY[key] ?? null;
+}
+
 /** Resolves model output to a key, or null when it is not in the vocabulary. */
 export function resolveProvenanceKey(raw: string): ProvenanceKey | null {
   const upper = raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
   if ((PROVENANCE_KEYS as readonly string[]).includes(upper)) return upper as ProvenanceKey;
-  const alias = CANONICAL_ALIASES[canonical(raw)];
-  return alias && (PROVENANCE_KEYS as readonly string[]).includes(alias) ? (alias as ProvenanceKey) : null;
+  const resolved = resolveAny(raw);
+  return resolved && (PROVENANCE_KEYS as readonly string[]).includes(resolved) ? (resolved as ProvenanceKey) : null;
 }
 
 export function resolveDataGapKey(raw: string): DataGapKey | null {
   const upper = raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
   if ((DATA_GAP_KEYS as readonly string[]).includes(upper)) return upper as DataGapKey;
-  const alias = CANONICAL_ALIASES[canonical(raw)];
-  return alias && (DATA_GAP_KEYS as readonly string[]).includes(alias) ? (alias as DataGapKey) : null;
+  const resolved = resolveAny(raw);
+  return resolved && (DATA_GAP_KEYS as readonly string[]).includes(resolved) ? (resolved as DataGapKey) : null;
 }
 
 /** Closed, deduplicated provenance keys for API/client transport. Unknown model values vanish. */

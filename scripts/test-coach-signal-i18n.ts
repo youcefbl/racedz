@@ -19,7 +19,7 @@
 import { enforceCoachSafety } from "../src/lib/coach/safety";
 import type { CoachResponse } from "../src/lib/coach/schemas";
 import type { CoachSafetyDecision } from "../src/lib/coach/safety";
-import { DATA_GAP_KEYS, PROVENANCE_KEYS } from "../src/lib/coach/provenance";
+import { DATA_GAP_KEYS, PROVENANCE_KEYS, dataGapKeys, provenanceKeys } from "../src/lib/coach/provenance";
 
 let passed = 0;
 let failed = 0;
@@ -165,6 +165,58 @@ for (const locale of ["en", "fr", "ar"] as const) {
     );
   }
 }
+
+// ---- Stored replies must still resolve after the copy is rewritten ----------------------------------
+// `enforceCoachSafety` localizes these fields BEFORE they are persisted, so a CoachInteraction row
+// holds "الهدف تاعك", not `GOAL`. The native card resolves that stored prose back to a key and
+// renders its own on-device label — so every time this copy is rewritten, the phrasings already in
+// the database must keep resolving, or the whole "Why this advice?" block vanishes for the runner's
+// entire history. Each generation of shipped copy is checked, in every language it shipped in.
+const STORED_COPY: Array<{ generation: string; signals: string[]; gaps: string[] }> = [
+  {
+    generation: "gen1 (fa58dfc, short labels)",
+    signals: ["objectif", "البرنامج الحالي", "الوتيرة الأخيرة", "sommeil", "سؤال العدّاء", "ذاكرة المدرب"],
+    gaps: ["ما كاش تفاصيل على الحالة القلبية", "aucune allure récente"]
+  },
+  {
+    generation: "gen2 (b6394aa, closed vocabulary)",
+    signals: ["قدّاش تبعتي البرنامج", "الجرية اللي سقسيتي عليها", "المعلومات الصحية اللي عطيتيها", "الطقس"],
+    gaps: ["ما كاش وتيرة أخيرة", "ما كاش معطيات الطقس"]
+  },
+  {
+    generation: "gen3 (1eb0782, gender-neutral darija)",
+    signals: ["شحال تبعت البرنامج", "الجَرية اللي سقسيت عليها", "المِيتيو", "votre suivi du plan", "your goal"],
+    gaps: ["ما كاش ريتم جديد", "ما كاش معلومات على المِيتيو"]
+  }
+];
+
+for (const { generation, signals, gaps } of STORED_COPY) {
+  const resolvedSignals = provenanceKeys(signals);
+  check(
+    `stored provenance copy from ${generation} still resolves`,
+    resolvedSignals.length === new Set(signals.map((s) => provenanceKeys([s])[0])).size &&
+      signals.every((s) => provenanceKeys([s]).length === 1),
+    signals.map((s) => `${s} → ${provenanceKeys([s])[0] ?? "DROPPED"}`).join(" · ")
+  );
+  check(
+    `stored gap copy from ${generation} still resolves`,
+    gaps.every((g) => dataGapKeys([g]).length === 1),
+    gaps.map((g) => `${g} → ${dataGapKeys([g])[0] ?? "DROPPED"}`).join(" · ")
+  );
+}
+
+// The index widens what resolves; it must not widen it to everything. Invented prose still drops,
+// and a provenance phrase must not leak into the gap vocabulary or the reverse.
+check(
+  "invented prose is still discarded, in every language",
+  provenanceKeys(["some signal the model made up", "الطقس تاع بكري", "une raison inventée"]).length === 0,
+  "all dropped"
+);
+check(
+  "a provenance phrase does not resolve as a data gap",
+  dataGapKeys(["الطقس"]).length === 0 && provenanceKeys(["ما كاش جريات أخيرة"]).length === 0,
+  "vocabularies stay separate"
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
