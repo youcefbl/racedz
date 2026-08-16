@@ -123,3 +123,19 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
 - **No duplicate saves:** unique work + server idempotency; the foreground Save button is disabled
   while a background attempt for the same `clientId` is running (WorkManager state observed).
 - **Dependency:** `androidx.work:work-runtime-ktx` — named in `NATIVE-005` from the start.
+
+### 07.6 Barometric elevation (decided 2026-08-16)
+
+- **Hardware detection:** `Sensor.TYPE_PRESSURE` at recording start; absent (the Galaxy M21 has
+  none) → GPS altitude exactly as today. Never a permission; never a reason to fail the run.
+- **What the barometer replaces:** elevation *gain* (`elevationGainM`) and the `ele` of new route
+  points. Gain is accumulated from a low-pass-filtered relative altitude with a 1 m hysteresis,
+  so pressure noise cannot invent climb on a flat road the way GPS altitude does.
+- **Calibration:** relative altitude from the hypsometric formula against the pressure at the
+  first usable fix; the absolute anchor is that fix's GPS altitude, so route `ele` stays in metres
+  above sea level for the server's elevation profile. No re-anchoring mid-run: weather drift over
+  a run is a few metres and re-anchoring to noisy GPS altitude would be worse. Pause/resume keeps
+  the anchor; a new run re-anchors.
+- **Honesty:** the recording state names its `elevationSource` (`GPS` / `BARO`); nothing is shown
+  as absolute altitude beyond what the route already carried. Server-side elevation resolution
+  and the detail chart are unchanged.
