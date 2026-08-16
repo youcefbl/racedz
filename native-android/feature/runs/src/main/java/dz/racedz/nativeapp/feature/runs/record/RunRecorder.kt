@@ -47,6 +47,12 @@ data class RecordingState(
      * Off by default — a run records where someone was, and publishing is opt-in (NATRUN-06.1).
      */
     val draftIsPublic: Boolean = false,
+    /**
+     * Direction of travel in degrees from north, from the GPS bearing, only while moving at a speed
+     * where the bearing means something (≥ [GpsQuality.AUTO_RESUME_SPEED_MPS]). Null when stopped or
+     * unknown, so the live map draws a dot rather than an arrow pointing somewhere random.
+     */
+    val headingDegrees: Float? = null,
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
 
@@ -344,14 +350,14 @@ object RunRecorder {
     fun pause() {
         if (_state.value.status != RecordingStatus.Recording && _state.value.status != RecordingStatus.Acquiring) return
         pauseStartedMs = System.currentTimeMillis()
-        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = null, currentPaceSecondsPerKm = null) }
+        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = null, currentPaceSecondsPerKm = null, headingDegrees = null) }
         snapshot(force = true)
     }
 
     private fun autoPause(reason: AutoPauseReason) {
         pauseStartedMs = System.currentTimeMillis()
         stationarySeconds = 0.0
-        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = reason, currentPaceSecondsPerKm = null) }
+        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = reason, currentPaceSecondsPerKm = null, headingDegrees = null) }
         snapshot(force = true)
     }
 
@@ -591,6 +597,7 @@ object RunRecorder {
                     currentPaceSecondsPerKm = paceWindow.paceSecondsPerKm(location.time),
                     route = route.toList(),
                     elapsedSeconds = elapsedSeconds(),
+                    headingDegrees = reliableHeading(location),
                 )
             }
         } else if (current.distanceMeters == 0.0 && route.size == 1) {
@@ -600,7 +607,8 @@ object RunRecorder {
             lastAcceptedTimeMs = location.time
             _state.update { it.copy(gpsAccuracyM = accuracy, route = route.toList()) }
         } else {
-            _state.update { it.copy(gpsAccuracyM = accuracy) }
+            // A fix that did not count is a runner who is not moving on foot: no heading either.
+            _state.update { it.copy(gpsAccuracyM = accuracy, headingDegrees = null) }
         }
 
         lastFix = location
@@ -636,6 +644,14 @@ object RunRecorder {
     }
 
     private const val AUTO_RESUME_DISPLACEMENT_M = 8.0
+
+    /** The GPS bearing, only when the phone is moving fast enough for it to be a direction. */
+    private fun reliableHeading(location: Location): Float? {
+        if (!location.hasBearing() || !location.hasSpeed()) return null
+        if (location.speed < GpsQuality.AUTO_RESUME_SPEED_MPS) return null
+        val bearing = location.bearing
+        return if (bearing.isFinite()) ((bearing % 360f) + 360f) % 360f else null
+    }
 
     private fun elapsedSeconds(): Int {
         val current = _state.value

@@ -441,6 +441,7 @@
     <string name="runs_gps_strong">GPS strong</string>
     <string name="runs_gps_good">GPS good</string>
     <string name="runs_gps_none">No GPS</string>
+    <string name="runs_map_recenter">Recenter map on me</string>
     <string name="runs_gps_searching">Searching</string>
     <string name="runs_finish_confirm_title">Finish this run?</string>
     <string name="runs_finish_confirm_body">%1$s km in %2$s. You can add a title and notes next.</string>

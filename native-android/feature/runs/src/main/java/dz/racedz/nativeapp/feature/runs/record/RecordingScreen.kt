@@ -65,7 +65,6 @@ import dz.racedz.nativeapp.core.design.ZidRunDarkSurfaceSystemBars
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.currentLocale
-import dz.racedz.nativeapp.feature.runs.RunMap
 
 /**
  * The periodic progress cue (built outside composition so a LaunchedEffect can speak it): distance
@@ -520,7 +519,11 @@ fun RecordingScreen(
                     .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
                     .border(1.dp, zidRunOnDarkColors().border, RoundedCornerShape(ZidRunDimens.cornerLg)),
             ) {
-                RunMap(route = state.route, modifier = Modifier.fillMaxSize())
+                LiveRunMap(
+                    route = state.route,
+                    headingDegrees = state.headingDegrees,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         } else {
             // Two distinct states, because they are two distinct situations (device review):

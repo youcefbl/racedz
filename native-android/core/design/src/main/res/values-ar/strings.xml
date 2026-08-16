@@ -436,6 +436,7 @@
     <string name="runs_gps_strong">GPS قوي</string>
     <string name="runs_gps_good">GPS مليح</string>
     <string name="runs_gps_none">ما كاش GPS</string>
+    <string name="runs_map_recenter">رجّع الخريطة عليّ</string>
     <string name="runs_gps_searching">يقلّب</string>
     <string name="runs_finish_confirm_title">تحبس الجَرية؟</string>
     <string name="runs_finish_confirm_body">جريت %1$s كم فـ%2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>

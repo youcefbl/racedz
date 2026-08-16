@@ -421,6 +421,7 @@
     <string name="runs_gps_strong">GPS fort</string>
     <string name="runs_gps_good">GPS bon</string>
     <string name="runs_gps_none">Pas de GPS</string>
+    <string name="runs_map_recenter">Recentrer la carte sur moi</string>
     <string name="runs_gps_searching">Recherche</string>
     <string name="runs_finish_confirm_title">Terminer cette sortie ?</string>
     <string name="runs_finish_confirm_body">%1$s km en %2$s. Vous pourrez ajouter un titre et des notes ensuite.</string>
