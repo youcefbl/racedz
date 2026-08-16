@@ -214,7 +214,7 @@ fun ConversationScreen(
                     // answered belongs at the head of the list. Keyed on pendingQuestion too:
                     // a question whose reply was generated but not yet refetched (reload failed)
                     // must stay visible with its Retry, not vanish into limbo (19A-R06).
-                    if (state.generating || state.pendingQuestion != null || state.sendError != null || viewModel.canRetry()) {
+                    if (state.generating || state.pendingQuestion != null || state.sendError != null || state.canRetry) {
                         item(key = "pending") {
                             PendingTurn(
                                 question = state.pendingQuestion,
@@ -222,7 +222,7 @@ fun ConversationScreen(
                                 // Retry is offered only when it can actually change the outcome:
                                 // a consent gate is cleared in goal setup, not by asking again
                                 // (F234-R04), and the action beneath the error says so.
-                                failed = !state.generating && viewModel.canRetry(),
+                                failed = !state.generating && state.canRetry,
                                 onRetry = viewModel::retry,
                             )
                         }

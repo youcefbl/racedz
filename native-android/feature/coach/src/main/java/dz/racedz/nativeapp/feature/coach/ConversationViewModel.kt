@@ -47,11 +47,22 @@ data class ConversationUiState(
     val draft: String = "",
     /** Reply ids whose secondary details the runner explicitly opened. */
     val expandedReplyIds: Set<String> = emptySet(),
+    /**
+     * True when a run analysis is in flight or awaiting Retry.
+     *
+     * Part of the state rather than a plain field on the view model: the screen decides whether to
+     * show the pending turn and its Retry from it, and a value Compose cannot observe would leave
+     * that turn on screen (or missing) until some unrelated state change forced a recomposition.
+     */
+    val pendingRunAnalysis: Boolean = false,
     val safetyAlert: CoachSafetyAlertDto? = null,
     val safetyClearing: Boolean = false,
 ) {
     /** Voice input is a paid feature, so the mic is only offered to subscribers. */
     val canUseVoice: Boolean get() = conversation.entitlement.tier == "SUBSCRIBED"
+
+    /** True when Retry can actually do something — a consent gate is not cleared by retrying. */
+    val canRetry: Boolean get() = !consentRequired && (pendingQuestion != null || pendingRunAnalysis)
 
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val hasCoaching: Boolean get() = conversation.entitlement.tier != "NONE"
@@ -64,6 +75,24 @@ data class ConversationUiState(
      */
     fun canAnalyseRun(runId: String?): Boolean =
         runId != null && hasCoaching && !generating && conversation.messages.none { it.runId == runId }
+}
+
+/**
+ * Whether editing the composer should retire the turn currently occupying the pending slot.
+ *
+ * Pure and separately tested because it decides whether the runner keeps their Retry, and it is
+ * reached from every keystroke and every quick-reply tap. Two rules:
+ *
+ * A turn that is still GENERATING is never retired. The runner touching the composer while they
+ * wait is not an acknowledgement of anything — a run analysis in flight would otherwise lose the
+ * marker that Retry depends on, so a subsequent timeout would leave them with no way to recover it.
+ *
+ * There must be something to retire. Nothing pending means nothing to write, which keeps a plain
+ * keystroke from emitting a state update the screen would recompose for.
+ */
+internal fun shouldRetirePendingTurn(state: ConversationUiState): Boolean {
+    if (state.generating) return false
+    return state.sendError != null || state.pendingQuestion != null || state.pendingRunAnalysis
 }
 
 /**
@@ -89,6 +118,7 @@ class ConversationViewModel(
             draft = savedState?.get<String>(KEY_DRAFT).orEmpty(),
             expandedReplyIds = savedState?.get<ArrayList<String>>(KEY_EXPANDED_REPLIES)?.toSet().orEmpty(),
             pendingQuestion = savedState?.get<String>(KEY_PENDING_QUESTION),
+            pendingRunAnalysis = savedState?.get<Boolean>(KEY_PENDING_RUN_ANALYSIS) == true,
         )
     )
     val state: StateFlow<ConversationUiState> = _state.asStateFlow()
@@ -134,9 +164,6 @@ class ConversationViewModel(
     // of buying a second provider call and quota charge. A different payload gets a fresh key.
     private var retainedRequestPayload: String? = savedState?.get(KEY_REQUEST_PAYLOAD)
     private var retainedRequestId: String? = savedState?.get(KEY_REQUEST_ID)
-
-    /** True when the failed turn awaiting Retry is a run analysis rather than a typed question. */
-    private var pendingRunAnalysis = savedState?.get<Boolean>(KEY_PENDING_RUN_ANALYSIS) == true
 
     private fun requestIdFor(payload: String): String {
         val existing = retainedRequestId
@@ -191,7 +218,7 @@ class ConversationViewModel(
             send(question)
             return
         }
-        if (pendingRunAnalysis) analyseRun()
+        if (_state.value.pendingRunAnalysis) analyseRun()
     }
 
     fun send(message: String) {
@@ -241,19 +268,19 @@ class ConversationViewModel(
     fun analyseRun() {
         val run = runId ?: return
         if (_state.value.generating) return
-        pendingRunAnalysis = true
         savedState?.set(KEY_PENDING_RUN_ANALYSIS, true)
         val requestId = requestIdFor("POST_RUN|" + run)
-        _state.update { it.copy(generating = true, pendingQuestion = null, sendError = null) }
+        _state.update { it.copy(generating = true, pendingQuestion = null, sendError = null, pendingRunAnalysis = true) }
         viewModelScope.launch {
             when (val result = repository.ask(AskCoachRequest(type = "POST_RUN", runId = run, requestId = requestId))) {
                 is ApiResult.Success -> {
                     if (reload()) {
                         clearRetainedRequest()
-                        pendingRunAnalysis = false
                         savedState?.remove<Boolean>(KEY_PENDING_RUN_ANALYSIS)
+                        _state.update { it.copy(generating = false, pendingRunAnalysis = false) }
+                    } else {
+                        _state.update { it.copy(generating = false) }
                     }
-                    _state.update { it.copy(generating = false) }
                 }
                 is ApiResult.Failure -> _state.update {
                     it.copy(
@@ -266,20 +293,32 @@ class ConversationViewModel(
         }
     }
 
-    /** Clears a failed attempt once the runner has acknowledged it by typing again. */
+    /**
+     * Clears a failed attempt once the runner has acknowledged it by typing again.
+     *
+     * Two things it deliberately does NOT do:
+     *
+     * It never runs while a reply is in flight. Editing the draft or tapping a quick reply is
+     * allowed at any time, but a turn that is still generating has not been acknowledged by anyone
+     * — retiring it there would drop the pending run analysis mid-request and leave the runner with
+     * no Retry if that request then timed out.
+     *
+     * It never releases the retained request key (19A-R06). The key is the runner's protection
+     * against paying twice for one answer: a generation that succeeded server-side but timed out on
+     * the phone is replayed for free only if the SAME key comes back. Retyping the same question
+     * after a timeout is the single most likely thing a runner does, so clearing the key here would
+     * turn that into a second provider call and a second quota charge. [requestIdFor] already
+     * issues a fresh key the moment the payload actually differs, which is the only case where a
+     * new interaction is genuinely wanted.
+     */
     fun dismissSendError() {
-        val state = _state.value
-        if (state.sendError != null || (!state.generating && state.pendingQuestion != null) || pendingRunAnalysis) {
-            pendingRunAnalysis = false
-            savedState?.remove<Boolean>(KEY_PENDING_RUN_ANALYSIS)
-            clearRetainedRequest()
-            savedState?.remove<String>(KEY_PENDING_QUESTION)
-            _state.update { it.copy(sendError = null, pendingQuestion = null, consentRequired = false) }
+        if (!shouldRetirePendingTurn(_state.value)) return
+        savedState?.remove<Boolean>(KEY_PENDING_RUN_ANALYSIS)
+        savedState?.remove<String>(KEY_PENDING_QUESTION)
+        _state.update {
+            it.copy(sendError = null, pendingQuestion = null, pendingRunAnalysis = false, consentRequired = false)
         }
     }
-
-    /** True when Retry can actually do something — a consent gate is not cleared by retrying. */
-    fun canRetry(): Boolean = !_state.value.consentRequired && (_state.value.pendingQuestion != null || pendingRunAnalysis)
 
     private companion object {
         const val KEY_DRAFT = "coach_chat_draft"
