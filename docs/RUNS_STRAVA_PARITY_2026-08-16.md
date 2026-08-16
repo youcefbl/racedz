@@ -95,3 +95,31 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
   GPX import get the same chip row (default Run).
 - **Not in this slice:** per-sport pace zones/coach advice, ride-specific metrics (speed instead
   of pace), sport-specific badges.
+
+### 07.2 Background retry of a pending save (decided 2026-08-16)
+
+- **Trigger:** only after the runner pressed Save and the request failed (offline, timeout, 5xx).
+  The worker never uploads a finished run the runner has not asked to save — the summary screen
+  is where title, notes, effort, photos and visibility are chosen, and a silent upload would post
+  defaults over them.
+- **What is retried:** the exact `CreateRunRequest` the failed save built (title, notes, effort,
+  photos, visibility, laps, sport, coach ids), written into the existing outbox slot with
+  `saveRequested = true`. The recorder's periodic snapshot never overwrites a `saveRequested`
+  slot. `clientId` makes the retry idempotent server-side (`(userId, clientId)` unique).
+- **Work:** one `OneTimeWorkRequest` per pending run, unique name
+  `run-sync:<ownerUserId>:<clientId>` with `ExistingWorkPolicy.KEEP`, tag `run-sync`,
+  `NetworkType.CONNECTED`, exponential backoff from 30 s, WorkManager's own persistence covers
+  Doze and reboot. Enqueued on the failed save and again on app start when a `saveRequested`
+  slot exists.
+- **Account isolation:** the worker reads the slot for the account it was enqueued for and posts
+  only if that account is the one currently signed in (`SessionManager.state`); otherwise it
+  returns success without touching the file (the slot stays for its owner). Sign-out cancels the
+  `run-sync` tag. A revoked/expired session fails the request as unauthenticated → the worker
+  returns failure (no retry) and the slot stays for the next foreground attempt.
+- **Success:** the slot is cleared exactly as a foreground save clears it, the recorder is reset
+  if it still holds that `clientId`, and a signal (`RunRecorder.syncedRunIds`) lets an open
+  summary navigate to the saved run. No notification is posted (the runner asked to save; the
+  history list will show it) — a later slice may add one.
+- **No duplicate saves:** unique work + server idempotency; the foreground Save button is disabled
+  while a background attempt for the same `clientId` is running (WorkManager state observed).
+- **Dependency:** `androidx.work:work-runtime-ktx` — named in `NATIVE-005` from the start.
