@@ -462,6 +462,61 @@ const HALF_PLAN = {
     heavyAdvanced.workouts.map((w) => w.workoutType).join(" | "));
 }
 
+// ── The reduction must reduce what is actually RUN, not just what is reported ────────────────────
+// Review finding, and it was right: the first version applied a -15% multiplier to the weekly
+// budget, but at beginner volumes the per-session FLOORS decide the week, not the budget. A 4 km
+// long-run floor plus three 2 km floors prescribed 10 km against a 4.1 km budget — so BMI 33 and
+// BMI null produced byte-identical workouts and the protective rule changed nothing but a number on
+// a card. Worse, that number then contradicted the plan printed directly beneath it.
+{
+  const beginner = {
+    goalType: "GENERAL_FITNESS" as const,
+    experienceLevel: "BEGINNER" as const,
+    targetDate: new Date("2026-11-01T00:00:00.000Z"),
+    targetDistanceKm: null,
+    currentWeeklyDistanceKm: 8,
+    peakWeeklyDistanceKm: null,
+    longestRecentRunKm: 3,
+    availableTrainingDays: [1, 3, 5, 6],
+    preferredLongRunDay: 6,
+    metrics: metricsFrom([])
+  };
+  const sum = (p: ReturnType<typeof buildAdaptivePlan>) =>
+    Math.round(p.workouts.reduce((total, w) => total + (w.targetDistanceKm ?? 0), 0) * 10) / 10;
+
+  const standard = buildAdaptivePlan({ ...beginner, bmi: 22 }, NOW);
+  const protective = buildAdaptivePlan({ ...beginner, bmi: 33 }, NOW);
+
+  check(
+    "the protective week prescribes strictly less running than the standard one",
+    sum(protective) < sum(standard),
+    `${sum(protective)} km vs ${sum(standard)} km`
+  );
+  check(
+    "the reported weekly volume equals what the week actually prescribes",
+    standard.weeklyVolumeKm === sum(standard) && protective.weeklyVolumeKm === sum(protective),
+    `reported ${standard.weeklyVolumeKm}/${protective.weeklyVolumeKm} vs actual ${sum(standard)}/${sum(protective)}`
+  );
+
+  // The general form of the same bug: a budget must never be quietly exceeded by the floors across
+  // the whole profile matrix, or a "reduce the load" rule can be defeated anywhere.
+  for (const experienceLevel of ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const) {
+    for (const bmi of [null, 22, 33]) {
+      for (const weekly of [5, 8, 20, 60]) {
+        const plan = buildAdaptivePlan(
+          { ...beginner, experienceLevel, bmi, currentWeeklyDistanceKm: weekly, availableTrainingDays: [0, 1, 2, 3, 4, 5, 6] },
+          NOW
+        );
+        check(
+          `${experienceLevel}/bmi ${bmi ?? "null"}/${weekly}km: reported volume is the truth`,
+          plan.weeklyVolumeKm === sum(plan),
+          `${plan.weeklyVolumeKm} vs ${sum(plan)}`
+        );
+      }
+    }
+  }
+}
+
 // The walk-run copy must not reach a French or Arabic beginner in English.
 {
   const obese = buildAdaptivePlan(

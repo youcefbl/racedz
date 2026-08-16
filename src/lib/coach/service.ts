@@ -1359,6 +1359,111 @@ export async function getRunsScreenData(userId: string, limit = 50) {
   return { runs, analyzedRuns, weightKg: goal?.weightKg ?? null, records, todayWorkout, badges, recentPaceSecondsPerKm };
 }
 
+/**
+ * Whether a PENDING interaction's lease is old enough that its worker is presumed dead.
+ *
+ * A null `claimedAt` counts as stale: a row that reached PENDING without ever recording a lease has
+ * no worker that can be waiting on it, so treating it as in-flight would strand the request id for
+ * good. Exported so the reclamation path can be tested without a database — the bug this guards
+ * against shipped precisely because that path had no test and could not be reached at runtime.
+ */
+export function isPendingLeaseStale(claimedAt: Date | null, staleBefore: Date): boolean {
+  return (claimedAt ?? new Date(0)).getTime() < staleBefore.getTime();
+}
+
+/**
+ * What a re-used request id means for the interaction already stored under it.
+ *
+ * Split out of `createCoachInteraction` so it is testable: the reclaim branch below was dead code
+ * for its entire life because the in-memory `prior.status` was never updated after the reclaiming
+ * UPDATE, so the caller fell into the replay branch and got `status: "PENDING"` with a null
+ * response back — which every client renders as "still generating". The one request that had
+ * already lost its worker could never be retried. Nothing caught it because the decision lived
+ * inside a function that needs a database, a goal, an entitlement and a provider to call at all.
+ */
+export type PriorInteractionOutcome =
+  | { kind: "MISMATCH" }
+  | { kind: "IN_PROGRESS" }
+  | { kind: "REPLAY" }
+  | { kind: "RECLAIM_STALE" }
+  | { kind: "RETRY_FAILED" };
+
+export function classifyPriorInteraction(
+  prior: { status: string; type: string; runId: string | null; userMessage: string | null; claimedAt: Date | null },
+  input: { type: string; runId?: string | null; message?: string | null },
+  staleBefore: Date
+): PriorInteractionOutcome {
+  const samePayload =
+    prior.type === input.type &&
+    (prior.runId ?? null) === (input.runId ?? null) &&
+    (prior.userMessage ?? null) === (input.message ?? null);
+  if (!samePayload) return { kind: "MISMATCH" };
+  if (prior.status === "PENDING") {
+    return isPendingLeaseStale(prior.claimedAt, staleBefore) ? { kind: "RECLAIM_STALE" } : { kind: "IN_PROGRESS" };
+  }
+  if (prior.status === "FAILED") return { kind: "RETRY_FAILED" };
+  return { kind: "REPLAY" };
+}
+
+/**
+ * Claims the interaction row, translating BOTH ways it can already exist.
+ *
+ * There are two unique keys on this table, and the raw INSERT only ever spoke about one of them.
+ * `ON CONFLICT ("id")` handles a retry reusing a known row. It says nothing about
+ * `@@unique([userId, clientRequestId])`, which is what two SIMULTANEOUS first attempts trip: both
+ * generate their own fresh `id`, so neither collides on the primary key, and the loser violates the
+ * request-id index instead. Postgres raises 23505, Prisma wraps it as P2002, and it left this
+ * function as an unhandled error — a 500 on the exact double-tap the idempotency key exists to make
+ * harmless.
+ *
+ * The right answer is the same one the id-conflict path gives: somebody else has this request, so
+ * report it as in progress and let the client's retry replay the stored result. Returning 0 rather
+ * than throwing keeps that decision with the caller, which already knows what 0 means.
+ */
+async function claimInteractionRow(
+  prisma: ReturnType<typeof getPrisma>,
+  row: {
+    interactionId: string;
+    userId: string;
+    requestId: string | null;
+    goalId: string;
+    runId: string | null;
+    type: string;
+    message: string | null;
+    safety: CoachSafetyDecision;
+  }
+): Promise<number> {
+  try {
+    return await prisma.$executeRaw`
+      INSERT INTO "CoachInteraction" (
+        "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion", "claimedAt"
+      ) VALUES (
+        ${row.interactionId}, ${row.userId}, ${row.requestId}, ${row.goalId}, ${row.runId}, ${row.type}::"CoachInteractionType",
+        'PENDING', ${row.message}, CAST(${JSON.stringify(row.safety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
+      )
+      ON CONFLICT ("id") DO UPDATE SET
+        "status" = 'PENDING', "userMessage" = EXCLUDED."userMessage", "safety" = EXCLUDED."safety",
+        "promptVersion" = EXCLUDED."promptVersion", "errorCode" = NULL, "completedAt" = NULL, "claimedAt" = NOW()
+      WHERE "CoachInteraction"."status" = 'FAILED'
+    `;
+  } catch (error) {
+    if (isRequestIdUniqueViolation(error)) return 0;
+    throw error;
+  }
+}
+
+/** A 23505 on the (userId, clientRequestId) index — the concurrent-first-attempt race. */
+function isRequestIdUniqueViolation(error: unknown): boolean {
+  const meta = (error as { code?: string; meta?: { target?: unknown } } | null)?.meta;
+  const code = (error as { code?: string } | null)?.code;
+  if (code !== "P2002" && code !== "23505") return false;
+  const target = Array.isArray(meta?.target) ? meta.target.join(",") : String(meta?.target ?? "");
+  // Prisma reports either the column list or the constraint name depending on the driver path, so
+  // match on the request-id column and fall back to accepting a bare P2002 on this one statement —
+  // the only other unique key here is the primary key, which ON CONFLICT already absorbed.
+  return target === "" || /clientRequestId/i.test(target);
+}
+
 export async function createCoachInteraction(userId: string, rawInput: unknown) {
   const input = coachInteractionInputSchema.parse(rawInput);
   const prisma = getPrisma();
@@ -1392,8 +1497,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         // (19A-R03): reclaim it (conditionally — one winner) so the requestId is not stranded
         // forever. A fresh lease means the first request really is still in flight.
         const staleBefore = new Date(Date.now() - STALE_PENDING_AFTER_MS);
-        const leaseAge = prior.claimedAt ?? new Date(0);
-        if (leaseAge.getTime() >= staleBefore.getTime()) {
+        if (!isPendingLeaseStale(prior.claimedAt, staleBefore)) {
           throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
         }
         const reclaimed = await prisma.$executeRaw`
@@ -1405,6 +1509,15 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
           throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
         }
         interactionId = prior.id;
+        // The row is FAILED in the database now, so the in-memory copy has to say so too.
+        //
+        // Without this line the reclaim was dead code: `prior` is a plain object read before the
+        // UPDATE, so the next branch still saw "PENDING", took the replay path, and returned
+        // `status: "PENDING"` with a null response — a shape the mobile DTO and the web card both
+        // read as "still generating". The runner's retry therefore did nothing, forever, on the one
+        // request that had already lost its worker. The reclamation existed and could never be
+        // reached by the code it was written for.
+        prior.status = "FAILED";
       }
       if (prior.status !== "FAILED") {
         // COMPLETED or BLOCKED: replay the stored result verbatim.
@@ -1577,18 +1690,16 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // means a concurrent retry won the claim first — this request backs off instead of buying a
   // second provider call (19A-R03). A concurrent duplicate of a NEW request instead trips the
   // (userId, clientRequestId) unique constraint and its retry replays the stored result.
-  const claimed = await prisma.$executeRaw`
-    INSERT INTO "CoachInteraction" (
-      "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion", "claimedAt"
-    ) VALUES (
-      ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
-      'PENDING', ${input.message ?? null}, CAST(${JSON.stringify(safety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
-    )
-    ON CONFLICT ("id") DO UPDATE SET
-      "status" = 'PENDING', "userMessage" = EXCLUDED."userMessage", "safety" = EXCLUDED."safety",
-      "promptVersion" = EXCLUDED."promptVersion", "errorCode" = NULL, "completedAt" = NULL, "claimedAt" = NOW()
-    WHERE "CoachInteraction"."status" = 'FAILED'
-  `;
+  const claimed = await claimInteractionRow(prisma, {
+    interactionId,
+    userId,
+    requestId: input.requestId ?? null,
+    goalId: goal.id,
+    runId: selectedRun?.id ?? null,
+    type: input.type,
+    message: input.message ?? null,
+    safety
+  });
   if (claimed === 0) {
     throw new CoachError("This request is still being processed.", 409, "INTERACTION_IN_PROGRESS");
   }
@@ -2098,8 +2209,42 @@ function planInputFingerprint(goal: GoalRow): string {
     goal.healthNotes ?? "",
     // Presentation input (19A-R07): workout titles/instructions are localized at persist time, so
     // a locale change must rebuild the week or the stored plan stays in the old language.
-    goal.preferredLocale
+    goal.preferredLocale,
+    // Body composition (COACHPAR-004). These two decide whether the week is joint-protective and
+    // whether a beginner starts on walk-runs, so correcting a weight must rebuild the week — a
+    // runner who crosses the BMI 30 boundary and keeps the old plan gets exactly the week the rule
+    // exists to prevent. Added the day after the planner started reading them, which is one day
+    // later than this comment asked for: the list had already drifted once before for the same
+    // reason (it missed peakWeeklyDistanceKm and longestRecentRunKm), and it drifted again.
+    goal.weightKg ?? null,
+    goal.heightCm ?? null
   ]);
+}
+
+/**
+ * Rebuilds the actionable week after a change on the ACCOUNT rather than on the goal.
+ *
+ * The goal fingerprint above cannot see this one: age comes from `User.dateOfBirth`, and the
+ * planner started reading it for the age bands (COACHPAR-004). So correcting a birth year — the
+ * single most likely reason anyone edits that field — would leave a 68-year-old on the seven-day
+ * week the age cap exists to prevent, until the plan happened to roll over on its own.
+ *
+ * Deliberately unconditional rather than fingerprinted: the caller already knows the date changed,
+ * and a rebuild is cheap and deterministic. Never throws — a profile save must not fail because the
+ * plan could not be regenerated, and the nightly rollover is the backstop.
+ */
+export async function rebuildPlanAfterProfileChange(userId: string): Promise<void> {
+  try {
+    const goal = await getActiveGoal(userId);
+    if (!goal) return;
+    await getPrisma().$executeRaw`
+      UPDATE "TrainingPlan" SET "status" = 'SUPERSEDED', "updatedAt" = NOW()
+      WHERE "goalId" = ${goal.id} AND "status" IN ('ACTIVE', 'DRAFT')
+    `;
+    await ensureCurrentWeekPlan(userId);
+  } catch (error) {
+    console.error("[coach] failed to rebuild plan after profile change", error);
+  }
 }
 
 async function getActiveGoal(userId: string) {

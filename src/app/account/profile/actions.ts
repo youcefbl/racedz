@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getPrisma } from "@/lib/db";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import { rebuildPlanAfterProfileChange } from "@/lib/coach/service";
 import { updateProfileSchema } from "@/lib/validations";
 
 export type ProfileActionState = {
@@ -42,6 +43,15 @@ export async function updateProfileAction(
     return { error: t.validationError };
   }
 
+  // Read before the write: the training planner reads age from this field for its age bands
+  // (COACHPAR-004), so a corrected birth year has to rebuild the actionable week. Without the
+  // before-value there is nothing to compare against, and rebuilding on every profile save would
+  // retire a perfectly good plan because someone fixed a typo in their city.
+  const previous = await getPrisma().user.findUnique({
+    where: { id: session.user.id },
+    select: { dateOfBirth: true }
+  });
+
   try {
     await getPrisma().user.update({
       where: {
@@ -68,6 +78,11 @@ export async function updateProfileAction(
     }
 
     throw error;
+  }
+
+  const nextDateOfBirth = parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : null;
+  if ((previous?.dateOfBirth?.getTime() ?? null) !== (nextDateOfBirth?.getTime() ?? null)) {
+    await rebuildPlanAfterProfileChange(session.user.id);
   }
 
   revalidatePath("/account/profile");

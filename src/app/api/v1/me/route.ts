@@ -4,6 +4,7 @@ import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/h
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { toMeDto } from "@/lib/api/v1/dto";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { rebuildPlanAfterProfileChange } from "@/lib/coach/service";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,14 @@ export const PATCH = withApi(async (request) => {
   }
 
   const { dateOfBirth, ...rest } = parsed.data;
+  // Same reason as the web profile action: the planner reads age from this column for its age
+  // bands, so the actionable week has to be rebuilt when it moves. Read first so a save that does
+  // not touch the birth date leaves a good plan alone.
+  const previousDateOfBirth =
+    dateOfBirth === undefined
+      ? undefined
+      : (await getPrisma().user.findUnique({ where: { id: viewer.id }, select: { dateOfBirth: true } }))?.dateOfBirth ?? null;
+
   const user = await getPrisma().user.update({
     where: { id: viewer.id },
     data: {
@@ -109,6 +118,10 @@ export const PATCH = withApi(async (request) => {
     },
     select: meSelect
   });
+
+  if (previousDateOfBirth !== undefined && (previousDateOfBirth?.getTime() ?? null) !== (user.dateOfBirth?.getTime() ?? null)) {
+    await rebuildPlanAfterProfileChange(viewer.id);
+  }
 
   return apiOk(request, toMeDto(user));
 });

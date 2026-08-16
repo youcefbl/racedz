@@ -167,6 +167,16 @@ type LoadProfile = {
   lowImpact: boolean;
   /** True when easy running is replaced by walk-run intervals. */
   walkRun: boolean;
+  /**
+   * Smallest long run and smallest easy session this profile will prescribe.
+   *
+   * These have to be part of the profile rather than fixed constants, because at the volumes a
+   * beginner actually starts at the FLOORS decide the week, not the budget. With a 4.1 km budget a
+   * flat 4 km long-run floor plus three 2 km floors prescribes 10 km — so a "-15% volume" reduction
+   * changed the number reported to the runner and not one metre of what they were asked to run.
+   */
+  longRunFloorKm: number;
+  easyFloorKm: number;
 };
 
 function resolveLoadProfile(input: AdaptivePlannerInput, adaptations: string[]): LoadProfile {
@@ -198,7 +208,12 @@ function resolveLoadProfile(input: AdaptivePlannerInput, adaptations: string[]):
     // Someone starting on walk-runs has no business doing a tempo session in the same week.
     qualityCap: walkRun ? 0 : null,
     lowImpact: jointProtective,
-    walkRun
+    walkRun,
+    // Lowered together with the volume, so the reduction survives contact with the floors. Walk-run
+    // goes lowest of the three: it covers less ground per minute than running, so holding it to a
+    // running distance floor would silently make it the LONGEST session of the week by time.
+    longRunFloorKm: walkRun ? 2.5 : jointProtective ? 3 : 4,
+    easyFloorKm: walkRun ? 1.5 : jointProtective ? 1.5 : 2
   };
 }
 
@@ -257,10 +272,18 @@ export function buildAdaptivePlan(input: AdaptivePlannerInput, now = new Date())
 
   const week = buildWeek({ phase, exp, params, isFitnessGoal, weeklyVolumeKm, input, now, load });
 
+  // Report what the week ACTUALLY prescribes, not the budget it was computed from.
+  //
+  // The two diverge whenever a session floor binds, which at beginner volumes is most of the time —
+  // and the runner reads this number, and the plan summary quotes it ("Base week · ~45 km"). A
+  // budget of 4.1 km printed over 10 km of scheduled running is not a rounding difference, it is
+  // the card telling them something the plan below it contradicts.
+  const prescribedVolumeKm = round1(week.workouts.reduce((total, w) => total + (w.targetDistanceKm ?? 0), 0));
+
   return {
     phase,
     weeksToRace,
-    weeklyVolumeKm,
+    weeklyVolumeKm: prescribedVolumeKm,
     longRunKm: week.longRunKm,
     qualitySessions: week.qualityCount,
     adaptations,
@@ -429,9 +452,19 @@ function buildWeek({
 
   // Cap how many of the available days carry a run (rest matters, especially for beginners), then
   // apply the age/body-composition ceiling on top — whichever is tighter wins.
+  // A fourth constraint the first version missed: the volume budget itself. Scheduling more days
+  // than the budget can fill at the session floor does not spread the load thinner — the floors
+  // simply win and the week silently prescribes far more than the budget said. Bounded below at 2
+  // so a genuinely light week is still a week rather than a single session.
+  const daysTheBudgetSupports = Math.max(2, Math.floor(weeklyVolumeKm / load.easyFloorKm));
   const runDayCount = Math.max(
     1,
-    Math.min(trainingDates.length, MAX_RUN_DAYS[exp], load.runDayCap ?? Number.POSITIVE_INFINITY)
+    Math.min(
+      trainingDates.length,
+      MAX_RUN_DAYS[exp],
+      load.runDayCap ?? Number.POSITIVE_INFINITY,
+      daysTheBudgetSupports
+    )
   );
   const runDates = pickRunDates(trainingDates, runDayCount, input.preferredLongRunDay);
 
@@ -447,7 +480,7 @@ function buildWeek({
   longRunKm = Math.min(longRunKm, params.longRunCapKm);
   if (phase === "TAPER") longRunKm *= 0.7;
   if (phase === "RECOVERY" || phase === "BASELINE") longRunKm = Math.min(longRunKm, weeklyVolumeKm * 0.35);
-  longRunKm = round1(Math.max(4, Math.min(longRunKm, weeklyVolumeKm * 0.5)));
+  longRunKm = round1(Math.max(load.longRunFloorKm, Math.min(longRunKm, weeklyVolumeKm * 0.5)));
 
   const baseQuality = runDates.length <= 2 ? 0 : qualitySessionsFor(phase, exp);
   const qualityCount = Math.max(
@@ -462,7 +495,8 @@ function buildWeek({
   const qualityKm = round1(clamp(weeklyVolumeKm * 0.18, 4, 12));
   const easyDates = runDates.filter((d) => d !== longRunDate && !qualityDates.includes(d));
   const easyBudget = Math.max(0, weeklyVolumeKm - longRunKm - qualityKm * qualityDates.length);
-  const easyEach = easyDates.length > 0 ? round1(Math.max(exp === "BEGINNER" ? 2 : 3, easyBudget / easyDates.length)) : 0;
+  const easyFloor = exp === "BEGINNER" ? load.easyFloorKm : Math.max(3, load.easyFloorKm);
+  const easyEach = easyDates.length > 0 ? round1(Math.max(easyFloor, easyBudget / easyDates.length)) : 0;
 
   // Repeated hard impact is what a joint-protective week removes; a controlled tempo effort at
   // conversational-plus intensity is not the same load as interval reps, so it stays.
