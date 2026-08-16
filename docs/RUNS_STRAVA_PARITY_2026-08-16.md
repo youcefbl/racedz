@@ -139,3 +139,59 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
 - **Honesty:** the recording state names its `elevationSource` (`GPS` / `BARO`); nothing is shown
   as absolute altitude beyond what the route already carried. Server-side elevation resolution
   and the detail chart are unchanged.
+
+### 07.7 Touch guard — placement proposal (awaiting owner, 2026-08-16)
+
+- **Discoverable control:** a labelled 44 dp Lock icon button at the trailing end of the status
+  header row ("Recording · GPS strong … 🔒"), always visible while recording/paused. No hidden
+  gesture, no long-press on a header (owner ruled that out).
+- **Locked state:** the live numbers stay readable (map and tiles untouched, slightly dimmed);
+  every control on the screen ignores taps; a full-width "Hold to unlock" pill sits in the thumb
+  zone with the same 700 ms hold + progress ring as the start control, latched at 100 %; TalkBack
+  gets a plain activate action on it (like `HoldToBegin`), so switch/voice access can unlock.
+- **Preserved:** system Back still minimises (the run keeps recording — a stray swipe never ends
+  a run); notification Pause/Resume keep working (deliberate: they need the shade, which is a
+  deliberate act); the countdown, finish dialog and lap confirmation are unaffected because they
+  cannot be reached while locked. Screen stays awake as today.
+- **Persistence:** lock state lives in the recorder (`RecordingState.touchLocked`) so minimise/
+  return and process recreation restore it; unlocked automatically on Finish/Discard.
+- **Not proposed:** a hardware-button unlock (varies by OEM), auto-lock after N seconds (a runner
+  glancing at the phone should not find it locked without asking).
+
+### 07.3 BLE heart rate — contract (awaiting owner on one design point, 2026-08-16)
+
+- **Permissions:** API 31+: `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_CONNECT`, asked
+  from the sensor row on the start screen, never at app start; API 26–30: `BLUETOOTH` +
+  `BLUETOOTH_ADMIN` and location for scanning (Android's rule). Denied → the row explains, no HR,
+  no retry loop.
+- **Pairing:** a "Heart-rate sensor" row on the start screen (below Auto-pause) opens a sheet that
+  scans for the Heart Rate Service (0x180D) for 15 s, lists devices by name, remembers the last
+  address per device (`RunSettings.hrSensorAddress`); connect on start, GATT notify on 0x2A37
+  (flags byte → 8/16-bit value), reconnect with backoff while recording, disconnect on Finish/
+  Discard/sign-out. Battery: one connection, notify only, no polling.
+- **Honesty:** states are Off · Searching · Connected · Reconnecting · Unsupported (no BLE) · Not
+  found; the tile shows "—" in every non-Connected state; nothing is ever estimated.
+- **Data:** average HR over moving time → `CreateRunRequest.averageHeartRate` (server already
+  accepts 30–250); the live series is not stored (no server column) — noted for a later slice.
+- **Design point for the owner:** `03-during-run.png` shows *Heart rate* as the second big tile
+  where we show *Avg pace*. Proposal: when a sensor is connected the second tile becomes Heart
+  rate and Avg pace moves to the secondary row (replacing Calories); with no sensor nothing
+  changes. Alternative: a fourth small stat instead.
+
+### 07.4 Beacon — contract (blocked on a scope decision, 2026-08-16)
+
+- A beacon is a share link that a non-user opens in a browser: it *is* website UI (a public page
+  showing a moving dot), which the current brief excludes. Proposed minimum if the owner lifts
+  that for this feature only: `POST /api/v1/runs/beacon` (explicit consent switch on the start
+  screen; creates a 32-byte token, `expiresAt = now + 8 h`, revocable), `PUT …/beacon/{token}`
+  every 30 s while recording with `{ lat, lng, at }` (last point only, retained 24 h then
+  deleted), `DELETE` on Finish/logout/expiry, `GET /beacon/{token}` public page with the point and
+  "live · updated 12 s ago", rate-limited per token. Not started.
+
+### 07.5 Routes — contract (blocked on provider decisions, 2026-08-16)
+
+- Needs: a routing/planning source (draw on map vs. GPX upload only), a route store
+  (`RunnerRoute` with bounded points), a follow mode with off-route threshold (proposal 40 m for
+  8 s → voice + haptic), and a decision on tiles for planning (OSM raster as today, no SDK).
+  Proposal for the first slice: **GPX-based routes only** (import a GPX as a route, list, follow
+  with off-route alerts) — no drawing UI, no third-party routing. Not started.
