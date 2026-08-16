@@ -29,7 +29,14 @@ export async function getCoachSafetyAlert(userId: string): Promise<CoachSafetyAl
   return { status: "ACTIVE", sourceInteractionId: row.id, triggeredAt: row.createdAt.toISOString() };
 }
 
-/** Clears only the caller's latest hold after an explicit medical-clearance attestation. */
+/**
+ * Clears the caller's unresolved holds after an explicit medical-clearance attestation.
+ *
+ * Every ACTIVE hold, not just the newest: a runner who reported a red flag twice has two rows, and
+ * clearing one at a time would leave the notice on screen after they attested — reading as though
+ * the app had ignored them. The clearance is one statement about one person, so it settles all of
+ * them. Scoped to `userId`, and the interaction rows themselves are never deleted.
+ */
 export async function confirmCoachMedicalClearance(userId: string): Promise<boolean> {
   const clearedAt = new Date().toISOString();
   const changed = await getPrisma().$executeRaw`
