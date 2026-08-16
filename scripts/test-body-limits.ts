@@ -271,6 +271,40 @@ async function main() {
       passed += 1;
     }
   }
+  // ---- Field length, where the field is expensive (SEC-006) ----------------------------------
+  // The body cap bounds the whole payload; it does not bound one field inside it. That distinction
+  // matters exactly once here: bcrypt reads only the first 72 bytes of a password but still hashes
+  // at cost factor 12, so a body-cap-sized password is CPU we spend on input that cannot change the
+  // answer — on three routes reachable with no account behind them to throttle.
+  const { loginSchema, registerUserSchema, resetPasswordSchema, MAX_PASSWORD_LENGTH } = await import(
+    "../src/lib/validations"
+  );
+  const huge = "a".repeat(MAX_PASSWORD_LENGTH + 1);
+  const ok = "a".repeat(MAX_PASSWORD_LENGTH);
+
+  check(
+    "login refuses an over-long password",
+    !loginSchema.safeParse({ email: "runner@example.com", password: huge }).success,
+    `${MAX_PASSWORD_LENGTH + 1} chars rejected`
+  );
+  check(
+    "login still accepts one at the limit",
+    loginSchema.safeParse({ email: "runner@example.com", password: ok }).success,
+    `${MAX_PASSWORD_LENGTH} chars accepted`
+  );
+  check(
+    "registration refuses an over-long password",
+    !registerUserSchema.safeParse({
+      firstName: "Amina", lastName: "Benali", email: "runner@example.com", password: huge, confirmPassword: huge
+    }).success,
+    "rejected before bcrypt"
+  );
+  check(
+    "password reset refuses an over-long password",
+    !resetPasswordSchema.safeParse({ password: huge, confirmPassword: huge }).success,
+    "rejected before bcrypt"
+  );
+
   console.log(`\n${scanned} routes scanned · ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }

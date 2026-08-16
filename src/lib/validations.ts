@@ -10,9 +10,26 @@ export type PaginationInput = z.infer<typeof paginationSchema>;
 const localUploadPathSchema = z.string().regex(/^\/uploads\/[a-z-]+\/[0-9]{4}-[0-9]{2}\/[a-f0-9-]+\.(jpg|png|webp|gif)$/);
 const imageUrlSchema = z.union([z.string().url(), localUploadPathSchema]);
 
+/**
+ * Upper bound on a submitted password (`SEC-006`, field-length limits).
+ *
+ * bcrypt only reads the first 72 BYTES, so everything past that is already meaningless to the
+ * hash — but it is not free: `bcrypt.hash()` runs at cost factor 12, and handing it a
+ * body-cap-sized string means the server does that work on input that cannot affect the result.
+ * Unauthenticated on register, reset and login, so there is no account to throttle behind it,
+ * which makes it a cheap way to spend our CPU.
+ *
+ * 128 rather than 72: passphrase managers generate long passwords, refusing one at exactly the
+ * bcrypt boundary would be a confusing error, and the headroom costs nothing. Deliberately NOT
+ * applied to the confirm field's own length — it is compared to the password, so it is bounded
+ * by it.
+ */
+export const MAX_PASSWORD_LENGTH = 128;
+const passwordTooLong = `Password must be ${MAX_PASSWORD_LENGTH} characters or fewer.`;
+
 export const loginSchema = z.object({
   email: z.string().email().transform((value) => value.toLowerCase()),
-  password: z.string().min(6)
+  password: z.string().min(6).max(MAX_PASSWORD_LENGTH)
 });
 
 // Sign-up is intentionally minimal: name + email + password. The detailed participant
@@ -22,7 +39,7 @@ export const registerUserSchema = z.object({
   firstName: z.string().trim().min(2, "First name must be at least 2 characters."),
   lastName: z.string().trim().min(2, "Last name must be at least 2 characters."),
   email: z.string().trim().email("Enter a valid email address.").transform((value) => value.toLowerCase()),
-  password: z.string().min(6, "Password must be at least 6 characters."),
+  password: z.string().min(6, "Password must be at least 6 characters.").max(MAX_PASSWORD_LENGTH, passwordTooLong),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",
@@ -31,7 +48,7 @@ export const registerUserSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    password: z.string().min(6, "Password must be at least 6 characters."),
+    password: z.string().min(6, "Password must be at least 6 characters.").max(MAX_PASSWORD_LENGTH, passwordTooLong),
     confirmPassword: z.string()
   })
   .refine((data) => data.password === data.confirmPassword, {

@@ -190,10 +190,56 @@ allowance so a file exactly at the limit is still accepted.
 Six security tests, including that one, were defined as npm scripts that `test:all` never invoked;
 they are now grouped as `npm run test:security` and run as part of `test:all`.
 
-**Still open on `SEC-006`:** field-length, timeout and concurrency limits; per-user storage quotas;
-the Cloudflare rules and 429 evidence; and the abuse/load tests (credential stuffing, scraping,
-upload exhaustion, AI cost abuse, race oversell, slow requests). The single-app-instance limiter
-boundary remains the locked decision recorded above.
+**`SEC-006` — outbound timeouts closed (2026-08-16).** The gate's timeout half was read as inbound-only
+and was therefore never done at all. Node's `fetch` has no default timeout, so a provider that accepts
+a connection and never answers parks the request handler indefinitely, and each parked handler holds a
+connection, a pooled database client and its own memory — an outage caused entirely by a third party,
+with no attacker and nothing a rate limit can do. **Four unbounded calls found in production paths:**
+both Firebase calls (push delivery and its OAuth token exchange), the Resend email send, and the
+custom-DEM elevation POST. `src/lib/http/outbound.ts` is the mirror of `body.ts`: it composes with a
+caller's signal rather than replacing it, and distinguishes our deadline from the caller's cancellation
+so a user-abandoned request is never logged as a provider outage. Errors name the host, never the URL —
+these query strings carry coordinates and provider keys and the message reaches Sentry. `weather.ts` was
+already bounded by hand and moved onto the helper anyway, because a bespoke-but-correct variant is
+indistinguishable from a missing one to a check that must run on every future commit.
+`npm run test:outbound-timeouts` scans server paths for bare `fetch` (browser files exempt, each with a
+stated reason) **and** exercises the helper against a real server that accepts and never answers — an
+unroutable IP was the first attempt and was wrong, since most networks refuse it instantly and the
+deadline never fired.
+
+**`SEC-006` — field length, where the field is expensive (2026-08-16).** The body cap bounds a payload;
+it does not bound one field inside it. `bcrypt` reads only the first 72 bytes of a password but still
+hashes at cost factor 12, so a body-cap-sized password was CPU spent on input that cannot change the
+answer — on login, web registration, native registration and password reset, all reachable with no
+account behind them to throttle. Capped at 128 characters (not 72: passphrase managers generate long
+passwords and an error at the exact bcrypt boundary would be baffling). Four assertions added to
+`npm run test:body-limits`, which is where the request-size half already lives.
+
+**Still open on `SEC-006`:** per-user storage quotas (needs a schema migration — the 30-uploads/10-min
+rate limit bounds the rate but not the cumulative total, so ~21 GB/day/account is still reachable);
+concurrency limits; the remaining unbounded `z.string()` fields outside the auth surfaces (86 of them,
+88% in `src/lib/validations.ts`, all bounded transitively by the body cap so none is a live defect);
+the Cloudflare rules and 429 evidence; and the abuse/load tests (credential stuffing, scraping, upload
+exhaustion, AI cost abuse, race oversell, slow requests). The single-app-instance limiter boundary
+remains the locked decision recorded above.
+
+**`SEC-012` — supply chain gated in code (2026-08-16).** `npm run test:supply-chain` replaces one-off
+command output with an assertion that runs on every commit, because a clean audit last Tuesday says
+nothing about the dependency added on Wednesday. It asserts: no high/critical advisories; a v2+ lockfile
+with integrity hashes on all 920 registry packages and nothing resolved off-registry; the installed tree
+matches the lockfile; no committed env/key files or secret-shaped literals across 1164 tracked files; no
+published source maps and no framework banner; no `NEXT_PUBLIC_*` named like a credential; and
+reviewable migrations. Findings name the file and the KIND of secret, never the value. **Two real
+findings.** The installed `node_modules` had drifted from the lockfile (`brace-expansion` 5.0.8 vs
+5.0.9, `fast-uri` 3.1.4 vs 3.1.5) — dev-tree and harmless in itself, but it means a release built on
+this machine was **not** the dependency set the lockfile claims was reviewed, which is precisely the
+question this gate exists to answer; resynced, and the drift check now catches recurrence. And two
+`NEXT_PUBLIC_FIREBASE_*` names read as secrets: both are publishable by design, so they are allowlisted
+**with the reason**, making the list the review surface rather than the rule being loosened.
+`npm run sbom` emits CycloneDX for production dependencies, gitignored so it is regenerated per
+candidate rather than committed as drift. **Still open on `SEC-012`:** branch protection and deployment-
+secret settings, and recording the exact production commit plus its rollback artifact — all owner/
+repository configuration rather than code.
 
 ## P0 acceptance details
 

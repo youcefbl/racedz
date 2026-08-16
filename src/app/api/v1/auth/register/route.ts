@@ -5,6 +5,7 @@ import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/h
 import { createEmailVerificationToken, sendAccountVerificationEmail } from "@/lib/email-verification";
 import { normalizeLocale } from "@/lib/appearance";
 import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
+import { MAX_PASSWORD_LENGTH } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,9 @@ export const dynamic = "force-dynamic";
 const nativeRegisterSchema = z.object({
   fullName: z.string().trim().min(3, "Enter your full name."),
   email: z.string().trim().email("Enter a valid email address.").transform((value) => value.toLowerCase()),
-  password: z.string().min(8, "Use at least 8 characters."),
+  // Same bcrypt-cost bound as the web schemas — this route is unauthenticated too, so there is no
+  // account behind it to throttle.
+  password: z.string().min(8, "Use at least 8 characters.").max(MAX_PASSWORD_LENGTH, `Use ${MAX_PASSWORD_LENGTH} characters or fewer.`),
   acceptedTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the Terms and Privacy Policy." }) }),
   language: z.string().optional()
 });
