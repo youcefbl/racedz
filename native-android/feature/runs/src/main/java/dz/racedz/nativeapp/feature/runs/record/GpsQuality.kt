@@ -31,6 +31,24 @@ object GpsQuality {
     /** A gap longer than this is a signal loss, not running time. */
     const val MAX_MOVING_GAP_S = 15.0
 
+    /**
+     * Standing still for this long auto-pauses the clock (Strava's "Auto Pause: Run" behaves the
+     * same way). Short enough that a red light stops the clock, long enough that a stumble or a
+     * few slow strides between fixes do not. Only usable fixes count — losing signal in a tunnel is
+     * not standing still, and must not pause the run.
+     */
+    const val STATIONARY_AUTO_PAUSE_SECONDS = 5.0
+
+    /**
+     * Speed at which a stationary auto-pause resumes on its own. Above the drift floor
+     * ([MIN_MOVING_SPEED_MPS]) so a phone shuffled in a pocket at the light does not restart the
+     * clock, below a jog so the first real strides do.
+     */
+    const val AUTO_RESUME_SPEED_MPS = 1.0
+
+    /** How far back the live pace looks. Long enough to iron out per-fix jitter, short enough to feel live. */
+    const val PACE_WINDOW_MS = 12_000L
+
     fun isUsableFix(accuracyM: Float?): Boolean =
         accuracyM == null || (accuracyM.isFinite() && accuracyM >= 0 && accuracyM <= MAX_RECORDING_ACCURACY_M)
 
@@ -154,6 +172,21 @@ object GpsQuality {
             return NonFootReason.Cadence
         }
         return null
+    }
+
+    /**
+     * Whether a usable fix reads as "standing still" for the auto-pause window.
+     *
+     * The GPS's own velocity is the judge when it has one, for the same reason as in
+     * [shouldCountSegment]: a stationary phone's position jitters a few metres between fixes, and
+     * displacement alone would call that walking. Without a speed, a displacement under the segment
+     * floor is the only signal available.
+     */
+    fun isStationaryFix(distanceM: Double, reportedSpeedMps: Float?): Boolean {
+        val speedIsUsable = reportedSpeedMps != null && reportedSpeedMps.isFinite() &&
+            !(trustDisplacementWhenSpeedIsZero && reportedSpeedMps == 0f)
+        if (speedIsUsable) return reportedSpeedMps!! < MIN_MOVING_SPEED_MPS
+        return !distanceM.isFinite() || distanceM < 1.0
     }
 
     /** Great-circle distance in metres. */

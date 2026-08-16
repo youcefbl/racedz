@@ -468,6 +468,16 @@
     <string name="runs_step_minutes">%1$s د</string>
     <string name="runs_step_seconds">%1$s ثانية</string>
     <string name="runs_step_metres">%1$s م</string>
+    <string name="runs_auto_paused_still">حبسنا الوقت وحدنا — راك واقف. الكرونو يعاود يمشي كي تتحرك.</string>
+    <string name="runs_auto_pause">حبس أوتوماتيكي</string>
+    <string name="runs_auto_pause_help">يحبس الكرونو كي تكون واقف</string>
+    <string name="runs_cue_interval">توجيه صوتي كل</string>
+    <string name="runs_cue_interval_off">مطفي</string>
+    <string name="runs_cue_interval_value">%1$s كم</string>
+    <string name="runs_cue_paused">حبسنا</string>
+    <string name="runs_cue_resumed">كمّلنا</string>
+    <string name="runs_cue_finished">كمّلت الجري. %1$s كيلومتر في %2$s.</string>
+    <string name="runs_cue_progress">%1$s كيلومتر. الوقت %2$s. الريتم %3$s.</string>
     <string name="runs_cue_started">بدا التسجيل</string>
     <string name="runs_cue_km">كيلومتر %1$d. الريتم %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>

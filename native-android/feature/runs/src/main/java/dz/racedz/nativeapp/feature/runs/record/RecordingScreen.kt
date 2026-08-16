@@ -46,7 +46,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -64,9 +67,54 @@ import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.feature.runs.RunMap
 
-/** Built outside composition so the LaunchedEffects above can speak without a Composable context. */
-private fun kmCue(context: android.content.Context, km: Int, pace: String): String =
-    context.getString(R.string.runs_cue_km, km, pace)
+/**
+ * The periodic progress cue (built outside composition so a LaunchedEffect can speak it): distance
+ * so far, elapsed, and the pace held over the interval just closed. Whole kilometres are read as a
+ * count ("3"), fractional marks with one decimal ("2.5"), so the voice never says "three point
+ * zero zero".
+ */
+private fun progressCue(
+    context: android.content.Context,
+    distanceMeters: Int,
+    elapsedSeconds: Int,
+    intervalPaceSecondsPerKm: Int?,
+    locale: java.util.Locale,
+): String {
+    val km = if (distanceMeters % 1000 == 0) {
+        ZidRunFormat.count(distanceMeters / 1000, locale)
+    } else {
+        ZidRunFormat.decimal(distanceMeters / 1000.0, locale, digits = 1)
+    }
+    val pace = intervalPaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—"
+    return context.getString(R.string.runs_cue_progress, km, ZidRunFormat.duration(elapsedSeconds), pace)
+}
+
+/**
+ * Which progress mark was last spoken for which recording. Process-level rather than remembered
+ * in composition, so minimising the screen and coming back neither repeats the last mark nor
+ * measures the next interval's pace from the moment of return.
+ */
+private object ProgressCueTracker {
+    var clientId: String = ""
+    var lastIndex: Int = 0
+    var lastElapsedSeconds: Int = 0
+
+    class Mark(val secondsSincePrevious: Int, val previousIndex: Int)
+
+    /** Records [index] as spoken and returns how far it is from the previous mark, or null if it is not new. */
+    fun advance(clientId: String, index: Int, elapsedSeconds: Int): Mark? {
+        if (this.clientId != clientId) {
+            this.clientId = clientId
+            lastIndex = 0
+            lastElapsedSeconds = 0
+        }
+        if (index <= lastIndex) return null
+        val mark = Mark(elapsedSeconds - lastElapsedSeconds, lastIndex)
+        lastIndex = index
+        lastElapsedSeconds = elapsedSeconds
+        return mark
+    }
+}
 
 private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.core.network.GuidedStepDto): String {
     val role = when (step.role) {
@@ -157,14 +205,69 @@ fun RecordingScreen(
     val voice = remember(RunSettings.audioCuesEnabled, fetchCueAudio) {
         if (RunSettings.audioCuesEnabled) RunVoice(context, locale, fetchCueAudio) else null
     }
-    DisposableEffect(voice) { onDispose { voice?.release() } }
+    // On the way out via Finish the last cue ("Run finished…") is still being spoken; let it end.
+    // Every other exit (minimise, discard) cuts immediately as before.
+    DisposableEffect(voice) {
+        onDispose {
+            if (RunRecorder.state.value.status == RecordingStatus.Finished) voice?.releaseWhenQuiet() else voice?.release()
+        }
+    }
 
-    // Kilometre splits are announced as they land. Keyed on the count so a recomposition cannot
-    // repeat the last one.
+    // The screen stays awake for the life of the recording (Strava parity, P0-1). Set on the host
+    // view rather than as a window flag so it is scoped exactly to this screen and released with it;
+    // the run itself keeps recording in the service either way.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+
+    val haptics = LocalHapticFeedback.current
+
+    // Progress cues every N metres (RunSettings.cueInterval): distance, time, and the pace held over
+    // the interval that just closed, from the clock rather than route timestamps so a 500 m interval
+    // does not need its own split logic. Keyed on the interval index so a recomposition cannot
+    // repeat one, and the interval pace comes from the previous mark's elapsed time.
+    val cueInterval = remember { RunSettings.cueInterval }
+    val intervalIndex = if (cueInterval.meters > 0) (state.distanceMeters / cueInterval.meters).toInt() else 0
+    LaunchedEffect(intervalIndex) {
+        if (intervalIndex <= 0 || cueInterval.meters <= 0) return@LaunchedEffect
+        val elapsed = state.elapsedSeconds
+        val mark = ProgressCueTracker.advance(state.clientId, intervalIndex, elapsed) ?: return@LaunchedEffect
+        // Only when this mark closes exactly one interval — several marks jumping at once (a GPS
+        // catch-up) or a re-entry after a process death would otherwise average across a gap.
+        val closesOneInterval = mark.previousIndex == intervalIndex - 1 && mark.secondsSincePrevious > 0
+        val intervalPace = if (closesOneInterval) (mark.secondsSincePrevious * 1000.0 / cueInterval.meters).toInt() else null
+        voice?.sayCue(progressCue(context, intervalIndex * cueInterval.meters, elapsed, intervalPace, locale))
+    }
+
+    // A tick the wrist can feel at every completed kilometre, whether or not cues are on.
     val splitCount = state.splits.size
     LaunchedEffect(splitCount) {
-        val split = state.splits.lastOrNull() ?: return@LaunchedEffect
-        voice?.sayCue(kmCue(context, split.km, ZidRunFormat.pace(split.paceSecondsPerKm)))
+        if (splitCount > 0) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+
+    // Started / paused / resumed are spoken on the transition, never on first composition of an
+    // already-running screen (minimise and come back must stay silent). Auto-pauses get a double
+    // tick so a runner with music on still notices the clock stopped.
+    var lastStatus by remember { mutableStateOf<RecordingStatus?>(null) }
+    LaunchedEffect(state.status, state.autoPauseReason) {
+        val previous = lastStatus
+        lastStatus = state.status
+        if (previous == null) return@LaunchedEffect
+        when {
+            previous == RecordingStatus.Acquiring && state.status == RecordingStatus.Recording ->
+                voice?.sayCue(context.getString(R.string.runs_cue_started))
+            previous != RecordingStatus.Paused && state.status == RecordingStatus.Paused -> {
+                voice?.sayCue(context.getString(R.string.runs_cue_paused))
+                if (state.autoPaused) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
+            }
+            previous == RecordingStatus.Paused && state.status == RecordingStatus.Recording ->
+                voice?.sayCue(context.getString(R.string.runs_cue_resumed))
+        }
     }
 
     // The first step — the warm-up — is announced once when the guided run begins. advanceIfDue only
@@ -240,6 +343,14 @@ fun RecordingScreen(
                     confirmFinish = false
                     RunRecorder.finish()
                     RunTrackingService.stop(context)
+                    val finished = RunRecorder.state.value
+                    voice?.sayCue(
+                        context.getString(
+                            R.string.runs_cue_finished,
+                            ZidRunFormat.decimal(finished.distanceKm, locale),
+                            ZidRunFormat.duration(finished.elapsedSeconds),
+                        )
+                    )
                     onFinished()
                 }) {
                     Text(stringResource(R.string.runs_finish), color = zidRunOnDarkColors().primary)
@@ -453,7 +564,10 @@ fun RecordingScreen(
 
         if (state.autoPaused) {
             Text(
-                text = stringResource(R.string.runs_auto_paused),
+                text = stringResource(
+                    if (state.autoPauseReason == AutoPauseReason.Stationary) R.string.runs_auto_paused_still
+                    else R.string.runs_auto_paused
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = zidRunOnDarkColors().accent,
                 textAlign = TextAlign.Center,

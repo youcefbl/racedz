@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -326,6 +327,12 @@ fun StartRunScreen(
                 )
             }
 
+            // How often the voice reports progress. Persisted (RunSettings), unlike the on/off
+            // switch above, and only shown while cues are on — an interval for a silent run is noise.
+            if (audioCues) {
+                CueIntervalPicker()
+            }
+
             // Cues are useless if the device has no voice for the runner's language — a common case
             // for Arabic on many phones. Say so, with a one-tap route to install one, only when cues
             // are on and the language is actually missing.
@@ -333,6 +340,10 @@ fun StartRunScreen(
             if (audioCues && ttsMissing) {
                 TtsInstallNotice()
             }
+
+            // Auto-pause: stops the clock at a red light. Persisted across runs (Strava keeps the
+            // same choice under Record → Settings), so it is read from and written to RunSettings.
+            AutoPauseRow()
 
             // Hold waits while a chosen workout structure is still loading, so a run can never start
             // on an older structure than the one shown (or on no structure when one was picked).
@@ -676,6 +687,102 @@ private fun WorkoutTypePicker(selected: String, enabled: Boolean, onSelect: (Str
                 )
             }
         }
+    }
+}
+
+/** "Voice update every: Off · 0.5 km · 1 km · 2 km", persisted in [RunSettings.cueInterval]. */
+@Composable
+private fun CueIntervalPicker() {
+    var selected by remember { mutableStateOf(RunSettings.cueInterval) }
+    val locale = currentLocale()
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+        Text(
+            text = stringResource(R.string.runs_cue_interval),
+            style = MaterialTheme.typography.titleSmall,
+            color = zidRunOnDarkColors().textMuted,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+        ) {
+            RunSettings.CueInterval.entries.forEach { interval ->
+                val isSelected = interval == selected
+                val label = if (interval.meters == 0) {
+                    stringResource(R.string.runs_cue_interval_off)
+                } else {
+                    val km = interval.meters / 1000.0
+                    stringResource(
+                        R.string.runs_cue_interval_value,
+                        if (interval.meters % 1000 == 0) ZidRunFormat.count(interval.meters / 1000, locale)
+                        else ZidRunFormat.decimal(km, locale, digits = 1),
+                    )
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) zidRunOnDarkColors().onPrimary else zidRunOnDarkColors().textStrong,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                        .background(if (isSelected) zidRunOnDarkColors().primary else zidRunOnDarkColors().surface)
+                        .selectable(selected = isSelected, role = Role.RadioButton) {
+                            selected = interval
+                            RunSettings.cueInterval = interval
+                        }
+                        .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                )
+            }
+        }
+    }
+}
+
+/** The auto-pause switch, same visual language as the audio-cue row above it. */
+@Composable
+private fun AutoPauseRow() {
+    var enabled by remember { mutableStateOf(RunSettings.autoPauseEnabled) }
+    fun set(value: Boolean) {
+        enabled = value
+        RunSettings.autoPauseEnabled = value
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(zidRunOnDarkColors().surface)
+            .clickable(role = Role.Switch) { set(!enabled) }
+            .padding(ZidRunDimens.spaceMd)
+            .semantics(mergeDescendants = true) { },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.PauseCircle,
+            contentDescription = null,
+            tint = if (enabled) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
+        )
+        Spacer(Modifier.width(ZidRunDimens.spaceMd))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.runs_auto_pause),
+                style = MaterialTheme.typography.titleSmall,
+                color = zidRunOnDarkColors().textStrong,
+            )
+            Text(
+                text = stringResource(R.string.runs_auto_pause_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = zidRunOnDarkColors().textMuted,
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = { set(it) },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = zidRunOnDarkColors().onPrimary,
+                checkedTrackColor = zidRunOnDarkColors().primary,
+                checkedBorderColor = zidRunOnDarkColors().primary,
+                uncheckedThumbColor = zidRunOnDarkColors().textMuted,
+                uncheckedTrackColor = zidRunOnDarkColors().surfaceMuted,
+                uncheckedBorderColor = zidRunOnDarkColors().borderStrong,
+            ),
+        )
     }
 }
 

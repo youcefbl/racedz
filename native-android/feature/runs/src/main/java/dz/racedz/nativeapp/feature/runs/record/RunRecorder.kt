@@ -9,6 +9,14 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class RecordingStatus { Idle, Acquiring, Recording, Paused, Finished }
 
+/** Why the recorder paused on its own. */
+enum class AutoPauseReason {
+    /** Standing still (a light, a stop). Resumes by itself on the first real movement. */
+    Stationary,
+    /** Sustained vehicle speed. Never resumes by itself — the runner decides. */
+    Vehicle,
+}
+
 data class RecordingState(
     val status: RecordingStatus = RecordingStatus.Idle,
     /** Generated once per recording and reused on every save attempt — see [RunRecorder.clientId]. */
@@ -21,8 +29,8 @@ data class RecordingState(
     val currentPaceSecondsPerKm: Int? = null,
     val gpsAccuracyM: Float? = null,
     val route: List<RoutePointDto> = emptyList(),
-    /** Set when the recorder auto-paused because the movement stopped looking like running. */
-    val autoPaused: Boolean = false,
+    /** Set while the recorder is paused on its own initiative; null when idle, recording, or paused by hand. */
+    val autoPauseReason: AutoPauseReason? = null,
     /** The planned session this run is being logged for, or null for a free run. */
     val workoutId: String? = null,
     /** Steps counted while actually recording, from the device step counter. 0 with no sensor. */
@@ -34,6 +42,8 @@ data class RecordingState(
     val askedCoachIds: List<String> = emptyList(),
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
+
+    val autoPaused: Boolean get() = autoPauseReason != null
 
     /**
      * Average step cadence in steps per minute over moving time, or null.
@@ -256,6 +266,9 @@ object RunRecorder {
     private var pausedAccumMs: Long = 0
     private var pauseStartedMs: Long = 0
     private var highSpeedSeconds: Double = 0.0
+    /** Seconds of consecutive usable-but-stationary fixes; drives the stationary auto-pause. */
+    private var stationarySeconds: Double = 0.0
+    private val paceWindow = PaceWindow()
     private val route = mutableListOf<RoutePointDto>()
 
     /**
@@ -307,6 +320,8 @@ object RunRecorder {
         pausedAccumMs = 0
         pauseStartedMs = 0
         highSpeedSeconds = 0.0
+        stationarySeconds = 0.0
+        paceWindow.clear()
         recordedSteps = 0
         lastStepCounter = -1
         coachInteractionIds.clear()
@@ -322,7 +337,14 @@ object RunRecorder {
     fun pause() {
         if (_state.value.status != RecordingStatus.Recording && _state.value.status != RecordingStatus.Acquiring) return
         pauseStartedMs = System.currentTimeMillis()
-        _state.update { it.copy(status = RecordingStatus.Paused) }
+        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = null, currentPaceSecondsPerKm = null) }
+        snapshot(force = true)
+    }
+
+    private fun autoPause(reason: AutoPauseReason) {
+        pauseStartedMs = System.currentTimeMillis()
+        stationarySeconds = 0.0
+        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = reason, currentPaceSecondsPerKm = null) }
         snapshot(force = true)
     }
 
@@ -334,9 +356,11 @@ object RunRecorder {
         // whole break into one enormous segment.
         lastFix = null
         highSpeedSeconds = 0.0
+        stationarySeconds = 0.0
+        paceWindow.clear()
         // Re-baseline the step counter so steps taken during the pause are not counted on resume.
         lastStepCounter = -1
-        _state.update { it.copy(status = RecordingStatus.Recording, autoPaused = false) }
+        _state.update { it.copy(status = RecordingStatus.Recording, autoPauseReason = null) }
     }
 
     fun finish() {
@@ -359,6 +383,8 @@ object RunRecorder {
         route.clear()
         lastFix = null
         lastSnapshotMs = 0L
+        stationarySeconds = 0.0
+        paceWindow.clear()
         recordedSteps = 0
         lastStepCounter = -1
         coachInteractionIds.clear()
@@ -417,7 +443,10 @@ object RunRecorder {
     fun tick() {
         val status = _state.value.status
         if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) return
-        _state.update { it.copy(elapsedSeconds = elapsedSeconds()) }
+        // The pace reading expires with the window, not with the next fix — a runner who stopped
+        // under a bridge should watch it go to "—", not keep reading their last stride.
+        val pace = paceWindow.paceSecondsPerKm(System.currentTimeMillis())
+        _state.update { it.copy(elapsedSeconds = elapsedSeconds(), currentPaceSecondsPerKm = pace) }
     }
 
     /**
@@ -456,7 +485,17 @@ object RunRecorder {
 
     fun onLocation(location: Location) {
         val current = _state.value
-        if (current.status == RecordingStatus.Paused || current.status == RecordingStatus.Finished) return
+        if (current.status == RecordingStatus.Finished) return
+        if (current.status == RecordingStatus.Paused) {
+            // Only a stationary auto-pause resumes by itself. A hand pause is the runner's, and the
+            // vehicle pause exists precisely because the phone is moving fast.
+            if (current.autoPauseReason == AutoPauseReason.Stationary && shouldAutoResume(location)) {
+                resume()
+                // Fall through: this fix is the first of the resumed stretch.
+                onLocation(location)
+            }
+            return
+        }
 
         val accuracy = if (location.hasAccuracy()) location.accuracy else null
         if (!GpsQuality.isUsableFix(accuracy)) {
@@ -497,7 +536,17 @@ object RunRecorder {
             recordingAgeSeconds = (location.time - current.startedAtEpochMs) / 1000.0,
         )
 
+        // Standing-still bookkeeping. Only usable fixes reach here, so a signal loss (no fixes at
+        // all) never counts as stationary. Any accepted segment resets the window; a run that has
+        // not moved yet is still acquiring, not paused — auto-pause only applies once underway.
+        stationarySeconds = when {
+            counts -> 0.0
+            elapsed > 0 && GpsQuality.isStationaryFix(distanceM, speed) -> stationarySeconds + elapsed
+            else -> stationarySeconds
+        }
+
         if (counts) {
+            paceWindow.add(location.time, distanceM, elapsed)
             var gain = current.elevationGainM
             if (previous.hasAltitude() && location.hasAltitude()) {
                 val delta = location.altitude - previous.altitude
@@ -518,7 +567,7 @@ object RunRecorder {
                     movingSeconds = it.movingSeconds + if (elapsed < GpsQuality.MAX_MOVING_GAP_S) elapsed.toInt() else 0,
                     elevationGainM = gain,
                     gpsAccuracyM = accuracy,
-                    currentPaceSecondsPerKm = speed?.takeIf { s -> s > 0.4 }?.let { s -> (1000 / s).toInt() },
+                    currentPaceSecondsPerKm = paceWindow.paceSecondsPerKm(location.time),
                     route = route.toList(),
                     elapsedSeconds = elapsedSeconds(),
                 )
@@ -538,10 +587,34 @@ object RunRecorder {
         if (highSpeedSeconds >= GpsQuality.NON_FOOT_AUTO_PAUSE_SECONDS) {
             // Sustained vehicle speed. Pause rather than discard: the runner may have genuinely run
             // and then got in a car, and deleting their run would be far worse than a stray pause.
-            pauseStartedMs = System.currentTimeMillis()
-            _state.update { it.copy(status = RecordingStatus.Paused, autoPaused = true) }
+            autoPause(AutoPauseReason.Vehicle)
+        } else if (
+            RunSettings.autoPauseEnabled &&
+            current.distanceMeters > 0.0 &&
+            stationarySeconds >= GpsQuality.STATIONARY_AUTO_PAUSE_SECONDS
+        ) {
+            autoPause(AutoPauseReason.Stationary)
         }
     }
+
+    /**
+     * Whether a fix while stationary-paused means the runner is off again.
+     *
+     * The GPS velocity decides when it exists. Without one (some providers, the emulator), moving
+     * [AUTO_RESUME_DISPLACEMENT_M] from where the pause began is the signal — [lastFix] is frozen
+     * for the whole pause, so drift has to add up to a real displacement, not a jitter step.
+     */
+    private fun shouldAutoResume(location: Location): Boolean {
+        if (!GpsQuality.isUsableFix(if (location.hasAccuracy()) location.accuracy else null)) return false
+        val speedIsUsable = location.hasSpeed() && location.speed.isFinite() &&
+            !(GpsQuality.trustDisplacementWhenSpeedIsZero && location.speed == 0f)
+        if (speedIsUsable) return location.speed >= GpsQuality.AUTO_RESUME_SPEED_MPS
+        val origin = lastFix ?: return false
+        return GpsQuality.haversineMeters(origin.latitude, origin.longitude, location.latitude, location.longitude) >=
+            AUTO_RESUME_DISPLACEMENT_M
+    }
+
+    private const val AUTO_RESUME_DISPLACEMENT_M = 8.0
 
     private fun elapsedSeconds(): Int {
         val current = _state.value

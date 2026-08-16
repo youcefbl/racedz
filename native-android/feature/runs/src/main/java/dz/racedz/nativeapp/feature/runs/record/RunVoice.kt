@@ -35,6 +35,8 @@ import kotlin.coroutines.resume
  *
  * Every call is safe before the engine is ready and after it is released.
  */
+private const val GRACE_MS = 12_000L
+
 class RunVoice(
     private val context: Context,
     private val locale: Locale,
@@ -81,8 +83,15 @@ class RunVoice(
         }
         scope.launch {
             for (text in cloudQueue) {
-                val audio = cachedOrFetch(text) ?: continue
-                playBlocking(audio)
+                // Busy from dequeue to end of playback, fetch included, so a graceful release does
+                // not slip in between the download and the sound.
+                cloudPlaying = true
+                try {
+                    val audio = cachedOrFetch(text) ?: continue
+                    playBlocking(audio)
+                } finally {
+                    cloudPlaying = false
+                }
             }
         }
     }
@@ -186,6 +195,37 @@ class RunVoice(
             continuation.invokeOnCancellation { finish() }
         }
     }
+
+    /**
+     * Lets whatever is already queued finish, then releases.
+     *
+     * For the "run finished" cue: the screen that owns this voice is left the instant Finish is
+     * confirmed, and a plain [release] would cut the sentence off mid-word. Nothing new is accepted
+     * from here on; the device engine is polled until it goes quiet and the cloud queue drains on
+     * its own, both bounded by [GRACE_MS] so a stuck engine cannot leak.
+     */
+    fun releaseWhenQuiet() {
+        initDone = false
+        synchronized(pending) { pending.clear() }
+        cloudQueue.close()
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val deadline = System.currentTimeMillis() + GRACE_MS
+        val check = object : Runnable {
+            override fun run() {
+                val speaking = engine?.isSpeaking == true || cloudPlaying
+                if (speaking && System.currentTimeMillis() < deadline) {
+                    handler.postDelayed(this, 250)
+                } else {
+                    release()
+                }
+            }
+        }
+        // Give the last enqueue a moment to actually start before checking whether it is speaking.
+        handler.postDelayed(check, 400)
+    }
+
+    /** True while a cloud cue is audibly playing; read by [releaseWhenQuiet]. */
+    @Volatile private var cloudPlaying = false
 
     fun release() {
         // Both teardowns: the engine's state and buffer, and the cloud queue's coroutine — leaving

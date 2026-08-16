@@ -57,6 +57,10 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
     /** The last text actually posted, so an unchanged banner is not re-posted. */
     private var lastNotificationText: String? = null
 
+    /** The action buttons, built once each. */
+    private var pauseAction: NotificationCompat.Action? = null
+    private var resumeAction: NotificationCompat.Action? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -64,6 +68,20 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
             ACTION_STOP -> {
                 stopTracking()
                 return START_NOT_STICKY
+            }
+            // Pause/Resume from the notification (Strava parity, P0-6). The recorder is the single
+            // source of truth; the next tick re-posts the notification with the other action.
+            ACTION_PAUSE -> {
+                RunRecorder.pause()
+                lastNotificationText = null
+                updateNotificationIfChanged()
+                return START_STICKY
+            }
+            ACTION_RESUME -> {
+                RunRecorder.resume()
+                lastNotificationText = null
+                updateNotificationIfChanged()
+                return START_STICKY
             }
         }
 
@@ -235,13 +253,36 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         val distance = String.format("%.2f", state.distanceKm)
         val minutes = state.elapsedSeconds / 60
         val seconds = state.elapsedSeconds % 60
-        return getString(R.string.runs_notification_body, distance, String.format("%d:%02d", minutes, seconds))
+        val body = getString(R.string.runs_notification_body, distance, String.format("%d:%02d", minutes, seconds))
+        // The paused state is part of the text on purpose: it is what flips the action button, and
+        // keying the re-post on the text keeps the "only when changed" rule in one place.
+        return if (state.status == RecordingStatus.Paused) "$body · ${getString(R.string.runs_paused)}" else body
     }
+
+    private fun serviceAction(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(
+        this,
+        requestCode,
+        Intent(this, RunTrackingService::class.java).apply { this.action = action },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun pauseAction(): NotificationCompat.Action = pauseAction ?: NotificationCompat.Action.Builder(
+        android.R.drawable.ic_media_pause,
+        getString(R.string.runs_pause),
+        serviceAction(ACTION_PAUSE, 1),
+    ).build().also { pauseAction = it }
+
+    private fun resumeAction(): NotificationCompat.Action = resumeAction ?: NotificationCompat.Action.Builder(
+        android.R.drawable.ic_media_play,
+        getString(R.string.runs_resume),
+        serviceAction(ACTION_RESUME, 2),
+    ).build().also { resumeAction = it }
 
     private fun buildNotification(text: String = notificationText()): Notification {
         ensureChannel()
         val launch = launchIntent()
 
+        val paused = RunRecorder.state.value.status == RecordingStatus.Paused
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(getString(R.string.runs_notification_title))
@@ -249,6 +290,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
             .setOngoing(true)
             .setSilent(true)
             .setContentIntent(launch)
+            .addAction(if (paused) resumeAction() else pauseAction())
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
@@ -264,6 +306,8 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         private const val MIN_UPDATE_DISTANCE_M = 0f
 
         const val ACTION_STOP = "dz.racedz.nativeapp.STOP_RUN_TRACKING"
+        const val ACTION_PAUSE = "dz.racedz.nativeapp.PAUSE_RUN_TRACKING"
+        const val ACTION_RESUME = "dz.racedz.nativeapp.RESUME_RUN_TRACKING"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, RunTrackingService::class.java))

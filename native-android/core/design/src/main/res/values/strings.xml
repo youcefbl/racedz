@@ -473,6 +473,17 @@
     <string name="runs_step_minutes">%1$s min</string>
     <string name="runs_step_seconds">%1$s sec</string>
     <string name="runs_step_metres">%1$s m</string>
+    <!-- Strava-parity pass (docs/RUNS_STRAVA_PARITY_2026-08-16.md): auto-pause, cue interval, state cues. -->
+    <string name="runs_auto_paused_still">Auto-paused — standing still. The clock restarts when you move.</string>
+    <string name="runs_auto_pause">Auto-pause</string>
+    <string name="runs_auto_pause_help">Stops the clock while you stand still</string>
+    <string name="runs_cue_interval">Voice update every</string>
+    <string name="runs_cue_interval_off">Off</string>
+    <string name="runs_cue_interval_value">%1$s km</string>
+    <string name="runs_cue_paused">Paused</string>
+    <string name="runs_cue_resumed">Resumed</string>
+    <string name="runs_cue_finished">Run finished. %1$s kilometres in %2$s.</string>
+    <string name="runs_cue_progress">%1$s kilometres. Time %2$s. Pace %3$s.</string>
     <string name="runs_cue_started">Recording started</string>
     <string name="runs_cue_km">Kilometre %1$d. Pace %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>

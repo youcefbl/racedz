@@ -61,6 +61,11 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
     val runOutbox = RunOutbox(context).also { RunRecorder.attachOutbox(it) }
 
     init {
+        // Auto-pause and cue-interval preferences persist across runs; attach before any screen reads them.
+        dz.racedz.nativeapp.feature.runs.record.RunSettings.attach(context)
+    }
+
+    init {
         // Debug builds only. The emulator reports speed = 0 on every injected fix, which the
         // production rule correctly rejects; without this, `adb emu geo fix` can never exercise the
         // recording pipeline. Release and internal builds keep the real rule — see GpsQuality.
