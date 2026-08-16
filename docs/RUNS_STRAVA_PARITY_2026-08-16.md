@@ -140,7 +140,7 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
   as absolute altitude beyond what the route already carried. Server-side elevation resolution
   and the detail chart are unchanged.
 
-### 07.7 Touch guard — placement proposal (awaiting owner, 2026-08-16)
+### 07.7 Touch guard — placement proposal (approved by the owner as proposed, 2026-08-16)
 
 - **Discoverable control:** a labelled 44 dp Lock icon button at the trailing end of the status
   header row ("Recording · GPS strong … 🔒"), always visible while recording/paused. No hidden
@@ -158,7 +158,7 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
 - **Not proposed:** a hardware-button unlock (varies by OEM), auto-lock after N seconds (a runner
   glancing at the phone should not find it locked without asking).
 
-### 07.3 BLE heart rate — contract (awaiting owner on one design point, 2026-08-16)
+### 07.3 BLE heart rate — contract (approved 2026-08-16: tile swap; ships without hardware verification)
 
 - **Permissions:** API 31+: `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_CONNECT`, asked
   from the sensor row on the start screen, never at app start; API 26–30: `BLUETOOTH` +
@@ -178,7 +178,7 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
   rate and Avg pace moves to the secondary row (replacing Calories); with no sensor nothing
   changes. Alternative: a fourth small stat instead.
 
-### 07.4 Beacon — contract (blocked on a scope decision, 2026-08-16)
+### 07.4 Beacon — contract (deferred by the owner 2026-08-16; web UI out of scope)
 
 - A beacon is a share link that a non-user opens in a browser: it *is* website UI (a public page
   showing a moving dot), which the current brief excludes. Proposed minimum if the owner lifts
@@ -188,7 +188,7 @@ Status key: ✅ delivered this pass · ◐ partial · ☐ open.
   deleted), `DELETE` on Finish/logout/expiry, `GET /beacon/{token}` public page with the point and
   "live · updated 12 s ago", rate-limited per token. Not started.
 
-### 07.5 Routes — contract (blocked on provider decisions, 2026-08-16)
+### 07.5 Routes — contract (deferred by the owner 2026-08-16)
 
 - Needs: a routing/planning source (draw on map vs. GPX upload only), a route store
   (`RunnerRoute` with bounded points), a follow mode with off-route threshold (proposal 40 m for
