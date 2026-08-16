@@ -70,7 +70,7 @@ export async function nudgeInactiveRunners(): Promise<{ nudged: number; candidat
       MAX(r."startedAt") AS "lastRunAt"
     FROM "RunnerGoal" g
     JOIN "User" u ON u."id" = g."userId"
-    LEFT JOIN "RunnerRun" r ON r."userId" = u."id"
+    LEFT JOIN "RunnerRun" r ON r."userId" = u."id" AND r."deletedAt" IS NULL
     WHERE g."status" = 'ACTIVE'
       AND u."blockedAt" IS NULL
       AND g."createdAt" < NOW() - (${GRACE_DAYS} * INTERVAL '1 day')
@@ -233,7 +233,7 @@ export async function remindTodaysWorkouts(): Promise<{ reminded: number; candid
       -- Don't nag a runner who already logged a run today, even one not linked to the workout.
       AND NOT EXISTS (
         SELECT 1 FROM "RunnerRun" r
-        WHERE r."userId" = u."id" AND r."startedAt"::date = CURRENT_DATE
+        WHERE r."userId" = u."id" AND r."deletedAt" IS NULL AND r."startedAt"::date = CURRENT_DATE
       )
     ORDER BY u."id", w."scheduledFor" ASC
   `;

@@ -7,7 +7,7 @@ import {
   MAX_RUN_BODY_BYTES,
   MAX_RUNS_PAGE,
   downsampleRoute,
-  parseUpdatedSince,
+  parseSyncCursor, encodeSyncCursor,
   runCreateSchema,
   runSelect,
   toRunDto,
@@ -35,7 +35,7 @@ export const GET = withApi(async (request) => {
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many requests. Please slow down."));
 
   const url = new URL(request.url);
-  const updatedSince = parseUpdatedSince(url.searchParams.get("updatedSince"));
+  const since = parseSyncCursor(url.searchParams.get("updatedSince"));
   const requested = Number(url.searchParams.get("limit") ?? MAX_RUNS_PAGE);
   const limit = Number.isFinite(requested) ? Math.min(Math.max(Math.trunc(requested), 1), MAX_RUNS_PAGE) : MAX_RUNS_PAGE;
   // Optional sport filter (NATRUN-07.1); anything else is ignored rather than refused.
@@ -45,25 +45,31 @@ export const GET = withApi(async (request) => {
   const runs = await getPrisma().runnerRun.findMany({
     where: {
       userId: viewer.id,
-      ...(updatedSince ? { updatedAt: { gt: updatedSince } } : { deletedAt: null }),
+      // Compound keyset: strictly newer, or same instant with a greater id (see parseSyncCursor).
+      ...(since
+        ? since.id
+          ? { OR: [{ updatedAt: { gt: since.updatedAt } }, { updatedAt: since.updatedAt, id: { gt: since.id } }] }
+          : { updatedAt: { gt: since.updatedAt } }
+        : { deletedAt: null }),
       ...(sport ? { sport } : {}),
     },
     // The full route is read only so it can be thinned to a preview below; it never leaves in full.
     select: { ...runSelect, route: true },
-    orderBy: { updatedAt: "asc" },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     take: limit + 1,
   });
 
   const hasMore = runs.length > limit;
   const page = hasMore ? runs.slice(0, limit) : runs;
-  const cursor = page.at(-1)?.updatedAt ?? updatedSince;
+  const last = page.at(-1);
+  const cursor = last ? { updatedAt: last.updatedAt, id: last.id } : since;
 
   return apiOk(request, page.map((run) => toRunDto(run, undefined, downsampleRoute(run.route))), {
     meta: {
       limit,
       hasMore,
       // The client stores this and sends it back next time. Server-issued, never device-derived.
-      nextCursor: cursor ? cursor.toISOString() : null,
+      nextCursor: encodeSyncCursor(cursor),
     },
   });
 });
@@ -121,10 +127,30 @@ export const POST = withApi(async (request) => {
     return apiOk(request, toRunDto(existing), { status: 200, headers: { "Idempotent-Replay": "true" } });
   }
 
+  // Replays a concurrent winner: the (userId, clientId) index refused our INSERT before any side
+  // effect (workout link, milestones, best efforts) ran, so the other request's run is the run.
+  const replayWinner = async () => {
+    const winner = await prisma.runnerRun.findUnique({
+      where: { userId_clientId: { userId: viewer.id, clientId } },
+      select: runSelect,
+    });
+    if (!winner) return null;
+    if (input.coachInteractionIds && input.coachInteractionIds.length > 0) {
+      await linkCoachInteractionsToRun(viewer.id, winner.id, input.coachInteractionIds);
+    }
+    return apiOk(request, toRunDto(winner), { status: 200, headers: { "Idempotent-Replay": "true" } });
+  };
+
   let created;
   try {
-    created = await createRunnerRun(viewer.id, { ...input, source: input.source ?? "GPS" });
+    // clientId travels INTO the INSERT (createRunnerRunSchema.clientId), so idempotency is enforced
+    // by the unique index at insert time — atomically — rather than by a stamp after the fact.
+    created = await createRunnerRun(viewer.id, { ...input, clientId, source: input.source ?? "GPS" });
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      const replay = await replayWinner();
+      if (replay) return replay;
+    }
     if (error instanceof CoachError) {
       const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : "VALIDATION_FAILED";
       throw new ApiError(code, error.message);
@@ -141,30 +167,18 @@ export const POST = withApi(async (request) => {
     throw error;
   }
 
-  // createRunnerRun() predates the sync contract and does not know about clientId, so the run is
-  // stamped immediately afterwards. A concurrent duplicate loses the unique index here rather than
-  // creating a second run — the same reserve-by-constraint approach registration uses.
-  try {
-    await prisma.runnerRun.update({ where: { id: created.run.id }, data: { clientId } });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      await prisma.runnerRun.delete({ where: { id: created.run.id } });
-      const winner = await prisma.runnerRun.findUnique({
-        where: { userId_clientId: { userId: viewer.id, clientId } },
-        select: runSelect,
-      });
-      if (winner) {
-        // Deleting our losing run released (SET NULL) any interactions createRunnerRun linked to it,
-        // so re-point them at the run that won the clientId. Still only this user's unlinked rows.
-        if (input.coachInteractionIds && input.coachInteractionIds.length > 0) {
-          await linkCoachInteractionsToRun(viewer.id, winner.id, input.coachInteractionIds);
-        }
-        return apiOk(request, toRunDto(winner), { status: 200, headers: { "Idempotent-Replay": "true" } });
-      }
-    }
-    throw error;
-  }
-
   const stored = await prisma.runnerRun.findUnique({ where: { id: created.run.id }, select: runSelect });
   return apiOk(request, toRunDto(stored!), { status: 201 });
 });
+
+/** A raw INSERT that lost the (userId, clientId) unique index: Prisma wraps it as P2010 (raw) with
+ * Postgres 23505, or as P2002 for the client API. Either way it is "already stored", not a failure. */
+function isUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === "P2002") return true;
+  if (error.code === "P2010") {
+    const meta = error.meta as { code?: string; message?: string } | undefined;
+    return meta?.code === "23505" || (meta?.message ?? "").includes("23505") || (meta?.message ?? "").includes("userId_clientId");
+  }
+  return false;
+}

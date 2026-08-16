@@ -46,8 +46,18 @@ class RunSyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
                 // The session is gone: nothing a retry can fix; the slot stays for a foreground attempt.
                 ApiErrorCode.Unauthenticated, ApiErrorCode.SessionExpired, ApiErrorCode.RefreshReuseDetected,
                 ApiErrorCode.AccountBlocked, ApiErrorCode.Forbidden -> Result.failure()
-                // The server refused the body itself (validation): retrying the same body is pointless.
-                ApiErrorCode.ValidationFailed, ApiErrorCode.BadRequest -> Result.failure()
+                // The server refused the body itself (validation), or the state it depends on is
+                // gone or taken (a workout already completed, a deleted goal): retrying the same body
+                // is pointless and re-arming it on every app start would loop forever.
+                ApiErrorCode.ValidationFailed, ApiErrorCode.BadRequest,
+                ApiErrorCode.Conflict, ApiErrorCode.NotFound -> {
+                    // Un-flag the slot so app start does not re-enqueue; the run stays for a
+                    // foreground attempt where the runner can see the message.
+                    deps.outbox.load(ownerUserId)?.let { slot ->
+                        deps.outbox.save(slot.copy(saveRequested = false))
+                    }
+                    Result.failure()
+                }
                 // Offline, timeouts, 5xx: back off and try again.
                 else -> if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
             }

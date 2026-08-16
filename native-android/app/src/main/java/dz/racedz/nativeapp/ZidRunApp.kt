@@ -125,6 +125,9 @@ fun ZidRunApp(
             dz.racedz.nativeapp.feature.runs.record.RunSyncWorker.enqueuePendingIfAny(context, container.runOutbox, userId)
         } else if (authState is AuthState.SignedOut) {
             dz.racedz.nativeapp.feature.runs.record.RunSyncWorker.cancelAll(context)
+            // The recorder just dropped whatever was live; the foreground service must not keep
+            // GPS running for a run that no longer exists (review P1).
+            dz.racedz.nativeapp.feature.runs.record.RunTrackingService.stop(context)
         }
     }
 

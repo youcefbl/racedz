@@ -235,14 +235,13 @@ export function toRunDto(run: RunRow, route?: unknown, routePreview?: unknown) {
  * page), never the device's own clock — a phone whose clock runs fast would otherwise ask for
  * changes "since the future" and silently skip everything in between.
  */
+import { parseSyncCursor } from "@/lib/api/v1/sync-cursor";
+export { parseSyncCursor, encodeSyncCursor, type SyncCursor } from "@/lib/api/v1/sync-cursor";
+
 export function parseUpdatedSince(raw: string | null): Date | null {
-  if (!raw) return null;
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new ApiError("VALIDATION_FAILED", "updatedSince must be an ISO-8601 timestamp.");
-  }
-  return parsed;
+  return parseSyncCursor(raw)?.updatedAt ?? null;
 }
+
 
 /** The caller's run, or a typed 404. Never reveals that an id exists but belongs to someone else. */
 export async function requireOwnedRun(userId: string, runId: string) {

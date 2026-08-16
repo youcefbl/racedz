@@ -208,6 +208,7 @@ export async function getFeed(
     where: {
       userId: { in: authorIds },
       validity: "VALID",
+      deletedAt: null,
       // Own runs always show; others' runs only when public AND the author's profile isn't private.
       OR: [{ userId }, { AND: [{ isPublic: true }, { user: { profilePrivate: false } }] }]
     },

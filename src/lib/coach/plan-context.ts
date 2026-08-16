@@ -45,7 +45,7 @@ export async function getActivePlanForContext(userId: string): Promise<ActivePla
       w."skipReason"::text AS "skipReason", r."distanceKm" AS "actualDistanceKm"
     FROM "TrainingPlan" p
     INNER JOIN "TrainingWorkout" w ON w."trainingPlanId" = p."id"
-    LEFT JOIN "RunnerRun" r ON r."workoutId" = w."id"
+    LEFT JOIN "RunnerRun" r ON r."workoutId" = w."id" AND r."deletedAt" IS NULL
     WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE'
     ORDER BY w."scheduledFor" ASC
   `;

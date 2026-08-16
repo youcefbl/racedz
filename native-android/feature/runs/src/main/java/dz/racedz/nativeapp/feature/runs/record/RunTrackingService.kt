@@ -85,6 +85,15 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
             }
         }
 
+        // A sticky restart hands us a null intent. That is only meaningful while the recorder still
+        // holds a live run (in memory — the singleton outlives an Activity, not a process). With an
+        // idle recorder there is nothing to keep alive: starting GPS here would build a phantom
+        // recording with no clientId that no snapshot could ever persist (review P1).
+        val recorderState = RunRecorder.state.value.status
+        if (recorderState == RecordingStatus.Idle || recorderState == RecordingStatus.Finished) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         startForeground(NOTIFICATION_ID, buildNotification())
         startTracking()
         // START_STICKY: if the OS kills us under memory pressure mid-run, come back and keep
@@ -129,6 +138,12 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         ticker = serviceScope.launch {
             // Fixes can be seconds apart; the clock on screen has to keep moving between them.
             while (isActive) {
+                // Sign-out or a discard from elsewhere drops the recorder to Idle without going
+                // through this service; a ticker with nothing to tick must not keep GPS on.
+                if (RunRecorder.state.value.status == RecordingStatus.Idle) {
+                    stopTracking()
+                    return@launch
+                }
                 RunRecorder.tick()
                 // Rate-limited inside the recorder; this only offers the opportunity.
                 RunRecorder.snapshot()

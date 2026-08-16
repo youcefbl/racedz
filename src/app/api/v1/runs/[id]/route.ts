@@ -1,6 +1,6 @@
+import { deleteRun } from "@/lib/coach/service";
 import { deriveLaps, type LapBoundary } from "@/lib/coach/laps";
 import { bestEffortsForRun, ensureBestEffortsBackfilled } from "@/lib/coach/best-efforts-service";
-import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
@@ -136,23 +136,11 @@ export const DELETE = withApi(async (request, context: Context) => {
   const limited = enforceRateLimit(rateLimitKey("v1-run-delete", viewer.id), 60, 60_000);
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many requests. Try again shortly."));
 
-  const run = await requireOwnedRun(viewer.id, id);
+  await requireOwnedRun(viewer.id, id);
 
-  if (!run.deletedAt) {
-    await getPrisma().runnerRun.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        revision: { increment: 1 },
-        // A deleted run must stop being visible to anyone else immediately, whatever the sync
-        // state of the owner's other devices.
-        isPublic: false,
-        // The route is the most sensitive thing on the row — where this person actually ran, door
-        // to door. A delete destroys it rather than leaving it behind a flag.
-        route: Prisma.DbNull,
-      },
-    });
-  }
+  // One deletion path for web and mobile: tombstone + revision bump + unpublish + route destroyed
+  // + workout slot released + performance memory reconciled (see deleteRun).
+  await deleteRun(viewer.id, id);
 
   const fresh = await getPrisma().runnerRun.findFirst({ where: { id, userId: viewer.id }, select: runSelect });
   return apiOk(request, toRunDto(fresh!));

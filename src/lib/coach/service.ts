@@ -116,6 +116,7 @@ type RunRow = {
   photos: unknown;
   source: "MANUAL" | "IMPORTED" | "GPS";
   sport: "RUN" | "WALK" | "TRAIL" | "RIDE";
+  clientId: string | null;
   validity: "VALID" | "SUSPECT" | "EXCLUDED";
   validityReason: string | null;
   createdAt: Date;
@@ -508,14 +509,21 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   let linkTargetKm: number | null = null;
   let suggestedMatch: { workoutId: string; title: string; confidence: number } | null = null;
 
-  if (input.workoutId) {
+  // A ride is not a run: it can neither be linked to a running workout by hand nor be matched to
+  // one, so it can never mark a planned session complete (NATRUN-07.1 review, P1).
+  if (input.sport === "RIDE" && input.workoutId) {
+    throw new CoachError("A ride cannot complete a running workout.", 409, "RUN_NOT_VALID");
+  }
+  if (input.sport === "RIDE") {
+    // No auto-match, no suggestion.
+  } else if (input.workoutId) {
     const workouts = await prisma.$queryRaw<
       Array<{ id: string; completedRunId: string | null; targetDistanceKm: number | null }>
     >`
       SELECT workout."id", workout."targetDistanceKm", completed_run."id" AS "completedRunId"
       FROM "TrainingWorkout" workout
       INNER JOIN "TrainingPlan" plan ON plan."id" = workout."trainingPlanId"
-      LEFT JOIN "RunnerRun" completed_run ON completed_run."workoutId" = workout."id"
+      LEFT JOIN "RunnerRun" completed_run ON completed_run."workoutId" = workout."id" AND completed_run."deletedAt" IS NULL
       WHERE workout."id" = ${input.workoutId} AND plan."userId" = ${userId} AND plan."status" = 'ACTIVE'
       LIMIT 1
     `;
@@ -615,14 +623,14 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       "id", "userId", "goalId", "workoutId", "workoutMatchSource", "workoutMatchConfidence", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "weather", "isPublic", "perceivedEffort",
-      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "laps", "source", "sport", "validity", "validityReason", "updatedAt"
+      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "laps", "source", "sport", "validity", "validityReason", "clientId", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal?.id ?? null}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${validity === "VALID" ? input.isPublic : false}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
       ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${lapsJson ? Prisma.sql`CAST(${lapsJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource", ${input.sport ?? "RUN"}::"RunSport",
-      ${validity}::"RunValidity", ${validityReason}, NOW()
+      ${validity}::"RunValidity", ${validityReason}, ${input.clientId ?? null}, NOW()
     )
     RETURNING *
   `;
@@ -692,7 +700,7 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
 // A single run the caller owns, with the fields needed to build a GPX export.
 export async function getRunnerRunForExport(userId: string, runId: string) {
   return getPrisma().runnerRun.findFirst({
-    where: { id: runId, userId },
+    where: { id: runId, userId, deletedAt: null },
     select: { id: true, startedAt: true, title: true, route: true }
   });
 }
@@ -734,7 +742,7 @@ export async function getRunnerRuns(
   const safeLimit = Math.min(100, Math.max(1, limit));
   const rows = await getPrisma().$queryRaw<RunRow[]>`
     SELECT * FROM "RunnerRun"
-    WHERE "userId" = ${userId}
+    WHERE "userId" = ${userId} AND "deletedAt" IS NULL
     ORDER BY "startedAt" DESC
     LIMIT ${safeLimit}
   `;
@@ -747,7 +755,7 @@ export async function getRunnerRuns(
 export async function getRunnerRunDetail(userId: string, runId: string) {
   const rows = await getPrisma().$queryRaw<RunRow[]>`
     SELECT * FROM "RunnerRun"
-    WHERE "id" = ${runId} AND "userId" = ${userId}
+    WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL
     LIMIT 1
   `;
   return rows[0] ?? null;
@@ -762,7 +770,7 @@ export async function updateRun(
 ) {
   const prisma = getPrisma();
   if (fields.isPublic === true) {
-    const run = await prisma.runnerRun.findFirst({ where: { id: runId, userId }, select: { validity: true } });
+    const run = await prisma.runnerRun.findFirst({ where: { id: runId, userId, deletedAt: null }, select: { validity: true } });
     if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
     if (run.validity !== "VALID") {
       throw new CoachError("This activity must be reviewed before it can be public.", 409, "RUN_NOT_VALID");
@@ -774,26 +782,43 @@ export async function updateRun(
     UPDATE "RunnerRun" SET
       "isPublic" = COALESCE(${fields.isPublic ?? null}, "isPublic"),
       "photos" = CASE WHEN ${setPhotos} THEN CAST(${photosJson} AS JSONB) ELSE "photos" END,
+      -- Part of the sync contract: every server-side write bumps the revision, so a phone holding
+      -- an older copy is refused on its next PATCH instead of silently overwriting this one.
+      "revision" = "revision" + 1,
       "updatedAt" = NOW()
-    WHERE "id" = ${runId} AND "userId" = ${userId}
+    WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL
     RETURNING *
   `;
   if (!rows[0]) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   return rows[0];
 }
 
-// Permanently delete a run the caller owns. Any linked coach analysis rows have their runId
-// cleared by the schema (SetNull), so past feedback isn't lost. If the run completed a planned
-// workout, that workout is reopened so the plan reflects reality.
+// Delete a run the caller owns — as a TOMBSTONE, the same way the mobile API does, so a device
+// that still holds a copy learns on its next delta sync that the run is gone (a hard delete left
+// it resurrected there). The route (the most sensitive column) is destroyed, the run is
+// unpublished, the revision bumps, and the workout slot is released so the plan reflects reality.
+// Every read path filters `deletedAt IS NULL`. Used by the web actions AND the v1 DELETE route.
 export async function deleteRun(userId: string, runId: string) {
   const prisma = getPrisma();
-  const rows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null; goalId: string | null }>>`
-    SELECT "id", "workoutId", "goalId" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+  const rows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null; goalId: string | null; deletedAt: Date | null }>>`
+    SELECT "id", "workoutId", "goalId", "deletedAt" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
   `;
   const run = rows[0];
   if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+  if (run.deletedAt) return { id: run.id };
 
-  await prisma.$executeRaw`DELETE FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId}`;
+  await prisma.$executeRaw`
+    UPDATE "RunnerRun" SET
+      "deletedAt" = NOW(),
+      "revision" = "revision" + 1,
+      "isPublic" = false,
+      "route" = NULL,
+      "workoutId" = NULL,
+      "workoutMatchSource" = NULL,
+      "workoutMatchConfidence" = NULL,
+      "updatedAt" = NOW()
+    WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL
+  `;
 
   // A deleted run may have held a personal best; re-derive the PERFORMANCE facts from the runs
   // that remain (B83-R07). Non-fatal for the deletion itself, but retried once (19A-R05) since a
@@ -847,15 +872,15 @@ type OwnedWorkoutRow = {
 export async function confirmWorkoutMatch(userId: string, runId: string, workoutId: string) {
   const prisma = getPrisma();
   const runRows = await prisma.$queryRaw<
-    Array<{ id: string; workoutId: string | null; startedAt: Date; distanceKm: number; validity: "VALID" | "SUSPECT" | "EXCLUDED" }>
+    Array<{ id: string; workoutId: string | null; startedAt: Date; distanceKm: number; validity: "VALID" | "SUSPECT" | "EXCLUDED"; sport: string; deletedAt: Date | null }>
   >`
-    SELECT "id", "workoutId", "startedAt", "distanceKm", "validity" FROM "RunnerRun"
+    SELECT "id", "workoutId", "startedAt", "distanceKm", "validity", "sport"::text AS "sport", "deletedAt" FROM "RunnerRun"
     WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
   `;
   const run = runRows[0];
-  if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
+  if (!run || run.deletedAt) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   if (run.workoutId) throw new CoachError("This run is already linked to a workout.", 409, "RUN_ALREADY_LINKED");
-  if (run.validity !== "VALID") {
+  if (run.validity !== "VALID" || run.sport === "RIDE") {
     throw new CoachError("This activity is excluded from workout completion.", 409, "RUN_NOT_VALID");
   }
 
@@ -865,7 +890,7 @@ export async function confirmWorkoutMatch(userId: string, runId: string, workout
           - (${run.startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date)::int AS "dayDeltaFromRun"
     FROM "TrainingWorkout" w
     INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
-    LEFT JOIN "RunnerRun" completed ON completed."workoutId" = w."id"
+    LEFT JOIN "RunnerRun" completed ON completed."workoutId" = w."id" AND completed."deletedAt" IS NULL
     WHERE w."id" = ${workoutId} AND p."userId" = ${userId} AND p."status" = 'ACTIVE'
     LIMIT 1
   `;
@@ -924,7 +949,7 @@ export async function findWorkoutMatchForRun(
     INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
     WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE' AND w."status" = 'PLANNED'
       AND w."workoutType" NOT IN ('REST', 'CROSS_TRAINING')
-      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
+      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id" AND r."deletedAt" IS NULL)
       AND ABS((w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
           - (${startedAt}::timestamptz AT TIME ZONE 'Africa/Algiers')::date) <= 1
   `;
@@ -952,7 +977,7 @@ export async function findWorkoutMatchForRun(
 export async function unlinkRunFromWorkout(userId: string, runId: string) {
   const prisma = getPrisma();
   const rows = await prisma.$queryRaw<Array<{ id: string; workoutId: string | null }>>`
-    SELECT "id", "workoutId" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+    SELECT "id", "workoutId" FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL LIMIT 1
   `;
   const run = rows[0];
   if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
@@ -1048,7 +1073,7 @@ export async function getPlanAdherence(userId: string): Promise<PlanAdherence> {
       w."targetDistanceKm", r."distanceKm" AS "actualDistanceKm", w."scheduledFor"
     FROM "TrainingWorkout" w
     INNER JOIN "TrainingPlan" p ON p."id" = w."trainingPlanId"
-    LEFT JOIN "RunnerRun" r ON r."workoutId" = w."id"
+    LEFT JOIN "RunnerRun" r ON r."workoutId" = w."id" AND r."deletedAt" IS NULL
     WHERE p."userId" = ${userId} AND p."status" = 'ACTIVE'
   `;
   if (rows.length === 0) return EMPTY_ADHERENCE;
@@ -1294,7 +1319,7 @@ export async function getRunnerRecords(userId: string): Promise<PersonalRecords>
   const runs = await getPrisma().runnerRun.findMany({
     // SUSPECT/EXCLUDED (non-foot) activities never count toward personal bests or streaks; nor
     // does a ride or a walk — records are running records.
-    where: { userId, validity: "VALID", sport: { in: ["RUN", "TRAIL"] } },
+    where: { userId, validity: "VALID", deletedAt: null, sport: { in: ["RUN", "TRAIL"] } },
     select: { id: true, startedAt: true, distanceKm: true, durationSeconds: true, averagePaceSecondsPerKm: true },
     orderBy: { startedAt: "desc" }
   });
@@ -2057,7 +2082,7 @@ export async function closeMissedWorkouts(userId?: string): Promise<{ closed: nu
       AND w."workoutType" <> 'REST'
       AND (w."scheduledFor" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Algiers')::date
           < (NOW() AT TIME ZONE 'Africa/Algiers')::date
-      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id")
+      AND NOT EXISTS (SELECT 1 FROM "RunnerRun" r WHERE r."workoutId" = w."id" AND r."deletedAt" IS NULL)
       ${userId ? Prisma.sql`AND p."userId" = ${userId}` : Prisma.empty}
     RETURNING w."id"
   `;
@@ -2283,7 +2308,7 @@ async function requireOwnedGoal(userId: string, goalId: string) {
 
 async function requireOwnedRun(userId: string, runId: string) {
   const rows = await getPrisma().$queryRaw<RunRow[]>`
-    SELECT * FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} LIMIT 1
+    SELECT * FROM "RunnerRun" WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL LIMIT 1
   `;
   if (!rows[0]) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   return rows[0];
@@ -2511,7 +2536,7 @@ async function resolveForecast(
 async function getRunsForMetrics(userId: string) {
   return getPrisma().$queryRaw<RunRow[]>`
     SELECT * FROM "RunnerRun"
-    WHERE "userId" = ${userId} AND "startedAt" >= NOW() - INTERVAL '56 days' AND "validity" = 'VALID' AND "sport" <> 'RIDE'
+    WHERE "userId" = ${userId} AND "deletedAt" IS NULL AND "startedAt" >= NOW() - INTERVAL '56 days' AND "validity" = 'VALID' AND "sport" <> 'RIDE'
     ORDER BY "startedAt" DESC
     LIMIT 120
   `;

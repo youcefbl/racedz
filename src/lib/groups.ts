@@ -204,7 +204,7 @@ export async function getGroupFeed(userId: string, groupId: string, limit = 30):
   const memberIds = memberRows.map((m) => m.userId);
 
   const rows = await prisma.runnerRun.findMany({
-    where: { userId: { in: memberIds }, validity: "VALID" },
+    where: { userId: { in: memberIds }, validity: "VALID", deletedAt: null },
     orderBy: { startedAt: "desc" },
     take: Math.min(Math.max(limit, 1), 50),
     select: {

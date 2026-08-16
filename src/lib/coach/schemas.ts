@@ -138,7 +138,10 @@ export const createRunnerRunSchema = z.object({
   coachInteractionIds: z.array(z.string().min(1).max(64)).max(20).optional(),
   // Manual lap boundaries (NATRUN-06.5). Shape here; ordering/spacing/range against the run's own
   // totals is checked in createRunnerRun once they are known.
-  laps: lapBoundariesSchema.nullable().optional()
+  laps: lapBoundariesSchema.nullable().optional(),
+  // Idempotency key from a phone (see api/v1/runs). Written in the same INSERT so the
+  // (userId, clientId) unique index guards the create itself, before any side effect runs.
+  clientId: z.string().uuid().nullable().optional()
 });
 
 // Partial update from the runs list: flip visibility and/or attach photos after the fact.
