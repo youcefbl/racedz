@@ -4,8 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -484,46 +484,17 @@ fun RecordingScreen(
             )
         }
 
-        // Completed kilometres, newest first — the split just finished is the one being judged.
+        // Completed splits, newest first, in the same row language as Run Details (index · bar ·
+        // pace · Δ vs the run's average) so the runner reads the km they just finished the way they
+        // will read it afterwards. Bounded to a few rows and scrollable, so the map keeps its space.
         val splits = state.splits
         if (splits.isNotEmpty()) {
-            // The fastest completed kilometre reads as the highlight chip. Its accessible name
-            // says "fastest" too, so the tinted fill is emphasis rather than the only signal.
-            val fastestPace = splits.minOf { it.paceSecondsPerKm }
-            val fastestLabel = stringResource(R.string.runs_split_fastest)
             Spacer(Modifier.height(ZidRunDimens.spaceSm))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
-            ) {
-                splits.reversed().forEach { split ->
-                    val isFastest = split.paceSecondsPerKm == fastestPace && splits.size > 1
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(ZidRunDimens.cornerSm))
-                            .background(if (isFastest) zidRunOnDarkColors().primarySoft else zidRunOnDarkColors().surfaceMuted)
-                            .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm)
-                            .semantics(mergeDescendants = true) {
-                                contentDescription = "km ${split.km} ${ZidRunFormat.pace(split.paceSecondsPerKm)}" +
-                                    if (isFastest) ", $fastestLabel" else ""
-                            },
-                    ) {
-                        Text(
-                            "${stringResource(if (dz.racedz.nativeapp.core.design.ZidRunUnits.current == dz.racedz.nativeapp.core.design.DistanceUnit.MI) R.string.runs_split_mi else R.string.runs_split_km)} ${split.km}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isFastest) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
-                        )
-                        Text(
-                            ZidRunFormat.pace(split.paceSecondsPerKm),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = zidRunOnDarkColors().textStrong,
-                        )
-                    }
-                }
-            }
+            LiveSplitsList(
+                splits = splits,
+                averagePace = state.averagePaceSecondsPerKm,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 148.dp),
+            )
         }
 
         Spacer(Modifier.height(ZidRunDimens.spaceMd))
@@ -857,5 +828,79 @@ private fun CircleAction(
             )
         }
         Text(label, style = MaterialTheme.typography.labelMedium, color = tint)
+    }
+}
+
+
+/**
+ * The live splits table: newest first, one row per completed km/mile with a bar against the fastest
+ * split, its pace, and the difference to the run's average (faster in primary, slower in accent),
+ * mirroring Run Details' SplitRow. Newest first because the split just finished is the one being
+ * judged; older ones scroll.
+ */
+@Composable
+private fun LiveSplitsList(splits: List<LiveSplit>, averagePace: Int?, modifier: Modifier = Modifier) {
+    val colors = zidRunOnDarkColors()
+    val fastest = splits.minOf { it.paceSecondsPerKm }.coerceAtLeast(1)
+    val unitHeader = stringResource(
+        if (dz.racedz.nativeapp.core.design.ZidRunUnits.current == dz.racedz.nativeapp.core.design.DistanceUnit.MI) R.string.runs_split_mi
+        else R.string.runs_split_km
+    )
+    val locale = currentLocale()
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(colors.surface)
+            .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(unitHeader, style = MaterialTheme.typography.labelSmall, color = colors.textMuted, modifier = Modifier.width(36.dp))
+            Spacer(Modifier.weight(1f))
+            Text(stringResource(R.string.runs_split_pace), style = MaterialTheme.typography.labelSmall, color = colors.textMuted)
+            Text("\u0394", style = MaterialTheme.typography.labelSmall, color = colors.textMuted, textAlign = TextAlign.End, modifier = Modifier.width(52.dp))
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            splits.asReversed().forEach { split ->
+                val fraction = (fastest.toFloat() / split.paceSecondsPerKm.toFloat()).coerceIn(0.25f, 1f)
+                val isFastest = split.paceSecondsPerKm == fastest && splits.size > 1
+                val delta = averagePace?.let { split.paceSecondsPerKm - it }
+                val deltaText = when {
+                    delta == null -> ""
+                    delta == 0 -> "0:00"
+                    else -> (if (delta < 0) "-" else "+") + ZidRunFormat.duration(kotlin.math.abs(delta))
+                }
+                val deltaColor = when {
+                    delta == null || delta == 0 -> colors.textMuted
+                    delta < 0 -> colors.primary
+                    else -> colors.accent
+                }
+                val paceText = ZidRunFormat.pace(split.paceSecondsPerKm)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 28.dp)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "$unitHeader ${split.km} $paceText $deltaText"
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(ZidRunFormat.count(split.km, locale), style = MaterialTheme.typography.bodyMedium, color = colors.text, modifier = Modifier.width(36.dp))
+                    Box(Modifier.weight(1f).padding(end = ZidRunDimens.spaceSm)) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(fraction)
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (isFastest) colors.accent else colors.primary),
+                        )
+                    }
+                    Text(paceText, style = MaterialTheme.typography.titleSmall, color = colors.textStrong)
+                    Text(deltaText, style = MaterialTheme.typography.bodySmall, color = deltaColor, textAlign = TextAlign.End, modifier = Modifier.width(52.dp))
+                }
+            }
+        }
     }
 }
