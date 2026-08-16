@@ -116,6 +116,7 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 isPublic = recording.draftIsPublic && recording.nonFootReason == null,
                 // Manual laps pressed during the run; the outbox carries the same list.
                 laps = recording.laps.takeIf { it.isNotEmpty() },
+                sport = recording.sport,
             )
 
             when (val result = repository.create(request)) {

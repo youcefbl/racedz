@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +69,7 @@ fun GpxImportScreen(
     val locale = currentLocale()
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var sport by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("RUN") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.parse(context.contentResolver, uri)
@@ -168,11 +170,13 @@ fun GpxImportScreen(
                     }
                 }
 
+                dz.racedz.nativeapp.feature.runs.SportChips(selected = sport, onSelect = { sport = it })
+
                 state.saveError?.let { ZidRunInlineError(it) }
 
                 ZidRunButton(
                     text = stringResource(R.string.runs_save),
-                    onClick = { viewModel.save(onSaved) },
+                    onClick = { viewModel.save(onSaved, sport) },
                     loading = state.saving,
                     enabled = !state.saving,
                 )

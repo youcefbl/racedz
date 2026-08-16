@@ -249,6 +249,12 @@
 
     <string name="runs_history_title">الجَريات تاعك</string>
     <string name="runs_search_hint">قلّب على جَرية</string>
+    <string name="runs_sport">النشاط</string>
+    <string name="runs_sport_run">جري</string>
+    <string name="runs_sport_walk">مشي</string>
+    <string name="runs_sport_trail">تراي</string>
+    <string name="runs_sport_ride">بيسكلات</string>
+    <string name="runs_filter_all_sports">كل النشاطات</string>
     <string name="runs_filter_all">الكل</string>
     <string name="runs_filter_gps">GPS</string>
     <string name="runs_filter_manual">باليد</string>

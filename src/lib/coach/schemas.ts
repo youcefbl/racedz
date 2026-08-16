@@ -123,6 +123,7 @@ export const createRunnerRunSchema = z.object({
   calories: z.coerce.number().int().min(0).max(50000).nullable().optional(),
   weightKg: z.coerce.number().min(20).max(300).nullable().optional(),
   source: z.enum(["MANUAL", "GPS", "IMPORTED"]).default("MANUAL"),
+  sport: z.enum(["RUN", "WALK", "TRAIL", "RIDE"]).default("RUN"),
   isPublic: z.coerce.boolean().optional().default(false),
   route: z.array(runRoutePointSchema).max(20000).nullable().optional(),
   perceivedEffort: z.coerce.number().int().min(1).max(10),

@@ -178,11 +178,15 @@ fun RunDetailScreen(
                     .padding(horizontal = ZidRunDimens.spaceLg),
                 verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
             ) {
-                Text(
-                    text = ZidRunFormat.dateTime(run.startedAt, locale),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.textMuted,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                    val sport = dz.racedz.nativeapp.core.design.RunSport.fromCode(run.sport)
+                    Icon(sport.icon, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = stringResource(sport.labelRes) + " · " + ZidRunFormat.dateTime(run.startedAt, locale),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.textMuted,
+                    )
+                }
 
                 /*
                  * "This wasn't run on foot."
@@ -341,7 +345,9 @@ fun RunDetailScreen(
                 // explained. Only for runs with a measured route — a manual entry can never have
                 // one, and a card of three "unavailable" rows would be noise. PR is the server's
                 // verdict; nothing is inferred here.
-                if (run.source != "MANUAL" && run.validity == "VALID" && (run.route?.size ?: 0) > 1) {
+                if (run.source != "MANUAL" && run.validity == "VALID" && (run.route?.size ?: 0) > 1 &&
+                    run.sport in setOf("RUN", "TRAIL")
+                ) {
                     BestEffortsCard(run = run, locale = locale)
                 }
 

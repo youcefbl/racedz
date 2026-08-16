@@ -58,6 +58,8 @@ data class RecordingState(
      * while stopped, or on devices with no step counter. The whole-run [avgCadenceSpm] is separate.
      */
     val liveCadenceSpm: Int? = null,
+    /** RUN | WALK | TRAIL | RIDE (NATRUN-07.1); chosen before the start, stored with the run. */
+    val sport: String = "RUN",
     /** Manual lap boundaries pressed so far, from the start of the run (NATRUN-06.5). */
     val laps: List<dz.racedz.nativeapp.core.network.LapMarkDto> = emptyList(),
 ) {
@@ -101,7 +103,7 @@ data class RecordingState(
      * from every number that matters, and only explained on the run's detail screen afterwards.
      */
     val nonFootReason: GpsQuality.NonFootReason?
-        get() = GpsQuality.detectNonFootActivity(distanceKm, movingSeconds, avgCadenceSpm)
+        get() = if (sport == "RIDE") null else GpsQuality.detectNonFootActivity(distanceKm, movingSeconds, avgCadenceSpm)
 
     /**
      * GPS strength, from the reported accuracy. Four buckets rather than a number, because a runner
@@ -326,7 +328,7 @@ object RunRecorder {
      *   slate, because a killed process leaves its run only in the outbox (RED-R01). Replacing
      *   either requires the runner to resolve it first (save, or discard via [reset]).
      */
-    fun start(workoutId: String? = null): Boolean {
+    fun start(workoutId: String? = null, sport: String = "RUN"): Boolean {
         if (_state.value.status != RecordingStatus.Idle) return false
         // Only a *resolvable* snapshot blocks a new run. An unreadable one also blocks — but the
         // caller learns which through [outboxBlocked], instead of Record silently doing nothing
@@ -356,6 +358,7 @@ object RunRecorder {
             clientId = UUID.randomUUID().toString(),
             startedAtEpochMs = System.currentTimeMillis(),
             workoutId = workoutId,
+            sport = sport,
         )
         return true
     }
@@ -483,6 +486,7 @@ object RunRecorder {
             askedCoachIds = coachInteractionIds.toList(),
             draftIsPublic = pending.request.isPublic == true,
             laps = pending.request.laps.orEmpty(),
+            sport = pending.request.sport ?: "RUN",
         )
     }
 
@@ -504,6 +508,7 @@ object RunRecorder {
         // and a retry must not keep asking.
         isPublic = draftIsPublic && nonFootReason == null,
         laps = laps.takeIf { it.isNotEmpty() },
+        sport = sport,
     )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */

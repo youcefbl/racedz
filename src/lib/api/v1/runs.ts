@@ -105,6 +105,8 @@ export const runCreateSchema = z.object({
   goalId: z.string().optional(),
   workoutId: z.string().optional(),
   source: z.enum(["GPS", "MANUAL", "IMPORTED"]).optional(),
+  /** RUN (default) | WALK | TRAIL | RIDE (NATRUN-07.1). */
+  sport: z.enum(["RUN", "WALK", "TRAIL", "RIDE"]).optional(),
   // Interactions the runner had with the Coach DURING this run. Each was created as a plain CHAT
   // with no runId because the run had no server id yet; on save the client sends their ids so the
   // server can link them to the run it is about to create. Capped small — a single run's worth of
@@ -149,6 +151,7 @@ export const runSelect = {
   photos: true,
   isPublic: true,
   source: true,
+  sport: true,
   validity: true,
   validityReason: true,
   laps: true,
@@ -208,6 +211,7 @@ export function toRunDto(run: RunRow, route?: unknown, routePreview?: unknown) {
     photos: Array.isArray(run.photos) ? (run.photos as string[]) : [],
     isPublic: run.isPublic as boolean,
     source: run.source as string,
+    sport: (run.sport as string | undefined) ?? "RUN",
     validity: run.validity as string,
     validityReason: (run.validityReason as string | null) ?? null,
     goalId: (run.goalId as string | null) ?? null,

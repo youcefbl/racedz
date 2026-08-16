@@ -267,6 +267,12 @@
 
     <string name="runs_history_title">Run history</string>
     <string name="runs_search_hint">Search runs</string>
+    <string name="runs_sport">Activity</string>
+    <string name="runs_sport_run">Run</string>
+    <string name="runs_sport_walk">Walk</string>
+    <string name="runs_sport_trail">Trail run</string>
+    <string name="runs_sport_ride">Ride</string>
+    <string name="runs_filter_all_sports">All activities</string>
     <string name="runs_filter_all">All</string>
     <string name="runs_filter_gps">GPS</string>
     <string name="runs_filter_manual">Manual</string>

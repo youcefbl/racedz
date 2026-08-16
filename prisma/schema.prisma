@@ -653,6 +653,7 @@ model RunnerRun {
   notes                   String?
   photos                  Json?
   source                  RunnerRunSource     @default(MANUAL)
+  sport                   RunSport            @default(RUN)
   // Set once at save time for GPS runs (see RunValidity); MANUAL/IMPORTED entries are never
   // auto-classified, so a data-entry typo doesn't get flagged the way a real car drive would.
   validity                RunValidity         @default(VALID)
@@ -676,6 +677,7 @@ model RunnerRun {
 
   @@unique([userId, clientId])
   @@index([userId, startedAt])
+  @@index([userId, sport])
   @@index([goalId, startedAt])
   /// Cursor for delta sync: "everything of mine that changed since X", tombstones included.
   @@index([userId, updatedAt])
@@ -1075,6 +1077,15 @@ enum RunnerRunSource {
   MANUAL
   IMPORTED
   GPS
+}
+
+/// What kind of activity a RunnerRun is (NATRUN-07.1). RUN is the default and what every row
+/// recorded before the column existed is; RIDE is never on foot and never counts where a run counts.
+enum RunSport {
+  RUN
+  WALK
+  TRAIL
+  RIDE
 }
 
 enum SleepLogSource {

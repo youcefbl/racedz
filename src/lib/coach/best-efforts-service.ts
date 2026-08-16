@@ -13,6 +13,8 @@ import { BEST_EFFORT_DISTANCES_M, computeBestEfforts, roundEffortSeconds } from 
 
 /** Sources that carry a measured route. MANUAL entries have no timestamps and never qualify. */
 const ROUTE_SOURCES = ["GPS", "IMPORTED"] as const;
+/** Best efforts are running efforts: a walk or a ride never earns one (NATRUN-07.1). */
+const EFFORT_SPORTS = ["RUN", "TRAIL"] as const;
 
 /** Upper bound on the one-time backfill per request, so a long history is chipped at, not scanned. */
 const BACKFILL_BATCH = 200;
@@ -31,7 +33,7 @@ export async function computeAndStoreBestEfforts(runId: string): Promise<void> {
   const prisma = getPrisma();
   const run = await prisma.runnerRun.findUnique({
     where: { id: runId },
-    select: { id: true, userId: true, route: true, validity: true, source: true, deletedAt: true },
+    select: { id: true, userId: true, route: true, validity: true, source: true, sport: true, deletedAt: true },
   });
   if (!run) return;
 
@@ -39,6 +41,7 @@ export async function computeAndStoreBestEfforts(runId: string): Promise<void> {
     run.deletedAt == null &&
     run.validity === "VALID" &&
     (ROUTE_SOURCES as readonly string[]).includes(run.source) &&
+    (EFFORT_SPORTS as readonly string[]).includes(run.sport) &&
     Array.isArray(run.route);
 
   const efforts = eligible ? computeBestEfforts(run.route as RunRoutePoint[]) : [];
@@ -99,7 +102,7 @@ export async function bestEffortsForRun(userId: string, runId: string): Promise<
   const prisma = getPrisma();
   const rows = await prisma.runBestEffort.findMany({
     where: { runId, userId },
-    select: { distanceM: true, seconds: true, run: { select: { startedAt: true } } },
+    select: { distanceM: true, seconds: true, run: { select: { startedAt: true, sport: true } } },
     orderBy: { distanceM: "asc" },
   });
   if (rows.length === 0) return [];
@@ -111,7 +114,8 @@ export async function bestEffortsForRun(userId: string, runId: string): Promise<
         userId,
         distanceM: row.distanceM,
         runId: { not: runId },
-        run: { deletedAt: null, validity: "VALID" },
+        // Same sport only: a trail PR and a road PR are different records.
+        run: { deletedAt: null, validity: "VALID", sport: row.run.sport },
         OR: [
           { seconds: { lt: row.seconds } },
           { seconds: row.seconds, run: { startedAt: { lt: row.run.startedAt } } },

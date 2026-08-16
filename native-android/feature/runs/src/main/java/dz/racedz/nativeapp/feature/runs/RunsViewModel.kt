@@ -65,6 +65,8 @@ data class RunsUiState(
     val query: String = "",
     val sourceFilter: RunSourceFilter = RunSourceFilter.All,
     val thisMonthOnly: Boolean = false,
+    /** RUN | WALK | TRAIL | RIDE, or null for every activity (NATRUN-07.1). */
+    val sportFilter: String? = null,
     /**
      * Achievements, straight from the server.
      *
@@ -98,7 +100,8 @@ data class RunsUiState(
                     RunSourceFilter.Gps -> run.source == "GPS"
                     RunSourceFilter.Manual -> run.source != "GPS"
                 }
-                matchesQuery && matchesSource && (!thisMonthOnly || run.isThisMonth())
+                val matchesSport = sportFilter == null || run.sport == sportFilter
+                matchesQuery && matchesSource && matchesSport && (!thisMonthOnly || run.isThisMonth())
             }
         }
 
@@ -171,7 +174,7 @@ data class RunsUiState(
         }
 
     val hasFilters: Boolean
-        get() = query.isNotBlank() || sourceFilter != RunSourceFilter.All || thisMonthOnly
+        get() = query.isNotBlank() || sourceFilter != RunSourceFilter.All || thisMonthOnly || sportFilter != null
 
     /** The most recent run, which the overview leads with. */
     val latestRun: RunDto? get() = runs.maxByOrNull { it.startedAt }
@@ -311,7 +314,9 @@ class RunsViewModel(private val repository: RunsRepository) : ViewModel() {
 
     fun toggleThisMonth() = _state.update { it.copy(thisMonthOnly = !it.thisMonthOnly) }
 
+    fun onSportFilterChange(sport: String?) = _state.update { it.copy(sportFilter = sport) }
+
     fun clearFilters() = _state.update {
-        it.copy(query = "", sourceFilter = RunSourceFilter.All, thisMonthOnly = false)
+        it.copy(query = "", sourceFilter = RunSourceFilter.All, thisMonthOnly = false, sportFilter = null)
     }
 }

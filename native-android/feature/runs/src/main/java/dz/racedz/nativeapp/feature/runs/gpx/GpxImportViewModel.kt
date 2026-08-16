@@ -135,7 +135,7 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
     }
 
     /** Sends the parsed run to the server. A finished parse is a precondition, so this is a no-op otherwise. */
-    fun save(onSaved: (String) -> Unit) {
+    fun save(onSaved: (String) -> Unit, sport: String = "RUN") {
         val parsed = _state.value.parsed ?: return
         if (_state.value.saving) return
         _state.update { it.copy(saving = true, saveError = null) }
@@ -144,6 +144,7 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
             val request = CreateRunRequest(
                 clientId = clientId,
                 startedAt = Instant.ofEpochMilli(parsed.startedAtEpochMs).toString(),
+                sport = sport,
                 distanceKm = parsed.distanceKm,
                 durationSeconds = parsed.durationSeconds,
                 // A run imported from a file carries no effort rating; the middle of the scale is the

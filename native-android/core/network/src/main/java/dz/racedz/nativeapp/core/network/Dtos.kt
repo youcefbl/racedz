@@ -377,6 +377,8 @@ data class RunDto(
     val photos: List<String> = emptyList(),
     val isPublic: Boolean = false,
     val source: String = "GPS",
+    /** RUN (default) | WALK | TRAIL | RIDE (NATRUN-07.1). */
+    val sport: String = "RUN",
     val validity: String = "VALID",
     val validityReason: String? = null,
     val goalId: String? = null,
@@ -434,6 +436,8 @@ data class RunDetailDto(
     val photos: List<String> = emptyList(),
     val isPublic: Boolean = false,
     val source: String = "GPS",
+    /** RUN (default) | WALK | TRAIL | RIDE (NATRUN-07.1). */
+    val sport: String = "RUN",
     /** VALID, SUSPECT, or EXCLUDED — the server's "was this recorded on foot?" verdict. */
     val validity: String = "VALID",
     /** Why, when it is not VALID: LOW_CADENCE_AT_SPEED or IMPOSSIBLE_PACE. */
@@ -1006,6 +1010,8 @@ data class CreateRunRequest(
      * increasing. The server validates them against the run's totals and stores them as-is.
      */
     val laps: List<LapMarkDto>? = null,
+    /** RUN | WALK | TRAIL | RIDE; omitted means RUN. */
+    val sport: String? = null,
 )
 
 /** Only runner-typed fields; every measurement is server-owned. */

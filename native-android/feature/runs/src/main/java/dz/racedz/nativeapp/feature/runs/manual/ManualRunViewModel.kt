@@ -45,6 +45,7 @@ class ManualRunViewModel(private val repository: RunsRepository) : ViewModel() {
         perceivedEffort: Int,
         notes: String?,
         onSaved: (String) -> Unit,
+        sport: String = "RUN",
     ) {
         if (_state.value.saving) return
         _state.update { it.copy(saving = true, error = null) }
@@ -53,6 +54,7 @@ class ManualRunViewModel(private val repository: RunsRepository) : ViewModel() {
             val request = CreateRunRequest(
                 clientId = clientId,
                 startedAt = Instant.ofEpochMilli(startedAtEpochMs).toString(),
+                sport = sport,
                 distanceKm = distanceKm,
                 durationSeconds = durationSeconds,
                 perceivedEffort = perceivedEffort,

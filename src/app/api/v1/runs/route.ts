@@ -37,11 +37,15 @@ export const GET = withApi(async (request) => {
   const updatedSince = parseUpdatedSince(url.searchParams.get("updatedSince"));
   const requested = Number(url.searchParams.get("limit") ?? MAX_RUNS_PAGE);
   const limit = Number.isFinite(requested) ? Math.min(Math.max(Math.trunc(requested), 1), MAX_RUNS_PAGE) : MAX_RUNS_PAGE;
+  // Optional sport filter (NATRUN-07.1); anything else is ignored rather than refused.
+  const sportParam = url.searchParams.get("sport");
+  const sport = sportParam && ["RUN", "WALK", "TRAIL", "RIDE"].includes(sportParam) ? (sportParam as "RUN" | "WALK" | "TRAIL" | "RIDE") : undefined;
 
   const runs = await getPrisma().runnerRun.findMany({
     where: {
       userId: viewer.id,
       ...(updatedSince ? { updatedAt: { gt: updatedSince } } : { deletedAt: null }),
+      ...(sport ? { sport } : {}),
     },
     // The full route is read only so it can be thinned to a preview below; it never leaves in full.
     select: { ...runSelect, route: true },

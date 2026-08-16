@@ -92,6 +92,7 @@ fun ManualRunScreen(
     var title by rememberSaveable { mutableStateOf("") }
     var startedAtMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var distanceText by rememberSaveable { mutableStateOf("") }
+    var sport by rememberSaveable { mutableStateOf("RUN") }
     var minutesText by rememberSaveable { mutableStateOf("") }
     var secondsText by rememberSaveable { mutableStateOf("") }
     var effort by rememberSaveable { mutableStateOf(5) }
@@ -191,6 +192,8 @@ fun ManualRunScreen(
                 }
             }
 
+            dz.racedz.nativeapp.feature.runs.SportChips(selected = sport, onSelect = { sport = it })
+
             ZidRunTextField(
                 value = distanceText,
                 onValueChange = { distanceText = it.take(10) },
@@ -253,6 +256,7 @@ fun ManualRunScreen(
                             perceivedEffort = effort,
                             notes = notes.trim().takeIf { it.isNotEmpty() },
                             onSaved = onSaved,
+                            sport = sport,
                         )
                     }
                 },

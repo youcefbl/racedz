@@ -248,6 +248,12 @@
 
     <string name="runs_history_title">Historique</string>
     <string name="runs_search_hint">Rechercher une sortie</string>
+    <string name="runs_sport">Activité</string>
+    <string name="runs_sport_run">Course</string>
+    <string name="runs_sport_walk">Marche</string>
+    <string name="runs_sport_trail">Trail</string>
+    <string name="runs_sport_ride">Vélo</string>
+    <string name="runs_filter_all_sports">Toutes les activités</string>
     <string name="runs_filter_all">Tout</string>
     <string name="runs_filter_gps">GPS</string>
     <string name="runs_filter_manual">Manuel</string>

@@ -22,6 +22,7 @@ object RunSettings {
     private const val KEY_AUTO_PAUSE = "auto_pause"
     private const val KEY_CUE_INTERVAL_M = "cue_interval_m"
     private const val KEY_COUNTDOWN = "countdown"
+    private const val KEY_SPORT = "sport"
 
     /**
      * Distance between spoken progress cues, as a multiple of the account's distance unit (0.5 / 1 /
@@ -56,6 +57,7 @@ object RunSettings {
     private var autoPauseFallback = true
     private var cueIntervalFallback = CueInterval.One
     private var countdownFallback = false
+    private var sportFallback = "RUN"
 
     /** Pause the clock automatically while the runner is standing still (traffic light, a stop). */
     var autoPauseEnabled: Boolean
@@ -63,6 +65,14 @@ object RunSettings {
         set(value) {
             autoPauseFallback = value
             prefs?.edit()?.putBoolean(KEY_AUTO_PAUSE, value)?.apply()
+        }
+
+    /** The last activity kind chosen on the start screen (NATRUN-07.1); RUN by default. */
+    var lastSport: String
+        get() = prefs?.getString(KEY_SPORT, "RUN") ?: sportFallback
+        set(value) {
+            sportFallback = value
+            prefs?.edit()?.putString(KEY_SPORT, value)?.apply()
         }
 
     /** A 3-2-1 after the hold before anything starts (NATRUN-06.7). Off by default. */

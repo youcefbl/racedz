@@ -159,6 +159,24 @@ fun RunHistoryScreen(
                                 onClick = viewModel::toggleThisMonth,
                             )
                         }
+                        // Activity kind (NATRUN-07.1), a second chip row so it never crowds the first.
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                        ) {
+                            ZidRunChoiceChip(
+                                label = stringResource(R.string.runs_filter_all_sports),
+                                selected = state.sportFilter == null,
+                                onClick = { viewModel.onSportFilterChange(null) },
+                            )
+                            dz.racedz.nativeapp.core.design.RunSport.entries.forEach { sport ->
+                                ZidRunChoiceChip(
+                                    label = stringResource(sport.labelRes),
+                                    selected = state.sportFilter == sport.code,
+                                    onClick = { viewModel.onSportFilterChange(sport.code) },
+                                )
+                            }
+                        }
                         Text(
                             text = stringResource(
                                 R.string.runs_summary,
@@ -220,6 +238,8 @@ private fun RunRow(run: RunDto, onClick: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
                 ) {
+                    val sport = dz.racedz.nativeapp.core.design.RunSport.fromCode(run.sport)
+                    Icon(sport.icon, contentDescription = stringResource(sport.labelRes), tint = colors.textMuted, modifier = Modifier.size(14.dp))
                     Text(dateLabel, style = MaterialTheme.typography.bodySmall, color = colors.textMuted)
                     // A ride logged as a run is worth marking in the list too: its pace sits next
                     // to real runs in the same column, and without the pill the fastest row in the

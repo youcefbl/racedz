@@ -115,6 +115,7 @@ type RunRow = {
   notes: string | null;
   photos: unknown;
   source: "MANUAL" | "IMPORTED" | "GPS";
+  sport: "RUN" | "WALK" | "TRAIL" | "RIDE";
   validity: "VALID" | "SUSPECT" | "EXCLUDED";
   validityReason: string | null;
   createdAt: Date;
@@ -547,7 +548,9 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   // getRunnerRecords/getRunsForMetrics), but the run stays visible to its owner with a reason.
   let validity: "VALID" | "SUSPECT" | "EXCLUDED" = "VALID";
   let validityReason: string | null = null;
-  if (input.source === "GPS") {
+  // A ride is not on foot by declaration: never flagged, but also never counted where a run counts
+  // (records, best efforts, badges, coach volume — see the sport filters on those queries).
+  if (input.source === "GPS" && input.sport !== "RIDE") {
     const nonFoot = detectNonFootActivity({
       distanceKm: input.distanceKm,
       movingSeconds: paceSeconds,
@@ -612,13 +615,13 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
       "id", "userId", "goalId", "workoutId", "workoutMatchSource", "workoutMatchConfidence", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "weather", "isPublic", "perceivedEffort",
-      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "laps", "source", "validity", "validityReason", "updatedAt"
+      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "laps", "source", "sport", "validity", "validityReason", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal?.id ?? null}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${validity === "VALID" ? input.isPublic : false}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
-      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${lapsJson ? Prisma.sql`CAST(${lapsJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource",
+      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${lapsJson ? Prisma.sql`CAST(${lapsJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource", ${input.sport ?? "RUN"}::"RunSport",
       ${validity}::"RunValidity", ${validityReason}, NOW()
     )
     RETURNING *
@@ -1289,8 +1292,9 @@ async function reconcilePerformanceMemory(userId: string) {
 
 export async function getRunnerRecords(userId: string): Promise<PersonalRecords> {
   const runs = await getPrisma().runnerRun.findMany({
-    // SUSPECT/EXCLUDED (non-foot) activities never count toward personal bests or streaks.
-    where: { userId, validity: "VALID" },
+    // SUSPECT/EXCLUDED (non-foot) activities never count toward personal bests or streaks; nor
+    // does a ride or a walk — records are running records.
+    where: { userId, validity: "VALID", sport: { in: ["RUN", "TRAIL"] } },
     select: { id: true, startedAt: true, distanceKm: true, durationSeconds: true, averagePaceSecondsPerKm: true },
     orderBy: { startedAt: "desc" }
   });
@@ -2507,7 +2511,7 @@ async function resolveForecast(
 async function getRunsForMetrics(userId: string) {
   return getPrisma().$queryRaw<RunRow[]>`
     SELECT * FROM "RunnerRun"
-    WHERE "userId" = ${userId} AND "startedAt" >= NOW() - INTERVAL '56 days' AND "validity" = 'VALID'
+    WHERE "userId" = ${userId} AND "startedAt" >= NOW() - INTERVAL '56 days' AND "validity" = 'VALID' AND "sport" <> 'RIDE'
     ORDER BY "startedAt" DESC
     LIMIT 120
   `;

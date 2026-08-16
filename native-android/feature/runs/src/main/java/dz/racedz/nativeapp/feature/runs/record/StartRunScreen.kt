@@ -305,6 +305,10 @@ fun StartRunScreen(
                 }
             }
 
+            // Activity kind (NATRUN-07.1): Run · Walk · Trail · Ride, last choice remembered. A ride
+            // is never flagged non-foot and never counts as a run.
+            SportPicker()
+
             // Cues are the reason to look at the phone less, so they default on.
             Row(
                 modifier = Modifier
@@ -409,7 +413,7 @@ private fun beginRecording(
 ) {
     // An explicit workout from "Log this run" wins over the session's own id. A chosen workout type
     // has no workoutId, so it stays a free run that simply happens to be audio-guided.
-    if (!RunRecorder.start(workoutId ?: session?.workoutId)) {
+    if (!RunRecorder.start(workoutId ?: session?.workoutId, sport = RunSettings.lastSport)) {
         // A recording already exists (this screen was reached by deep link or a stale back stack).
         // Do not touch the live run's settings or restart the service — just land on it.
         onStarted()
@@ -749,6 +753,51 @@ private fun CueIntervalPicker() {
                         }
                         .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
                 )
+            }
+        }
+    }
+}
+
+/** Run · Walk · Trail · Ride, in the same pill row as the workout types; persisted last choice. */
+@Composable
+private fun SportPicker() {
+    var selected by remember { mutableStateOf(RunSettings.lastSport) }
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+        Text(
+            text = stringResource(R.string.runs_sport),
+            style = MaterialTheme.typography.titleSmall,
+            color = zidRunOnDarkColors().textMuted,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+        ) {
+            dz.racedz.nativeapp.core.design.RunSport.entries.forEach { sport ->
+                val isSelected = sport.code == selected
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                        .background(if (isSelected) zidRunOnDarkColors().primary else zidRunOnDarkColors().surface)
+                        .selectable(selected = isSelected, role = Role.RadioButton) {
+                            selected = sport.code
+                            RunSettings.lastSport = sport.code
+                        }
+                        .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                ) {
+                    Icon(
+                        sport.icon,
+                        contentDescription = null,
+                        tint = if (isSelected) zidRunOnDarkColors().onPrimary else zidRunOnDarkColors().textMuted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(ZidRunDimens.spaceXs))
+                    Text(
+                        text = stringResource(sport.labelRes),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isSelected) zidRunOnDarkColors().onPrimary else zidRunOnDarkColors().textStrong,
+                    )
+                }
             }
         }
     }
