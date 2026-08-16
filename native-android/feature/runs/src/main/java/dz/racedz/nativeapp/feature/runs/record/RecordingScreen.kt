@@ -451,9 +451,14 @@ fun RecordingScreen(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Live cadence over the last ~20 s (NATRUN-06.6, owner decision: never the delayed
+            // whole-run average). "—" until enough steps, while stopped, or with no step counter;
+            // TalkBack learns that on focus, not from a repeated announcement.
+            val cadence = state.liveCadenceSpm
             SmallStat(
-                label = stringResource(R.string.runs_moving_time),
-                value = ZidRunFormat.duration(state.movingSeconds),
+                label = stringResource(R.string.runs_cadence),
+                value = cadence?.let { ZidRunFormat.count(it, locale) } ?: "—",
+                a11y = if (cadence != null) null else stringResource(R.string.runs_cadence_unavailable),
                 modifier = Modifier.weight(1f),
             )
             StatHairline()
@@ -707,9 +712,9 @@ private fun StatusHeader(state: RecordingState) {
 }
 
 @Composable
-private fun SmallStat(label: String, value: String, modifier: Modifier = Modifier) {
+private fun SmallStat(label: String, value: String, modifier: Modifier = Modifier, a11y: String? = null) {
     Column(
-        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = "$label $value" },
+        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = a11y ?: "$label $value" },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(value, style = MaterialTheme.typography.titleMedium, color = zidRunOnDarkColors().textStrong)

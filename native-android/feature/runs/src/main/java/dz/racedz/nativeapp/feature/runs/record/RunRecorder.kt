@@ -53,6 +53,11 @@ data class RecordingState(
      * unknown, so the live map draws a dot rather than an arrow pointing somewhere random.
      */
     val headingDegrees: Float? = null,
+    /**
+     * Cadence right now, over the last ~20 s of steps (NATRUN-06.6); null until enough steps exist,
+     * while stopped, or on devices with no step counter. The whole-run [avgCadenceSpm] is separate.
+     */
+    val liveCadenceSpm: Int? = null,
     /** Manual lap boundaries pressed so far, from the start of the run (NATRUN-06.5). */
     val laps: List<dz.racedz.nativeapp.core.network.LapMarkDto> = emptyList(),
 ) {
@@ -284,6 +289,7 @@ object RunRecorder {
     /** Seconds of consecutive usable-but-stationary fixes; drives the stationary auto-pause. */
     private var stationarySeconds: Double = 0.0
     private val paceWindow = PaceWindow()
+    private val cadenceWindow = CadenceWindow()
     private val route = mutableListOf<RoutePointDto>()
 
     /**
@@ -337,6 +343,7 @@ object RunRecorder {
         highSpeedSeconds = 0.0
         stationarySeconds = 0.0
         paceWindow.clear()
+        cadenceWindow.clear()
         recordedSteps = 0
         lastStepCounter = -1
         coachInteractionIds.clear()
@@ -352,14 +359,14 @@ object RunRecorder {
     fun pause() {
         if (_state.value.status != RecordingStatus.Recording && _state.value.status != RecordingStatus.Acquiring) return
         pauseStartedMs = System.currentTimeMillis()
-        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = null, currentPaceSecondsPerKm = null, headingDegrees = null) }
+        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = null, currentPaceSecondsPerKm = null, headingDegrees = null, liveCadenceSpm = null) }
         snapshot(force = true)
     }
 
     private fun autoPause(reason: AutoPauseReason) {
         pauseStartedMs = System.currentTimeMillis()
         stationarySeconds = 0.0
-        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = reason, currentPaceSecondsPerKm = null, headingDegrees = null) }
+        _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = reason, currentPaceSecondsPerKm = null, headingDegrees = null, liveCadenceSpm = null) }
         snapshot(force = true)
     }
 
@@ -373,6 +380,7 @@ object RunRecorder {
         highSpeedSeconds = 0.0
         stationarySeconds = 0.0
         paceWindow.clear()
+        cadenceWindow.clear()
         // Re-baseline the step counter so steps taken during the pause are not counted on resume.
         lastStepCounter = -1
         _state.update { it.copy(status = RecordingStatus.Recording, autoPauseReason = null) }
@@ -400,6 +408,7 @@ object RunRecorder {
         lastSnapshotMs = 0L
         stationarySeconds = 0.0
         paceWindow.clear()
+        cadenceWindow.clear()
         recordedSteps = 0
         lastStepCounter = -1
         coachInteractionIds.clear()
@@ -499,8 +508,10 @@ object RunRecorder {
         if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) return
         // The pace reading expires with the window, not with the next fix — a runner who stopped
         // under a bridge should watch it go to "—", not keep reading their last stride.
-        val pace = paceWindow.paceSecondsPerKm(System.currentTimeMillis())
-        _state.update { it.copy(elapsedSeconds = elapsedSeconds(), currentPaceSecondsPerKm = pace) }
+        val now = System.currentTimeMillis()
+        val pace = paceWindow.paceSecondsPerKm(now)
+        val cadence = cadenceWindow.cadenceSpm(now)
+        _state.update { it.copy(elapsedSeconds = elapsedSeconds(), currentPaceSecondsPerKm = pace, liveCadenceSpm = cadence) }
     }
 
     /**
@@ -521,7 +532,9 @@ object RunRecorder {
             recordedSteps += cumulativeSinceBoot - lastStepCounter
         }
         lastStepCounter = cumulativeSinceBoot
-        _state.update { it.copy(stepCount = recordedSteps) }
+        val now = System.currentTimeMillis()
+        cadenceWindow.add(now, recordedSteps)
+        _state.update { it.copy(stepCount = recordedSteps, liveCadenceSpm = cadenceWindow.cadenceSpm(now)) }
     }
 
     /**
