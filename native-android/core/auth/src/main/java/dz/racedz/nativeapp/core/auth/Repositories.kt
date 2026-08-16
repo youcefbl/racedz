@@ -276,7 +276,8 @@ class RunsRepository(private val api: ZidRunApi, private val client: ApiClient) 
         }
     }
 
-    suspend fun detail(id: String): ApiResult<RunDetailDto> = client.call { api.run(id) }
+    /** [unit] "mi" for per-mile splits; null/"km" for kilometres. */
+    suspend fun detail(id: String, unit: String? = null): ApiResult<RunDetailDto> = client.call { api.run(id, unit) }
 
     /** Today's guided session: warm-up, work, cool-down, built server-side. */
     suspend fun guidedSession(): ApiResult<GuidedSessionDto> = client.call { api.guidedSession() }

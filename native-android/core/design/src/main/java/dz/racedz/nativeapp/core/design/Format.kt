@@ -130,10 +130,24 @@ object ZidRunFormat {
      * value looks like a ratio of the wrong quantities. The isolate pins the whole token to LTR
      * without affecting the sentence around it, and is invisible in LTR locales.
      */
-    fun pace(secondsPerKm: Int): String {
+    /**
+     * "5:30/km", or "8:51/mi" for an account set to miles (NATRUN-06.8). The input is always seconds
+     * per kilometre — the unit the recorder measures and the server stores — and only the display
+     * converts, so no call site has to know which unit is active.
+     */
+    fun pace(secondsPerKm: Int, unit: DistanceUnit = ZidRunUnits.current): String {
         if (secondsPerKm <= 0) return "—"
-        return ltr(String.format(Locale.ROOT, "%d:%02d/km", secondsPerKm / 60, secondsPerKm % 60))
+        val perUnit = ZidRunUnits.paceFromPerKm(secondsPerKm, unit)
+        return ltr(String.format(Locale.ROOT, "%d:%02d/%s", perUnit / 60, perUnit % 60, unit.code))
     }
+
+    /** "5.72" in the current unit from a metric value: the number only, for a separate unit label. */
+    fun distanceValue(km: Double, locale: Locale, digits: Int = 2, unit: DistanceUnit = ZidRunUnits.current): String =
+        String.format(locale, "%.${digits}f", ZidRunUnits.fromKm(km, unit))
+
+    /** "5.7 km" / "3.6 mi": digits LTR-isolated, [unitLabel] laid out by the paragraph. */
+    fun distanceWithUnit(km: Double, locale: Locale, unitLabel: String, digits: Int = 1, unit: DistanceUnit = ZidRunUnits.current): String =
+        ltr(String.format(locale, "%.${digits}f", ZidRunUnits.fromKm(km, unit))) + "\u00A0" + unitLabel
 
     /**
      * Wraps text whose language is not necessarily the UI's in a *first-strong* isolate.

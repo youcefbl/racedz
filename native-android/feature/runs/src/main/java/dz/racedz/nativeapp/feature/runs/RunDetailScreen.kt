@@ -64,6 +64,7 @@ import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.distanceUnitLabel
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunSectionHeader
@@ -238,8 +239,8 @@ fun RunDetailScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         HeadlineStat(
-                            value = ZidRunFormat.decimal(run.distanceKm, locale),
-                            label = stringResource(R.string.runs_unit_km),
+                            value = ZidRunFormat.distanceValue(run.distanceKm, locale),
+                            label = distanceUnitLabel(),
                             modifier = Modifier.weight(1f),
                         )
                         StatDivider()
@@ -288,7 +289,10 @@ fun RunDetailScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 Text(
-                                    stringResource(R.string.runs_split_km),
+                                    stringResource(
+                                        if (dz.racedz.nativeapp.core.design.ZidRunUnits.current == dz.racedz.nativeapp.core.design.DistanceUnit.MI) R.string.runs_split_mi
+                                        else R.string.runs_split_km
+                                    ),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = colors.textMuted,
                                     modifier = Modifier.width(40.dp),
@@ -443,7 +447,7 @@ fun RunDetailScreen(
                                 // title names the series, so colour never carries identity alone.
                                 color = colors.info,
                                 yLabel = { "${it.toInt()} m" },
-                                xMax = run.distanceKm,
+                                xMax = dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(run.distanceKm),
                             )
                         }
                     }
@@ -467,7 +471,7 @@ fun RunDetailScreen(
                                 color = colors.primary,
                                 invert = true,
                                 yLabel = { ZidRunFormat.pace(it.toInt()) },
-                                xMax = run.distanceKm,
+                                xMax = dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(run.distanceKm),
                                 averageValue = run.averagePaceSecondsPerKm.toDouble(),
                             )
                         }
@@ -1039,7 +1043,10 @@ private fun SplitRow(
     val fraction = (fastestPace.toFloat() / split.paceSecondsPerKm.toFloat()).coerceIn(0.25f, 1f)
     // The fastest full kilometre wears the accent; its delta column carries the same fact in
     // text, so the colour is emphasis, never the only signal.
-    val isFastest = split.paceSecondsPerKm == fastestPace && split.meters >= 995
+    // A "full" split is one whole unit (km or mile, per the account) less half a percent of slack.
+    val unitMeters = dz.racedz.nativeapp.core.design.ZidRunUnits.current.meters
+    val isFull = split.meters >= unitMeters * 0.995
+    val isFastest = split.paceSecondsPerKm == fastestPace && isFull
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1052,8 +1059,8 @@ private fun SplitRow(
         Text(
             // Whole kilometres by index; the final partial split is labelled by its real distance
             // so "5.35" is not mistaken for a sixth full kilometre.
-            text = if (split.meters >= 995) split.index.toString()
-                else String.format(locale, "%.2f", (split.index - 1) + split.meters / 1000.0),
+            text = if (isFull) split.index.toString()
+                else String.format(locale, "%.2f", (split.index - 1) + split.meters / unitMeters),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.text,
             modifier = Modifier.width(40.dp),
@@ -1118,6 +1125,7 @@ private fun ChartWithAxes(
 ) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
+    val unitLabel = distanceUnitLabel()
     if (values.size < 2) return
 
     val min = values.min()
@@ -1223,7 +1231,7 @@ private fun ChartWithAxes(
                 var lastEnd = -Float.MAX_VALUE
                 marks.forEach { mark ->
                     val label = if (mark == 0.0) {
-                        "0 km"
+                        "0 $unitLabel"
                     } else if (mark == xMax && xMax != xMax.toInt().toDouble()) {
                         ZidRunFormat.decimal(mark, locale)
                     } else {

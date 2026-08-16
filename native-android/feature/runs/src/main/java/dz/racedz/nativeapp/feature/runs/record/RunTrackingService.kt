@@ -250,10 +250,16 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
 
     private fun notificationText(): String {
         val state = RunRecorder.state.value
-        val distance = String.format("%.2f", state.distanceKm)
+        // In the account's unit (NATRUN-06.8), like every other place the distance is shown.
+        val distance = String.format("%.2f", dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(state.distanceKm))
         val minutes = state.elapsedSeconds / 60
         val seconds = state.elapsedSeconds % 60
-        val body = getString(R.string.runs_notification_body, distance, String.format("%d:%02d", minutes, seconds))
+        val body = getString(
+            R.string.runs_notification_body,
+            distance,
+            String.format("%d:%02d", minutes, seconds),
+            dz.racedz.nativeapp.core.design.ZidRunUnits.label(this),
+        )
         // The paused state is part of the text on purpose: it is what flips the action button, and
         // keying the re-post on the text keeps the "only when changed" rule in one place.
         return if (state.status == RecordingStatus.Paused) "$body · ${getString(R.string.runs_paused)}" else body

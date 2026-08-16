@@ -218,7 +218,7 @@ export type MeDto = {
   profileComplete: boolean;
   emailVerified: boolean;
   mfaEnabled: boolean;
-  preferences: { language: string | null; theme: string | null; profilePrivate: boolean };
+  preferences: { language: string | null; theme: string | null; profilePrivate: boolean; distanceUnit: "km" | "mi" };
 };
 
 export function toMeDto(user: {
@@ -238,6 +238,7 @@ export function toMeDto(user: {
   language: string | null;
   theme: string | null;
   profilePrivate: boolean;
+  distanceUnit?: string | null;
 }): MeDto {
   return {
     id: user.id,
@@ -265,7 +266,12 @@ export function toMeDto(user: {
     city: user.city,
     emailVerified: Boolean(user.emailVerifiedAt),
     mfaEnabled: user.mfaEnabled,
-    preferences: { language: user.language, theme: user.theme, profilePrivate: user.profilePrivate }
+    preferences: {
+      language: user.language,
+      theme: user.theme,
+      profilePrivate: user.profilePrivate,
+      distanceUnit: user.distanceUnit === "mi" ? "mi" : "km"
+    }
   };
 }
 

@@ -52,6 +52,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunDisplayTitle
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.distanceUnitLabel
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunSearchField
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
@@ -162,7 +163,7 @@ fun RunHistoryScreen(
                             text = stringResource(
                                 R.string.runs_summary,
                                 visible.size,
-                                ZidRunFormat.decimal(state.visibleDistanceKm, locale),
+                                ZidRunFormat.distanceValue(state.visibleDistanceKm, locale),
                             ),
                             style = MaterialTheme.typography.titleSmall,
                             color = colors.textMuted,
@@ -197,11 +198,12 @@ private fun RunRow(run: RunDto, onClick: () -> Unit) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
     val dateLabel = ZidRunFormat.date(run.startedAt, locale)
+    val unitLabel = distanceUnitLabel()
 
     ZidRunCard(
         onClick = onClick,
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "${run.title ?: dateLabel}, ${ZidRunFormat.decimal(run.distanceKm, locale)} km"
+            contentDescription = "${run.title ?: dateLabel}, ${ZidRunFormat.distanceValue(run.distanceKm, locale)} $unitLabel"
         },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -241,7 +243,7 @@ private fun RunRow(run: RunDto, onClick: () -> Unit) {
                 ) {
                     RowStat(
                         Icons.Filled.Straighten,
-                        "${ZidRunFormat.decimal(run.distanceKm, locale)} ${stringResource(R.string.runs_unit_km)}",
+                        "${ZidRunFormat.distanceValue(run.distanceKm, locale)} $unitLabel",
                         Modifier.weight(1f),
                     )
                     RowDivider()

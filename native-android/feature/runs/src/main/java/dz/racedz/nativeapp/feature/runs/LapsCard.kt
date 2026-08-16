@@ -20,6 +20,7 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.distanceUnitLabel
 import dz.racedz.nativeapp.core.design.ZidRunSectionHeader
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import java.util.Locale
@@ -35,7 +36,7 @@ data class LapRow(val index: Int, val meters: Double, val seconds: Int, val pace
 fun LapsCard(laps: List<LapRow>, locale: Locale, modifier: Modifier = Modifier) {
     if (laps.isEmpty()) return
     val colors = ZidRunTheme.colors
-    val unit = stringResource(R.string.runs_unit_km)
+    val unit = distanceUnitLabel()
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
         ZidRunSectionHeader(title = stringResource(R.string.runs_laps) + " · " + stringResource(R.string.runs_laps_manual))
         ZidRunCard {

@@ -88,6 +88,8 @@ class AccountViewModel(
                     // the OS locale is authoritative once set, and re-applying it would restart
                     // the Activity on every profile load.
                     applyAppearance(profile.value.preferences.theme, null)
+                    dz.racedz.nativeapp.core.design.ZidRunUnits.current =
+                        dz.racedz.nativeapp.core.design.DistanceUnit.fromCode(profile.value.preferences.distanceUnit)
                     loadRegistrations()
                     // Separate and non-blocking: a coach outage must not stop the Account screen
                     // from rendering the profile that already arrived.
@@ -137,6 +139,12 @@ class AccountViewModel(
 
     fun setProfilePrivate(private: Boolean, savedMessage: String) =
         savePreferences(PreferencesRequest(profilePrivate = private), savedMessage)
+
+    /** "km" or "mi" (NATRUN-06.8): applied at once for every distance on screen, then synced. */
+    fun setDistanceUnit(unit: String, savedMessage: String) {
+        dz.racedz.nativeapp.core.design.ZidRunUnits.current = dz.racedz.nativeapp.core.design.DistanceUnit.fromCode(unit)
+        savePreferences(PreferencesRequest(distanceUnit = unit), savedMessage)
+    }
 
     private fun savePreferences(request: PreferencesRequest, savedMessage: String) {
         // Apply locally first so the switch/theme responds instantly; a failed save surfaces as an

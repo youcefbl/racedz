@@ -17,7 +17,7 @@ class AutoPauseRulesTest {
     fun tearDown() {
         GpsQuality.trustDisplacementWhenSpeedIsZero = false
         RunSettings.autoPauseEnabled = true
-        RunSettings.cueInterval = RunSettings.CueInterval.OneKm
+        RunSettings.cueInterval = RunSettings.CueInterval.One
     }
 
     @Test
@@ -52,15 +52,15 @@ class AutoPauseRulesTest {
     @Test
     fun `settings default on and one kilometre, and remember a change without prefs`() {
         assertTrue(RunSettings.autoPauseEnabled)
-        assertEquals(RunSettings.CueInterval.OneKm, RunSettings.cueInterval)
+        assertEquals(RunSettings.CueInterval.One, RunSettings.cueInterval)
         RunSettings.autoPauseEnabled = false
-        RunSettings.cueInterval = RunSettings.CueInterval.HalfKm
+        RunSettings.cueInterval = RunSettings.CueInterval.Half
         assertFalse(RunSettings.autoPauseEnabled)
-        assertEquals(500, RunSettings.cueInterval.meters)
+        assertEquals(500.0, RunSettings.cueInterval.meters, 0.0)
     }
 
     @Test
     fun `an unknown stored interval falls back to one kilometre`() {
-        assertEquals(RunSettings.CueInterval.OneKm, RunSettings.CueInterval.fromMeters(750))
+        assertEquals(RunSettings.CueInterval.One, RunSettings.CueInterval.fromMeters(750))
     }
 }

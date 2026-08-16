@@ -728,15 +728,13 @@ private fun CueIntervalPicker() {
         ) {
             RunSettings.CueInterval.entries.forEach { interval ->
                 val isSelected = interval == selected
-                val label = if (interval.meters == 0) {
+                // "0.5 km" / "1 mi": the interval is a multiple of the account's unit.
+                val unitLabel = dz.racedz.nativeapp.core.design.distanceUnitLabel()
+                val label = if (interval.units == 0.0) {
                     stringResource(R.string.runs_cue_interval_off)
                 } else {
-                    val km = interval.meters / 1000.0
-                    stringResource(
-                        R.string.runs_cue_interval_value,
-                        if (interval.meters % 1000 == 0) ZidRunFormat.count(interval.meters / 1000, locale)
-                        else ZidRunFormat.decimal(km, locale, digits = 1),
-                    )
+                    (if (interval.units % 1.0 == 0.0) ZidRunFormat.count(interval.units.toInt(), locale)
+                    else ZidRunFormat.decimal(interval.units, locale, digits = 1)) + "\u00A0" + unitLabel
                 }
                 Text(
                     text = label,

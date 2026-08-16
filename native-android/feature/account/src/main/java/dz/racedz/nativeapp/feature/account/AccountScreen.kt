@@ -205,8 +205,8 @@ fun AccountScreen(
                                     // One decimal, not a truncated integer: 64.2 km was rendering as "64 km".
                                     // money() is an INTEGER formatter — right for dinars, wrong for
                                     // a distance, where it silently discards the fraction.
-                                    value = ZidRunFormat.decimal(user.season.totalDistanceKm, locale, digits = 1),
-                                    label = stringResource(R.string.account_stat_km),
+                                    value = ZidRunFormat.distanceValue(user.season.totalDistanceKm, locale, digits = 1),
+                                    label = dz.racedz.nativeapp.core.design.distanceUnitLabel(),
                                     modifier = Modifier.weight(1f),
                                 )
                                 StatSeparator()
@@ -420,6 +420,31 @@ fun AccountScreen(
                                     )
                                 }
                             }
+
+                            // Distance unit (NATRUN-06.8): an account preference like the two above,
+                            // so it follows the runner across devices and cannot outlive a sign-out.
+                            ZidRunLabel(stringResource(R.string.account_units))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+                            ) {
+                                val selectedUnit = dz.racedz.nativeapp.core.design.ZidRunUnits.current.code
+                                listOf(
+                                    "km" to stringResource(R.string.account_units_km),
+                                    "mi" to stringResource(R.string.account_units_mi),
+                                ).forEach { (value, label) ->
+                                    ZidRunChoiceChip(
+                                        label = label,
+                                        selected = selectedUnit == value,
+                                        onClick = { viewModel.setDistanceUnit(value, savedMessage) },
+                                    )
+                                }
+                            }
+                            Text(
+                                stringResource(R.string.account_units_help),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ZidRunTheme.colors.textMuted,
+                            )
                         }
                     }
 

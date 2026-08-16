@@ -75,18 +75,26 @@ import dz.racedz.nativeapp.core.design.currentLocale
  */
 private fun progressCue(
     context: android.content.Context,
-    distanceMeters: Int,
+    distanceMeters: Double,
     elapsedSeconds: Int,
     intervalPaceSecondsPerKm: Int?,
     locale: java.util.Locale,
 ): String {
-    val km = if (distanceMeters % 1000 == 0) {
-        ZidRunFormat.count(distanceMeters / 1000, locale)
+    // In the account's unit (NATRUN-06.8): whole values read as a count, halves with one decimal.
+    val units = distanceMeters / dz.racedz.nativeapp.core.design.ZidRunUnits.current.meters
+    val value = if (units % 1.0 == 0.0) {
+        ZidRunFormat.count(units.toInt(), locale)
     } else {
-        ZidRunFormat.decimal(distanceMeters / 1000.0, locale, digits = 1)
+        ZidRunFormat.decimal(units, locale, digits = 1)
     }
     val pace = intervalPaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—"
-    return context.getString(R.string.runs_cue_progress, km, ZidRunFormat.duration(elapsedSeconds), pace)
+    return context.getString(
+        R.string.runs_cue_progress,
+        value,
+        ZidRunFormat.duration(elapsedSeconds),
+        pace,
+        dz.racedz.nativeapp.core.design.ZidRunUnits.spokenLabel(context),
+    )
 }
 
 /**
@@ -339,7 +347,7 @@ fun RecordingScreen(
                 Text(
                     stringResource(
                         R.string.runs_finish_confirm_body,
-                        ZidRunFormat.decimal(state.distanceKm, locale),
+                        ZidRunFormat.distanceWithUnit(state.distanceKm, locale, dz.racedz.nativeapp.core.design.ZidRunUnits.label(context), digits = 2),
                         ZidRunFormat.duration(state.elapsedSeconds),
                     ),
                     color = zidRunOnDarkColors().text,
@@ -354,8 +362,9 @@ fun RecordingScreen(
                     voice?.sayCue(
                         context.getString(
                             R.string.runs_cue_finished,
-                            ZidRunFormat.decimal(finished.distanceKm, locale),
+                            ZidRunFormat.distanceValue(finished.distanceKm, locale),
                             ZidRunFormat.duration(finished.elapsedSeconds),
+                            dz.racedz.nativeapp.core.design.ZidRunUnits.spokenLabel(context),
                         )
                     )
                     onFinished()
@@ -404,13 +413,13 @@ fun RecordingScreen(
 
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = ZidRunFormat.decimal(state.distanceKm, locale),
+                text = ZidRunFormat.distanceValue(state.distanceKm, locale),
                 style = MaterialTheme.typography.displayLarge,
                 color = zidRunOnDarkColors().textStrong,
             )
             Spacer(Modifier.width(ZidRunDimens.spaceXs))
             Text(
-                text = stringResource(R.string.runs_unit_km),
+                text = dz.racedz.nativeapp.core.design.distanceUnitLabel(),
                 style = MaterialTheme.typography.headlineSmall,
                 color = zidRunOnDarkColors().textMuted,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -503,7 +512,7 @@ fun RecordingScreen(
                             },
                     ) {
                         Text(
-                            "${stringResource(R.string.runs_split_km)} ${split.km}",
+                            "${stringResource(if (dz.racedz.nativeapp.core.design.ZidRunUnits.current == dz.racedz.nativeapp.core.design.DistanceUnit.MI) R.string.runs_split_mi else R.string.runs_split_km)} ${split.km}",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isFastest) zidRunOnDarkColors().primary else zidRunOnDarkColors().textMuted,
                         )

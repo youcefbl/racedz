@@ -275,6 +275,14 @@
     <string name="runs_empty_title">No runs yet</string>
     <string name="runs_empty_body">Record your first run and it will show up here.</string>
     <string name="runs_untitled">Run</string>
+    <string name="runs_unit_mi">mi</string>
+    <string name="runs_unit_km_spoken">kilometres</string>
+    <string name="runs_unit_mi_spoken">miles</string>
+    <string name="runs_split_mi">MI</string>
+    <string name="account_units">Distance unit</string>
+    <string name="account_units_help">Kilometres are the default in Algeria. Your choice follows your account.</string>
+    <string name="account_units_km">Kilometres</string>
+    <string name="account_units_mi">Miles</string>
     <string name="runs_unit_km">km</string>
     <string name="runs_unit_runs">runs</string>
     <string name="runs_this_week">This week</string>
@@ -405,7 +413,7 @@
     <string name="runs_elevation_gain_value">Gain %1$d m</string>
     <string name="runs_notification_channel">Run recording</string>
     <string name="runs_notification_title">Recording your run</string>
-    <string name="runs_notification_body">%1$s km · %2$s</string>
+    <string name="runs_notification_body">%1$s %3$s · %2$s</string>
     <string name="runs_ready_title">Ready when you are</string>
     <string name="runs_ready_gps">GPS ready</string>
     <string name="runs_weather_temp">%1$s°</string>
@@ -451,7 +459,7 @@
     <string name="runs_cadence_unavailable">Cadence not available yet</string>
     <string name="runs_gps_searching">Searching</string>
     <string name="runs_finish_confirm_title">Finish this run?</string>
-    <string name="runs_finish_confirm_body">%1$s km in %2$s. You can add a title and notes next.</string>
+    <string name="runs_finish_confirm_body">%1$s in %2$s. You can add a title and notes next.</string>
     <string name="runs_keep_running">Keep running</string>
     <string name="runs_recording_banner">Recording · %1$s km</string>
     <string name="runs_open_recording">Open</string>
@@ -502,8 +510,8 @@
     <string name="runs_cue_interval_value">%1$s km</string>
     <string name="runs_cue_paused">Paused</string>
     <string name="runs_cue_resumed">Resumed</string>
-    <string name="runs_cue_finished">Run finished. %1$s kilometres in %2$s.</string>
-    <string name="runs_cue_progress">%1$s kilometres. Time %2$s. Pace %3$s.</string>
+    <string name="runs_cue_finished">Run finished. %1$s %3$s in %2$s.</string>
+    <string name="runs_cue_progress">%1$s %4$s. Time %2$s. Pace %3$s.</string>
     <string name="runs_cue_started">Recording started</string>
     <string name="runs_cue_km">Kilometre %1$d. Pace %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
@@ -801,7 +809,7 @@
     <string name="runs_manual_datetime_label">Date and time</string>
     <string name="runs_manual_change_date">Change date</string>
     <string name="runs_manual_change_time">Change time</string>
-    <string name="runs_manual_distance_label">Distance (km)</string>
+    <string name="runs_manual_distance_label">Distance (%1$s)</string>
     <string name="runs_manual_minutes_label">Minutes</string>
     <string name="runs_manual_seconds_label">Seconds</string>
     <string name="runs_manual_error_distance">Distance must be between 0.1 and 500 km.</string>

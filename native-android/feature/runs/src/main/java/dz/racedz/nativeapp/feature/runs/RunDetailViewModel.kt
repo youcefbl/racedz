@@ -61,7 +61,10 @@ class RunDetailViewModel(
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            when (val result = repository.detail(runId)) {
+            // Splits arrive per the account's unit (NATRUN-06.8); everything else stays metric and is
+            // converted for display only.
+            val unit = dz.racedz.nativeapp.core.design.ZidRunUnits.current.code
+            when (val result = repository.detail(runId, unit)) {
                 is ApiResult.Success -> _state.update { it.copy(run = result.value, loading = false, error = null) }
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
             }

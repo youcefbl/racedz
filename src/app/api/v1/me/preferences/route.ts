@@ -17,7 +17,7 @@ export const PATCH = withApi(async (request) => {
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many updates. Try again shortly."));
 
   const body = (await readJsonBody(request)) as Record<string, unknown>;
-  const data: { language?: string; theme?: string; profilePrivate?: boolean } = {};
+  const data: { language?: string; theme?: string; profilePrivate?: boolean; distanceUnit?: string } = {};
 
   if (body.language !== undefined) {
     const language = normalizeLocale(body.language);
@@ -36,6 +36,15 @@ export const PATCH = withApi(async (request) => {
     data.profilePrivate = body.profilePrivate;
   }
 
+  // Distance unit (NATRUN-06.8): "km" or "mi"; stored on the account so it follows the runner across
+  // devices and never leaks across an account switch on a shared phone. Null/absent means km.
+  if (body.distanceUnit !== undefined) {
+    if (body.distanceUnit !== "km" && body.distanceUnit !== "mi") {
+      throw new ApiError("VALIDATION_FAILED", "distanceUnit must be km or mi.");
+    }
+    data.distanceUnit = body.distanceUnit;
+  }
+
   if (Object.keys(data).length === 0) {
     throw new ApiError("BAD_REQUEST", "No preference was supplied.");
   }
@@ -43,8 +52,8 @@ export const PATCH = withApi(async (request) => {
   const user = await getPrisma().user.update({
     where: { id: viewer.id },
     data,
-    select: { language: true, theme: true, profilePrivate: true }
+    select: { language: true, theme: true, profilePrivate: true, distanceUnit: true }
   });
 
-  return apiOk(request, user);
+  return apiOk(request, { ...user, distanceUnit: user.distanceUnit === "mi" ? "mi" : "km" });
 });

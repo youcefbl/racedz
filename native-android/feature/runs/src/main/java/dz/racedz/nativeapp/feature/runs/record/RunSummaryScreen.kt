@@ -43,6 +43,7 @@ import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunEffortSlider
 import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.distanceUnitLabel
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunTextField
@@ -149,8 +150,8 @@ fun RunSummaryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SummaryStat(
-                        value = ZidRunFormat.decimal(state.distanceKm, locale),
-                        label = stringResource(R.string.runs_unit_km),
+                        value = ZidRunFormat.distanceValue(state.distanceKm, locale),
+                        label = distanceUnitLabel(),
                         modifier = Modifier.weight(1f),
                     )
                     Hairline()

@@ -76,7 +76,8 @@ export const POST = withApi(async (request) => {
       mfaEnabled: true,
       language: true,
       theme: true,
-      profilePrivate: true
+      profilePrivate: true,
+      distanceUnit: true
     }
   });
 

@@ -29,6 +29,8 @@ data class UserPreferencesDto(
     val language: String? = null,
     val theme: String? = null,
     val profilePrivate: Boolean = false,
+    /** "km" or "mi"; absent on older servers means km (NATRUN-06.8). */
+    val distanceUnit: String? = null,
 )
 
 @Serializable
@@ -284,6 +286,7 @@ data class PreferencesRequest(
     val language: String? = null,
     val theme: String? = null,
     val profilePrivate: Boolean? = null,
+    val distanceUnit: String? = null,
 )
 
 @Serializable

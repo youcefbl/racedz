@@ -77,8 +77,9 @@ interface ZidRunApi {
     ): Response<ApiEnvelope<List<RunDto>>>
 
     /** The only endpoint that returns route points. */
+    /** [unit] "mi" asks for splits per mile (NATRUN-06.8); the stored data is metric either way. */
     @GET("api/v1/runs/{id}")
-    suspend fun run(@Path("id") id: String): Response<ApiEnvelope<RunDetailDto>>
+    suspend fun run(@Path("id") id: String, @Query("unit") unit: String? = null): Response<ApiEnvelope<RunDetailDto>>
 
     /**
      * One run as a .gpx document, for the system share sheet.

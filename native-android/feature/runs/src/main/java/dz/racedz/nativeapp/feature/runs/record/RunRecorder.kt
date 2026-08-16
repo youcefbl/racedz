@@ -118,16 +118,19 @@ data class RecordingState(
         }
 
     /**
-     * Completed kilometre splits, so the runner can see the last km's pace while still running.
-     * Derived from the route's own timestamps, interpolating the boundary crossing.
+     * Completed splits — one per kilometre, or per mile for an account set to miles (NATRUN-06.8) —
+     * so the runner can see the last one's pace while still running. Derived from the route's own
+     * timestamps, interpolating the boundary crossing. [LiveSplit.paceSecondsPerKm] stays per km
+     * whatever the split length; display converts.
      */
     val splits: List<LiveSplit>
         get() {
             if (route.size < 2) return emptyList()
+            val unitMeters = dz.racedz.nativeapp.core.design.ZidRunUnits.current.meters
             val out = mutableListOf<LiveSplit>()
             var kmStartMs = route.first().t ?: return emptyList()
             var travelled = 0.0
-            var boundary = 1000.0
+            var boundary = unitMeters
             var index = 1
             for (i in 1 until route.size) {
                 val a = route[i - 1]
@@ -142,9 +145,10 @@ data class RecordingState(
                     val fraction = (boundary - segmentStart) / segment
                     val crossedMs = aMs + ((bMs - aMs) * fraction).toLong()
                     val seconds = ((crossedMs - kmStartMs) / 1000L).toInt()
-                    if (seconds > 0) out += LiveSplit(index, seconds)
+                    // Pace stays per kilometre whatever the split length.
+                    if (seconds > 0) out += LiveSplit(index, (seconds * 1000.0 / unitMeters).toInt())
                     kmStartMs = crossedMs
-                    boundary += 1000.0
+                    boundary += unitMeters
                     index += 1
                 }
             }
@@ -154,7 +158,7 @@ data class RecordingState(
 
 enum class GpsStrength { Unknown, None, Weak, Good, Strong }
 
-/** A completed kilometre during the run in progress. */
+/** A completed split (km or mile, per the account's unit) during the run in progress; pace is per km. */
 data class LiveSplit(val km: Int, val paceSecondsPerKm: Int)
 
 /**

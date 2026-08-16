@@ -24,7 +24,8 @@ const meSelect = {
   mfaEnabled: true,
   language: true,
   theme: true,
-  profilePrivate: true
+  profilePrivate: true,
+  distanceUnit: true
 } as const;
 
 /** The signed-in runner's own profile, plus the season counters the Account screen shows. */

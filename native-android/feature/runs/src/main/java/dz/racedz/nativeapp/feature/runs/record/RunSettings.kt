@@ -23,15 +23,24 @@ object RunSettings {
     private const val KEY_CUE_INTERVAL_M = "cue_interval_m"
     private const val KEY_COUNTDOWN = "countdown"
 
-    /** Distance between spoken progress cues, in metres. Also the sole source of the choices offered. */
-    enum class CueInterval(val meters: Int) {
-        Off(0),
-        HalfKm(500),
-        OneKm(1_000),
-        TwoKm(2_000);
+    /**
+     * Distance between spoken progress cues, as a multiple of the account's distance unit (0.5 / 1 /
+     * 2 km, or 0.5 / 1 / 2 mi for an account set to miles — NATRUN-06.8). Persisted by its stored
+     * key, so a runner who switches unit keeps "every 1" and simply hears it per mile.
+     */
+    enum class CueInterval(val units: Double, private val storedKey: Int) {
+        Off(0.0, 0),
+        Half(0.5, 500),
+        One(1.0, 1_000),
+        Two(2.0, 2_000);
+
+        /** Metres between cues under the current unit; 0 when off. */
+        val meters: Double get() = units * dz.racedz.nativeapp.core.design.ZidRunUnits.current.meters
+
+        internal val stored: Int get() = storedKey
 
         companion object {
-            fun fromMeters(meters: Int): CueInterval = entries.firstOrNull { it.meters == meters } ?: OneKm
+            fun fromMeters(meters: Int): CueInterval = entries.firstOrNull { it.storedKey == meters } ?: One
         }
     }
 
@@ -45,7 +54,7 @@ object RunSettings {
 
     // In-memory fallbacks for when no prefs are attached (unit tests, previews).
     private var autoPauseFallback = true
-    private var cueIntervalFallback = CueInterval.OneKm
+    private var cueIntervalFallback = CueInterval.One
     private var countdownFallback = false
 
     /** Pause the clock automatically while the runner is standing still (traffic light, a stop). */
@@ -65,10 +74,10 @@ object RunSettings {
         }
 
     var cueInterval: CueInterval
-        get() = prefs?.let { CueInterval.fromMeters(it.getInt(KEY_CUE_INTERVAL_M, CueInterval.OneKm.meters)) }
+        get() = prefs?.let { CueInterval.fromMeters(it.getInt(KEY_CUE_INTERVAL_M, CueInterval.One.stored)) }
             ?: cueIntervalFallback
         set(value) {
             cueIntervalFallback = value
-            prefs?.edit()?.putInt(KEY_CUE_INTERVAL_M, value.meters)?.apply()
+            prefs?.edit()?.putInt(KEY_CUE_INTERVAL_M, value.stored)?.apply()
         }
 }

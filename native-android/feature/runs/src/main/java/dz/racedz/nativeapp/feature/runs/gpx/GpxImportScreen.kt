@@ -37,6 +37,7 @@ import dz.racedz.nativeapp.core.design.ZidRunButton
 import dz.racedz.nativeapp.core.design.ZidRunCard
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.distanceUnitLabel
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunTheme
@@ -135,7 +136,7 @@ fun GpxImportScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             PreviewStat(
-                                value = "${ZidRunFormat.decimal(parsed.distanceKm, locale)} ${stringResource(R.string.runs_unit_km)}",
+                                value = "${ZidRunFormat.distanceValue(parsed.distanceKm, locale)} ${distanceUnitLabel()}",
                                 label = stringResource(R.string.runs_stat_distance),
                                 modifier = Modifier.weight(1f),
                             )

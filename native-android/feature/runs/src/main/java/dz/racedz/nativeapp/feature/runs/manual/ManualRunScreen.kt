@@ -104,7 +104,9 @@ fun ManualRunScreen(
     // is on here type "5,2" rather than "5.2".
     // Normalize Unicode digits and Arabic separators so ٥٫٢ / ٥,٢ / 5.2 all parse — an Arabic-keyboard
     // user must be able to type the required fields, not just an ASCII one.
-    val distanceKm = normalizeNumber(distanceText).toDoubleOrNull()
+    // Typed in the account's unit, kept as kilometres from here on (NATRUN-06.8): the server only
+    // ever sees metric.
+    val distanceKm = normalizeNumber(distanceText).toDoubleOrNull()?.let { dz.racedz.nativeapp.core.design.ZidRunUnits.toKm(it) }
     val minutes = normalizeNumber(minutesText).toIntOrNull() ?: 0
     val seconds = normalizeNumber(secondsText).toIntOrNull() ?: 0
     val durationSeconds = minutes * 60 + seconds
@@ -192,7 +194,7 @@ fun ManualRunScreen(
             ZidRunTextField(
                 value = distanceText,
                 onValueChange = { distanceText = it.take(10) },
-                label = stringResource(R.string.runs_manual_distance_label),
+                label = stringResource(R.string.runs_manual_distance_label, dz.racedz.nativeapp.core.design.distanceUnitLabel()),
                 keyboardType = KeyboardType.Decimal,
                 errorText = distanceError,
                 required = true,

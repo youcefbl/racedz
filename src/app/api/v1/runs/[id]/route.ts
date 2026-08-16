@@ -29,6 +29,7 @@ export const GET = withApi(async (request, context: Context) => {
   // wrong: the first native version charged each kilometre for the segment that overshot its
   // boundary rather than interpolating the crossing, so every split drifted.
   const points = (run.route ?? null) as Parameters<typeof computeSplits>[0];
+  const splitMeters = new URL(request.url).searchParams.get("unit") === "mi" ? 1609.344 : 1000;
 
   // A planned workout this run might belong to, recomputed on read.
   //
@@ -46,7 +47,8 @@ export const GET = withApi(async (request, context: Context) => {
 
   return apiOk(request, {
     ...toRunDto(run, run.route ?? null),
-    splits: computeSplits(points),
+    // Splits per mile for runners who chose miles (NATRUN-06.8); the stored data stays metric.
+    splits: computeSplits(points, splitMeters),
     paceSeries: paceSeries(points),
     elevationSeries: elevationSeries(points),
     bestEfforts,

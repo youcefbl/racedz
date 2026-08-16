@@ -325,6 +325,9 @@ fun ZidRunApp(
             if (authState is AuthState.SignedIn) {
                 (container.accountRepository.profile() as? ApiResult.Success)?.value?.let { user ->
                     appearance.apply(user.preferences.theme, null)
+                    // Distance unit follows the account (NATRUN-06.8).
+                    dz.racedz.nativeapp.core.design.ZidRunUnits.current =
+                        dz.racedz.nativeapp.core.design.DistanceUnit.fromCode(user.preferences.distanceUnit)
                 }
             }
         }
@@ -332,6 +335,10 @@ fun ZidRunApp(
         // A revocation can arrive at any moment (a 401 during a background refresh), not only when
         // the user taps sign out — so react to the state itself rather than to the tap.
         LaunchedEffect(authState) {
+            if (authState is AuthState.SignedOut) {
+                // The unit belongs to the account that just left; the next runner starts on km.
+                dz.racedz.nativeapp.core.design.ZidRunUnits.reset()
+            }
             if (authState is AuthState.SignedOut &&
                 navController.currentDestination?.route !in setOf(RootDestinations.AUTH, RootDestinations.SPLASH)
             ) {

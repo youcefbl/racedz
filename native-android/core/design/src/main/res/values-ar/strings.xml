@@ -257,6 +257,14 @@
     <string name="runs_empty_title">ما كاين حتى جَرية</string>
     <string name="runs_empty_body">سجّل أول جَرية تاعك وتبان هنا.</string>
     <string name="runs_untitled">جَرية</string>
+    <string name="runs_unit_mi">ميل</string>
+    <string name="runs_unit_km_spoken">كيلومتر</string>
+    <string name="runs_unit_mi_spoken">ميل</string>
+    <string name="runs_split_mi">ميل</string>
+    <string name="account_units">وحدة المسافة</string>
+    <string name="account_units_help">الكيلومتر هو الافتراضي في الجزائر. اختيارك يتبع حسابك.</string>
+    <string name="account_units_km">كيلومترات</string>
+    <string name="account_units_mi">أميال</string>
     <string name="runs_unit_km">كم</string>
     <string name="runs_unit_runs">جَريات</string>
     <string name="runs_this_week">هاذ السيمانة</string>
@@ -400,7 +408,7 @@
     <string name="runs_elevation_gain_value">الصعود %1$d م</string>
     <string name="runs_notification_channel">تسجيل الجَرية</string>
     <string name="runs_notification_title">راني نسجّل الجَرية</string>
-    <string name="runs_notification_body">%1$s كم · %2$s</string>
+    <string name="runs_notification_body">%1$s %3$s · %2$s</string>
     <string name="runs_ready_title">كي تكون واجد</string>
     <string name="runs_ready_gps">GPS واجد</string>
     <string name="runs_weather_temp">%1$s°</string>
@@ -446,7 +454,7 @@
     <string name="runs_cadence_unavailable">الكادونس مازال ما بانش</string>
     <string name="runs_gps_searching">يقلّب</string>
     <string name="runs_finish_confirm_title">تحبس الجَرية؟</string>
-    <string name="runs_finish_confirm_body">جريت %1$s كم فـ%2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>
+    <string name="runs_finish_confirm_body">جريت %1$s فـ%2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>
     <string name="runs_keep_running">كمّل</string>
     <string name="runs_recording_banner">راهو يسجّل · %1$s كم</string>
     <string name="runs_open_recording">حل</string>
@@ -496,8 +504,8 @@
     <string name="runs_cue_interval_value">%1$s كم</string>
     <string name="runs_cue_paused">حبسنا</string>
     <string name="runs_cue_resumed">كمّلنا</string>
-    <string name="runs_cue_finished">كمّلت الجري. %1$s كيلومتر في %2$s.</string>
-    <string name="runs_cue_progress">%1$s كيلومتر. الوقت %2$s. الريتم %3$s.</string>
+    <string name="runs_cue_finished">كمّلت الجري. %1$s %3$s في %2$s.</string>
+    <string name="runs_cue_progress">%1$s %4$s. الوقت %2$s. الريتم %3$s.</string>
     <string name="runs_cue_started">بدا التسجيل</string>
     <string name="runs_cue_km">كيلومتر %1$d. الريتم %2$s</string>
     <string name="runs_cue_step">%1$s. %2$s</string>
@@ -809,7 +817,7 @@
     <string name="runs_manual_datetime_label">النهار والوقت</string>
     <string name="runs_manual_change_date">بدّل النهار</string>
     <string name="runs_manual_change_time">بدّل الوقت</string>
-    <string name="runs_manual_distance_label">المسافة (كم)</string>
+    <string name="runs_manual_distance_label">المسافة (%1$s)</string>
     <string name="runs_manual_minutes_label">دقايق</string>
     <string name="runs_manual_seconds_label">ثواني</string>
     <string name="runs_manual_error_distance">المسافة لازم تكون بين 0.1 و500 كم.</string>

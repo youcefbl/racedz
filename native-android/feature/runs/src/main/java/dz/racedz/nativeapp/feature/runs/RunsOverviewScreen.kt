@@ -57,6 +57,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunErrorView
 import dz.racedz.nativeapp.core.design.ZidRunExerciseHoldNotice
 import dz.racedz.nativeapp.core.design.ZidRunFormat
+import dz.racedz.nativeapp.core.design.distanceUnitLabel
 import dz.racedz.nativeapp.core.design.ZidRunLoading
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTestTags
@@ -340,7 +341,7 @@ private fun RecordDock(
             RecordingStatus.Recording, RecordingStatus.Acquiring -> DockButton(
                 label = stringResource(
                     R.string.runs_recording_banner,
-                    ZidRunFormat.decimal(recording.distanceKm, locale),
+                    ZidRunFormat.distanceValue(recording.distanceKm, locale),
                 ) + " — " + stringResource(R.string.runs_open_recording),
                 container = colors.primarySoft,
                 content = colors.primary,
@@ -353,7 +354,7 @@ private fun RecordDock(
             RecordingStatus.Paused -> DockButton(
                 label = stringResource(
                     R.string.runs_dock_paused,
-                    ZidRunFormat.decimal(recording.distanceKm, locale),
+                    ZidRunFormat.distanceValue(recording.distanceKm, locale),
                 ) + " — " + stringResource(R.string.runs_resume),
                 container = colors.primarySoft,
                 content = colors.primary,
@@ -534,12 +535,12 @@ private fun WeekHeroCard(distanceKm: Double, runCount: Int, streakWeeks: Int) {
             modifier = Modifier.padding(top = ZidRunDimens.spaceMd),
         ) {
             Text(
-                text = ZidRunFormat.decimal(distanceKm, locale, digits = 1),
+                text = ZidRunFormat.distanceValue(distanceKm, locale, digits = 1),
                 style = MaterialTheme.typography.displayMedium,
                 color = Color.White,
             )
             Text(
-                text = stringResource(R.string.runs_unit_km),
+                text = distanceUnitLabel(),
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.White.copy(alpha = 0.6f),
                 modifier = Modifier.padding(start = ZidRunDimens.spaceXs, bottom = 4.dp),
@@ -605,12 +606,13 @@ private fun LatestRunCard(run: RunDto, onClick: () -> Unit) {
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
     val dateLabel = ZidRunFormat.dateTime(run.startedAt, locale)
+    val unitLabel = distanceUnitLabel()
     val title = run.title ?: stringResource(R.string.runs_untitled)
 
     ZidRunCard(
         onClick = onClick,
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "$title, ${ZidRunFormat.decimal(run.distanceKm, locale)} km"
+            contentDescription = "$title, ${ZidRunFormat.distanceValue(run.distanceKm, locale)} $unitLabel"
         },
     ) {
       Column {
@@ -649,7 +651,7 @@ private fun LatestRunCard(run: RunDto, onClick: () -> Unit) {
             Row(modifier = Modifier.weight(1f).height(IntrinsicSize.Min)) {
                 OverviewMetric(
                     label = stringResource(R.string.runs_stat_distance),
-                    value = "${ZidRunFormat.decimal(run.distanceKm, locale)} ${stringResource(R.string.runs_unit_km)}",
+                    value = "${ZidRunFormat.distanceValue(run.distanceKm, locale)} $unitLabel",
                     modifier = Modifier.weight(1f),
                 )
                 MetricDivider()
@@ -711,15 +713,16 @@ private fun ChallengesCard(challenges: List<RunChallenge>) {
                 // Counts render as whole numbers, distances to one decimal — "8.0 runs" reads as
                 // a measurement rather than a tally.
                 val whole = challenge.id == RunChallengeId.MonthRuns
+                // Distance challenges are metric on the server and shown in the account's unit.
                 val current = if (whole) {
                     ZidRunFormat.count(challenge.current.toInt(), locale)
                 } else {
-                    ZidRunFormat.decimal(challenge.current, locale, digits = 1)
+                    ZidRunFormat.distanceValue(challenge.current, locale, digits = 1)
                 }
                 val target = if (whole) {
                     ZidRunFormat.count(challenge.target.toInt(), locale)
                 } else {
-                    ZidRunFormat.decimal(challenge.target, locale, digits = 1)
+                    ZidRunFormat.distanceValue(challenge.target, locale, digits = 1)
                 }
 
                 Column(
@@ -917,13 +920,13 @@ private fun PersonalBestsCard(
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             OverviewMetric(
                 label = stringResource(R.string.runs_overview_total_distance),
-                value = "${ZidRunFormat.decimal(totalDistanceKm, locale)} ${stringResource(R.string.runs_unit_km)}",
+                value = "${ZidRunFormat.distanceValue(totalDistanceKm, locale)} ${distanceUnitLabel()}",
                 modifier = Modifier.weight(1f),
             )
             MetricDivider()
             OverviewMetric(
                 label = stringResource(R.string.runs_overview_longest),
-                value = "${ZidRunFormat.decimal(longestRunKm, locale)} ${stringResource(R.string.runs_unit_km)}",
+                value = "${ZidRunFormat.distanceValue(longestRunKm, locale)} ${distanceUnitLabel()}",
                 modifier = Modifier.weight(1f),
             )
             MetricDivider()

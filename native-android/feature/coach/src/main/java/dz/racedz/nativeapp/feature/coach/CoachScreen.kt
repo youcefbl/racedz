@@ -451,9 +451,9 @@ internal fun goalTypeLabel(type: String): String = when (type) {
 /** "5 km · 32 min", omitting whichever the plan did not specify. */
 @Composable
 private fun workoutTargetLabel(workout: CoachWorkoutDto, locale: java.util.Locale): String {
-    val kmUnit = stringResource(R.string.runs_unit_km)
+    val kmUnit = dz.racedz.nativeapp.core.design.distanceUnitLabel()
     val parts = buildList {
-        workout.targetDistanceKm?.let { add(ZidRunFormat.kilometres(it, locale, kmUnit)) }
+        workout.targetDistanceKm?.let { add(ZidRunFormat.distanceWithUnit(it, locale, kmUnit)) }
         workout.targetDurationMin?.let {
             add(stringResource(R.string.runs_step_minutes, ZidRunFormat.count(it, locale)))
         }
