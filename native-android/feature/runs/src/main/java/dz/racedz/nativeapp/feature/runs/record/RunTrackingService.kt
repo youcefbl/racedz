@@ -122,6 +122,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         }
 
         startStepCounter()
+        startBarometer()
 
         val serviceScope = CoroutineScope(Dispatchers.Main).also { scope = it }
         ticker = serviceScope.launch {
@@ -182,16 +183,34 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         sensorManager = manager
     }
 
+    /**
+     * Barometer (NATRUN-07.6): pressure at a gentle rate for climb that GPS altitude cannot give
+     * honestly. Absent on many phones (the M21 among them) — then nothing changes.
+     */
+    private fun startBarometer() {
+        val manager = getSystemService(SensorManager::class.java) ?: return
+        val pressure = manager.getDefaultSensor(Sensor.TYPE_PRESSURE) ?: return
+        if (manager.registerListener(this, pressure, SensorManager.SENSOR_DELAY_NORMAL)) {
+            sensorManager = manager
+            RunRecorder.enableBarometer()
+        }
+    }
+
     private fun stopStepCounter() {
         runCatching { sensorManager?.unregisterListener(this) }
         sensorManager = null
+        RunRecorder.disableBarometer()
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (event.sensor.type != Sensor.TYPE_STEP_COUNTER) return
-        // values[0] is the cumulative step count since the device last booted.
-        val cumulative = event.values.firstOrNull()?.toLong() ?: return
-        RunRecorder.onSteps(cumulative)
+        when (event.sensor.type) {
+            Sensor.TYPE_STEP_COUNTER -> {
+                // values[0] is the cumulative step count since the device last booted.
+                val cumulative = event.values.firstOrNull()?.toLong() ?: return
+                RunRecorder.onSteps(cumulative)
+            }
+            Sensor.TYPE_PRESSURE -> event.values.firstOrNull()?.let { RunRecorder.onPressure(it) }
+        }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit

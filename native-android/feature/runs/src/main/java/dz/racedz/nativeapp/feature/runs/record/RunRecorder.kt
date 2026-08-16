@@ -58,6 +58,8 @@ data class RecordingState(
      * while stopped, or on devices with no step counter. The whole-run [avgCadenceSpm] is separate.
      */
     val liveCadenceSpm: Int? = null,
+    /** "GPS" or "BARO" (NATRUN-07.6): where elevation gain and route altitude come from this run. */
+    val elevationSource: String = "GPS",
     /** RUN | WALK | TRAIL | RIDE (NATRUN-07.1); chosen before the start, stored with the run. */
     val sport: String = "RUN",
     /** Manual lap boundaries pressed so far, from the start of the run (NATRUN-06.5). */
@@ -335,6 +337,8 @@ object RunRecorder {
     private var stationarySeconds: Double = 0.0
     private val paceWindow = PaceWindow()
     private val cadenceWindow = CadenceWindow()
+    /** Present only while the service reports a pressure sensor (NATRUN-07.6). */
+    private var barometer: Barometer? = null
     private val route = mutableListOf<RoutePointDto>()
 
     /**
@@ -389,6 +393,7 @@ object RunRecorder {
         stationarySeconds = 0.0
         paceWindow.clear()
         cadenceWindow.clear()
+        barometer?.reset()
         recordedSteps = 0
         lastStepCounter = -1
         coachInteractionIds.clear()
@@ -398,6 +403,7 @@ object RunRecorder {
             startedAtEpochMs = System.currentTimeMillis(),
             workoutId = workoutId,
             sport = sport,
+            elevationSource = if (barometer != null) "BARO" else "GPS",
         )
         return true
     }
@@ -562,6 +568,29 @@ object RunRecorder {
         _state.update { it.copy(elapsedSeconds = elapsedSeconds(), currentPaceSecondsPerKm = pace, liveCadenceSpm = cadence) }
     }
 
+    /** The service found a pressure sensor: elevation comes from it for this recording. */
+    fun enableBarometer() {
+        if (barometer == null) barometer = Barometer()
+        _state.update { it.copy(elevationSource = "BARO") }
+    }
+
+    /** No pressure sensor, or the service stopped: back to GPS altitude. */
+    fun disableBarometer() {
+        barometer = null
+        _state.update { it.copy(elevationSource = "GPS") }
+    }
+
+    /** One pressure sample in hPa from the service. */
+    fun onPressure(hPa: Float) {
+        val baro = barometer ?: return
+        val status = _state.value.status
+        if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) return
+        baro.add(hPa.toDouble())
+        // Gain is what the barometer owns; the state mirrors it so the live screen counts climb
+        // between fixes too.
+        if (baro.ready) _state.update { it.copy(elevationGainM = baro.gainM) }
+    }
+
     /**
      * Records a step-counter reading. [cumulativeSinceBoot] is the sensor's running total since the
      * device booted; the difference between consecutive readings, taken only while recording, is the
@@ -662,8 +691,12 @@ object RunRecorder {
 
         if (counts) {
             paceWindow.add(location.time, distanceM, elapsed)
+            val baro = barometer
             var gain = current.elevationGainM
-            if (previous.hasAltitude() && location.hasAltitude()) {
+            if (baro != null && baro.ready) {
+                // The barometer owns climb once it has settled (NATRUN-07.6).
+                gain = baro.gainM
+            } else if (previous.hasAltitude() && location.hasAltitude()) {
                 val delta = location.altitude - previous.altitude
                 // Only rises above a metre count: GPS altitude noise would otherwise invent climb on
                 // a flat road.
@@ -767,13 +800,20 @@ object RunRecorder {
         route += kept
     }
 
-    private fun Location.toRoutePoint() = RoutePointDto(
-        lat = latitude,
-        lng = longitude,
-        ele = if (hasAltitude()) altitude else null,
-        // Milliseconds, matching the website's route-point contract.
-        t = time,
-    )
+    private fun Location.toRoutePoint(): RoutePointDto {
+        val baro = barometer
+        // Anchor the barometer to the first GPS altitude so route points stay metres above sea
+        // level; afterwards the barometer's smoothed altitude replaces GPS's noisy one.
+        if (baro != null && baro.anchor == null && hasAltitude() && baro.ready) baro.anchor = altitude
+        val ele = baro?.absoluteAltitudeM ?: (if (hasAltitude()) altitude else null)
+        return RoutePointDto(
+            lat = latitude,
+            lng = longitude,
+            ele = ele,
+            // Milliseconds, matching the website's route-point contract.
+            t = time,
+        )
+    }
 
     private fun MutableStateFlow<RecordingState>.update(block: (RecordingState) -> RecordingState) {
         value = block(value)
