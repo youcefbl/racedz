@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +81,26 @@ fun RunSummaryScreen(
     var notes by rememberSaveable { mutableStateOf("") }
     var effort by rememberSaveable { mutableStateOf(5) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // The background worker may finish this save while the screen is open (NATRUN-07.2): leave the
+    // way a foreground save leaves, to the saved run.
+    // Captured once: a background success resets the recorder (clientId becomes empty) before
+    // the screen leaves, and the match must still be made against the run this screen showed.
+    val summaryClientId = rememberSaveable { state.clientId }
+    val synced by RunRecorder.syncedRunIds.collectAsStateWithLifecycle()
+    LaunchedEffect(synced) {
+        if (summaryClientId.isNotEmpty()) synced[summaryClientId]?.let { runId -> onSaved(runId) }
+    }
+    // While the worker is actually posting this run, a second foreground Save would race it; the
+    // server would dedupe by clientId, but the button should not pretend to be needed.
+    val owner = RunRecorder.currentOwnerUserId()
+    val backgroundSaving by remember(owner, summaryClientId) {
+        if (owner == null || summaryClientId.isEmpty()) kotlinx.coroutines.flow.flowOf(false)
+        else androidx.work.WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWorkFlow(RunSyncWorker.uniqueName(owner, summaryClientId))
+            .map { infos -> infos.any { it.state == androidx.work.WorkInfo.State.RUNNING } }
+    }.collectAsStateWithLifecycle(initialValue = false)
 
     Column(
         modifier = modifier
@@ -395,13 +417,22 @@ fun RunSummaryScreen(
                         notes = notes.trim().takeIf { it.isNotEmpty() },
                         perceivedEffort = effort,
                         onSaved = onSaved,
+                        onFailedRetryable = { request ->
+                            // The runner asked to save and the network said no: keep their exact
+                            // body and let WorkManager finish the job when there is a connection.
+                            if (RunRecorder.markSaveRequested(request)) {
+                                RunRecorder.currentOwnerUserId()?.let { owner ->
+                                    RunSyncWorker.enqueue(context, owner, request.clientId)
+                                }
+                            }
+                        },
                     )
                 },
-                loading = saveState.saving || saveState.uploadingPhotos,
+                loading = saveState.saving || saveState.uploadingPhotos || backgroundSaving,
                 // Also blocked while photos upload. Saving mid-upload posted the run with only the
                 // URLs that had landed, and the rest finished into storage attached to nothing —
                 // the runner loses the photo and the server keeps the bytes forever.
-                enabled = !nothingToSave && !saveState.saving && !saveState.uploadingPhotos,
+                enabled = !nothingToSave && !saveState.saving && !saveState.uploadingPhotos && !backgroundSaving,
             )
 
             ZidRunOutlinedButton(

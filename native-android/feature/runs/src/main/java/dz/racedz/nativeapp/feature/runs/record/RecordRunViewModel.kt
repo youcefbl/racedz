@@ -84,6 +84,8 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
         notes: String? = null,
         perceivedEffort: Int = 5,
         onSaved: (String) -> Unit,
+        /** Called with the exact failed request so the caller can arm the background retry (NATRUN-07.2). */
+        onFailedRetryable: ((CreateRunRequest) -> Unit)? = null,
     ) {
         val recording = RunRecorder.state.value
         if (_state.value.saving) return
@@ -129,11 +131,15 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                     _state.update { it.copy(saving = false, error = null) }
                     onSaved(result.value.id)
                 }
-                is ApiResult.Failure -> _state.update {
+                is ApiResult.Failure -> {
                     // Deliberately does NOT clear the recording or the outbox. The run is still on
                     // disk and still sendable; losing an hour's effort to a dropped request would be
-                    // the worst thing this screen could do.
-                    it.copy(saving = false, error = result.error.message)
+                    // the worst thing this screen could do. A transport failure also arms the
+                    // background retry with this exact body (NATRUN-07.2); a refused body does not.
+                    val retryable = result.error.code != dz.racedz.nativeapp.core.network.ApiErrorCode.ValidationFailed &&
+                        result.error.code != dz.racedz.nativeapp.core.network.ApiErrorCode.BadRequest
+                    if (retryable) onFailedRetryable?.invoke(request)
+                    _state.update { it.copy(saving = false, error = result.error.message) }
                 }
             }
         }

@@ -117,7 +117,15 @@ fun ZidRunApp(
     // owner, and switching accounts drops any live state rather than carrying one person's route
     // into another person's session (P234-R01).
     LaunchedEffect(authState) {
-        RunRecorder.setOwner((authState as? AuthState.SignedIn)?.userId)
+        val userId = (authState as? AuthState.SignedIn)?.userId
+        RunRecorder.setOwner(userId)
+        // Background retry (NATRUN-07.2): re-arm a save the owner already asked for; on sign-out
+        // drop whatever was queued — it belongs to an account that just left.
+        if (userId != null) {
+            dz.racedz.nativeapp.feature.runs.record.RunSyncWorker.enqueuePendingIfAny(context, container.runOutbox, userId)
+        } else if (authState is AuthState.SignedOut) {
+            dz.racedz.nativeapp.feature.runs.record.RunSyncWorker.cancelAll(context)
+        }
     }
 
     var coachEnabled by remember { mutableStateOf(false) }

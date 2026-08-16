@@ -209,6 +209,9 @@ object RunRecorder {
         this.outbox = outbox
     }
 
+    /** The account currently allowed to record and sync, or null when signed out. */
+    fun currentOwnerUserId(): String? = ownerUserId
+
     /** Called when the signed-in account changes. Passing null (sign-out) drops the live state. */
     fun setOwner(userId: String?) {
         if (ownerUserId == userId) return
@@ -260,6 +263,11 @@ object RunRecorder {
         if (!force && now - lastSnapshotMs < SNAPSHOT_INTERVAL_MS) return
         lastSnapshotMs = now
 
+        // A slot the runner already asked to save holds their full request; the recorder's own
+        // snapshot (defaults, no title) must not replace it (NATRUN-07.2).
+        val existing = box.load(ownerUserId)
+        if (existing?.saveRequested == true && existing.request.clientId == current.clientId) return
+
         val written = box.save(
             PendingRun(
                 request = current.toCreateRequest(),
@@ -271,6 +279,37 @@ object RunRecorder {
         // A failed write means the run is no longer backed by anything — the runner is told, rather
         // than discovering it only after a process kill (P234-R02).
         _snapshotFailing.value = !written
+    }
+
+    /**
+     * Writes the runner's full save request into the outbox and marks it for background retry
+     * (NATRUN-07.2). Called by the summary screen when a Save fails; the worker posts this body.
+     */
+    fun markSaveRequested(request: dz.racedz.nativeapp.core.network.CreateRunRequest): Boolean {
+        val box = outbox ?: return false
+        return box.save(
+            PendingRun(request = request, finished = true, updatedAtEpochMs = System.currentTimeMillis(), ownerUserId = ownerUserId, saveRequested = true)
+        )
+    }
+
+    /** Server ids of runs the background worker saved while a screen may still be showing them. */
+    private val _syncedRunIds = MutableStateFlow<Map<String, String>>(emptyMap())
+    val syncedRunIds: StateFlow<Map<String, String>> = _syncedRunIds.asStateFlow()
+
+    /**
+     * The background worker saved [clientId] as [runId]: clear the slot the way a foreground save
+     * does, drop the in-memory recording if it is that run, and tell any open summary.
+     */
+    fun onSyncedInBackground(clientId: String, runId: String, ownerUserId: String?) {
+        if (outbox?.clear(ownerUserId) == false) outbox?.quarantineUnreadable(ownerUserId)
+        refreshOutboxBlocked()
+        if (_state.value.clientId == clientId && _state.value.status == RecordingStatus.Finished) {
+            route.clear()
+            lastFix = null
+            coachInteractionIds.clear()
+            _state.value = RecordingState()
+        }
+        _syncedRunIds.value = _syncedRunIds.value + (clientId to runId)
     }
 
     /**

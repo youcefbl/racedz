@@ -155,4 +155,10 @@ data class PendingRun(
      * one and are never displayed (see [RunRecorder.pendingFor]).
      */
     val ownerUserId: String? = null,
+    /**
+     * True once the runner pressed Save and the request failed (NATRUN-07.2): [request] then holds
+     * the full body they chose (title, notes, effort, photos, visibility, laps, sport) and the
+     * background worker may post it. The recorder's periodic snapshot never overwrites such a slot.
+     */
+    val saveRequested: Boolean = false,
 )

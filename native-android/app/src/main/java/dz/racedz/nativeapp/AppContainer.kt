@@ -63,6 +63,15 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
     init {
         // Auto-pause and cue-interval preferences persist across runs; attach before any screen reads them.
         dz.racedz.nativeapp.feature.runs.record.RunSettings.attach(context)
+        // The background save worker (NATRUN-07.2) reads the outbox and posts through the same
+        // repository/session as the foreground; it only ever acts for the signed-in owner.
+        dz.racedz.nativeapp.feature.runs.record.RunSyncWorker.install(
+            dz.racedz.nativeapp.feature.runs.record.RunSyncWorker.Dependencies(
+                outbox = runOutbox,
+                repository = runsRepository,
+                currentUserId = { (sessionManager.state.value as? dz.racedz.nativeapp.core.auth.AuthState.SignedIn)?.userId },
+            )
+        )
     }
 
     init {

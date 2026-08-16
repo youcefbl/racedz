@@ -41,6 +41,8 @@ dependencies {
     implementation(libs.coil.compose)
     // Runtime permission request + the foreground service notification.
     implementation(libs.androidx.activity.compose)
+    // Background retry of a failed run save (NATRUN-07.2 / NATIVE-005).
+    implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.core.ktx)
     debugImplementation(libs.compose.ui.tooling)
 

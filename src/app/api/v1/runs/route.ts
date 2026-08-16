@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
@@ -127,6 +128,15 @@ export const POST = withApi(async (request) => {
     if (error instanceof CoachError) {
       const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : "VALIDATION_FAILED";
       throw new ApiError(code, error.message);
+    }
+    // createRunnerRun() re-parses with the web schema, whose bounds are stricter in places (e.g. a
+    // 60 s minimum duration). A body the v1 schema accepted but that one refuses is the client's
+    // problem to show, not a 500 — and a background retry must see it as final, not transient.
+    if (error instanceof ZodError) {
+      const fields = Object.fromEntries(
+        Object.entries(error.flatten().fieldErrors).flatMap(([field, messages]) => (messages?.[0] ? [[field, messages[0]]] : []))
+      );
+      throw new ApiError("VALIDATION_FAILED", "Check the highlighted fields.", { fields });
     }
     throw error;
   }
