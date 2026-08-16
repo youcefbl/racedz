@@ -337,6 +337,8 @@
     <string name="runs_export_gpx">Export GPX</string>
     <string name="runs_export_failed">Could not prepare the GPX file. Try again.</string>
     <string name="runs_export_share">Share this run</string>
+    <string name="runs_edit_details">Edit details</string>
+    <string name="runs_edit_conflict">This run changed on another device. It has been refreshed below — check it, then save again if you still want these changes.</string>
     <string name="runs_visibility_title">Visibility</string>
     <string name="runs_visibility_public_body">Anyone who can see your profile can see this run.</string>
     <string name="runs_visibility_private_body">Only you can see this run.</string>
@@ -442,7 +444,7 @@
     <string name="runs_summary_title">Save your run</string>
     <string name="runs_title_label">Title</string>
     <string name="runs_notes_label">How did it feel?</string>
-    <string name="runs_effort_label">Effort: %1$d / 10</string>
+    <string name="runs_effort_label">Effort: %1$s / 10</string>
     <string name="runs_effort_easy">Very easy</string>
     <string name="runs_effort_max">All out</string>
     <string name="runs_discard_confirm">Tap again to discard</string>

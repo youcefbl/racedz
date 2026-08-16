@@ -21,6 +21,17 @@ data class RunDetailUiState(
     /** A privacy change or a delete is in flight; both controls wait for it. */
     val mutating: Boolean = false,
     val actionError: String? = null,
+    /** The edit sheet's own error, kept apart from [actionError] so it shows inside the sheet. */
+    val editError: String? = null,
+    /** Field-level messages from a 422, keyed by request field (`title`, `notes`, `perceivedEffort`). */
+    val editFieldErrors: Map<String, String> = emptyMap(),
+    /**
+     * Set when the last edit was refused because the run had moved on (409). The run is reloaded so
+     * the screen shows the newer version, and the sheet stays open with the runner's text so they
+     * can decide what to keep — a silent overwrite of the other device's edit is the one outcome
+     * this must never produce.
+     */
+    val editConflict: Boolean = false,
 ) {
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
 }
@@ -87,6 +98,57 @@ class RunDetailViewModel(
             }
         }
     }
+
+    /**
+     * Edits title, notes and effort after the fact (NATRUN-06.2).
+     *
+     * Same `baseRevision` rule as [setPublic]: the revision on screen is quoted, and a 409 means
+     * another device got there first. On success the server's row is reloaded (it carries the new
+     * revision) and [onSaved] fires so the sheet can close; on failure the sheet stays open with
+     * the message and, for a conflict, the run underneath is refreshed.
+     *
+     * Empty title/notes are sent as null so a cleared field actually clears on the server rather
+     * than being ignored as "unchanged".
+     */
+    fun editDetails(title: String, notes: String, perceivedEffort: Int, onSaved: () -> Unit) {
+        val current = _state.value.run ?: return
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, editError = null, editFieldErrors = emptyMap(), editConflict = false) }
+        viewModelScope.launch {
+            val result = repository.update(
+                runId,
+                UpdateRunRequest(
+                    baseRevision = current.revision,
+                    title = title.trim().take(120),
+                    notes = notes.trim().take(2000),
+                    perceivedEffort = perceivedEffort.coerceIn(1, 10),
+                ),
+            )
+            when (result) {
+                is ApiResult.Success -> {
+                    // Reload rather than patch: the detail DTO carries derived series the update
+                    // response does not, and the new revision has to come from the server's row.
+                    _state.update { it.copy(mutating = false) }
+                    load()
+                    onSaved()
+                }
+                is ApiResult.Failure -> {
+                    val conflict = result.error.code == ApiErrorCode.Conflict
+                    _state.update {
+                        it.copy(
+                            mutating = false,
+                            editError = result.error.message,
+                            editFieldErrors = result.error.fieldErrors,
+                            editConflict = conflict,
+                        )
+                    }
+                    if (conflict) load()
+                }
+            }
+        }
+    }
+
+    fun clearEditError() = _state.update { it.copy(editError = null, editFieldErrors = emptyMap(), editConflict = false) }
 
     /**
      * Accepts the suggested link between this run and a planned session.

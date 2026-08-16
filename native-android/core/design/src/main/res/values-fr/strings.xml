@@ -319,6 +319,8 @@
     <string name="runs_export_gpx">Exporter GPX</string>
     <string name="runs_export_failed">Impossible de préparer le fichier GPX. Réessayez.</string>
     <string name="runs_export_share">Partager cette sortie</string>
+    <string name="runs_edit_details">Modifier les détails</string>
+    <string name="runs_edit_conflict">Cette course a été modifiée sur un autre appareil. Elle a été actualisée — vérifiez-la, puis enregistrez à nouveau si vous voulez garder ces changements.</string>
     <string name="runs_visibility_title">Visibilité</string>
     <string name="runs_visibility_public_body">Toute personne qui voit votre profil voit cette sortie.</string>
     <string name="runs_visibility_private_body">Vous seul voyez cette sortie.</string>
@@ -422,7 +424,7 @@
     <string name="runs_summary_title">Enregistrer la sortie</string>
     <string name="runs_title_label">Titre</string>
     <string name="runs_notes_label">Comment c’était ?</string>
-    <string name="runs_effort_label">Effort : %1$d / 10</string>
+    <string name="runs_effort_label">Effort : %1$s / 10</string>
     <string name="runs_effort_easy">Très facile</string>
     <string name="runs_effort_max">À fond</string>
     <string name="runs_discard_confirm">Appuyez encore pour supprimer</string>

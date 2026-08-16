@@ -334,6 +334,8 @@
     <string name="runs_export_gpx">صدّر GPX</string>
     <string name="runs_export_failed">ما قدرناش نوجّدو فيشي GPX. عاود جرّب.</string>
     <string name="runs_export_share">شارك هاذ الجَرية</string>
+    <string name="runs_edit_details">بدّل التفاصيل</string>
+    <string name="runs_edit_conflict">هاذ الجَرية تبدّلت من جهاز آخر. جدّدناها هنا — شوفها، ومن بعد سجّل مرة أخرى إذا مازال تحب هاذ التبديلات.</string>
     <string name="runs_visibility_title">الظهور</string>
     <string name="runs_visibility_public_body">كل واحد يشوف البروفايل تاعك يقدر يشوف هاذ الجَرية.</string>
     <string name="runs_visibility_private_body">غير حسابك يقدر يشوف هاذ الجَرية.</string>
@@ -437,7 +439,7 @@
     <string name="runs_summary_title">سجّل الجَرية</string>
     <string name="runs_title_label">العنوان</string>
     <string name="runs_notes_label">كيفاش كانت؟</string>
-    <string name="runs_effort_label">المجهود: %1$d / 10</string>
+    <string name="runs_effort_label">المجهود: %1$s / 10</string>
     <string name="runs_effort_easy">ساهل بزاف</string>
     <string name="runs_effort_max">بكل قوتي</string>
     <string name="runs_discard_confirm">عاود اضغط باش ما تحفظهاش</string>

@@ -225,7 +225,7 @@ fun ManualRunScreen(
             ZidRunEffortSlider(
                 value = effort,
                 onValueChange = { effort = it },
-                label = stringResource(R.string.runs_effort_label, effort),
+                label = stringResource(R.string.runs_effort_label, ZidRunFormat.count(effort, currentLocale())),
                 enabled = !saveState.saving,
             )
 

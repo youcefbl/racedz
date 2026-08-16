@@ -77,6 +77,18 @@ import androidx.compose.runtime.mutableStateOf
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import androidx.compose.material3.Switch
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import dz.racedz.nativeapp.core.design.ZidRunEffortSlider
+import dz.racedz.nativeapp.core.design.ZidRunTextField
 
 /**
  * Run details (05-run-details.png): the route, the headline numbers, per-kilometre splits, and an
@@ -101,7 +113,10 @@ fun RunDetailScreen(
     val context = LocalContext.current
     val exportShareTitle = stringResource(R.string.runs_export_share)
     val exportFailed = stringResource(R.string.runs_export_failed)
+    val editLabel = stringResource(R.string.runs_edit_details)
     var confirmingDelete by remember { mutableStateOf(false) }
+    // Survives rotation and process recreation, so a half-written note is not lost to either.
+    var editing by rememberSaveable { mutableStateOf(false) }
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
 
@@ -112,6 +127,16 @@ fun RunDetailScreen(
             onBack = onBack,
             trailing = {
                 if (run != null) {
+                    // Title, notes and effort were write-once until NATRUN-06.2: the server has
+                    // accepted PATCH all along, this is the surface over it. A labelled 48 dp icon
+                    // rather than a fourth button in the actions row, which was already two wide.
+                    IconButton(
+                        onClick = { editing = true },
+                        enabled = !state.mutating,
+                        modifier = Modifier.semantics { contentDescription = editLabel },
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, tint = colors.textStrong)
+                    }
                     ZidRunPill(
                         text = if (run.isPublic) {
                             stringResource(R.string.runs_public)
@@ -599,6 +624,20 @@ fun RunDetailScreen(
             }
         }
     }
+
+    if (editing && state.run != null) {
+        EditRunSheet(
+            run = state.run!!,
+            state = state,
+            onSave = { title, notes, effort ->
+                viewModel.editDetails(title, notes, effort) { editing = false }
+            },
+            onDismiss = {
+                viewModel.clearEditError()
+                editing = false
+            },
+        )
+    }
 }
 
 /**
@@ -735,6 +774,91 @@ private fun NonFootNotice(reason: String?) {
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.text,
+            )
+        }
+    }
+}
+
+/**
+ * The after-the-fact edit sheet (NATRUN-06.2): the same three fields the summary screen collected,
+ * in the same components, over the same PATCH the visibility switch uses.
+ *
+ * Fields are seeded from the run once per opening and then owned by the sheet, so a refresh
+ * underneath (a 409 reloads the run) never wipes what the runner typed — the conflict copy asks
+ * them to look at the newer version and decide. Save closes only after the server accepted it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditRunSheet(
+    run: dz.racedz.nativeapp.core.network.RunDetailDto,
+    state: RunDetailUiState,
+    onSave: (title: String, notes: String, effort: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = ZidRunTheme.colors
+    var title by rememberSaveable(run.id) { mutableStateOf(run.title.orEmpty()) }
+    var notes by rememberSaveable(run.id) { mutableStateOf(run.notes.orEmpty()) }
+    var effort by rememberSaveable(run.id) { mutableStateOf(run.perceivedEffort) }
+    val dirty = title != run.title.orEmpty() || notes != run.notes.orEmpty() || effort != run.perceivedEffort
+
+    ModalBottomSheet(
+        onDismissRequest = { if (!state.mutating) onDismiss() },
+        // Fully open at once: half-expanded hid Save below the fold on the M21 and 1.3x text.
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = colors.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = colors.borderStrong) },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = ZidRunDimens.spaceLg)
+                .padding(bottom = ZidRunDimens.spaceXl),
+            verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg),
+        ) {
+            Text(
+                stringResource(R.string.runs_edit_details),
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.textStrong,
+            )
+            ZidRunTextField(
+                value = title,
+                onValueChange = { title = it.take(120) },
+                label = stringResource(R.string.runs_title_label),
+                enabled = !state.mutating,
+                errorText = state.editFieldErrors["title"],
+            )
+            ZidRunTextField(
+                value = notes,
+                onValueChange = { notes = it.take(2000) },
+                label = stringResource(R.string.runs_notes_label),
+                enabled = !state.mutating,
+                singleLine = false,
+                errorText = state.editFieldErrors["notes"],
+            )
+            ZidRunEffortSlider(
+                value = effort,
+                onValueChange = { effort = it },
+                label = stringResource(R.string.runs_effort_label, ZidRunFormat.count(effort, currentLocale())),
+                enabled = !state.mutating,
+            )
+            if (state.editConflict) {
+                ZidRunInlineError(stringResource(R.string.runs_edit_conflict))
+            } else {
+                state.editError?.let { ZidRunInlineError(it) }
+            }
+            ZidRunButton(
+                text = stringResource(R.string.common_save),
+                onClick = { onSave(title, notes, effort) },
+                loading = state.mutating,
+                enabled = dirty && !state.mutating,
+            )
+            ZidRunOutlinedButton(
+                text = stringResource(R.string.common_cancel),
+                onClick = onDismiss,
+                enabled = !state.mutating,
             )
         }
     }
