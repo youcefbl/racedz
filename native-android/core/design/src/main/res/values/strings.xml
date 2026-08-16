@@ -472,6 +472,10 @@
     <string name="runs_gps_none">No GPS</string>
     <string name="runs_map_recenter">Recenter map on me</string>
     <string name="runs_cadence_unavailable">Cadence not available yet</string>
+    <string name="runs_lock_screen">Lock screen</string>
+    <string name="runs_unlock_screen">Unlock screen</string>
+    <string name="runs_hold_to_unlock">Hold to unlock</string>
+    <string name="runs_screen_locked">Screen locked. Hold the button to unlock.</string>
     <string name="runs_gps_searching">Searching</string>
     <string name="runs_finish_confirm_title">Finish this run?</string>
     <string name="runs_finish_confirm_body">%1$s in %2$s. You can add a title and notes next.</string>

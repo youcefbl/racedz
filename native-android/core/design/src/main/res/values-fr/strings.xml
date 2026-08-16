@@ -452,6 +452,10 @@
     <string name="runs_gps_none">Pas de GPS</string>
     <string name="runs_map_recenter">Recentrer la carte sur moi</string>
     <string name="runs_cadence_unavailable">Cadence pas encore disponible</string>
+    <string name="runs_lock_screen">Verrouiller l\'écran</string>
+    <string name="runs_unlock_screen">Déverrouiller l\'écran</string>
+    <string name="runs_hold_to_unlock">Maintenir pour déverrouiller</string>
+    <string name="runs_screen_locked">Écran verrouillé. Maintenez le bouton pour déverrouiller.</string>
     <string name="runs_gps_searching">Recherche</string>
     <string name="runs_finish_confirm_title">Terminer cette sortie ?</string>
     <string name="runs_finish_confirm_body">%1$s en %2$s. Vous pourrez ajouter un titre et des notes ensuite.</string>

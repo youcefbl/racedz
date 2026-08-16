@@ -467,6 +467,10 @@
     <string name="runs_gps_none">ما كاش GPS</string>
     <string name="runs_map_recenter">رجّع الخريطة عليّ</string>
     <string name="runs_cadence_unavailable">الكادونس مازال ما بانش</string>
+    <string name="runs_lock_screen">قفّل الشاشة</string>
+    <string name="runs_unlock_screen">حلّ الشاشة</string>
+    <string name="runs_hold_to_unlock">اضغط وحبس باش تحلّ</string>
+    <string name="runs_screen_locked">الشاشة مقفّلة. اضغط وحبس على البوطون باش تحلّها.</string>
     <string name="runs_gps_searching">يقلّب</string>
     <string name="runs_finish_confirm_title">تحبس الجَرية؟</string>
     <string name="runs_finish_confirm_body">جريت %1$s فـ%2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>

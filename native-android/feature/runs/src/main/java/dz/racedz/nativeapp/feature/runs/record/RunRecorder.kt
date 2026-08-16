@@ -58,6 +58,8 @@ data class RecordingState(
      * while stopped, or on devices with no step counter. The whole-run [avgCadenceSpm] is separate.
      */
     val liveCadenceSpm: Int? = null,
+    /** Touch guard (NATRUN-07.7): the live screen ignores taps until the runner holds to unlock. */
+    val touchLocked: Boolean = false,
     /** "GPS" or "BARO" (NATRUN-07.6): where elevation gain and route altitude come from this run. */
     val elevationSource: String = "GPS",
     /** RUN | WALK | TRAIL | RIDE (NATRUN-07.1); chosen before the start, stored with the run. */
@@ -443,7 +445,7 @@ object RunRecorder {
             pausedAccumMs += System.currentTimeMillis() - pauseStartedMs
             pauseStartedMs = 0
         }
-        _state.update { it.copy(status = RecordingStatus.Finished, elapsedSeconds = elapsedSeconds()) }
+        _state.update { it.copy(status = RecordingStatus.Finished, elapsedSeconds = elapsedSeconds(), touchLocked = false) }
         // The run is over and everything it measured is now at risk until the server has it.
         snapshot(force = true)
     }
@@ -566,6 +568,13 @@ object RunRecorder {
         val pace = paceWindow.paceSecondsPerKm(now)
         val cadence = cadenceWindow.cadenceSpm(now)
         _state.update { it.copy(elapsedSeconds = elapsedSeconds(), currentPaceSecondsPerKm = pace, liveCadenceSpm = cadence) }
+    }
+
+    /** Touch guard on/off (NATRUN-07.7). Lives here so minimise/return keeps the lock. */
+    fun setTouchLocked(locked: Boolean) {
+        val status = _state.value.status
+        if (locked && status != RecordingStatus.Recording && status != RecordingStatus.Acquiring && status != RecordingStatus.Paused) return
+        _state.update { it.copy(touchLocked = locked) }
     }
 
     /** The service found a pressure sensor: elevation comes from it for this recording. */

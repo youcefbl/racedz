@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.PlayArrow
@@ -380,16 +382,19 @@ fun RecordingScreen(
         )
     }
 
+    Box(modifier = modifier.fillMaxSize().background(zidRunOnDarkColors().background)) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .background(zidRunOnDarkColors().background)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = ZidRunDimens.spaceLg),
+            .padding(horizontal = ZidRunDimens.spaceLg)
+            // While locked the whole surface is hidden from accessibility too, so a TalkBack
+            // double-tap cannot reach Finish around the pointer guard.
+            .then(if (state.touchLocked) Modifier.clearAndSetSemantics { } else Modifier),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        StatusHeader(state = state)
+        StatusHeader(state = state, onLock = { RunRecorder.setTouchLocked(true) })
 
         // The guided step in progress, with how much of it is left.
         guided.currentStep?.let { step ->
@@ -644,10 +649,15 @@ fun RecordingScreen(
 
         Spacer(Modifier.height(ZidRunDimens.spaceLg))
     }
+
+    if (state.touchLocked && state.status != RecordingStatus.Finished) {
+        TouchGuardOverlay(onUnlock = { RunRecorder.setTouchLocked(false) })
+    }
+    }
 }
 
 @Composable
-private fun StatusHeader(state: RecordingState) {
+private fun StatusHeader(state: RecordingState, onLock: () -> Unit) {
     val recording = state.status == RecordingStatus.Recording || state.status == RecordingStatus.Acquiring
     val label = when {
         state.status == RecordingStatus.Paused -> stringResource(R.string.runs_paused)
@@ -671,23 +681,37 @@ private fun StatusHeader(state: RecordingState) {
         else -> zidRunOnDarkColors().danger
     }
 
+    val lockLabel = stringResource(R.string.runs_lock_screen)
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
-        modifier = Modifier
-            .padding(top = ZidRunDimens.spaceMd)
-            .semantics(mergeDescendants = true) { },
+        modifier = Modifier.fillMaxWidth().padding(top = ZidRunDimens.spaceXs),
     ) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(if (recording) tint else zidRunOnDarkColors().textMuted))
-        Text(label, style = MaterialTheme.typography.titleMedium, color = tint)
-        Spacer(Modifier.width(ZidRunDimens.spaceSm))
-        Icon(
-            Icons.Filled.SignalCellularAlt,
-            contentDescription = null,
-            tint = gpsTint,
-            modifier = Modifier.size(16.dp),
-        )
-        Text(gpsLabel, style = MaterialTheme.typography.bodySmall, color = gpsTint)
+        Spacer(Modifier.width(44.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+            modifier = Modifier.weight(1f).semantics(mergeDescendants = true) { },
+        ) {
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.size(10.dp).clip(CircleShape).background(if (recording) tint else zidRunOnDarkColors().textMuted))
+            Text(label, style = MaterialTheme.typography.titleMedium, color = tint)
+            Spacer(Modifier.width(ZidRunDimens.spaceSm))
+            Icon(
+                Icons.Filled.SignalCellularAlt,
+                contentDescription = null,
+                tint = gpsTint,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(gpsLabel, style = MaterialTheme.typography.bodySmall, color = gpsTint)
+            Spacer(Modifier.weight(1f))
+        }
+        // Touch guard (NATRUN-07.7): a labelled 44 dp lock at the trailing end, always visible.
+        androidx.compose.material3.IconButton(
+            onClick = onLock,
+            modifier = Modifier.size(44.dp).semantics { contentDescription = lockLabel },
+        ) {
+            Icon(Icons.Filled.Lock, contentDescription = null, tint = zidRunOnDarkColors().textMuted)
+        }
     }
 }
 
