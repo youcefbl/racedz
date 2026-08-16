@@ -354,6 +354,15 @@
     <string name="runs_avg">Avg</string>
     <string name="runs_private">Private</string>
     <string name="runs_public">Shared</string>
+    <string name="runs_share_image">Share image</string>
+    <string name="runs_share_action">Share</string>
+    <string name="runs_share_include_route">Include route</string>
+    <string name="runs_share_include_route_help">The shape of your run only — no streets, no coordinates. Off by default for private runs.</string>
+    <string name="runs_share_no_route">This run has no route to show.</string>
+    <string name="runs_share_failed">The image could not be created. Try again.</string>
+    <string name="runs_share_preview_a11y">Preview of the image that will be shared</string>
+    <string name="runs_share_stat_time">Time</string>
+    <string name="runs_share_stat_pace">Pace</string>
     <string name="runs_export_gpx">Export GPX</string>
     <string name="runs_export_failed">Could not prepare the GPX file. Try again.</string>
     <string name="runs_export_share">Share this run</string>

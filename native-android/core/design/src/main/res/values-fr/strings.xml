@@ -336,6 +336,15 @@
     <string name="runs_avg">Moy</string>
     <string name="runs_private">Privée</string>
     <string name="runs_public">Partagée</string>
+    <string name="runs_share_image">Partager l\'image</string>
+    <string name="runs_share_action">Partager</string>
+    <string name="runs_share_include_route">Inclure le tracé</string>
+    <string name="runs_share_include_route_help">Seulement la forme de votre course — ni rues, ni coordonnées. Désactivé par défaut pour les courses privées.</string>
+    <string name="runs_share_no_route">Cette course n\'a pas de tracé à montrer.</string>
+    <string name="runs_share_failed">L\'image n\'a pas pu être créée. Réessayez.</string>
+    <string name="runs_share_preview_a11y">Aperçu de l\'image qui sera partagée</string>
+    <string name="runs_share_stat_time">Temps</string>
+    <string name="runs_share_stat_pace">Allure</string>
     <string name="runs_export_gpx">Exporter GPX</string>
     <string name="runs_export_failed">Impossible de préparer le fichier GPX. Réessayez.</string>
     <string name="runs_export_share">Partager cette sortie</string>

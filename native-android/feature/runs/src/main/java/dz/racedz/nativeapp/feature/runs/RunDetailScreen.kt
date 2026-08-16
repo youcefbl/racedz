@@ -79,6 +79,7 @@ import androidx.compose.runtime.mutableStateOf
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -101,6 +102,7 @@ import dz.racedz.nativeapp.core.design.ZidRunTextField
  * the client can see would only add latency. Anything the route cannot support (no GPS track) is
  * omitted rather than shown empty.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RunDetailScreen(
     viewModel: RunDetailViewModel,
@@ -119,6 +121,7 @@ fun RunDetailScreen(
     var confirmingDelete by remember { mutableStateOf(false) }
     // Survives rotation and process recreation, so a half-written note is not lost to either.
     var editing by rememberSaveable { mutableStateOf(false) }
+    var sharing by rememberSaveable { mutableStateOf(false) }
     val colors = ZidRunTheme.colors
     val locale = currentLocale()
 
@@ -525,10 +528,20 @@ fun RunDetailScreen(
                     }
                 }
 
-                Row(
+                // Wraps at 360 dp / long FR-AR labels / 1.3× (owner decision 7) instead of three
+                // cramped equal columns; every button keeps its full 48 dp height.
+                androidx.compose.foundation.layout.FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
                 ) {
+                    // Share image (NATRUN-06.9): a preview first, then the system sheet.
+                    ZidRunOutlinedButton(
+                        text = stringResource(R.string.runs_share_image),
+                        onClick = { sharing = true },
+                        enabled = !state.mutating,
+                        modifier = Modifier.weight(1f),
+                    )
                     // Export is offered only when there is a track to export; a GPX with no points
                     // is a file that fails to import everywhere it is taken.
                     if ((run.route?.size ?: 0) >= 2) {
@@ -644,6 +657,42 @@ fun RunDetailScreen(
                 Spacer(Modifier.height(ZidRunDimens.spaceXxl))
             }
         }
+    }
+
+    if (sharing && state.run != null) {
+        val run = state.run!!
+        val mode = ZidRunTheme.mode
+        val unitLabel = distanceUnitLabel()
+        val timeLabel = stringResource(R.string.runs_share_stat_time)
+        val paceLabel = stringResource(R.string.runs_share_stat_pace)
+        val shareTitle = stringResource(R.string.runs_share_image)
+        val shareFailed = stringResource(R.string.runs_share_failed)
+        val stats = dz.racedz.nativeapp.feature.runs.share.RunShareImage.Stats(
+            distance = ZidRunFormat.distanceValue(run.distanceKm, locale),
+            distanceLabel = unitLabel,
+            duration = ZidRunFormat.duration(run.durationSeconds),
+            durationLabel = timeLabel,
+            pace = ZidRunFormat.pace(run.averagePaceSecondsPerKm),
+            paceLabel = paceLabel,
+            date = ZidRunFormat.date(run.startedAt, locale),
+        )
+        val hasRoute = (run.route?.size ?: 0) > 1
+        dz.racedz.nativeapp.feature.runs.share.ShareRunSheet(
+            hasRoute = hasRoute,
+            defaultIncludeRoute = run.isPublic,
+            renderPreview = { include, widthPx ->
+                dz.racedz.nativeapp.feature.runs.share.RunShareImage.preview(context.applicationContext, mode, run.route, include, stats, widthPx)
+            },
+            sharing = state.mutating,
+            error = state.actionError,
+            onShare = { include ->
+                viewModel.renderShareImage(context, mode, include, stats, shareFailed) { file ->
+                    sharing = false
+                    shareRunFile(context, file, shareTitle, "image/png", shareFailed)
+                }
+            },
+            onDismiss = { sharing = false },
+        )
     }
 
     if (editing && state.run != null) {

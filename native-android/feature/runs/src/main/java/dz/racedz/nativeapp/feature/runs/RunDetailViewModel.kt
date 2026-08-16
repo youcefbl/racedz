@@ -218,6 +218,32 @@ class RunDetailViewModel(
         }
     }
 
+    /**
+     * Renders the share card to a private cache file (NATRUN-06.9) and hands it to [onReady] for the
+     * system share sheet. Off the main thread inside the renderer; failures surface in the sheet.
+     */
+    fun renderShareImage(
+        context: android.content.Context,
+        mode: dz.racedz.nativeapp.core.design.ZidRunThemeMode,
+        includeRoute: Boolean,
+        stats: dz.racedz.nativeapp.feature.runs.share.RunShareImage.Stats,
+        failedMessage: String,
+        onReady: (java.io.File) -> Unit,
+    ) {
+        val run = _state.value.run ?: return
+        if (_state.value.mutating) return
+        _state.update { it.copy(mutating = true, actionError = null) }
+        viewModelScope.launch {
+            val file = runCatching {
+                dz.racedz.nativeapp.feature.runs.share.RunShareImage.render(
+                    context.applicationContext, mode, run.route, includeRoute, stats, run.id.take(8),
+                )
+            }.getOrNull()
+            _state.update { it.copy(mutating = false, actionError = if (file == null) failedMessage else null) }
+            if (file != null) onReady(file)
+        }
+    }
+
     /** Deletes the run. [onDeleted] runs only after the server has actually accepted it. */
     fun delete(onDeleted: () -> Unit) {
         if (_state.value.mutating) return

@@ -351,6 +351,15 @@
     <string name="runs_avg">معدل</string>
     <string name="runs_private">خاصة</string>
     <string name="runs_public">عامة</string>
+    <string name="runs_share_image">شارك تصويرة</string>
+    <string name="runs_share_action">شارك</string>
+    <string name="runs_share_include_route">زيد المسار</string>
+    <string name="runs_share_include_route_help">غير شكل الجَرية تاعك — لا زنقات لا إحداثيات. مطفي بالافتراض في الجَريات الخاصة.</string>
+    <string name="runs_share_no_route">هاذ الجَرية ما عندهاش مسار باش نوريوه.</string>
+    <string name="runs_share_failed">ما قدرناش نصنعو التصويرة. عاود جرّب.</string>
+    <string name="runs_share_preview_a11y">معاينة التصويرة اللي رايحة تتشارك</string>
+    <string name="runs_share_stat_time">الوقت</string>
+    <string name="runs_share_stat_pace">الريتم</string>
     <string name="runs_export_gpx">صدّر GPX</string>
     <string name="runs_export_failed">ما قدرناش نوجّدو فيشي GPX. عاود جرّب.</string>
     <string name="runs_export_share">شارك هاذ الجَرية</string>
