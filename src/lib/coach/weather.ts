@@ -2,6 +2,7 @@ import "server-only";
 
 import { ALGERIA_WILAYAS, type AlgeriaWilaya } from "@/lib/algeria";
 import type { RunRoutePoint } from "@/components/coach/types";
+import { fetchWithTimeout } from "@/lib/http/outbound";
 
 // Weather is a free, key-less enrichment via Open-Meteo. It is strictly best-effort: every fetch
 // is time-boxed and any failure resolves to `null` so a slow or down forecast provider can never
@@ -161,16 +162,15 @@ export function resolveCoordinates(input: {
 }
 
 async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  // Was a hand-rolled AbortController with the same effect. Moved onto the shared helper so there is
+  // exactly one way to bound an outbound call, and so `test:outbound-timeouts` has one rule to check
+  // rather than having to recognise every correct-but-bespoke variant.
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetchWithTimeout(url, { timeoutMs: FETCH_TIMEOUT_MS });
     if (!response.ok) return null;
     return (await response.json()) as Record<string, unknown>;
   } catch {
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

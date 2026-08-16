@@ -1,5 +1,7 @@
 import "server-only";
 
+import { EMAIL_TIMEOUT_MS, fetchWithTimeout } from "@/lib/http/outbound";
+
 type SendEmailInput = {
   to: string;
   subject: string;
@@ -29,7 +31,8 @@ export async function sendNotificationEmail(input: SendEmailInput): Promise<Send
     return { ok: false, error: "EMAIL_FROM is not configured." };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetchWithTimeout("https://api.resend.com/emails", {
+    timeoutMs: EMAIL_TIMEOUT_MS,
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

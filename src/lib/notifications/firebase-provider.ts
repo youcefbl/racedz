@@ -2,6 +2,8 @@ import "server-only";
 
 import { createSign } from "crypto";
 
+import { PUSH_TIMEOUT_MS, fetchWithTimeout } from "@/lib/http/outbound";
+
 type SendFirebasePushInput = {
   token: string;
   title: string;
@@ -35,7 +37,8 @@ export async function sendFirebasePush(input: SendFirebasePushInput): Promise<Se
     return tokenResult;
   }
 
-  const response = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+  const response = await fetchWithTimeout(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+    timeoutMs: PUSH_TIMEOUT_MS,
     method: "POST",
     headers: {
       Authorization: `Bearer ${tokenResult.token}`,
@@ -123,7 +126,8 @@ async function getAccessToken(): Promise<{ ok: true; token: string } | { ok: fal
     privateKey
   );
 
-  const response = await fetch("https://oauth2.googleapis.com/token", {
+  const response = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
+    timeoutMs: PUSH_TIMEOUT_MS,
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded"

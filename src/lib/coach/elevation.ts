@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { RunRoutePoint } from "@/components/coach/types";
+import { GEO_TIMEOUT_MS, fetchWithTimeout } from "@/lib/http/outbound";
 import { smoothedElevationGainM } from "@/lib/coach/run-stats";
 
 // GPS altitude on a phone (no barometer) is far too noisy to measure climb — it swings tens of
@@ -82,7 +83,7 @@ async function correctAltitudes(route: RunRoutePoint[]): Promise<RunRoutePoint[]
 
 async function fetchOpenMeteo(lats: number[], lngs: number[], signal: AbortSignal): Promise<number[] | null> {
   const url = `${OPEN_METEO_URL}?latitude=${lats.join(",")}&longitude=${lngs.join(",")}`;
-  const response = await fetch(url, { signal });
+  const response = await fetchWithTimeout(url, { timeoutMs: GEO_TIMEOUT_MS, signal });
   if (!response.ok) return null;
   const json = (await response.json()) as { elevation?: Array<number | null> };
   return Array.isArray(json.elevation) ? json.elevation.map((e) => (typeof e === "number" ? e : Number.NaN)) : null;
@@ -90,7 +91,10 @@ async function fetchOpenMeteo(lats: number[], lngs: number[], signal: AbortSigna
 
 async function fetchCustomDem(url: string, lats: number[], lngs: number[], signal: AbortSignal): Promise<number[] | null> {
   const locations = lats.map((latitude, i) => ({ latitude, longitude: lngs[i] }));
-  const response = await fetch(url, {
+  // Belt and braces: the caller's controller already bounds this, but a self-hosted DEM is operator
+  // -configured infrastructure, so it also carries its own deadline rather than trusting one signal.
+  const response = await fetchWithTimeout(url, {
+    timeoutMs: GEO_TIMEOUT_MS,
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ locations }),
