@@ -40,6 +40,13 @@ data class RecordingState(
      * they can be handed to the server at save and linked to the run they were asked on.
      */
     val askedCoachIds: List<String> = emptyList(),
+    /**
+     * Whether the runner chose to publish this run on the summary screen. Part of the recording
+     * state rather than the screen's own memory so it rides in the outbox: a save that failed and
+     * is retried after a process death must post the visibility that was chosen, not a default.
+     * Off by default — a run records where someone was, and publishing is opt-in (NATRUN-06.1).
+     */
+    val draftIsPublic: Boolean = false,
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
 
@@ -396,6 +403,16 @@ object RunRecorder {
         _state.value = RecordingState()
     }
 
+    /**
+     * Records the visibility chosen on the summary screen and makes it durable at once — the
+     * choice must survive the same process death the run itself survives.
+     */
+    fun setDraftVisibility(isPublic: Boolean) {
+        if (_state.value.draftIsPublic == isPublic) return
+        _state.update { it.copy(draftIsPublic = isPublic) }
+        snapshot(force = true)
+    }
+
     /** Restores a finished run into memory so the summary screen can show and save it. */
     fun resumeFinished(pending: PendingRun) {
         route.clear()
@@ -420,6 +437,7 @@ object RunRecorder {
             workoutId = pending.request.workoutId,
             stepCount = recordedSteps,
             askedCoachIds = coachInteractionIds.toList(),
+            draftIsPublic = pending.request.isPublic == true,
         )
     }
 
@@ -437,6 +455,9 @@ object RunRecorder {
         workoutId = workoutId,
         avgCadence = avgCadenceSpm,
         coachInteractionIds = askedCoachIds.takeIf { it.isNotEmpty() },
+        // Never public for a run that fails the on-foot test — the server would refuse it anyway,
+        // and a retry must not keep asking.
+        isPublic = draftIsPublic && nonFootReason == null,
     )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */

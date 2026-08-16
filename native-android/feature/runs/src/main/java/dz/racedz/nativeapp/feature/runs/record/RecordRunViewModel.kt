@@ -110,6 +110,10 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 avgCadence = recording.avgCadenceSpm,
                 // Coach questions asked mid-run, for the server to link to this run once it exists.
                 coachInteractionIds = recording.askedCoachIds.takeIf { it.isNotEmpty() },
+                // The summary screen's choice, from the recording state so a retry (or a restore
+                // after process death) posts the same value. Never public for a flagged activity;
+                // the server enforces the same rule.
+                isPublic = recording.draftIsPublic && recording.nonFootReason == null,
             )
 
             when (val result = repository.create(request)) {

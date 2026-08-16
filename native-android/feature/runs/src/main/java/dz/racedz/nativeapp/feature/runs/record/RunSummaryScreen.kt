@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -310,6 +311,52 @@ fun RunSummaryScreen(
                 label = stringResource(R.string.runs_effort_label, effort),
                 enabled = !saveState.saving,
             )
+
+            /*
+             * Visibility, decided before the run exists on the server (NATRUN-06.1). The same row
+             * Run Details shows afterwards, so the choice reads the same in both places. Private
+             * by default: a run records where the runner was. The value lives in the recorder so a
+             * failed save retried later — or restored after a process kill — posts what was chosen.
+             * A run the on-foot test flags cannot be published, here or on the server.
+             */
+            val publishable = state.nonFootReason == null
+            ZidRunCard {
+                Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.runs_visibility_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.textStrong,
+                            )
+                            Text(
+                                stringResource(
+                                    if (state.draftIsPublic && publishable) R.string.runs_visibility_public_body
+                                    else R.string.runs_visibility_private_body
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.textMuted,
+                            )
+                        }
+                        Spacer(Modifier.width(ZidRunDimens.spaceMd))
+                        Switch(
+                            checked = state.draftIsPublic && publishable,
+                            onCheckedChange = { RunRecorder.setDraftVisibility(it) },
+                            enabled = !saveState.saving && publishable,
+                        )
+                    }
+                    if (!publishable) {
+                        Text(
+                            stringResource(R.string.runs_visibility_blocked),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textMuted,
+                        )
+                    }
+                }
+            }
 
             saveState.error?.let { ZidRunInlineError(it) }
 
