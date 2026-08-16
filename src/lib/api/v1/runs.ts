@@ -1,3 +1,4 @@
+import { lapBoundariesSchema } from "@/lib/coach/laps";
 import "server-only";
 
 import { z } from "zod";
@@ -109,6 +110,8 @@ export const runCreateSchema = z.object({
   // server can link them to the run it is about to create. Capped small — a single run's worth of
   // in-run questions, not a history dump.
   coachInteractionIds: z.array(z.string().min(1).max(64)).max(20).optional(),
+  /** Manual lap boundaries (NATRUN-06.5); validated against the run's totals in createRunnerRun. */
+  laps: lapBoundariesSchema.nullable().optional(),
 });
 
 export const runUpdateSchema = z.object({
@@ -148,6 +151,7 @@ export const runSelect = {
   source: true,
   validity: true,
   validityReason: true,
+  laps: true,
   goalId: true,
   workoutId: true,
   workoutMatchSource: true,

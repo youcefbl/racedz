@@ -312,6 +312,12 @@
     <string name="runs_best_effort_short">Course plus courte que %1$s</string>
     <string name="runs_best_effort_pr">Record</string>
     <string name="runs_best_effort_pr_a11y">record personnel</string>
+    <string name="runs_lap">Tour</string>
+    <string name="runs_laps">Tours</string>
+    <string name="runs_laps_manual">manuels</string>
+    <string name="runs_lap_marked">Tour %1$s · %2$s</string>
+    <string name="runs_lap_too_soon">Trop tôt pour un autre tour</string>
+    <string name="runs_lap_index">#</string>
     <string name="runs_splits">Tours</string>
     <string name="runs_split_km">KM</string>
     <string name="runs_split_pace">ALLURE</string>

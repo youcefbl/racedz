@@ -270,6 +270,17 @@ fun RunSummaryScreen(
                 }
             }
 
+            // Manual laps pressed during the run (NATRUN-06.5), derived on device with the same rules
+            // the server applies, so this table and Run Details agree.
+            if (state.laps.isNotEmpty()) {
+                dz.racedz.nativeapp.feature.runs.LapsCard(
+                    laps = LapMath.derive(state.laps, state.distanceMeters, state.elapsedSeconds).map {
+                        dz.racedz.nativeapp.feature.runs.LapRow(it.index, it.meters, it.seconds, it.paceSecondsPerKm)
+                    },
+                    locale = locale,
+                )
+            }
+
             ZidRunTextField(
                 value = title,
                 onValueChange = { title = it.take(120) },

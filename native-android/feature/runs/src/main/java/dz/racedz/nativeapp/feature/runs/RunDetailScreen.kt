@@ -322,6 +322,14 @@ fun RunDetailScreen(
                     }
                 }
 
+                // Manual laps (NATRUN-06.5), derived by the server from the stored boundaries.
+                if (run.laps.isNotEmpty()) {
+                    LapsCard(
+                        laps = run.laps.map { LapRow(it.index, it.meters, it.seconds, it.paceSecondsPerKm) },
+                        locale = locale,
+                    )
+                }
+
                 // Best efforts (NATRUN-06.3): the three fixed distances, each either measured or
                 // explained. Only for runs with a measured route — a manual entry can never have
                 // one, and a card of three "unavailable" rows would be noise. PR is the server's

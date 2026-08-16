@@ -1,3 +1,4 @@
+import { validateLapBoundaries } from "@/lib/coach/laps";
 import { computeAndStoreBestEfforts } from "@/lib/coach/best-efforts-service";
 import "server-only";
 
@@ -601,18 +602,23 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
 
   const routeJson = routePoints && routePoints.length > 0 ? JSON.stringify(routePoints) : null;
   const photosJson = input.photos && input.photos.length > 0 ? JSON.stringify(input.photos) : null;
+  // Manual laps (NATRUN-06.5): shape was checked by the schema; ordering, spacing and range are
+  // checked against the run's own totals here, so a boundary past the finish is refused, not stored.
+  const lapError = validateLapBoundaries(input.laps ?? null, input.distanceKm * 1000, input.durationSeconds);
+  if (lapError) throw new CoachError(lapError, 400, "INVALID_LAPS");
+  const lapsJson = input.laps && input.laps.length > 0 ? JSON.stringify(input.laps) : null;
   const rows = await prisma.$queryRaw<RunRow[]>`
     INSERT INTO "RunnerRun" (
       "id", "userId", "goalId", "workoutId", "workoutMatchSource", "workoutMatchConfidence", "startedAt", "distanceKm", "durationSeconds",
       "averagePaceSecondsPerKm", "movingTimeSeconds", "elevationGainM", "averageHeartRate", "avgCadence",
       "calories", "route", "weather", "isPublic", "perceivedEffort",
-      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "source", "validity", "validityReason", "updatedAt"
+      "fatigueLevel", "painLevel", "title", "symptoms", "notes", "photos", "laps", "source", "validity", "validityReason", "updatedAt"
     ) VALUES (
       ${runId}, ${userId}, ${goal?.id ?? null}, ${linkedWorkoutId}, ${matchSource ? Prisma.sql`${matchSource}::"WorkoutMatchSource"` : Prisma.sql`NULL`}, ${matchConfidence}, ${input.startedAt}, ${input.distanceKm},
       ${input.durationSeconds}, ${pace}, ${input.movingTimeSeconds ?? null}, ${elevationGainM ?? null}, ${input.averageHeartRate ?? null}, ${input.avgCadence ?? null},
       ${calories}, ${routeJson ? Prisma.sql`CAST(${routeJson} AS JSONB)` : Prisma.sql`NULL`}, ${weatherJson ? Prisma.sql`CAST(${weatherJson} AS JSONB)` : Prisma.sql`NULL`}, ${validity === "VALID" ? input.isPublic : false}, ${input.perceivedEffort},
       ${input.fatigueLevel}, ${input.painLevel}, ${input.title ?? null}, ${input.symptoms ?? null},
-      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource",
+      ${input.notes ?? null}, ${photosJson ? Prisma.sql`CAST(${photosJson} AS JSONB)` : Prisma.sql`NULL`}, ${lapsJson ? Prisma.sql`CAST(${lapsJson} AS JSONB)` : Prisma.sql`NULL`}, ${input.source}::"RunnerRunSource",
       ${validity}::"RunValidity", ${validityReason}, NOW()
     )
     RETURNING *

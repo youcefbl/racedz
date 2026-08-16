@@ -114,6 +114,8 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 // after process death) posts the same value. Never public for a flagged activity;
                 // the server enforces the same rule.
                 isPublic = recording.draftIsPublic && recording.nonFootReason == null,
+                // Manual laps pressed during the run; the outbox carries the same list.
+                laps = recording.laps.takeIf { it.isNotEmpty() },
             )
 
             when (val result = repository.create(request)) {

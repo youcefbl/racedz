@@ -19,6 +19,7 @@
     "test:run-incident": "tsx scripts/test-run-incident.ts",
     "test:run-stats": "tsx scripts/test-run-stats.ts",
     "test:best-efforts": "tsx scripts/test-best-efforts.ts",
+    "test:laps": "tsx scripts/test-laps.ts",
     "test:social-import": "tsx scripts/test-social-import.ts",
     "test:mfa": "tsx scripts/test-mfa.ts",
     "test:social-authz": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-social-authz.ts",

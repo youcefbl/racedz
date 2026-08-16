@@ -1,3 +1,4 @@
+import { deriveLaps, type LapBoundary } from "@/lib/coach/laps";
 import { bestEffortsForRun, ensureBestEffortsBackfilled } from "@/lib/coach/best-efforts-service";
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
@@ -49,6 +50,7 @@ export const GET = withApi(async (request, context: Context) => {
     paceSeries: paceSeries(points),
     elevationSeries: elevationSeries(points),
     bestEfforts,
+    laps: deriveLaps(run.laps as LapBoundary[] | null, run.distanceKm * 1000, run.durationSeconds),
     ...workout,
   });
 });

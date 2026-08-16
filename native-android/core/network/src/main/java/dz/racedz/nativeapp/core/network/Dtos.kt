@@ -454,6 +454,24 @@ data class RunDetailDto(
      * with no timestamps, shorter than 1 km, or not VALID. Only distances the run covers appear.
      */
     val bestEfforts: List<BestEffortDto> = emptyList(),
+    /** Manual laps, derived by the server from the stored boundaries; empty when none were pressed. */
+    val laps: List<RunLapDto> = emptyList(),
+)
+
+/** A manual lap boundary: where and when the runner pressed Lap, from the start of the run. */
+@Serializable
+data class LapMarkDto(
+    val atMeters: Double = 0.0,
+    val atSeconds: Int = 0,
+)
+
+/** One derived manual lap on the saved run (server-derived from the boundaries). */
+@Serializable
+data class RunLapDto(
+    val index: Int = 0,
+    val meters: Double = 0.0,
+    val seconds: Int = 0,
+    val paceSecondsPerKm: Int? = null,
 )
 
 /** One best effort. [isPersonalBest] is the server's verdict against the runner's other runs. */
@@ -980,6 +998,11 @@ data class CreateRunRequest(
      * tied to the run they were asked on. Empty for a run with no mid-run coaching.
      */
     val coachInteractionIds: List<String>? = null,
+    /**
+     * Manual lap boundaries pressed during the run (NATRUN-06.5), measured from the start; ≤ 100,
+     * increasing. The server validates them against the run's totals and stores them as-is.
+     */
+    val laps: List<LapMarkDto>? = null,
 )
 
 /** Only runner-typed fields; every measurement is server-owned. */

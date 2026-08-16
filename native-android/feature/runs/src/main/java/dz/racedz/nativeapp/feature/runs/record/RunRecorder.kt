@@ -53,6 +53,8 @@ data class RecordingState(
      * unknown, so the live map draws a dot rather than an arrow pointing somewhere random.
      */
     val headingDegrees: Float? = null,
+    /** Manual lap boundaries pressed so far, from the start of the run (NATRUN-06.5). */
+    val laps: List<dz.racedz.nativeapp.core.network.LapMarkDto> = emptyList(),
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
 
@@ -409,6 +411,29 @@ object RunRecorder {
         _state.value = RecordingState()
     }
 
+    /** Outcome of a Lap press. */
+    enum class LapResult { Marked, TooSoon, NotRecording }
+
+    /**
+     * Marks a lap at the current distance and elapsed time.
+     *
+     * Only while recording (a lap while paused would be zero-length by definition), and only when
+     * it is far enough from the previous mark to be a lap and not a double tap. Durable at once:
+     * the mark rides in the recording state and therefore in the outbox and the create request.
+     */
+    fun markLap(): LapResult {
+        val current = _state.value
+        if (current.status != RecordingStatus.Recording) return LapResult.NotRecording
+        val atMeters = current.distanceMeters
+        val atSeconds = elapsedSeconds()
+        if (!LapMath.accepts(current.laps.lastOrNull(), atMeters, atSeconds, current.laps.size)) return LapResult.TooSoon
+        _state.update {
+            it.copy(laps = it.laps + dz.racedz.nativeapp.core.network.LapMarkDto(atMeters = atMeters, atSeconds = atSeconds))
+        }
+        snapshot(force = true)
+        return LapResult.Marked
+    }
+
     /**
      * Records the visibility chosen on the summary screen and makes it durable at once — the
      * choice must survive the same process death the run itself survives.
@@ -444,6 +469,7 @@ object RunRecorder {
             stepCount = recordedSteps,
             askedCoachIds = coachInteractionIds.toList(),
             draftIsPublic = pending.request.isPublic == true,
+            laps = pending.request.laps.orEmpty(),
         )
     }
 
@@ -464,6 +490,7 @@ object RunRecorder {
         // Never public for a run that fails the on-foot test — the server would refuse it anyway,
         // and a retry must not keep asking.
         isPublic = draftIsPublic && nonFootReason == null,
+        laps = laps.takeIf { it.isNotEmpty() },
     )
 
     /** Ticks elapsed time so the display keeps counting between fixes. */

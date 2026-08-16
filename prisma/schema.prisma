@@ -659,6 +659,10 @@ model RunnerRun {
   /// When the run's best efforts (RunBestEffort rows) were derived, so a run with none — too short,
   /// no timestamps — is not re-analysed on every read. Null = not yet computed (lazy backfill).
   bestEffortsComputedAt   DateTime?
+  /// Manual lap boundaries pressed during the run: [{ atMeters, atSeconds }], ≤ 100, increasing.
+  /// Bounded and never queried independently, hence JSON (owner decision 2026-08-16). Derived
+  /// distance/time/pace come from src/lib/coach/laps.ts on read.
+  laps                    Json?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 

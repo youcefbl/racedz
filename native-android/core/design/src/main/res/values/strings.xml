@@ -330,6 +330,12 @@
     <string name="runs_best_effort_short">Run shorter than %1$s</string>
     <string name="runs_best_effort_pr">PR</string>
     <string name="runs_best_effort_pr_a11y">personal record</string>
+    <string name="runs_lap">Lap</string>
+    <string name="runs_laps">Laps</string>
+    <string name="runs_laps_manual">manual</string>
+    <string name="runs_lap_marked">Lap %1$s · %2$s</string>
+    <string name="runs_lap_too_soon">Too soon for another lap</string>
+    <string name="runs_lap_index">#</string>
     <string name="runs_splits">Splits</string>
     <string name="runs_split_km">KM</string>
     <string name="runs_split_pace">PACE</string>

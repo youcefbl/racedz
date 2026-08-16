@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TextButton
@@ -198,6 +199,13 @@ fun RecordingScreen(
 
     var confirmFinish by remember { mutableStateOf(false) }
     val guided by GuidedSessionController.state.collectAsStateWithLifecycle()
+    var lapNotice by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(lapNotice) {
+        if (lapNotice != null) {
+            kotlinx.coroutines.delay(3_000)
+            lapNotice = null
+        }
+    }
 
     // One engine for the life of the screen, shut down on leave so it does not hold audio focus
     // after the run.
@@ -604,12 +612,44 @@ fun RecordingScreen(
 
         Spacer(Modifier.height(ZidRunDimens.spaceMd))
 
+        // Lap confirmation (NATRUN-06.5): the press is felt at once and the mark is shown for a
+        // few seconds where the thumb already is; TalkBack hears it once through the live region.
+        lapNotice?.let { notice ->
+            Text(
+                text = notice,
+                style = MaterialTheme.typography.bodyMedium,
+                color = zidRunOnDarkColors().primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(bottom = ZidRunDimens.spaceSm)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
+
         Controls(
             state = state,
             saving = false,
             onPause = { RunRecorder.pause() },
             onResume = { RunRecorder.resume() },
             onFinish = { confirmFinish = true },
+            onLap = {
+                when (RunRecorder.markLap()) {
+                    RunRecorder.LapResult.Marked -> {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val mark = RunRecorder.state.value.laps.last()
+                        val index = RunRecorder.state.value.laps.size
+                        val previous = RunRecorder.state.value.laps.getOrNull(index - 2)
+                        val lapSeconds = mark.atSeconds - (previous?.atSeconds ?: 0)
+                        lapNotice = context.getString(
+                            R.string.runs_lap_marked,
+                            ZidRunFormat.count(index, locale),
+                            ZidRunFormat.duration(lapSeconds),
+                        )
+                    }
+                    RunRecorder.LapResult.TooSoon -> lapNotice = context.getString(R.string.runs_lap_too_soon)
+                    RunRecorder.LapResult.NotRecording -> Unit
+                }
+            },
             onDiscard = {
                 RunTrackingService.stop(context)
                 RunRecorder.reset()
@@ -705,19 +745,29 @@ private fun Controls(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
+    onLap: () -> Unit,
     onDiscard: () -> Unit,
 ) {
     val paused = state.status == RecordingStatus.Paused
     val finished = state.status == RecordingStatus.Finished
+    val recording = state.status == RecordingStatus.Recording
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Discard is only offered while paused: it must take a deliberate stop, never a mis-tap
-        // mid-stride.
-        if (paused && !finished) {
+        // The left thumb slot: Lap while recording (owner decision 2026-08-16, stopwatch icon, same
+        // 48 dp circle language as Finish); Discard only while paused, so it takes a deliberate stop
+        // and can never be a mis-tap mid-stride.
+        if (recording) {
+            CircleAction(
+                label = stringResource(R.string.runs_lap),
+                tint = zidRunOnDarkColors().primary,
+                onClick = onLap,
+                icon = Icons.Filled.Timer,
+            )
+        } else if (paused && !finished) {
             CircleAction(
                 label = stringResource(R.string.runs_discard),
                 tint = zidRunOnDarkColors().danger,

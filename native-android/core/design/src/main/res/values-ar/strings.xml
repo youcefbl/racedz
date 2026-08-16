@@ -327,6 +327,12 @@
     <string name="runs_best_effort_short">الجَرية أقصر من %1$s</string>
     <string name="runs_best_effort_pr">ريكور</string>
     <string name="runs_best_effort_pr_a11y">ريكور شخصي</string>
+    <string name="runs_lap">دورة</string>
+    <string name="runs_laps">الدورات</string>
+    <string name="runs_laps_manual">يدوية</string>
+    <string name="runs_lap_marked">الدورة %1$s · %2$s</string>
+    <string name="runs_lap_too_soon">بكري بزاف على دورة أخرى</string>
+    <string name="runs_lap_index">#</string>
     <string name="runs_splits">الأشواط</string>
     <string name="runs_split_km">كم</string>
     <string name="runs_split_pace">الريتم</string>

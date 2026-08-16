@@ -1,3 +1,4 @@
+import { lapBoundariesSchema } from "@/lib/coach/laps";
 import { z } from "zod";
 import { DATA_GAP_KEYS, PROVENANCE_KEYS } from "@/lib/coach/provenance";
 
@@ -133,7 +134,10 @@ export const createRunnerRunSchema = z.object({
   photos: runPhotosSchema.optional(),
   // Ids of CHAT interactions the runner had with the Coach mid-run (no runId yet); linked to this
   // run on save. Capped small — see runCreateSchema. Re-declared here so it survives this parse.
-  coachInteractionIds: z.array(z.string().min(1).max(64)).max(20).optional()
+  coachInteractionIds: z.array(z.string().min(1).max(64)).max(20).optional(),
+  // Manual lap boundaries (NATRUN-06.5). Shape here; ordering/spacing/range against the run's own
+  // totals is checked in createRunnerRun once they are known.
+  laps: lapBoundariesSchema.nullable().optional()
 });
 
 // Partial update from the runs list: flip visibility and/or attach photos after the fact.
