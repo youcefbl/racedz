@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -25,6 +28,17 @@ if (googleServicesConfig.exists()) {
     apply(plugin = libs.plugins.crashlytics.get().pluginId)
 }
 
+// Release signing stays OUT of the repository (docs/NATIVE_ANDROID_OPTION_PLAN.md): the upload
+// keystore lives in ~/zidrun-release/ and is referenced through a properties file passed as
+// -Pzidrun.signing=/path/to/upload-signing.properties (storeFile/storePassword/keyAlias/
+// keyPassword). Without the property the release build type stays unsigned, exactly as before,
+// so CI and contributors are unaffected.
+val signingProps: Properties? = (findProperty("zidrun.signing") as String?)?.let { path ->
+    val props = Properties()
+    FileInputStream(path).use { stream -> props.load(stream) }
+    props
+}
+
 android {
     namespace = "dz.racedz.nativeapp"
     compileSdk = 36
@@ -48,10 +62,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    if (signingProps != null) {
+        signingConfigs.create("upload") {
+            storeFile = file(signingProps.getProperty("storeFile"))
+            storePassword = signingProps.getProperty("storePassword")
+            keyAlias = signingProps.getProperty("keyAlias")
+            keyPassword = signingProps.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (signingProps != null) signingConfig = signingConfigs.getByName("upload")
         }
         debug {
             // Keeps the evaluation build installable next to a release build, and makes it obvious
