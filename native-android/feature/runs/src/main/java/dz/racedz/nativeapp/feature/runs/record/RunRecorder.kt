@@ -309,7 +309,14 @@ object RunRecorder {
      * does, drop the in-memory recording if it is that run, and tell any open summary.
      */
     fun onSyncedInBackground(clientId: String, runId: String, ownerUserId: String?) {
-        if (outbox?.clear(ownerUserId) == false) outbox?.quarantineUnreadable(ownerUserId)
+        // Clear the slot ONLY while it still holds the run that was uploaded. Between the worker
+        // starting and finishing, the runner may have discarded that run and recorded a new one
+        // into the same per-owner slot — clearing by owner alone would silently destroy the newer
+        // run's only durable copy (review P1).
+        val slot = outbox?.load(ownerUserId)
+        if (slot?.request?.clientId == clientId) {
+            if (outbox?.clear(ownerUserId) == false) outbox?.quarantineUnreadable(ownerUserId)
+        }
         refreshOutboxBlocked()
         if (_state.value.clientId == clientId && _state.value.status == RecordingStatus.Finished) {
             route.clear()

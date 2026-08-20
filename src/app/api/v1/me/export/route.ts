@@ -57,7 +57,9 @@ export const GET = withApi(async (request) => {
       orderBy: { createdAt: "desc" }
     }),
     prisma.runnerRun.findMany({
-      where: { userId: viewer.id },
+      // A deleted run's row survives only as a sync tombstone (route already destroyed); an export
+      // is "my data", and data the runner deleted is not part of it.
+      where: { userId: viewer.id, deletedAt: null },
       select: {
         id: true,
         startedAt: true,

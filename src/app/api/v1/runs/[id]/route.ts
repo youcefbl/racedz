@@ -156,7 +156,7 @@ export const DELETE = withApi(async (request, context: Context) => {
  * Best-effort. A failure here must not take down a run's detail page — the numbers and the route
  * are what the runner opened it for.
  */
-async function resolveWorkoutContext(userId: string, run: { workoutId?: unknown; startedAt?: unknown; distanceKm?: unknown; validity?: unknown }) {
+async function resolveWorkoutContext(userId: string, run: { workoutId?: unknown; startedAt?: unknown; distanceKm?: unknown; validity?: unknown; sport?: unknown }) {
   try {
     if (run.workoutId) {
       const workout = await getPrisma().trainingWorkout.findFirst({
@@ -166,8 +166,10 @@ async function resolveWorkoutContext(userId: string, run: { workoutId?: unknown;
       return { workoutTitle: workout?.title ?? null, suggestedMatch: null };
     }
     // A non-foot activity is excluded from workout completion server-side, so offering to link it
-    // would be offering an action the confirm endpoint is going to refuse.
-    if (run.validity !== "VALID") return { workoutTitle: null, suggestedMatch: null };
+    // would be offering an action the confirm endpoint is going to refuse. A RIDE is refused by
+    // the same endpoint whatever its validity (a ride cannot complete a running workout), so it
+    // gets no suggestion either (review P2).
+    if (run.validity !== "VALID" || run.sport === "RIDE") return { workoutTitle: null, suggestedMatch: null };
 
     const best = await findWorkoutMatchForRun(userId, run.startedAt as Date, run.distanceKm as number);
     return {

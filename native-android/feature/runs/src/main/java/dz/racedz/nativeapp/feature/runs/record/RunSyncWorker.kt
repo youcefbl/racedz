@@ -102,6 +102,15 @@ class RunSyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
             WorkManager.getInstance(context).cancelAllWorkByTag(TAG)
         }
 
+        /**
+         * When the runner discards a run whose save was already handed to the worker: the retry
+         * must die with the run, or it could still upload it — and its completion used to clear
+         * whatever the slot held by then (review P1).
+         */
+        fun cancel(context: Context, ownerUserId: String, clientId: String) {
+            WorkManager.getInstance(context).cancelUniqueWork(uniqueName(ownerUserId, clientId))
+        }
+
         /** On app start: re-arm the retry for a slot the runner already asked to save. */
         fun enqueuePendingIfAny(context: Context, outbox: RunOutbox, ownerUserId: String?) {
             if (ownerUserId.isNullOrBlank()) return

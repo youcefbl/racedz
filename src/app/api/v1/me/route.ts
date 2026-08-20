@@ -36,7 +36,8 @@ export const GET = withApi(async (request) => {
   const [user, raceCount, runAggregate] = await Promise.all([
     prisma.user.findUnique({ where: { id: viewer.id }, select: meSelect }),
     prisma.raceRegistration.count({ where: { userId: viewer.id, status: { notIn: ["CANCELLED", "REJECTED"] } } }),
-    prisma.runnerRun.aggregate({ where: { userId: viewer.id }, _sum: { distanceKm: true }, _count: true })
+    // Tombstoned runs are deleted runs; the Account counters must not keep counting them.
+    prisma.runnerRun.aggregate({ where: { userId: viewer.id, deletedAt: null }, _sum: { distanceKm: true }, _count: true })
   ]);
 
   if (!user) throw new ApiError("SESSION_EXPIRED", "Your session has expired. Please sign in again.");

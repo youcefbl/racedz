@@ -150,6 +150,11 @@ export const POST = withApi(async (request) => {
     if (isUniqueViolation(error)) {
       const replay = await replayWinner();
       if (replay) return replay;
+      // Not a clientId replay, so the collision is the OTHER unique index on the row: two runs
+      // racing for the same workout slot (RunnerRun.workoutId is unique). The pre-insert
+      // "already completed" check can miss a concurrent claim; the index is the referee, and the
+      // loser gets the same 409 the check would have given, not a 500 (review P2).
+      throw new ApiError("CONFLICT", "This workout already has a completed run.");
     }
     if (error instanceof CoachError) {
       const code = error.status === 404 ? "NOT_FOUND" : error.status === 409 ? "CONFLICT" : "VALIDATION_FAILED";

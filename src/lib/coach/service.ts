@@ -807,18 +807,37 @@ export async function deleteRun(userId: string, runId: string) {
   if (!run) throw new CoachError("Run was not found.", 404, "RUN_NOT_FOUND");
   if (run.deletedAt) return { id: run.id };
 
-  await prisma.$executeRaw`
-    UPDATE "RunnerRun" SET
-      "deletedAt" = NOW(),
-      "revision" = "revision" + 1,
-      "isPublic" = false,
-      "route" = NULL,
-      "workoutId" = NULL,
-      "workoutMatchSource" = NULL,
-      "workoutMatchConfidence" = NULL,
-      "updatedAt" = NOW()
-    WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL
-  `;
+  // One transaction for the tombstone AND the workout reopen. They used to be two statements, and
+  // a failure between them left the worst possible state: the run gone but its workout permanently
+  // COMPLETED with no run behind it — and the retry path above (`if deletedAt return`) would never
+  // repair it, because by then the tombstone had already nulled workoutId (review P1).
+  const statements = [
+    prisma.$executeRaw`
+      UPDATE "RunnerRun" SET
+        "deletedAt" = NOW(),
+        "revision" = "revision" + 1,
+        "isPublic" = false,
+        "route" = NULL,
+        "workoutId" = NULL,
+        "workoutMatchSource" = NULL,
+        "workoutMatchConfidence" = NULL,
+        "updatedAt" = NOW()
+      WHERE "id" = ${runId} AND "userId" = ${userId} AND "deletedAt" IS NULL
+    `
+  ];
+  if (run.workoutId) {
+    // Reopen the workout and clear the completion metadata, so a deleted run leaves no ghost outcome.
+    statements.push(prisma.$executeRaw`
+      UPDATE "TrainingWorkout" SET
+        "status" = 'PLANNED',
+        "completedAt" = NULL,
+        "completionType" = NULL,
+        "completionConfidence" = NULL,
+        "updatedAt" = NOW()
+      WHERE "id" = ${run.workoutId}
+    `);
+  }
+  await prisma.$transaction(statements);
 
   // A deleted run may have held a personal best; re-derive the PERFORMANCE facts from the runs
   // that remain (B83-R07). Non-fatal for the deletion itself, but retried once (19A-R05) since a
@@ -837,18 +856,6 @@ export async function deleteRun(userId: string, runId: string) {
     }
   }
 
-  if (run.workoutId) {
-    // Reopen the workout and clear the completion metadata, so a deleted run leaves no ghost outcome.
-    await prisma.$executeRaw`
-      UPDATE "TrainingWorkout" SET
-        "status" = 'PLANNED',
-        "completedAt" = NULL,
-        "completionType" = NULL,
-        "completionConfidence" = NULL,
-        "updatedAt" = NOW()
-      WHERE "id" = ${run.workoutId}
-    `;
-  }
   return { id: run.id };
 }
 

@@ -444,6 +444,13 @@ fun RunSummaryScreen(
                 onClick = {
                     // Two taps: the run is not saved yet, so discarding here destroys it outright.
                     if (confirmDiscard) {
+                        // A background retry may already carry this run; discarding must take the
+                        // retry with it, or it can still upload what was just destroyed.
+                        RunRecorder.state.value.clientId.takeIf { it.isNotEmpty() }?.let { clientId ->
+                            RunRecorder.currentOwnerUserId()?.let { owner ->
+                                RunSyncWorker.cancel(context, owner, clientId)
+                            }
+                        }
                         RunRecorder.reset()
                         GuidedSessionController.clear()
                         onDiscarded()
@@ -451,7 +458,10 @@ fun RunSummaryScreen(
                         confirmDiscard = true
                     }
                 },
-                enabled = !saveState.saving,
+                // Not while a background retry is running either: cancel-then-discard is handled
+                // above, but a retry that already reached the server would resurrect a run the
+                // runner watched themselves destroy. Wait for the outcome instead.
+                enabled = !saveState.saving && !backgroundSaving,
             )
 
             Spacer(Modifier.height(ZidRunDimens.spaceXxl))
