@@ -5,6 +5,16 @@ zidrun.com, www.zidrun.com {
 	# uploads volume but must NEVER be served publicly — only the app's authenticated route
 	# /api/coach/subscription/proof/* serves them, to the owner or an admin. This block comes first
 	# so it wins over the general /uploads/* handler below.
+	# Android App Links / Play signing verification (PR-048). Served from the uploads volume so
+	# it can be updated without rebuilding the app image; the app's public/ copy is the fallback
+	# after a deploy. Both carry the same content.
+	handle /.well-known/assetlinks.json {
+		root * /srv/uploads/well-known
+		rewrite * /assetlinks.json
+		header Content-Type "application/json"
+		file_server
+	}
+
 	handle /uploads/coach-payment/* {
 		respond 403
 	}
