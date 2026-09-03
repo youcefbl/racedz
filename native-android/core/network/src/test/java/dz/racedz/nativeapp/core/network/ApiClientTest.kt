@@ -34,7 +34,14 @@ class ApiClientTest {
     private fun api(provider: AuthTokenProvider = AnonymousTokenProvider): Pair<ZidRunApi, ApiClient> {
         val okHttp: OkHttpClient = NetworkFactory.okHttpClient(provider)
         val api = NetworkFactory.api(okHttp, server.url("/").toString())
-        return api to ApiClient(api, provider)
+        return api to ApiClient(api, provider, okHttp)
+    }
+
+    /** Like [api], but also hands back the [OkHttpClient] so a test can inspect its pool. */
+    private fun apiWithClient(provider: AuthTokenProvider = AnonymousTokenProvider): Triple<ZidRunApi, ApiClient, OkHttpClient> {
+        val okHttp: OkHttpClient = NetworkFactory.okHttpClient(provider)
+        val api = NetworkFactory.api(okHttp, server.url("/").toString())
+        return Triple(api, ApiClient(api, provider, okHttp), okHttp)
     }
 
     @Test
@@ -131,6 +138,49 @@ class ApiClientTest {
         val failure = result as ApiResult.Failure
         assertEquals(ApiErrorCode.Offline, failure.error.code)
         assertTrue(failure.error.isRetryable)
+    }
+
+    /**
+     * Found for real on a build left running unattended for ~26 hours (2026-09-04): every screen
+     * showed "You are offline" and stayed that way through repeated manual retries, on a device
+     * whose own browser reached the same server instantly — the server and the network were both
+     * fine, but this client's OkHttp connection pool was holding onto a route that had quietly
+     * stopped working, and kept handing that same broken connection back on every retry. Only
+     * force-stopping the process (which drops every socket it holds) recovered it.
+     *
+     * A real connection is pooled by a first successful call, then a second request goes bad
+     * mid-flight (the server accepts it and disconnects before answering — a stand-in for a route
+     * that died after being pooled, not a server that was never reachable, which is the existing
+     * "dead server" test above). The fix must not require the runner to know to restart anything:
+     * the pool is evicted as a side effect of classifying that failure, so the very next attempt is
+     * guaranteed a fresh connection rather than the same one that just failed.
+     */
+    @Test
+    fun `a connection that goes bad mid-flight evicts the pool so the next attempt is fresh`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(
+                    """{"data":[],"meta":{"page":1,"limit":20,"total":0,"totalPages":0,"hasMore":false}}"""
+                )
+        )
+
+        val (api, client, okHttp) = apiWithClient()
+
+        val warm = client.call { api.races() }
+        assertTrue(warm is ApiResult.Success)
+        assertEquals(1, okHttp.connectionPool.connectionCount())
+
+        server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        val brokenAttempt = client.call { api.races() }
+
+        val failure = brokenAttempt as ApiResult.Failure
+        assertEquals(ApiErrorCode.Offline, failure.error.code)
+        assertEquals(
+            "the broken connection must not still be sitting in the pool for the next request to reuse",
+            0,
+            okHttp.connectionPool.connectionCount()
+        )
     }
 
     @Test

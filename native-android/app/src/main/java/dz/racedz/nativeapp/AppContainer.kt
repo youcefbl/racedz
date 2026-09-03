@@ -39,14 +39,19 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
         override suspend fun refreshAccessToken(): String? = delegate?.refreshAccessToken()
     }
 
-    private val api: ZidRunApi = NetworkFactory.api(NetworkFactory.okHttpClient(tokenProvider))
+    // Kept, not just handed to Retrofit and dropped: ApiClient needs it back on a connection
+    // failure to evict stale pooled connections (see the comment in ApiClient.call's IOException
+    // branch) — without this reference there is nothing for a failed request to clean up, and a
+    // long-lived process can get stuck retrying the same broken connection indefinitely.
+    private val okHttpClient = NetworkFactory.okHttpClient(tokenProvider)
+    private val api: ZidRunApi = NetworkFactory.api(okHttpClient)
 
     val sessionManager: SessionManager = SessionManager(api, tokenStore).also {
         it.appVersion = appVersion
         delegate = it
     }
 
-    private val apiClient = ApiClient(api, tokenProvider)
+    private val apiClient = ApiClient(api, tokenProvider, okHttpClient)
 
     val authRepository = AuthRepository(api, apiClient, sessionManager)
     val racesRepository = RacesRepository(api, apiClient)

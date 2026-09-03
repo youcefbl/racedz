@@ -44,6 +44,12 @@ object AnonymousTokenProvider : AuthTokenProvider {
 class ApiClient(
     private val api: ZidRunApi,
     private val tokenProvider: AuthTokenProvider,
+    /**
+     * The client [api] was built on. Optional only so existing tests/call sites that predate this
+     * parameter keep compiling — every real caller should pass the one it built, so failure
+     * recovery below actually has a pool to clear.
+     */
+    private val okHttpClient: OkHttpClient? = null,
 ) {
 
     /**
@@ -71,6 +77,20 @@ class ApiClient(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (io: IOException) {
+            // Every pooled connection this client is holding may be the reason this failed — a
+            // route that quietly went bad (an edge IP that stopped answering, a socket half-closed
+            // by a middlebox after the app sat backgrounded for hours) fails the same way on every
+            // retry, because OkHttp's own reuse keeps offering the same broken connection back.
+            // Found for real (2026-09-04): a build left running unattended for ~26h stopped
+            // reaching a server that was never actually down — proven by the same request working
+            // instantly from the device's own browser — and no amount of tapping "Try again" inside
+            // the app recovered; only force-stopping it did, which drops every socket the process
+            // holds. Evicting here gives every later attempt (the runner's next tap, or an
+            // automatic retry) a guaranteed-fresh connection instead, without the runner ever
+            // needing to know a restart was the fix. Safe to call unconditionally: on a build that
+            // predates this parameter, or when genuinely offline, there is nothing to evict and
+            // this is a no-op either way.
+            okHttpClient?.connectionPool?.evictAll()
             ApiResult.Failure(
                 ApiCallException(ApiErrorCode.Offline, "You appear to be offline. Check your connection.", cause = io)
             )
