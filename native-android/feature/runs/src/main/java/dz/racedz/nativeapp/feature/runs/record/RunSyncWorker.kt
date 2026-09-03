@@ -51,10 +51,18 @@ class RunSyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
                 // is pointless and re-arming it on every app start would loop forever.
                 ApiErrorCode.ValidationFailed, ApiErrorCode.BadRequest,
                 ApiErrorCode.Conflict, ApiErrorCode.NotFound -> {
-                    // Un-flag the slot so app start does not re-enqueue; the run stays for a
-                    // foreground attempt where the runner can see the message.
+                    // Un-flag the slot so app start does not re-enqueue — but ONLY while it still
+                    // holds the run THIS attempt was for. Between this request going out and its
+                    // response coming back, the runner may have discarded that run and started a
+                    // new one into the same per-owner slot; `cancelUniqueWork` on discard is
+                    // asynchronous and is not a guarantee this coroutine already stopped. Clearing
+                    // by owner alone would silently mark the newer run "not requested" and strand
+                    // it — the same bug already fixed for the success path in onSyncedInBackground,
+                    // mirrored here for the failure path (review round 3, P1).
                     deps.outbox.load(ownerUserId)?.let { slot ->
-                        deps.outbox.save(slot.copy(saveRequested = false))
+                        if (slot.request.clientId == clientId) {
+                            deps.outbox.save(slot.copy(saveRequested = false))
+                        }
                     }
                     Result.failure()
                 }

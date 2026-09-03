@@ -98,11 +98,18 @@
             </intent-filter>
 
             <!--
-              Race deep links. The https filter is NOT autoVerify: claiming zidrun.com would take
-              those URLs away from the browser for every user of this evaluation build, and the
-              production Capacitor app (dz.racedz.app) is the package that owns them. Until a
-              release decision is made this opens via the chooser, and zidrun://race/<slug> is the
-              scheme the app can rely on for its own links.
+              Race deep links. zidrun://race/<slug> is the scheme the app relies on for its own
+              in-app links, unconditionally.
+
+              The https filter is now autoVerify: the native app (dz.racedz.nativeapp) is the
+              production mobile client (owner decision 2026-08-02, PRODUCT.md; Capacitor/
+              dz.racedz.app is retired) and https://zidrun.com/.well-known/assetlinks.json lists
+              both packages' certs, so Android's Digital Asset Links check passes for this one.
+              Verification only affects apps that pass it — a plain browser tab is untouched
+              either way — and with both certs listed, a device with only one of the two apps
+              installed still opens straight into it with no chooser. Flipped at the same
+              versionCode bump as the review-round-3 fixes, matching the intent recorded in
+              EXECUTION_PLAN.md on 2026-08-20 ("flip in the next versionCode").
             -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -110,7 +117,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="zidrun" android:host="race" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

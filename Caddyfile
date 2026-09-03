@@ -5,15 +5,19 @@ zidrun.com, www.zidrun.com {
 	# uploads volume but must NEVER be served publicly — only the app's authenticated route
 	# /api/coach/subscription/proof/* serves them, to the owner or an admin. This block comes first
 	# so it wins over the general /uploads/* handler below.
-	# Android App Links / Play signing verification (PR-048). Served from the uploads volume so
-	# it can be updated without rebuilding the app image; the app's public/ copy is the fallback
-	# after a deploy. Both carry the same content.
-	handle /.well-known/assetlinks.json {
-		root * /srv/uploads/well-known
-		rewrite * /assetlinks.json
-		header Content-Type "application/json"
-		file_server
-	}
+	#
+	# Android App Links / Play signing verification (PR-048): no Caddy handling needed here.
+	# `public/.well-known/assetlinks.json` is committed to the repo and Next.js serves everything
+	# under public/ at the site root automatically, so it falls through to the `reverse_proxy`
+	# below like any other static asset. An earlier version of this file served it from the
+	# uploads volume instead "so it can be updated without rebuilding the app image" — but that
+	# volume is empty on any fresh deploy (nothing ever populated it, and deploy.sh had no step
+	# to), and this `handle` block is terminal: on a fresh volume it 404s and never falls through
+	# to the app's own bundled copy, so App Links verification silently fails on any deploy that
+	# didn't inherit a hand-seeded volume from a previous host (review round 3, P1). The bundled
+	# copy has no such failure mode — it ships with the image on every deploy — at the cost of
+	# needing a redeploy (not a hot volume edit) to change it, which is the correct tradeoff: a
+	# signing-cert change belongs in a reviewed commit, not a one-off write to a running host.
 
 	handle /uploads/coach-payment/* {
 		respond 403

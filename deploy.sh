@@ -21,6 +21,17 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+# A Caddyfile that fails to adapt takes the whole edge down: Caddy serves every vhost from one
+# process, so one bad `import` (or any other syntax error) means it crash-loops and NOTHING on
+# the box is reachable. This happened for real (2026-08-30 to 2026-09-03, ~4 days undetected).
+# Validated FIRST, before the image build/migrations below touch anything, so a broken Caddyfile
+# aborts (via `set -eu`) with zero side effects — not after a build and a migration have already
+# run, which is what actually shipping this check after those steps would mean (review round 3,
+# P2: the original placement of this check ran after Postgres/build/migrations despite this same
+# comment already claiming otherwise).
+echo "Validating Caddy configuration..."
+docker run --rm -v "$(pwd)/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
 echo "Building ZidRun image..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build app
 
@@ -36,17 +47,6 @@ RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_F
 
 echo "Applying database migrations..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm app npm run prisma:deploy
-
-# A Caddyfile that fails to adapt takes the whole edge down: Caddy serves every vhost from one
-# process, so one bad `import` (or any other syntax error) means it crash-loops and NOTHING on
-# the box is reachable — not just the site that changed. This happened for real (2026-08-30 to
-# 2026-09-03, ~4 days undetected): a host-local Caddyfile edit dropped a snippet definition an
-# `import` still referenced, `up -d` recreated Caddy with the broken file, and every subsequent
-# deploy kept re-applying it without ever checking. Validating the file that is actually about to
-# be mounted — not a copy, not what shipped last time — catches that before any container is
-# touched, so `set -e` aborts here and the previous (working) containers are left running.
-echo "Validating Caddy configuration..."
-docker run --rm -v "$(pwd)/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 
 echo "Starting ZidRun (app + Caddy HTTPS proxy)..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
