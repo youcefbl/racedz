@@ -140,6 +140,19 @@ services:
       # Same volume the app writes uploads to — Caddy serves /uploads/* directly
       # (read-only) because `next start` doesn't serve runtime-written public files.
       - racedz_uploads:/srv/uploads:ro
+    # Caddy serves every vhost from one process, so a config it can't adapt (a bad `import`,
+    # for instance — this is what actually happened, 2026-08-30 to 2026-09-03) leaves it
+    # crash-looping with no visible signal: `restart: unless-stopped` keeps retrying forever
+    # and `docker ps` just shows "Restarting", which nobody was watching. The admin API only
+    # comes up once the config adapts and the server starts, so probing it is a direct
+    # "is Caddy actually serving" check — 127.0.0.1, not localhost: this image's admin
+    # listener is IPv4-only and localhost can resolve to ::1 first and get refused.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 volumes:
   racedz_postgres_data:
