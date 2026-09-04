@@ -46,7 +46,10 @@ echo "Starting PostgreSQL..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres
 
 echo "Applying database migrations..."
-RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm app npm run prisma:deploy
+# The `migrate` service (not `app`) holds the superuser connection — `docker compose run --rm app
+# npm run prisma:deploy` would override `app`'s command entirely and run under its restricted
+# DATABASE_URL, which cannot do DDL and would fail on any real migration (found in review, 2026-09-04).
+RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm migrate
 
 echo "Starting ZidRun (app + Caddy HTTPS proxy)..."
 RACEDZ_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d

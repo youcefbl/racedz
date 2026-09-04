@@ -34,12 +34,15 @@ npm run build
 
 ### 2. Apply schema and deploy
 
-Run inside the production application environment with production secrets already injected:
+`deploy.sh` applies migrations via the dedicated `migrate` service — the only place the Postgres
+superuser connection exists (see the SEC-008 section below):
 
 ```bash
-npx prisma migrate status
-npx prisma migrate deploy
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate
 ```
+
+Never run `docker compose run --rm app npm run prisma:deploy` — that overrides `app`'s command
+entirely and runs under its restricted DML-only role, which cannot do DDL.
 
 Deploy the exact verified commit. If `Caddyfile` changed, reload the bind-mounted configuration after
 the application deployment:
@@ -81,9 +84,10 @@ npm run smoke
 
 ### Required post-deploy check — legacy TTS audio purge
 
-The production start command runs `npm run tts:purge-legacy` between `prisma:deploy` and the app
-(`docker-compose.prod.yml`). It erases `public/uploads/tts-audio` on the persistent volume — audio
-synthesized from ARBITRARY user text before the cue allow-list existed, which nothing reads any more.
+The `app` service's start command runs `npm run tts:purge-legacy` before the app itself
+(`docker-compose.prod.yml`; migrations run separately, via the dedicated `migrate` service — see
+below). It erases `public/uploads/tts-audio` on the persistent volume — audio synthesized from
+ARBITRARY user text before the cue allow-list existed, which nothing reads any more.
 
 It is deliberately **non-blocking**: access control is already in place (Caddy 403s both
 `/uploads/tts-audio/*` and `/uploads/tts-cache/*`), so refusing to start the site over one
@@ -133,10 +137,17 @@ by that grant: it cannot create/drop tables, create roles, read another database
 outside DML. Verified live: `CREATE TABLE` under `racedz_app` fails with `permission denied for schema
 public`; real reads and writes through the deployed app succeed with zero permission errors.
 
-Migrations still need DDL, so `prisma:deploy` alone runs with `DATABASE_URL` swapped to
-`MIGRATE_DATABASE_URL` (the superuser connection) for that one step — see the `app` service's
-`command:` in `docker-compose.prod.yml`. Everything else in that container, including the long-running
-server, uses the restricted connection from `DATABASE_URL`.
+Migrations still need DDL, so they run through a dedicated `migrate` service in
+`docker-compose.prod.yml` — a one-off container, invoked explicitly via `docker compose run --rm
+migrate` (see `deploy.sh`), that is the ONLY place the superuser connection exists. The `app`
+service's environment never contains a superuser credential in any form, on any path — not even
+transiently — so an app-layer vulnerability that leaks `process.env` cannot hand over more than the
+restricted role already grants. (An earlier version of this split kept a `MIGRATE_DATABASE_URL` in
+`app`'s own environment, swapped in only for the migration step of a combined `command:`; a review
+found `deploy.sh` actually ran migrations via `docker compose run --rm app npm run prisma:deploy`,
+which overrides `command:` entirely and bypassed the swap — migrations would have silently run under
+the restricted role and failed on any real DDL change. Fixed 2026-09-04 by splitting migrations into
+their own service instead of trying to make one container safely hold both roles.)
 
 **Role setup** (already applied to production; re-run after `prisma migrate reset` on any environment
 that needs it, since a fresh database has no `racedz_app` role):
@@ -168,8 +179,17 @@ database and cut the running container over.
   encrypted with GPG AES-256 (symmetric) using `/root/.zidrun-backup.pass`; 14-day local retention
   under `/var/backups/zidrun/{db,uploads}`.
 - **Owner actions still required:** copy `/root/.zidrun-backup.pass` to a password manager (a
-  backup nobody can decrypt is not a backup) and add an offsite copy (Hetzner Storage Box / object
-  storage via `rclone`) plus a failure alert on a stale `LAST_OK` — until then this is single-host.
+  backup nobody can decrypt is not a backup — done, escrowed 2026-08-20) and add an offsite copy
+  (Hetzner Storage Box / object storage via `rclone`) — until then this is single-host.
+- **Stale-backup alert (SEC-009, installed 2026-09-04):** `/usr/local/sbin/zidrun-backup-watch.sh`
+  runs via `/etc/cron.d/zidrun-backup-watch` every 6 hours, outside Docker. It reads `LAST_OK`'s
+  timestamp (written only after every dump/encrypt step in `zidrun-backup.sh` succeeds, since that
+  script runs under `set -euo pipefail`) and emails `elmererbi.youcef@gmail.com` once when it goes
+  stale (>27h old — the daily job plus ~3.5h grace) and once when it recovers, the same
+  transition-based pattern as `zidrun-uptime-watch.sh`, over the same Resend HTTPS API using the
+  app's `RESEND_API_KEY`/`EMAIL_FROM`. Verified end to end: `--test` delivered; a simulated 40h-old
+  `LAST_OK` produced a real STALE alert, and restoring the real `LAST_OK` produced a real RECOVERED
+  alert (both HTTP 200 from Resend); the live `LAST_OK` file was left untouched throughout.
 - Restore (DB): `gpg -d --batch --passphrase-file /root/.zidrun-backup.pass FILE.dump.gz.gpg | gunzip |
   docker exec -i racedz_postgres_prod pg_restore -U racedz -d racedz --clean --if-exists`.
   Rehearse into a throwaway `postgres:16-alpine` container first (as done on 2026-08-16).
