@@ -46,6 +46,22 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
     private val okHttpClient = NetworkFactory.okHttpClient(tokenProvider)
     private val api: ZidRunApi = NetworkFactory.api(okHttpClient)
 
+    /**
+     * Drops every pooled connection. [ApiClient] already does this reactively when a request
+     * fails (see its `IOException` branch) — that recovers the *next* attempt after the runner
+     * hits the error once. This is the proactive half: [ZidRunApplication] calls it every time the
+     * whole app returns to the foreground, so a route that went bad while the process sat
+     * backgrounded (the network changed, a middlebox timed out an idle socket — exactly what
+     * happened on a build left running unattended for ~26h, see the review-round note in
+     * ApiClient.kt) is cleared before the runner's first request after reopening the app, rather
+     * than after their first VISIBLE failure. Safe and cheap to call whenever: eviction of an
+     * already-empty or already-healthy pool is a no-op, and the very next request simply opens a
+     * fresh connection either way.
+     */
+    fun evictStaleConnections() {
+        okHttpClient.connectionPool.evictAll()
+    }
+
     val sessionManager: SessionManager = SessionManager(api, tokenStore).also {
         it.appVersion = appVersion
         delegate = it

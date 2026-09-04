@@ -1,6 +1,9 @@
 package dz.racedz.nativeapp
 
 import android.app.Application
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import okhttp3.OkHttpClient
@@ -35,6 +38,18 @@ class ZidRunApplication : Application(), ImageLoaderFactory {
             versionCode = BuildConfig.VERSION_CODE,
         )
         container.sessionManager.restore()
+
+        // Proactive half of the stale-connection fix (see AppContainer.evictStaleConnections):
+        // every time the app comes back to the foreground — including the very first launch,
+        // where this is a harmless no-op on an empty pool — drop any pooled connections before
+        // the first request goes out, rather than waiting for that request to fail once first.
+        // ProcessLifecycleOwner fires once for the whole app regardless of which Activity is on
+        // screen, unlike a single Activity's onStart.
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                container.evictStaleConnections()
+            }
+        })
     }
 
     /**

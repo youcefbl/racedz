@@ -177,6 +177,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    // ProcessLifecycleOwner: a single whole-app foreground/background signal, independent of
+    // which Activity is on screen. Used to evict stale network connections proactively on
+    // resume — see ZidRunApplication.
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
