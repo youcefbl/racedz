@@ -3,7 +3,10 @@ name: Android Internal Testing Release
 on:
   push:
     tags:
-      - "android-v*"
+      # This repo tags combined releases as v0.8.1-rc1 etc. (see EXECUTION_PLAN.md) — there is no
+      # separate android-v* scheme in use. The previous glob never matched any tag actually pushed,
+      # so every release to date was published via workflow_dispatch instead of the tag trigger.
+      - "v*"
   workflow_dispatch:
 
 permissions:

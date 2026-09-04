@@ -63,8 +63,8 @@ android {
         // docs/NATIVE_ANDROID_OPTION_PLAN.md. versionCode must increase or Android refuses the
         // install as a downgrade; versionName is what the filename is derived from, so the two can
         // never disagree. Do not reuse a number that has already left this machine.
-        versionCode = 9
-        versionName = "0.8.1"
+        versionCode = 10
+        versionName = "0.8.2"
         // Shown on the About screen. A deliberate constant rather than a build timestamp: a value
         // that changed on every compile would churn the build inputs and would tell a runner when
         // the APK was compiled, not when the release was made. Bump it with versionName.
