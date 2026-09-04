@@ -4,9 +4,13 @@
 > Do not create another backlog, phase plan, audit TODO, or progress file. Supporting documents may
 > explain how to test or operate the product, but every open action belongs here.
 
-**Last updated:** 2026-08-12
+**Last updated:** 2026-09-04
 
-**Release readiness:** `█████████████░░░░░░░░░░░░` **52% — 31 of 60 gates complete**
+**Release readiness:** `█████████████░░░░░░░░░░░░` **52% — 31 of 60 gates complete** *(count predates
+tonight's changes — SEC-001/004/008/009/012 and the Play release-cut fixes below moved several
+gates forward but have not yet been re-tallied against the full 60-gate list; treat the fraction as
+stale until the next full pass reconciles it against `## Progress by gate group` and the evidence
+log)*
 
 **Security hardening overlay:** **0 of 15 P0 security gates complete** — release remains on HOLD until
 the applicable gates below have evidence.
