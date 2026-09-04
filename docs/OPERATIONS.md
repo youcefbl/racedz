@@ -124,6 +124,42 @@ Required production groups are documented in `.env.example`. At minimum verify:
 Never expose server credentials through `NEXT_PUBLIC_*`, reuse development secrets, commit `.env`, or
 leave bootstrap passwords configured.
 
+## Database least privilege (SEC-008, installed 2026-09-04)
+
+The running app connects as `racedz_app`, a role with plain DML (`SELECT`/`INSERT`/`UPDATE`/`DELETE`)
+on the `public` schema — not the `racedz` superuser Postgres was initialized with. An app-layer bug
+(SQL injection, a bad raw query, anything that lets an attacker's input reach the database) is bounded
+by that grant: it cannot create/drop tables, create roles, read another database, or touch anything
+outside DML. Verified live: `CREATE TABLE` under `racedz_app` fails with `permission denied for schema
+public`; real reads and writes through the deployed app succeed with zero permission errors.
+
+Migrations still need DDL, so `prisma:deploy` alone runs with `DATABASE_URL` swapped to
+`MIGRATE_DATABASE_URL` (the superuser connection) for that one step — see the `app` service's
+`command:` in `docker-compose.prod.yml`. Everything else in that container, including the long-running
+server, uses the restricted connection from `DATABASE_URL`.
+
+**Role setup** (already applied to production; re-run after `prisma migrate reset` on any environment
+that needs it, since a fresh database has no `racedz_app` role):
+
+```sql
+CREATE ROLE racedz_app WITH LOGIN PASSWORD '<APP_DB_PASSWORD>';
+GRANT USAGE ON SCHEMA public TO racedz_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO racedz_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO racedz_app;
+-- So a future migration's new tables (created by the superuser role) grant racedz_app access
+-- automatically, with no manual follow-up grant after every migration:
+ALTER DEFAULT PRIVILEGES FOR ROLE racedz IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO racedz_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE racedz IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO racedz_app;
+```
+
+`APP_DB_PASSWORD` lives in `.env.production` (root-only, 600) — generate with
+`openssl rand -base64 33 | tr -dc 'A-Za-z0-9' | head -c 32`, same as the other secrets in that file.
+
+Rehearsed before touching production: restored the latest encrypted backup into an isolated local
+container, created the same role there, ran the actual app against it (public reads across several
+tables, a real registration write), confirmed zero permission errors, only then applied to the live
+database and cut the running container over.
+
 ## Backups on the production host (installed 2026-08-16)
 
 - Script: `/usr/local/sbin/zidrun-backup.sh` (root only), cron `/etc/cron.d/zidrun-backup` at

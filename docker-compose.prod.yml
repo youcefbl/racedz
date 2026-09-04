@@ -40,7 +40,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3003
-      DATABASE_URL: postgresql://${POSTGRES_USER:-racedz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-racedz}
+      # SEC-008: the running app never holds superuser (`racedz`) — only a dedicated `racedz_app`
+      # role with plain DML (SELECT/INSERT/UPDATE/DELETE) on the public schema, granted once via
+      # the SQL in docs/OPERATIONS.md. An app-layer bug (SQLi, a bad raw query, an SSRF into the
+      # DB) is now bounded by that grant instead of reaching CREATEDB/CREATEROLE/other databases.
+      # `MIGRATE_DATABASE_URL` below carries the superuser connection, used ONLY for the deploy-time
+      # migration step, which genuinely needs DDL.
+      DATABASE_URL: postgresql://racedz_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required — see docs/OPERATIONS.md}@postgres:5432/${POSTGRES_DB:-racedz}
+      MIGRATE_DATABASE_URL: postgresql://${POSTGRES_USER:-racedz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-racedz}
     # Not published publicly — Caddy reverse-proxies to it over the internal
     # Docker network. Bound to loopback only so `curl localhost:3003` still
     # works for debugging on the host (Docker port-publishing bypasses ufw,
@@ -51,8 +58,12 @@ services:
       - racedz_uploads:/app/public/uploads
     # tts:purge-legacy erases the pre-allowlist arbitrary-text audio cache from the persistent
     # uploads volume (DD6-R01/FD1-R03). It is idempotent and deliberately non-blocking — it reports
-    # TTS_PURGE_OK / TTS_PURGE_FAILED and never prevents startup; see docs/OPERATIONS.md.
-    command: sh -c "npm run prisma:deploy && npm run tts:purge-legacy && npm run start:docker"
+    # TTS_PURGE_OK / TTS_PURGE_FAILED and never prevents startup; see docs/OPERATIONS.md. It touches
+    # only the filesystem, so it runs under the container's normal (restricted) DATABASE_URL.
+    # `prisma:deploy` is the one step that needs DDL, so it alone runs with DATABASE_URL swapped to
+    # MIGRATE_DATABASE_URL for its own invocation — everything else in this container, including the
+    # long-running server started by start:docker, keeps the restricted connection.
+    command: sh -c "DATABASE_URL=\"$$MIGRATE_DATABASE_URL\" npm run prisma:deploy && npm run tts:purge-legacy && npm run start:docker"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3003/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
