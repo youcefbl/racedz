@@ -1,0 +1,82 @@
+name: Android Internal Testing Release
+
+on:
+  push:
+    tags:
+      - "android-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-play-internal
+  cancel-in-progress: false
+
+jobs:
+  publish-internal:
+    name: Build and publish Internal testing AAB
+    runs-on: ubuntu-latest
+    environment: play-internal
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+      - name: Restore upload signing credentials
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.ZIDRUN_UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.ZIDRUN_UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.ZIDRUN_UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.ZIDRUN_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$UPLOAD_KEYSTORE_BASE64" || { echo "Missing ZIDRUN_UPLOAD_KEYSTORE_BASE64"; exit 1; }
+          test -n "$UPLOAD_STORE_PASSWORD" || { echo "Missing ZIDRUN_UPLOAD_STORE_PASSWORD"; exit 1; }
+          test -n "$UPLOAD_KEY_ALIAS" || { echo "Missing ZIDRUN_UPLOAD_KEY_ALIAS"; exit 1; }
+          test -n "$UPLOAD_KEY_PASSWORD" || { echo "Missing ZIDRUN_UPLOAD_KEY_PASSWORD"; exit 1; }
+
+          keystore_file="$RUNNER_TEMP/zidrun-upload.keystore"
+          signing_file="$RUNNER_TEMP/zidrun-upload-signing.properties"
+          printf '%s' "$UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore_file"
+          {
+            printf 'storeFile=%s\n' "$keystore_file"
+            printf 'storePassword=%s\n' "$UPLOAD_STORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$UPLOAD_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$UPLOAD_KEY_PASSWORD"
+          } > "$signing_file"
+          printf 'ZIDRUN_SIGNING_FILE=%s\n' "$signing_file" >> "$GITHUB_ENV"
+
+      - name: Verify Play credentials are present
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_PUBLISHER_CREDENTIALS" || {
+            echo "Missing ANDROID_PUBLISHER_CREDENTIALS"
+            exit 1
+          }
+
+      - name: Run Android quality gates
+        working-directory: native-android
+        run: ./gradlew --no-daemon lintRelease testReleaseUnitTest
+
+      - name: Build signed App Bundle
+        working-directory: native-android
+        run: ./gradlew --no-daemon bundleRelease -Pzidrun.signing="$ZIDRUN_SIGNING_FILE"
+
+      - name: Publish to Google Play Internal testing
+        working-directory: native-android
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
+        run: ./gradlew --no-daemon publishReleaseBundle --track internal -Pzidrun.signing="$ZIDRUN_SIGNING_FILE"

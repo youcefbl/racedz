@@ -5,6 +5,16 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.play.publisher)
+}
+
+// Play publishing is intentionally configured for the Internal testing track only. The service
+// account credentials are read from ANDROID_PUBLISHER_CREDENTIALS by Gradle Play Publisher in CI;
+// no key file belongs in this repository. Production promotion remains a deliberate Play Console
+// action until the release gates and tester/device acceptance are complete.
+play {
+    defaultToAppBundles.set(true)
+    track.set("internal")
 }
 
 /*

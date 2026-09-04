@@ -20,6 +20,8 @@ testRunner = "1.6.2"
 firebaseBom = "33.7.0"
 googleServices = "4.4.2"
 crashlytics = "3.0.2"
+# GPP 4.x requires the AGP 9 / Gradle 9 toolchain. ZidRun currently uses AGP 8.7.3 / Gradle 8.9.
+playPublisher = "3.13.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -74,6 +76,7 @@ androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro
 [plugins]
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "crashlytics" }
+play-publisher = { id = "com.github.triplet.play", version.ref = "playPublisher" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 android-test = { id = "com.android.test", version.ref = "agp" }
