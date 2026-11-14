@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/db";
 import { revalidateRacesCache } from "@/lib/race-repository";
 import { generateTipProposals } from "@/lib/coach/tip-generator";
+import { DEFAULT_COACH_MODEL } from "@/lib/coach/model-usage";
 import { invalidatePublishedTipsCache } from "@/lib/coach/tips";
 import { notifyOrganizerRaceStatusChanged } from "@/lib/notifications";
 import { logSecurityEvent } from "@/lib/security-log";
@@ -476,7 +477,7 @@ export async function generateTipProposalsAction(formData: FormData) {
   const count = Number.isFinite(countRaw) ? Math.min(10, Math.max(1, Math.round(countRaw))) : 5;
 
   const proposals = await generateTipProposals(category, count);
-  const model = process.env.OPENAI_COACH_MODEL?.trim() || "gpt-5.4-mini";
+  const model = process.env.OPENAI_COACH_MODEL?.trim() || DEFAULT_COACH_MODEL;
 
   await getPrisma().coachTip.createMany({
     data: proposals.map((tip) => ({

@@ -8,30 +8,26 @@ import { type CoachResponse } from "@/lib/coach/schemas";
 import { assembleProviderReply, providerSchemaFor } from "@/lib/coach/provider-contract";
 import type { buildRunnerCoachContext } from "@/lib/coach/context";
 import { jsonTokenUpperBound, REQUEST_TOKEN_UPPER_BOUND } from "@/lib/coach/context-budget";
+import { DEFAULT_COACH_MODEL, readCoachUsage, type CoachUsage } from "@/lib/coach/model-usage";
 
 export const COACH_PROMPT_VERSION = "coach-v15-2026-11-14";
-const DEFAULT_MODEL = "gpt-5.4-mini";
+const DEFAULT_MODEL = DEFAULT_COACH_MODEL;
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
 type CoachGenerationResult = {
   response: CoachResponse;
   providerResponseId: string;
   model: string;
-  usage: {
-    inputTokens: number;
-    cachedInputTokens: number;
-    outputTokens: number;
-    reasoningTokens: number;
-    /// Null = unpriced model (no price-table entry) — stored as NULL, never as 0.
-    estimatedCostMicroUsd: number | null;
-  };
+  usage: CoachUsage;
 };
 
 export class CoachProviderError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly model: string
+    public readonly model: string,
+    public readonly usage?: CoachUsage,
+    public readonly providerResponseId?: string
   ) {
     super(message);
     this.name = "CoachProviderError";
@@ -58,8 +54,10 @@ export async function generateCoachResponse(
     if (jsonTokenUpperBound({ instructions, context, format }) > REQUEST_TOKEN_UPPER_BOUND) {
       throw new CoachProviderError("The coaching context is too large.", "COACH_CONTEXT_TOO_LARGE", model);
     }
-    const result = await client.responses.parse({
+    const startedAt = Date.now();
+    const result = await client.responses.create({
       model,
+      service_tier: "default",
       instructions,
       input: JSON.stringify(context),
       max_output_tokens: interactionType === "CHAT" ? 2048 : 3072,
@@ -72,27 +70,23 @@ export async function generateCoachResponse(
       text: { format }
     });
 
-    if (!result.output_parsed) {
-      throw new CoachProviderError("The coach returned no usable response.", "OPENAI_INVALID_OUTPUT", model);
+    const usage = readCoachUsage(result.model, result.usage, Date.now() - startedAt);
+    if (result.status !== "completed" || !result.output_text) {
+      throw new CoachProviderError("The coach returned no usable response.", "OPENAI_INVALID_OUTPUT", result.model, usage, result.id);
     }
 
-    const usage = result.usage;
-    const inputTokens = usage?.input_tokens ?? 0;
-    const cachedInputTokens = usage?.input_tokens_details.cached_tokens ?? 0;
-    const outputTokens = usage?.output_tokens ?? 0;
-    const reasoningTokens = usage?.output_tokens_details.reasoning_tokens ?? 0;
-
+    let response: CoachResponse;
+    try {
+      response = assembleProviderReply(providerSchemaFor(interactionType).parse(JSON.parse(result.output_text)), context);
+    } catch {
+      // Parse AFTER retaining usage: a truncated/malformed response may still be billable.
+      throw new CoachProviderError("The coach returned no usable response.", "OPENAI_INVALID_OUTPUT", result.model, usage, result.id);
+    }
     return {
-      response: assembleProviderReply(result.output_parsed, context),
+      response,
       providerResponseId: result.id,
       model: result.model,
-      usage: {
-        inputTokens,
-        cachedInputTokens,
-        outputTokens,
-        reasoningTokens,
-        estimatedCostMicroUsd: estimateCostMicroUsd(result.model, inputTokens, cachedInputTokens, outputTokens)
-      }
+      usage
     };
   } catch (error) {
     if (error instanceof CoachProviderError) throw error;
@@ -141,13 +135,7 @@ const sleepParseSchema = z.object({
 
 export type ParsedSleep = z.infer<typeof sleepParseSchema>;
 
-export type SleepParseUsage = {
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  estimatedCostMicroUsd: number | null;
-};
+export type SleepParseUsage = CoachUsage;
 
 /** The model the coach (and the sleep free-text parser) run on. Exposed for usage accounting. */
 export function resolveCoachModel(): string {
@@ -168,8 +156,10 @@ export async function parseSleepText(text: string): Promise<{ result: ParsedSlee
   const client = new OpenAI({ apiKey, timeout: 20_000, maxRetries: 1 });
 
   try {
+    const startedAt = Date.now();
     const result = await client.responses.parse({
       model,
+      service_tier: "default",
       instructions: [
         "You convert a person's short free-text note about last night's sleep into a duration.",
         "The note may be in any language (English, French, Arabic, Algerian dialect, etc.).",
@@ -188,20 +178,10 @@ export async function parseSleepText(text: string): Promise<{ result: ParsedSlee
     if (!result.output_parsed) {
       throw new CoachError("Could not understand the sleep description.", 422, "SLEEP_PARSE_FAILED");
     }
-    const usage = result.usage;
-    const inputTokens = usage?.input_tokens ?? 0;
-    const cachedInputTokens = usage?.input_tokens_details.cached_tokens ?? 0;
-    const outputTokens = usage?.output_tokens ?? 0;
     return {
       result: result.output_parsed,
       model: result.model,
-      usage: {
-        inputTokens,
-        cachedInputTokens,
-        outputTokens,
-        reasoningTokens: usage?.output_tokens_details.reasoning_tokens ?? 0,
-        estimatedCostMicroUsd: estimateCostMicroUsd(result.model, inputTokens, cachedInputTokens, outputTokens)
-      }
+      usage: readCoachUsage(result.model, result.usage, Date.now() - startedAt)
     };
   } catch (error) {
     if (error instanceof CoachError) throw error;
@@ -292,22 +272,3 @@ function buildInstructions(interactionType: CoachInteractionType) {
   return [...CORE_RULES, ...TYPE_RULES[interactionType]].join("\n");
 }
 
-// USD list prices per 1M tokens: [uncached input, cached input, output]. Matched by prefix so
-// dated snapshots (e.g. "gpt-5.6-luna-2026-07-30") price like their base model.
-const MODEL_PRICES_PER_MTOK: Array<[prefix: string, rates: [number, number, number]]> = [
-  ["gpt-5.4-mini", [0.75, 0.075, 4.5]],
-  ["gpt-5.6-luna", [0.2, 0.02, 1.2]]
-];
-
-// Micro-USD estimate, or NULL when the model has no entry in the price table (combined review
-// U-18). An unknown model — e.g. an OPENAI_COACH_MODEL override — must surface as "unpriced" on
-// the admin cost dashboard, never as zero cost, which reads as free and hides real spend.
-function estimateCostMicroUsd(model: string, inputTokens: number, cachedInputTokens: number, outputTokens: number): number | null {
-  const rates = MODEL_PRICES_PER_MTOK.find(([prefix]) => model.startsWith(prefix))?.[1];
-  if (!rates) return null;
-
-  const [inputRate, cachedRate, outputRate] = rates;
-  const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
-  const usd = (uncachedInputTokens * inputRate + cachedInputTokens * cachedRate + outputTokens * outputRate) / 1_000_000;
-  return Math.round(usd * 1_000_000);
-}

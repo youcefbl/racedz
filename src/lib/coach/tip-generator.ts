@@ -4,12 +4,13 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import type { TipCategory } from "@/lib/coach/tips";
+import { DEFAULT_COACH_MODEL } from "@/lib/coach/model-usage";
 
 // Generates candidate coach tips with OpenAI. Output lands as PROPOSED tips for an admin
 // to review, edit, and publish — it is never shown to runners directly. Mirrors the
 // structured-output approach in openai.ts (responses.parse + zodTextFormat).
 
-const DEFAULT_MODEL = "gpt-5.4-mini";
+const DEFAULT_MODEL = DEFAULT_COACH_MODEL;
 
 const tipSchema = z.object({
   textEn: z.string().describe("The tip in English."),

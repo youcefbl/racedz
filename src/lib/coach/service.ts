@@ -1912,11 +1912,13 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         await tx.$executeRaw`
           INSERT INTO "AiUsageLog" (
             "id", "userId", "interactionId", "providerResponseId", "model", "status",
-            "inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens", "estimatedCostMicroUsd"
+            "inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens", "estimatedCostMicroUsd",
+            "cacheWrite30mTokens", "cacheWrite12hTokens", "providerLatencyMs"
           ) VALUES (
             ${randomUUID()}, ${userId}, ${interactionId}, ${generated.providerResponseId}, ${generated.model}, 'SUCCEEDED',
             ${generated.usage.inputTokens}, ${generated.usage.cachedInputTokens}, ${generated.usage.outputTokens},
-            ${generated.usage.reasoningTokens}, ${generated.usage.estimatedCostMicroUsd}
+            ${generated.usage.reasoningTokens}, ${generated.usage.estimatedCostMicroUsd},
+            ${generated.usage.cacheWrite30mTokens}, ${generated.usage.cacheWrite12hTokens}, ${generated.usage.providerLatencyMs}
           )
         `;
         return savedPlan;
@@ -1938,12 +1940,14 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         await prisma.$executeRaw`
           INSERT INTO "AiUsageLog" (
             "id", "userId", "interactionId", "providerResponseId", "model", "status",
-            "inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens", "estimatedCostMicroUsd", "errorMessage"
+            "inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens", "estimatedCostMicroUsd", "errorMessage",
+            "cacheWrite30mTokens", "cacheWrite12hTokens", "providerLatencyMs"
           ) VALUES (
             ${randomUUID()}, ${userId}, ${interactionId}, ${generated.providerResponseId}, ${generated.model}, 'SUCCEEDED',
             ${generated.usage.inputTokens}, ${generated.usage.cachedInputTokens}, ${generated.usage.outputTokens},
             ${generated.usage.reasoningTokens}, ${generated.usage.estimatedCostMicroUsd},
-            'Reply generated but persistence failed (COACH_PERSISTENCE_FAILED).'
+            'Reply generated but persistence failed (COACH_PERSISTENCE_FAILED).',
+            ${generated.usage.cacheWrite30mTokens}, ${generated.usage.cacheWrite12hTokens}, ${generated.usage.providerLatencyMs}
           )
         `;
       } catch {
@@ -1996,10 +2000,17 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
         WHERE "id" = ${interactionId}
       `;
       await tx.$executeRaw`
-        INSERT INTO "AiUsageLog" ("id", "userId", "interactionId", "model", "status", "errorCode", "errorMessage")
+        INSERT INTO "AiUsageLog" ("id", "userId", "interactionId", "model", "status", "errorCode", "errorMessage",
+          "providerResponseId", "inputTokens", "cachedInputTokens", "outputTokens", "reasoningTokens",
+          "cacheWrite30mTokens", "cacheWrite12hTokens", "providerLatencyMs", "estimatedCostMicroUsd")
         VALUES (
           ${randomUUID()}, ${userId}, ${interactionId}, ${providerError.model}, 'FAILED',
-          ${providerError.code}, ${errorMessageFor(error, providerError.message)}
+          ${providerError.code}, ${errorMessageFor(error, providerError.message)},
+          ${providerError.providerResponseId ?? null}, ${providerError.usage?.inputTokens ?? 0},
+          ${providerError.usage?.cachedInputTokens ?? 0}, ${providerError.usage?.outputTokens ?? 0},
+          ${providerError.usage?.reasoningTokens ?? 0}, ${providerError.usage?.cacheWrite30mTokens ?? 0},
+          ${providerError.usage?.cacheWrite12hTokens ?? 0}, ${providerError.usage?.providerLatencyMs ?? null},
+          ${providerError.usage?.estimatedCostMicroUsd ?? null}
         )
       `;
     });
@@ -2431,11 +2442,12 @@ export async function createSleepEntry(userId: string, rawInput: unknown) {
     await prisma.$executeRaw`
       INSERT INTO "AiUsageLog" (
         "id", "userId", "model", "status", "inputTokens", "cachedInputTokens", "outputTokens",
-        "reasoningTokens", "estimatedCostMicroUsd"
+        "reasoningTokens", "estimatedCostMicroUsd", "cacheWrite30mTokens", "cacheWrite12hTokens", "providerLatencyMs"
       ) VALUES (
         ${randomUUID()}, ${userId}, ${parsed.model}, 'SUCCEEDED', ${parsed.usage.inputTokens},
         ${parsed.usage.cachedInputTokens}, ${parsed.usage.outputTokens}, ${parsed.usage.reasoningTokens},
-        ${parsed.usage.estimatedCostMicroUsd}
+        ${parsed.usage.estimatedCostMicroUsd}, ${parsed.usage.cacheWrite30mTokens},
+        ${parsed.usage.cacheWrite12hTokens}, ${parsed.usage.providerLatencyMs}
       )
     `;
     if (!parsed.result.understood || parsed.result.durationMinutes <= 0) {

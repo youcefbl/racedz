@@ -1,0 +1,4 @@
+ALTER TABLE "AiUsageLog"
+  ADD COLUMN "cacheWrite30mTokens" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "cacheWrite12hTokens" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "providerLatencyMs" INTEGER;

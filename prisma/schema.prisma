@@ -932,10 +932,13 @@ model AiUsageLog {
   status                AiRequestStatus
   inputTokens           Int             @default(0)
   cachedInputTokens     Int             @default(0)
+  cacheWrite30mTokens    Int             @default(0)
+  cacheWrite12hTokens    Int             @default(0)
+  providerLatencyMs     Int?
   outputTokens          Int             @default(0)
   reasoningTokens       Int             @default(0)
-  /// Micro-USD estimate for models with a known price. NULL means "unpriced" — the model has no
-  /// entry in the price table — which must never be reported as zero cost (combined review U-18).
+  /// Micro-USD Standard-processing estimate. NULL means unknown pricing or incomplete/inconsistent
+  /// provider metering; neither is zero cost. Output includes reasoning, writes have separate rates.
   estimatedCostMicroUsd Int?
   errorCode             String?
   errorMessage          String?
