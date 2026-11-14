@@ -20,6 +20,7 @@ Useful focused commands:
 
 ```bash
 npm run test:coach
+npm run test:coach-quality # deterministic + mock provider; no paid AI calls
 npm run test:workout
 npm run test:audio
 npm run test:run-incident
@@ -29,6 +30,10 @@ npm run test:registration
 npm run test:e2e
 npm run test:e2e:visual
 ```
+
+Coach model/answer-quality comparisons use [COACH_QUALITY_EVALUATION.md](COACH_QUALITY_EVALUATION.md).
+`npm run eval:coach` is offline by default; paid evaluation requires `--live`, an explicit cost cap
+and a new output path. Human linguistic/factual review remains separate from API success.
 
 The `/api/v1` contract suites are **not** part of `test:all`, because they drive a dev server and
 the dev database that `test:all` does not start. Run them as a group whenever the mobile facade,
