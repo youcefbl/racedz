@@ -1876,7 +1876,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     activePlan,
     memory,
     records
-  });
+  }, requestNow);
   const context = envelope.context;
 
   try {

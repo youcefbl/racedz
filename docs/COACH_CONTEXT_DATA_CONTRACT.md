@@ -23,6 +23,7 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | Context field | Source | Purpose | Sensitivity | Retention |
 |---|---|---|---|---|
 | `request.type` / `runnerQuestion` / `responseLocale` | request | Route the reply, echo the runner's question, set language | 🔴 free-text (question) | Stored on `CoachInteraction` |
+| `request.asOf` / `localDate` / `timeZone` | injected server clock, Africa/Algiers | Ground relative dates without relying on provider/host time | 🟢 | Recomputed |
 | `runner.sex` / `runner.age` | `User` | Physiology-appropriate advice | 🟡 personal | From account |
 | `runner.location` (wilaya, city) | `User` | Local climate / time-of-day advice | 🟡 personal | From account |
 | `goal.*` (type, targetDate, distance, time, experience, weekly/peak volume, longest run, available days, long-run day) | `RunnerGoal` | Core personalization — what they train for and their capacity | 🟡 personal | Until goal changed/deleted |
@@ -30,10 +31,10 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | `goal.injuryNotes` / `injuryHistory` / `chronicConditions` / `healthNotes` / `constraints` | `RunnerGoal` | Safety gating and conservative advice | 🔴 health + free-text | Until goal changed/deleted |
 | `computedMetrics` (volumes, pace, effort, fatigue, pain trends) | derived from `RunnerRun` | Deterministic read of recent training | 🟡 (pain/fatigue lean 🔴) | Recomputed per request |
 | `consistency` / `intensityDistribution` | derived from `RunnerRun` | Cadence + 80/20 coaching | 🟢 | Recomputed |
-| `sleep` (recent nights, durations) | `SleepLog` | Recovery / load advice | 🔴 health | Last ~7 nights |
+| `sleep` (calendar window, coverage, dated nights, durations) | `SleepLog` | Recovery / load advice; unknown last night stays null | 🔴 health | Previous 7 completed Africa/Algiers calendar nights, excluding today/future entries |
 | `nutrition` (calorie/water aggregate) | `NutritionLog` | Fueling / hydration advice | 🔴 health | 7-day aggregate |
 | `targetRace` (title, type, date, wilaya, city, elevation, conditions) | `RaceEvent` | Race-specific prep | 🟡 personal | While linked |
-| `environment` (current + today's forecast) | Open-Meteo via GPS/wilaya | Heat/rain-aware advice | 🟡 (approximate) | Not stored |
+| `environment` (current + today's forecast, retrieval time/date, observation-time uncertainty) | Open-Meteo via GPS/wilaya | Heat/rain-aware advice; retrieval is not an observation timestamp | 🟡 (approximate) | Not stored |
 | `analysedRun` (distance, pace, splits, effort, weather) | `RunnerRun` | Post-run feedback | 🔴 free-text (notes/symptoms) | The selected run |
 | `recentRuns` (≤10) | `RunnerRun` | Recent training picture | 🔴 free-text (notes/symptoms) | Last 56 days, newest 10 |
 | `recentConversation` (≤6 turns, question, summary, follow-up, choices, next action, safety level) | Owner/active-goal/selected-run scoped `CoachInteraction` | Resolve short replies and avoid repeating questions | 🔴 free-text | Last 6 scoped interactions; implicit pending questions expire after 24 h |

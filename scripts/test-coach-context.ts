@@ -104,8 +104,10 @@ function baseInput(over: Partial<Input> = {}): Input {
 // ---- 3. Hash determinism ----
 {
   const a = assembleCoachContext(baseInput(), NOW);
-  const b = assembleCoachContext(baseInput(), new Date("2026-07-18T18:00:00.000Z")); // different assembledAt only
-  assert.equal(a.meta.hash, b.meta.hash, "same context payload → same hash regardless of assembledAt");
+  const b = assembleCoachContext(baseInput(), NOW);
+  assert.equal(a.meta.hash, b.meta.hash, "same context and injected time → same hash");
+  assert.notEqual(a.meta.hash, assembleCoachContext(baseInput(), new Date("2026-07-19T09:00:00Z")).meta.hash,
+    "a changed as-of date changes the payload and hash");
   const c = assembleCoachContext(baseInput({ nutrition: "different" }), NOW);
   assert.notEqual(a.meta.hash, c.meta.hash, "different context payload → different hash");
   assert.ok(a.meta.contextVersion.length > 0, "context version present");
@@ -157,7 +159,7 @@ function baseInput(over: Partial<Input> = {}): Input {
   const json = JSON.stringify(withNote.context);
   assert.ok(json.includes("IGNORE ALL PREVIOUS INSTRUCTIONS"), "runner note is preserved as data for the prompt to neutralise");
   // The pure serializer and the enveloped context agree on the payload.
-  const pure = buildRunnerCoachContext(baseInput());
+  const pure = buildRunnerCoachContext(baseInput(), NOW);
   assert.equal(JSON.stringify(pure), JSON.stringify(assembleCoachContext(baseInput(), NOW).context));
   console.log("PASS — untrusted content carried as data; envelope wraps the pure serializer unchanged");
 }

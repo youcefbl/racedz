@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { coachLocalDate, COACH_TIME_ZONE, describeSleep } from "@/lib/coach/context-time";
 import type { RunRoutePoint } from "@/components/coach/types";
 import type { PlanAdherence } from "@/lib/coach/adherence";
 import type { MemoryContextItem } from "@/lib/coach/memory";
@@ -125,7 +126,7 @@ export function buildRunnerCoachContext(input: {
   // The runner's actual active plan, workout by workout (status + linked run) — so the coach knows
   // exactly which sessions were completed / missed / skipped, not just the aggregate adherence.
   activePlan?: ActivePlanContext | null;
-}) {
+}, now: Date = new Date()) {
   // Key order is deliberate (review U-20): stable sections first, volatile sections last, the live
   // request at the very end. The serialized context is the provider prompt's tail, and prefix
   // caching only pays for the bytes that repeat — putting the runner's message first invalidated
@@ -166,7 +167,7 @@ export function buildRunnerCoachContext(input: {
     coachMemory: input.memory && input.memory.length > 0 ? input.memory : null,
     // The actual race being trained for (course, terrain, where and when), when the goal links one,
     // plus how many days remain — lets the coach tailor course prep instead of echoing the goal.
-    targetRace: input.targetRace ? describeTargetRace(input.targetRace) : null,
+    targetRace: input.targetRace ? describeTargetRace(input.targetRace, now) : null,
     // The actual active plan, session by session (completed / skipped-with-reason / rescheduled + the
     // real run), so the coach references what genuinely happened rather than a fresh generated week.
     activePlan: input.activePlan ?? null,
@@ -182,13 +183,13 @@ export function buildRunnerCoachContext(input: {
     intensityDistribution: input.intensity ?? null,
     // Recent sleep the runner logged, so the coach can factor rest into recovery and load advice
     // (short or erratic sleep → prioritise recovery; consistent good sleep → affirm it).
-    sleep: describeSleep(input.sleep ?? []),
+    sleep: describeSleep(input.sleep ?? [], now),
     // Recent fuel/hydration averages the runner logged, so the coach can advise on fueling around
     // long runs and race week. Null when nothing is logged.
     nutrition: input.nutrition ?? null,
     // Current + today's forecast where the runner trains, so planning and chat can adapt to heat,
     // humidity and rain (move a hard session earlier, swap to easy, hydrate). Null for post-run.
-    environment: input.forecast ? describeForecast(input.forecast) : null,
+    environment: input.forecast ? describeForecast(input.forecast, now) : null,
     // The specific run this feedback is about, when the runner asked to analyse one. Given its
     // own block (with per-km splits) so the coach centres the reply on it instead of guessing.
     analysedRun: input.targetRun ? describeTargetRun(input.targetRun) : null,
@@ -217,6 +218,9 @@ export function buildRunnerCoachContext(input: {
     fixedSafetyDecision: input.safety,
     // Last on purpose: the live request is the most volatile section (see the ordering note above).
     request: {
+      asOf: now.toISOString(),
+      localDate: coachLocalDate(now),
+      timeZone: COACH_TIME_ZONE,
       type: input.interaction.type,
       runnerQuestion: input.interaction.message ?? null,
       // A live Arabic question gets an Algerian-Arabic answer even when the saved Coach language
@@ -234,7 +238,7 @@ export function buildRunnerCoachContext(input: {
 // Version of the context *shape* (not the prompt). Bump when the set/structure of context fields
 // changes, so a stored interaction can be traced to how its context was assembled.
 // v2: cache-aware key order (stable→volatile, live request last) + all-time records block.
-export const COACH_CONTEXT_VERSION = "ctx-v2-2026-08-02";
+export const COACH_CONTEXT_VERSION = "ctx-v3-2026-11-14";
 
 type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
 
@@ -253,7 +257,7 @@ export type CoachContextEnvelope = {
 };
 
 export function assembleCoachContext(input: CoachContextInput, now: Date = new Date()): CoachContextEnvelope {
-  const context = buildRunnerCoachContext(input);
+  const context = buildRunnerCoachContext(input, now);
   const hash = createHash("sha256").update(JSON.stringify(context)).digest("hex").slice(0, 16);
   return {
     context,
@@ -261,14 +265,14 @@ export function assembleCoachContext(input: CoachContextInput, now: Date = new D
       contextVersion: COACH_CONTEXT_VERSION,
       assembledAt: now.toISOString(),
       hash,
-      sections: describeContextSections(input)
+      sections: describeContextSections(input, context)
     }
   };
 }
 
 // Per-section presence + the reason a section was left out — the "why isn't sleep here?" answer for
 // support/eval, without exposing any content.
-function describeContextSections(input: CoachContextInput): Record<string, string> {
+function describeContextSections(input: CoachContextInput, context: ReturnType<typeof buildRunnerCoachContext>): Record<string, string> {
   const s = (present: boolean, omittedReason: string) => (present ? "present" : `omitted:${omittedReason}`);
   const isPostRun = input.interaction.type === "POST_RUN";
   return {
@@ -277,7 +281,7 @@ function describeContextSections(input: CoachContextInput): Record<string, strin
     targetRace: s(Boolean(input.targetRace), "no-target-race"),
     environment: s(Boolean(input.forecast), isPostRun ? "post-run-uses-run-weather" : "no-forecast"),
     analysedRun: s(Boolean(input.targetRun), "not-a-post-run"),
-    sleep: s((input.sleep?.length ?? 0) > 0, "no-sleep-logged"),
+    sleep: s(context.sleep !== null, (input.sleep?.length ?? 0) > 0 ? "no-recent-sleep-logged" : "no-sleep-logged"),
     nutrition: s(Boolean(input.nutrition), "no-nutrition-logged"),
     activePlan: s(Boolean(input.activePlan), "no-active-plan"),
     adherence: s(Boolean(input.adherence?.hasActivePlan), "no-active-plan"),
@@ -327,43 +331,19 @@ function describeWeather(value: unknown) {
 }
 
 // Whole days from now until a date, floored; negative if already past.
-function daysUntil(date: Date): number {
-  return Math.floor((new Date(date).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+function daysUntil(date: Date, now: Date): number {
+  return Math.round((Date.parse(coachLocalDate(date)) - Date.parse(coachLocalDate(now))) / 86_400_000);
 }
 
-function describeTargetRace(race: ContextTargetRace) {
+function describeTargetRace(race: ContextTargetRace, now: Date) {
   return {
     title: race.title,
     raceType: race.raceType,
     startDate: new Date(race.startDate).toISOString(),
-    daysUntilRace: daysUntil(race.startDate),
+    daysUntilRace: daysUntil(race.startDate, now),
     location: [race.city, race.wilaya].filter(Boolean).join(", ") || null,
     courseElevation: race.elevationGainText,
     courseConditions: truncate(race.conditions, MAX_NOTE_CHARS)
-  };
-}
-
-// Summarise recent sleep into what the coach actually needs: the average over the last week, the
-// most recent night, and a short per-night trace (hours, one decimal). Null when nothing is logged.
-function describeSleep(entries: Array<{ night: Date | string; durationMinutes: number }>) {
-  if (entries.length === 0) return null;
-  const sorted = [...entries].sort((a, b) => new Date(b.night).getTime() - new Date(a.night).getTime());
-  const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
-  const lastSeven = sorted.slice(0, 7);
-  const averageHoursLast7 =
-    lastSeven.length > 0
-      ? Math.round((lastSeven.reduce((total, entry) => total + entry.durationMinutes, 0) / lastSeven.length / 60) * 10) /
-        10
-      : null;
-
-  return {
-    nightsLoggedLast7: lastSeven.length,
-    averageHoursLast7,
-    lastNightHours: toHours(sorted[0].durationMinutes),
-    recentNights: sorted.slice(0, 7).map((entry) => ({
-      night: new Date(entry.night).toISOString().slice(0, 10),
-      hours: toHours(entry.durationMinutes)
-    }))
   };
 }
 
@@ -383,8 +363,12 @@ function describeRecords(records: PersonalRecords) {
   };
 }
 
-function describeForecast(forecast: ForecastConditions) {
+function describeForecast(forecast: ForecastConditions, now: Date) {
   return {
+    retrievedAt: now.toISOString(),
+    forecastDate: coachLocalDate(now),
+    // Retrieval time is not an observation timestamp. Never imply minute-accurate live weather.
+    observationTimeKnown: false,
     conditions: forecast.label,
     currentTemperatureC: forecast.currentTemperatureC,
     feelsLikeC: forecast.apparentTemperatureC,
