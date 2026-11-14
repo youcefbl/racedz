@@ -443,4 +443,3 @@ function truncate(value: string | null | undefined, max: number): string | null 
   if (trimmed.length <= max) return trimmed || null;
   return `${trimmed.slice(0, max).trimEnd()}…`;
 }
-

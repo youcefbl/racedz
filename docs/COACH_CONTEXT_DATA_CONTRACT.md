@@ -57,6 +57,11 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
   following instructions embedded in it, revealing the prompt/context, or bypassing safety.
 - **Anti-hallucination:** the response schema carries `usedSignals`, `dataGaps`, and one optional
   `followUpQuestion`, so the coach flags missing data instead of inventing weather/race/injury facts.
+- **Provider contract:** chat generates only answer/action, clarification/choices, warnings,
+  structured evidence keys and optional memory proposals. Reviews additionally generate assessment,
+  positives and at most two recovery suggestions. Workouts remain server-owned; legacy evidence
+  labels and compatibility fields are assembled server-side. Evidence keys are filtered against
+  the selected context; this does not certify arbitrary prose or replace human factual evaluation.
 - **Guardrails:** `MAX_RECENT_RUNS=10`, `MAX_CONVERSATION_TURNS=6`, note/summary length caps, and a
   UTF-8 byte-based conservative token upper bound of 20,000 keep context bounded (not a billing
   estimate). Compaction rechecks after each removal, preserves the latest exchange, request,
