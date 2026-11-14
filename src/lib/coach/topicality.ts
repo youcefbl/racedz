@@ -15,6 +15,7 @@ import type { CoachResponse } from "@/lib/coach/schemas";
 
 // Broad multilingual running / training / recovery vocabulary (EN / FR / AR).
 const onTopicPatterns: RegExp[] = [
+  /\b(sleep|slept|tired|sommeil|dormi|récupérer|programme|sortie|sorties)\b|النوم|الاسترجاع|رقدت|نعاس/iu,
   // English
   /\b(run(?:ning|ner|s)?|jog|race|races|racing|marathon|half[- ]?marathon|sprint|pace|paces|tempo|interval|fartlek|stride|cadence|split|negative split|taper|warm[- ]?up|cool[- ]?down|cross[- ]?train|treadmill|track|trail|5k|10k|21k|42k|km|kilomet|mile|long run|easy run|recovery|rest day|workout|training|train|plan|fitness|endurance|stamina|vo2|heart rate|hr zone|effort|fatigue|injur|knee|shin|calf|hamstring|achilles|plantar|ankle|hip|cramp|blister|stretch|mobility|hydrat|nutrition|fuel|gel|carb|protein|electrolyte|shoe|trainers|sweat|breath)/i,
   // French
@@ -43,6 +44,10 @@ export function evaluateTopicality(
   followUp?: Pick<Partial<CoachResponse>, "followUpQuestion" | "quickReplies"> | null
 ): { onTopic: boolean } {
   const text = (message ?? "").trim();
+  // Repair applies to an ANSWER too, not only to a still-pending clarification.
+  if (followUp && text.length <= 240 && /^(not what i meant|i meant\b|no[, ]|just one practical|une seule action|je voulais dire\b|non[, ]|قصدي|ماشي هكا|لا[, ،]|la[, ]+qasdi)/iu.test(text)) {
+    return { onTopic: true };
+  }
   // A choice offered by this runner's recent coach question is necessarily a valid reply.
   const normalize = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase();
   if (followUp?.followUpQuestion && followUp.quickReplies?.some((reply) => normalize(reply) === normalize(text))) {
@@ -51,7 +56,7 @@ export function evaluateTopicality(
   // Short clarifications/corrections need the pending question to supply their subject. Do not
   // whitelist arbitrary prose merely because an earlier interaction once asked a question.
   if (followUp?.followUpQuestion && text.length <= 240 &&
-    /^(all day|after poor sleep|only (?:today|yesterday|at night)|not what i meant|i meant\b|no[, ]|toute la journée|seulement\b|je voulais dire\b|non[, ]|طول النهار|غير اليوم|قصدي|ماشي هكا|لا[, ،]|nhar kamel|maشي)/iu.test(text)) {
+    /^(all day|after poor sleep|only (?:today|yesterday|at night)|toute la journée|seulement\b|طول النهار|غير اليوم|nhar kamel)/iu.test(text)) {
     return { onTopic: true };
   }
   // Very short or empty messages can't be reliably classified; let them through.

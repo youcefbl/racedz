@@ -439,12 +439,22 @@ async function runWorkoutActionCases() {
   check("a session cannot be skipped twice", doubleSkip.status === 404, doubleSkip.status);
 
   // Move, to a date inside the plan window.
+  // A fixed now+2 crosses the published window on weekends. Choose from the actual contract,
+  // not the weekday on which this suite happens to run.
+  const moveWithinWindow = new Date(plan.body.data.planEndsOn);
+  moveWithinWindow.setUTCHours(12, 0, 0, 0);
   const moved = await api(`/coach/workouts/${toMove.id}`, {
     method: "PATCH",
     token: runnerA.token,
-    body: { action: "reschedule", scheduledFor: inDays(2) },
+    body: { action: "reschedule", scheduledFor: moveWithinWindow.toISOString() },
   });
   check("runner A can move their own workout", moved.status === 200, { status: moved.status, body: moved.body });
+
+  const outsideWindow = await api(`/coach/workouts/${toMove.id}`, {
+    method: "PATCH", token: runnerA.token,
+    body: { action: "reschedule", scheduledFor: new Date(moveWithinWindow.getTime() + 2 * 86_400_000).toISOString() },
+  });
+  check("a workout cannot move beyond the published plan window", outsideWindow.status === 404, outsideWindow.status);
 
   const backwards = await api(`/coach/workouts/${toMove.id}`, {
     method: "PATCH",

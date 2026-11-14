@@ -41,7 +41,7 @@ const clearanceConditions = new Set(["HEART_CONDITION"]);
 // common Latin-script darija (arabizi) transliterations.
 const dangerPatterns = [
   /chest pain|faint(?:ed|ing)?|passed out|difficulty breathing|severe shortness of breath|heat ?stroke/i,
-  /douleur (?:à la |de |dans la )?poitrine|évanoui|évanouissement|difficulté à respirer|essoufflement sévère|coup de chaleur|perte de connaissance/i,
+  /douleurs? thoraciques?|douleur (?:à la |de |dans la )?poitrine|évanoui|évanouissement|difficulté à respirer|essoufflement sévère|coup de chaleur|perte de connaissance/i,
   /(?:ألم|وجع|أوجاع)\s*(?:في|فى)?\s*(?:ال)?صدر|صدري\s*(?:يوجعني|يؤلمني)|اغماء|إغماء|أغمي|صعوبة في التنفس|ضيق تنفس شديد|ضربة شمس/,
   // Arabizi / Latin-script darija. Each alternative pairs a pain/failure word with a body signal so
   // ordinary training talk ("sder" as a route name, "nefs" as motivation) cannot trip it alone.

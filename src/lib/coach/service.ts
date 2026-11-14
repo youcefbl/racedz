@@ -17,7 +17,7 @@ import {
   type WorkoutStatusValue
 } from "@/lib/coach/adherence";
 import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context";
-import { pendingFollowUp, selectConversation, type ConversationRow } from "@/lib/coach/conversation";
+import { pendingFollowUp, recentCoachReply, selectConversation, type ConversationRow } from "@/lib/coach/conversation";
 import { selectContextNeeds } from "@/lib/coach/context-selection";
 import { coachLocalDate } from "@/lib/coach/context-time";
 import { CoachContextBudgetError } from "@/lib/coach/context-budget";
@@ -1717,7 +1717,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // the entitlement/quota gate, persist these BLOCKED rows only up to a small daily cap per user so
   // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
   // per-user route rate limit, but that alone still allows thousands of rows/day).
-  if (input.type === "CHAT" && !evaluateTopicality(input.message, pendingFollowUp(conversation, requestNow)).onTopic) {
+  if (input.type === "CHAT" && !evaluateTopicality(input.message, recentCoachReply(conversation, requestNow)).onTopic) {
     const response = buildOffTopicCoachResponse(responseLocale);
     const offTopicSafety = { level: "CLEAR" as const, reasons: [], requiresProfessionalAdvice: false };
     const [logged] = await prisma.$queryRaw<{ count: bigint }[]>`
@@ -1862,31 +1862,14 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // failure boundary so a claimed request is marked FAILED and can be retried, never stranded.
   let envelope: ReturnType<typeof assembleCoachContext> | null = null;
   try {
-  envelope = assembleCoachContext({
-    goal,
-    runs,
-    metrics,
-    skeleton,
-    safety,
-    interaction: input,
-    profile,
-    consistency,
-    intensity,
-    location,
-    targetRace,
-    forecast,
-    sleep: sleepEntries.map((entry) => ({ night: entry.night, durationMinutes: entry.durationMinutes })),
-    nutrition,
-    targetRun,
-    recentConversation,
-    adherence,
-    trainingPhase: adaptivePlan.phase,
-    planAdaptations: adaptivePlan.adaptations,
-    activePlan,
-    memory,
-    records
-  }, requestNow);
-  const context = envelope.context;
+    envelope = assembleCoachContext({
+      goal, runs, metrics, skeleton, safety, interaction: input, profile, consistency, intensity,
+      location, targetRace, forecast,
+      sleep: sleepEntries.map((entry) => ({ night: entry.night, durationMinutes: entry.durationMinutes })),
+      nutrition, targetRun, recentConversation, adherence, trainingPhase: adaptivePlan.phase,
+      planAdaptations: adaptivePlan.adaptations, activePlan, memory, records
+    }, requestNow);
+    const context = envelope.context;
 
     const generated = await generateCoachResponse(context, interactionId, input.type);
     const response = enforceCoachSafety(generated.response, safety, skeleton, responseLocale);

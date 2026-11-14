@@ -29,9 +29,14 @@ export function selectConversation(
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id)).slice(-6);
 }
 
-export function pendingFollowUp(rows: ConversationRow[], now: Date): Partial<CoachResponse> | null {
+export function recentCoachReply(rows: ConversationRow[], now: Date): Partial<CoachResponse> | null {
   const latest = rows.at(-1);
-  if (!latest || latest.status !== "COMPLETED" || !latest.response?.followUpQuestion) return null;
+  if (!latest || latest.status !== "COMPLETED") return null;
   const age = now.getTime() - latest.createdAt.getTime();
   return age >= 0 && age <= FOLLOW_UP_MAX_AGE_MS ? latest.response : null;
+}
+
+export function pendingFollowUp(rows: ConversationRow[], now: Date): Partial<CoachResponse> | null {
+  const reply = recentCoachReply(rows, now);
+  return reply?.followUpQuestion ? reply : null;
 }

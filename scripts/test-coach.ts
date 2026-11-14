@@ -126,6 +126,8 @@ console.log("Coach metrics, planning, and safety checks passed.");
     "felt like heat stroke on today's run",
     // French
     "J'ai une douleur à la poitrine depuis ce matin",
+    "J'ai une douleur thoracique pendant la course",
+    "J'ai des douleurs thoraciques",
     "je me suis évanoui après la séance",
     "grosse difficulté à respirer pendant le footing",
     "j'ai fait un coup de chaleur hier",

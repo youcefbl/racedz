@@ -47,6 +47,9 @@ expect("3andi wja3 fe rekba", true, "arabizi: knee pain");
 expect("كيف أتعامل مع التعب بعد التدريب؟", true, "MSA: fatigue after training");
 expect("Can I do hard intervals this week?", true, "english: intervals");
 expect("Comment gérer la fatigue après une sortie longue ?", true, "french: fatigue after long run");
+expect("Quand placer ma sortie facile ?", true, "french: easy run scheduling");
+expect("How should I manage poor sleep?", true, "english: sleep belongs to recovery");
+expect("النوم تاعي مليح للاسترجاع؟", true, "darija: sleep and recovery");
 
 // ---- Still refused. A gate that passes everything is not a gate ----------------------------------
 expect("واش نديري باش نطيب الكسكس؟", false, "darija: how do I cook couscous");
