@@ -18,6 +18,9 @@ import {
 } from "@/lib/coach/adherence";
 import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context";
 import { pendingFollowUp, selectConversation, type ConversationRow } from "@/lib/coach/conversation";
+import { selectContextNeeds } from "@/lib/coach/context-selection";
+import { coachLocalDate } from "@/lib/coach/context-time";
+import { CoachContextBudgetError } from "@/lib/coach/context-budget";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics, type ConsistencyAssessment } from "@/lib/coach/metrics";
@@ -1768,7 +1771,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // The active plan session by session (what actually happened), for the AI context.
   const activePlan = await getActivePlanForContext(userId);
   // Long-term memory: relevant, budget-capped facts from earlier conversations (Phase 3).
-  const memory = await getMemoryForContext(userId, goal.id);
+  const pendingQuestion = pendingFollowUp(conversation, requestNow);
+  const needs = selectContextNeeds(input, pendingQuestion ? `${conversation.at(-1)?.userMessage ?? ""} ${pendingQuestion.followUpQuestion}` : "");
+  const memory = await getMemoryForContext(userId, goal.id, requestNow, { intent: needs.intent, question: input.message ?? "" });
 
   // The claim: a fresh request inserts its row; a retry of a FAILED row re-claims it via the
   // CONDITIONAL ON CONFLICT (only rows still FAILED flip back to PENDING). Zero affected rows
@@ -1819,14 +1824,14 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // The linked target race (course, terrain, where/when) enriches every reply. Weather-aware
   // forecast is only worth fetching where it changes advice — planning and open chat — so post-run
   // feedback (which already carries the run's own historical weather) skips the extra round-trip.
-  const wantsForecast = input.type !== "POST_RUN";
+  const wantsForecast = needs.forecast;
   const [targetRace, forecast, sleepEntries, nutrition, records] = await Promise.all([
-    getTargetRace(goal.raceEventId),
+    needs.targetRace ? getTargetRace(goal.raceEventId) : Promise.resolve(null),
     wantsForecast ? resolveForecast(runs, profileRows[0]?.wilaya ?? null) : Promise.resolve(null),
-    getSleepEntries(userId, 14),
-    getNutritionCoachSummary(userId),
+    needs.sleep ? getSleepEntries(userId, 7) : Promise.resolve([]),
+    needs.nutrition ? getNutritionCoachSummary(userId) : Promise.resolve(null),
     // All-time bests/streaks for the context's records block (review U-25).
-    getRunnerRecords(userId).catch(() => null)
+    needs.records ? getRunnerRecords(userId).catch(() => null) : Promise.resolve(null)
   ]);
 
   // For post-run feedback, hand the coach the exact run under review (with per-km splits) so the
@@ -1853,7 +1858,11 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       }
     : null;
 
-  const envelope = assembleCoachContext({
+  // Assembly can intentionally fail closed on an oversized mandatory context. Keep it inside the
+  // failure boundary so a claimed request is marked FAILED and can be retried, never stranded.
+  let envelope: ReturnType<typeof assembleCoachContext> | null = null;
+  try {
+  envelope = assembleCoachContext({
     goal,
     runs,
     metrics,
@@ -1879,7 +1888,6 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   }, requestNow);
   const context = envelope.context;
 
-  try {
     const generated = await generateCoachResponse(context, interactionId, input.type);
     const response = enforceCoachSafety(generated.response, safety, skeleton, responseLocale);
 
@@ -1898,7 +1906,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
           UPDATE "CoachInteraction"
           SET "status" = 'COMPLETED', "response" = CAST(${JSON.stringify(response)} AS JSONB),
               "model" = ${generated.model}, "completedAt" = NOW(),
-              "contextVersion" = ${envelope.meta.contextVersion}, "contextHash" = ${envelope.meta.hash}
+              "contextVersion" = ${envelope?.meta.contextVersion ?? null}, "contextHash" = ${envelope?.meta.hash ?? null}
           WHERE "id" = ${interactionId}
         `;
         await tx.$executeRaw`
@@ -1978,13 +1986,13 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
     const providerError = error instanceof CoachProviderError
       ? error
-      : new CoachProviderError("AI coaching is temporarily unavailable.", "COACH_GENERATION_FAILED", process.env.OPENAI_COACH_MODEL ?? "gpt-5.4-mini");
+      : new CoachProviderError("AI coaching is temporarily unavailable.", error instanceof CoachContextBudgetError ? "COACH_CONTEXT_TOO_LARGE" : "COACH_GENERATION_FAILED", resolveCoachModel());
 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         UPDATE "CoachInteraction"
         SET "status" = 'FAILED', "model" = ${providerError.model}, "errorCode" = ${providerError.code}, "completedAt" = NOW(),
-            "contextVersion" = ${envelope.meta.contextVersion}, "contextHash" = ${envelope.meta.hash}
+            "contextVersion" = ${envelope?.meta.contextVersion ?? null}, "contextHash" = ${envelope?.meta.hash ?? null}
         WHERE "id" = ${interactionId}
       `;
       await tx.$executeRaw`
@@ -2446,7 +2454,7 @@ export async function createSleepEntry(userId: string, rawInput: unknown) {
   }
 
   durationMinutes = Math.max(1, Math.min(24 * 60, durationMinutes));
-  const night = toDateOnly(input.night ?? new Date());
+  const night = input.night ? toDateOnly(input.night) : coachLocalDate(new Date());
 
   const rows = await prisma.$queryRaw<SleepRow[]>`
     INSERT INTO "SleepLog" (
@@ -2472,7 +2480,7 @@ export async function getSleepEntries(userId: string, days = SLEEP_HISTORY_DAYS)
   return getPrisma().$queryRaw<SleepRow[]>`
     SELECT "id", "night", "durationMinutes", "bedTime", "wakeTime", "note", "source", "createdAt"
     FROM "SleepLog"
-    WHERE "userId" = ${userId} AND "night" >= (CURRENT_DATE - ${safeDays}::int)
+    WHERE "userId" = ${userId} AND "night" >= ((NOW() AT TIME ZONE 'Africa/Algiers')::date - ${safeDays - 1}::int)
     ORDER BY "night" DESC
     LIMIT 90
   `;

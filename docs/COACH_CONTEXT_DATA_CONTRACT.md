@@ -58,7 +58,20 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 - **Anti-hallucination:** the response schema carries `usedSignals`, `dataGaps`, and one optional
   `followUpQuestion`, so the coach flags missing data instead of inventing weather/race/injury facts.
 - **Guardrails:** `MAX_RECENT_RUNS=10`, `MAX_CONVERSATION_TURNS=6`, note/summary length caps, and a
-  compaction pass keep the payload bounded.
+  UTF-8 byte-based conservative token upper bound of 20,000 keep context bounded (not a billing
+  estimate). Compaction rechecks after each removal, preserves the latest exchange, request,
+  safety and plan, and fails closed if mandatory context cannot fit. Optional sections omitted for
+  relevance or trimmed for budget are identified in metadata. Provider instructions/schema have a
+  separate total-request guard. Selected-run splits are capped at 30 with an explicit truncation
+  flag; active-plan context retains the 14 nearest workouts and reports the full workout count.
+- **Relevance:** multilingual deterministic routing chooses enrichment for schedule, recovery,
+  nutrition, run analysis or general questions. Unknown intents retain broad context. Safety always
+  uses the original inputs before selection. No additional model call or vector database is used.
+- **Memory budget/freshness:** at most 12 whole facts within a 3,200-byte token upper bound;
+  constraints, rejected advice and human notes rank first. Schedules need reconfirmation after
+  30 days, commitments after 14, strategies after 90, other kinds after 180. Explicit expiry can
+  shorten these windows. Goal scope is applied before the DB retrieval limit; health writes remain
+  disabled. These are retrieval windows, not data-deletion/retention policy changes.
 
 ## Governance
 

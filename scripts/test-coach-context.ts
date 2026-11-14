@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { assembleCoachContext, buildRunnerCoachContext } from "../src/lib/coach/context";
 import { calculateCoachMetrics } from "../src/lib/coach/metrics";
 import { evaluateCoachSafety } from "../src/lib/coach/safety";
+import { CONTEXT_TOKEN_UPPER_BOUND, jsonTokenUpperBound } from "../src/lib/coach/context-budget";
 
 // Deterministic coach-context evals (no live AI). Assert the assembled context's privacy exclusions,
 // section presence/omission, hash determinism, and localization across profiles.
@@ -174,3 +175,25 @@ function baseInput(over: Partial<Input> = {}): Input {
 }
 
 console.log("\nCoach context assembly evals passed.");
+
+// Targeted questions omit unrelated enrichment, while safety and the actual plan stay available.
+{
+  const scoped = assembleCoachContext(baseInput({ interaction: { type: "CHAT", message: "Can I reschedule to Friday?" },
+    sleep: [{ night: "2026-07-18", durationMinutes: 420 }], nutrition: "2200 kcal" }), NOW);
+  assert.equal(scoped.context.sleep, null);
+  assert.equal(scoped.context.nutrition, null);
+  assert.equal(scoped.meta.sections.sleep, "omitted:not-relevant");
+  assert.deepEqual(scoped.context.fixedSafetyDecision, safety);
+  const question = "Is the tiredness all day?";
+  const large = assembleCoachContext(baseInput({
+    runs: Array.from({ length: 10 }, (_, i) => ({ ...runs[0], id: `r${i}`, notes: "عيانة ".repeat(300), symptoms: "fatigue ".repeat(200) })),
+    recentConversation: Array.from({ length: 6 }, () => ({ type: "CHAT", at: NOW, runnerQuestion: "عيانة ".repeat(100), coachSummary: "جواب ".repeat(100), followUpQuestion: question, quickReplies: ["All day"] })),
+    memory: Array.from({ length: 12 }, () => ({ kind: "PREFERENCE", source: "RUNNER_STATED", ageDays: 1, fact: "trail ".repeat(100) }))
+  }), NOW);
+  assert.ok(jsonTokenUpperBound(large.context) <= CONTEXT_TOKEN_UPPER_BOUND);
+  assert.equal(large.context.recentConversation.at(-1)?.followUpQuestion, question);
+  assert.deepEqual(large.context.fixedSafetyDecision, safety);
+  assert.ok(large.context.selection.trimmedSections.length > 0);
+  assert.equal(large.meta.sections.recentRuns, "trimmed:token-budget");
+  console.log("PASS — relevance, Arabic-heavy budget, latest question and safety preservation");
+}

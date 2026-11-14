@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { coachLocalDate, COACH_TIME_ZONE, describeSleep } from "@/lib/coach/context-time";
+import { compactCoachContext, jsonTokenUpperBound } from "@/lib/coach/context-budget";
+import { selectContextNeeds } from "@/lib/coach/context-selection";
+import { FOLLOW_UP_MAX_AGE_MS } from "@/lib/coach/conversation";
 import type { RunRoutePoint } from "@/components/coach/types";
 import type { PlanAdherence } from "@/lib/coach/adherence";
 import type { MemoryContextItem } from "@/lib/coach/memory";
@@ -91,7 +94,6 @@ const MAX_RECENT_RUNS = 10;
 const MAX_CONVERSATION_TURNS = 6;
 const MAX_NOTE_CHARS = 500;
 const MAX_SUMMARY_CHARS = 400;
-const COMPACT_THRESHOLD_CHARS = 14000;
 
 export function buildRunnerCoachContext(input: {
   goal: ContextGoal;
@@ -127,6 +129,10 @@ export function buildRunnerCoachContext(input: {
   // exactly which sessions were completed / missed / skipped, not just the aggregate adherence.
   activePlan?: ActivePlanContext | null;
 }, now: Date = new Date()) {
+  const latest = input.recentConversation?.at(-1);
+  const age = latest ? now.getTime() - new Date(latest.at).getTime() : Infinity;
+  const needs = selectContextNeeds(input.interaction, latest?.followUpQuestion && age >= 0 && age <= FOLLOW_UP_MAX_AGE_MS
+    ? `${latest.runnerQuestion ?? ""} ${latest.followUpQuestion}` : "");
   // Key order is deliberate (review U-20): stable sections first, volatile sections last, the live
   // request at the very end. The serialized context is the provider prompt's tail, and prefix
   // caching only pays for the bytes that repeat — putting the runner's message first invalidated
@@ -140,7 +146,7 @@ export function buildRunnerCoachContext(input: {
     },
     goal: {
       type: input.goal.goalType,
-      customGoal: input.goal.customGoal,
+      customGoal: truncate(input.goal.customGoal, MAX_NOTE_CHARS),
       targetDate: input.goal.targetDate.toISOString(),
       targetDistanceKm: input.goal.targetDistanceKm,
       targetTimeSeconds: input.goal.targetTimeSeconds,
@@ -149,31 +155,39 @@ export function buildRunnerCoachContext(input: {
       yearsRunning: input.goal.yearsRunning,
       peakWeeklyDistanceKm: input.goal.peakWeeklyDistanceKm,
       longestRecentRunKm: input.goal.longestRecentRunKm,
-      recentRaceResult: input.goal.recentRaceResult,
+      recentRaceResult: truncate(input.goal.recentRaceResult, MAX_NOTE_CHARS),
       restingHeartRate: input.goal.restingHeartRate,
       weightKg: input.goal.weightKg,
       heightCm: input.goal.heightCm,
       bmi: computeBmi(input.goal.weightKg, input.goal.heightCm),
       availableTrainingDays: input.goal.availableTrainingDays,
       preferredLongRunDay: input.goal.preferredLongRunDay,
-      constraints: input.goal.constraints,
-      injuryNotes: input.goal.injuryNotes,
-      injuryHistory: input.goal.injuryHistory,
+      constraints: truncate(input.goal.constraints, MAX_NOTE_CHARS),
+      injuryNotes: truncate(input.goal.injuryNotes, MAX_NOTE_CHARS),
+      injuryHistory: truncate(input.goal.injuryHistory, MAX_NOTE_CHARS),
       chronicConditions: input.goal.chronicConditions,
-      healthNotes: input.goal.healthNotes
+      healthNotes: truncate(input.goal.healthNotes, MAX_NOTE_CHARS)
     },
     // Facts carry their source so the coach can use a runner-stated preference confidently while
     // treating its own earlier inference as a guess to check rather than a fact to assert.
     coachMemory: input.memory && input.memory.length > 0 ? input.memory : null,
     // The actual race being trained for (course, terrain, where and when), when the goal links one,
     // plus how many days remain — lets the coach tailor course prep instead of echoing the goal.
-    targetRace: input.targetRace ? describeTargetRace(input.targetRace, now) : null,
+    targetRace: needs.targetRace && input.targetRace ? describeTargetRace(input.targetRace, now) : null,
     // The actual active plan, session by session (completed / skipped-with-reason / rescheduled + the
     // real run), so the coach references what genuinely happened rather than a fresh generated week.
-    activePlan: input.activePlan ?? null,
-    fixedWeeklyPlanSkeleton: input.skeleton,
+    activePlan: input.activePlan ? {
+      ...input.activePlan,
+      totalWorkouts: input.activePlan.workouts.length,
+      workouts: [...input.activePlan.workouts].sort((a, b) =>
+        Math.abs(Date.parse(a.date) - Date.parse(coachLocalDate(now))) - Math.abs(Date.parse(b.date) - Date.parse(coachLocalDate(now)))
+      ).slice(0, 14).sort((a, b) => a.date.localeCompare(b.date))
+    } : null,
+    fixedWeeklyPlanSkeleton: input.skeleton.map((workout) => ({
+      ...workout, instructions: truncate(workout.instructions, 300)
+    })),
     // All-time bests and streaks, so milestones inform coaching without re-derivation (U-25).
-    records: input.records ? describeRecords(input.records) : null,
+    records: needs.records && input.records ? describeRecords(input.records) : null,
     computedMetrics: input.metrics,
     // Whether the runner is keeping to their committed cadence, so the coach can nudge them back to
     // consistency when sessions are being skipped and acknowledge it when they're on track.
@@ -183,17 +197,17 @@ export function buildRunnerCoachContext(input: {
     intensityDistribution: input.intensity ?? null,
     // Recent sleep the runner logged, so the coach can factor rest into recovery and load advice
     // (short or erratic sleep → prioritise recovery; consistent good sleep → affirm it).
-    sleep: describeSleep(input.sleep ?? [], now),
+    sleep: needs.sleep ? describeSleep(input.sleep ?? [], now) : null,
     // Recent fuel/hydration averages the runner logged, so the coach can advise on fueling around
     // long runs and race week. Null when nothing is logged.
-    nutrition: input.nutrition ?? null,
+    nutrition: needs.nutrition ? truncate(input.nutrition, 1000) : null,
     // Current + today's forecast where the runner trains, so planning and chat can adapt to heat,
     // humidity and rain (move a hard session earlier, swap to easy, hydrate). Null for post-run.
-    environment: input.forecast ? describeForecast(input.forecast, now) : null,
+    environment: needs.forecast && input.forecast ? describeForecast(input.forecast, now) : null,
     // The specific run this feedback is about, when the runner asked to analyse one. Given its
     // own block (with per-km splits) so the coach centres the reply on it instead of guessing.
     analysedRun: input.targetRun ? describeTargetRun(input.targetRun) : null,
-    recentRuns: input.runs.slice(0, MAX_RECENT_RUNS).map(describeRun),
+    recentRuns: needs.recentRuns ? input.runs.slice(0, MAX_RECENT_RUNS).map(describeRun) : [],
     // Prior exchanges, oldest→newest, so the coach can reference what the runner asked recently.
     recentConversation: (input.recentConversation ?? [])
       .slice(-MAX_CONVERSATION_TURNS)
@@ -216,6 +230,12 @@ export function buildRunnerCoachContext(input: {
     trainingPhase: input.trainingPhase ?? null,
     planAdaptations: input.planAdaptations ?? [],
     fixedSafetyDecision: input.safety,
+    selection: {
+      intent: needs.intent,
+      omittedForRelevance: Object.entries(needs).filter(([, value]) => value === false).map(([key]) => key),
+      trimmedSections: [] as string[],
+      activePlanWindowed: (input.activePlan?.workouts.length ?? 0) > 14
+    },
     // Last on purpose: the live request is the most volatile section (see the ordering note above).
     request: {
       asOf: now.toISOString(),
@@ -232,7 +252,7 @@ export function buildRunnerCoachContext(input: {
     }
   };
 
-  return compactIfNeeded(context);
+  return compactCoachContext(context);
 }
 
 // Version of the context *shape* (not the prompt). Bump when the set/structure of context fields
@@ -253,6 +273,7 @@ export type CoachContextEnvelope = {
     assembledAt: string;
     hash: string;
     sections: Record<string, string>; // "present" | "omitted:<reason>"
+    tokenUpperBound: number;
   };
 };
 
@@ -265,7 +286,8 @@ export function assembleCoachContext(input: CoachContextInput, now: Date = new D
       contextVersion: COACH_CONTEXT_VERSION,
       assembledAt: now.toISOString(),
       hash,
-      sections: describeContextSections(input, context)
+      sections: describeContextSections(input, context),
+      tokenUpperBound: jsonTokenUpperBound(context)
     }
   };
 }
@@ -275,7 +297,7 @@ export function assembleCoachContext(input: CoachContextInput, now: Date = new D
 function describeContextSections(input: CoachContextInput, context: ReturnType<typeof buildRunnerCoachContext>): Record<string, string> {
   const s = (present: boolean, omittedReason: string) => (present ? "present" : `omitted:${omittedReason}`);
   const isPostRun = input.interaction.type === "POST_RUN";
-  return {
+  const sections: Record<string, string> = {
     recentRuns: s(input.runs.length > 0, "no-runs-logged"),
     location: s(Boolean(input.location?.wilaya || input.location?.city), "no-location"),
     targetRace: s(Boolean(input.targetRace), "no-target-race"),
@@ -291,6 +313,11 @@ function describeContextSections(input: CoachContextInput, context: ReturnType<t
     coachMemory: s((input.memory?.length ?? 0) > 0, "no-memory-stored"),
     records: s(Boolean(input.records && input.records.totalRuns > 0), "no-runs-logged")
   };
+  for (const key of context.selection.omittedForRelevance) {
+    sections[key === "forecast" ? "environment" : key] = "omitted:not-relevant";
+  }
+  for (const key of context.selection.trimmedSections) sections[key] = "trimmed:token-budget";
+  return sections;
 }
 
 function describeRun(run: ContextRun) {
@@ -396,7 +423,9 @@ function describeTargetRun(run: TargetRun) {
     movingTimeSeconds: run.movingTimeSeconds ?? null,
     calories: run.calories ?? null,
     // Per-kilometre splits let the coach comment on pacing (fade, negative split, hills) precisely.
-    perKmSplits: splits.length ? splits : null
+    totalSplits: splits.length,
+    splitsTruncated: splits.length > 30,
+    perKmSplits: splits.length ? splits.slice(0, 30) : null
   };
 }
 
@@ -415,15 +444,3 @@ function truncate(value: string | null | undefined, max: number): string | null 
   return `${trimmed.slice(0, max).trimEnd()}…`;
 }
 
-// Each runner's context is built fresh, so it stays personal by construction. Compaction only
-// kicks in for the rare runner whose serialized context is unusually large (many long runs plus
-// verbose notes): we drop the oldest recent runs and trim conversation history, keeping the
-// analysed run, goal, metrics and latest exchanges — the details that drive the reply — intact.
-function compactIfNeeded<T extends { recentRuns: unknown[]; recentConversation: unknown[] }>(context: T): T {
-  if (JSON.stringify(context).length <= COMPACT_THRESHOLD_CHARS) return context;
-  return {
-    ...context,
-    recentRuns: context.recentRuns.slice(0, 5),
-    recentConversation: context.recentConversation.slice(-3)
-  };
-}

@@ -29,9 +29,19 @@ async function readMemories(userId: string): Promise<MemoryRow[]> {
 }
 
 /** The memory block for the AI context: relevant, in-budget, goal-scoped. */
-export async function getMemoryForContext(userId: string, goalId: string | null, now = new Date()): Promise<MemoryContextItem[]> {
-  const records = await readMemories(userId);
-  return selectMemoryForContext(records, { goalId, now });
+export async function getMemoryForContext(
+  userId: string, goalId: string | null, now = new Date(),
+  relevance: Pick<Parameters<typeof selectMemoryForContext>[1], "intent" | "question"> = {}
+): Promise<MemoryContextItem[]> {
+  // Apply goal scope BEFORE the DB limit so another goal cannot crowd out this goal's facts.
+  const records = await getPrisma().$queryRaw<MemoryRecord[]>`
+    SELECT * FROM "CoachMemory"
+    WHERE "userId" = ${userId} AND "status" = 'ACTIVE'
+      AND ("goalId" IS NULL OR "goalId" = ${goalId})
+      AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
+    ORDER BY "updatedAt" DESC LIMIT 200
+  `;
+  return selectMemoryForContext(records, { goalId, now, ...relevance });
 }
 
 /**

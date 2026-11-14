@@ -1,4 +1,6 @@
 import type { CoachMemoryKind, CoachMemorySource, CoachMemoryStatus } from "@prisma/client";
+import type { CoachIntent } from "@/lib/coach/context-selection";
+import { jsonTokenUpperBound } from "@/lib/coach/context-budget";
 
 /**
  * Structured long-term coaching memory (Phase 3).
@@ -92,6 +94,8 @@ export const MEMORY_CONTEXT_LIMIT = 12;
 
 // A fact this old that has never been reconfirmed is more likely stale than useful.
 export const MEMORY_STALE_AFTER_DAYS = 180;
+export const MEMORY_TOKEN_UPPER_BOUND = 3200;
+const FRESHNESS_DAYS: Partial<Record<CoachMemoryKind, number>> = { SCHEDULE: 30, COMMITMENT: 14, STRATEGY_WORKED: 90, STRATEGY_FAILED: 90 };
 
 const KIND_PRIORITY: Record<CoachMemoryKind, number> = {
   // Constraints and rejected advice change what the coach must NOT say, so they outrank preferences.
@@ -127,7 +131,7 @@ export function isUsableMemory(record: MemoryRecord, now: Date): boolean {
   if (record.expiresAt !== null && record.expiresAt.getTime() <= now.getTime()) return false;
   // A fact the runner has reconfirmed stays fresh from the confirmation, not from when it was learned.
   const lastAffirmed = record.confirmedAt ?? record.createdAt;
-  if (ageInDays(lastAffirmed, now) > MEMORY_STALE_AFTER_DAYS) return false;
+  if (ageInDays(lastAffirmed, now) > (FRESHNESS_DAYS[record.kind] ?? MEMORY_STALE_AFTER_DAYS)) return false;
   return true;
 }
 
@@ -139,17 +143,32 @@ export function isUsableMemory(record: MemoryRecord, now: Date): boolean {
  */
 export function selectMemoryForContext(
   records: MemoryRecord[],
-  options: { goalId: string | null; now: Date; limit?: number }
+  options: { goalId: string | null; now: Date; limit?: number; intent?: CoachIntent; question?: string }
 ): MemoryContextItem[] {
   const { goalId, now } = options;
-  const limit = options.limit ?? MEMORY_CONTEXT_LIMIT;
+  const limit = Math.max(0, Math.min(options.limit ?? MEMORY_CONTEXT_LIMIT, MEMORY_CONTEXT_LIMIT));
+  const relevantKinds: Partial<Record<CoachIntent, string[]>> = {
+    SCHEDULE: ["SCHEDULE", "COMMITMENT"], RECOVERY: ["STRATEGY_WORKED", "STRATEGY_FAILED"],
+    RUN_ANALYSIS: ["PERFORMANCE", "TERRAIN"], NUTRITION: ["PREFERENCE"]
+  };
+  const words = (options.question ?? "").toLocaleLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [];
+  const score = (record: MemoryRecord) => {
+    if (["CONSTRAINT", "REJECTED_SUGGESTION", "COACH_NOTE"].includes(record.kind)) return 100;
+    if (record.kind === "COACHING_TONE") return 90;
+    return (relevantKinds[options.intent ?? "GENERAL"]?.includes(record.kind) ? 30 : 0) +
+      words.filter((word) => record.value.toLocaleLowerCase().includes(word)).length;
+  };
 
-  return records
+  const ranked = records
     .filter((record) => isUsableMemory(record, now))
     // A fact tied to a previous goal must not leak into the current one — old goals contaminating the
     // current picture is exactly what Phase 3's exit criteria call out.
     .filter((record) => record.goalId === null || record.goalId === goalId)
     .sort((a, b) => {
+      if (options.intent) {
+        const relevance = score(b) - score(a);
+        if (relevance !== 0) return relevance;
+      }
       const byKind = KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind];
       if (byKind !== 0) return byKind;
       const bySource = SOURCE_PRIORITY[a.source] - SOURCE_PRIORITY[b.source];
@@ -158,13 +177,18 @@ export function selectMemoryForContext(
       const bAffirmed = (b.confirmedAt ?? b.createdAt).getTime();
       return bAffirmed - aAffirmed;
     })
-    .slice(0, limit)
     .map((record) => ({
       kind: record.kind,
       fact: record.value,
       source: record.source,
       ageDays: ageInDays(record.confirmedAt ?? record.createdAt, now)
     }));
+  const selected: MemoryContextItem[] = [];
+  for (const item of ranked) {
+    if (selected.length >= limit) break;
+    if (jsonTokenUpperBound([...selected, item]) <= MEMORY_TOKEN_UPPER_BOUND) selected.push(item);
+  }
+  return selected;
 }
 
 // ── Write-side validation ────────────────────────────────────────────────────
