@@ -40,8 +40,8 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | `recentConversation` (≤6 turns, question, summary, follow-up, choices, next action, safety level) | Owner/active-goal/selected-run scoped `CoachInteraction` | Resolve short replies and avoid repeating questions | 🔴 free-text | Last 6 scoped interactions; implicit pending questions expire after 24 h |
 | `planAdherence` | derived (`adherence.ts`) | Aggregate completed/skipped | 🟢 | Recomputed |
 | `trainingPhase` / `planAdaptations` | `adaptive-planner.ts` | Name the phase + explain load changes | 🟢 | Recomputed |
-| `activePlan` (per-workout status + linked run) | `TrainingPlan` / `TrainingWorkout` / `RunnerRun` | Reference exactly which sessions happened | 🟡 personal | While plan active |
-| `fixedSafetyDecision` / `fixedWeeklyPlanSkeleton` | deterministic | Authoritative safety + candidate week | 🟢 | Recomputed |
+| `activePlan` (per-workout status, prescribed pace + linked run) | `TrainingPlan` / `TrainingWorkout` / `RunnerRun` | Authoritative saved schedule for chat/post-run; reference exactly which sessions happened | 🟡 personal | While plan active |
+| `fixedSafetyDecision` / `fixedWeeklyPlanSkeleton` | deterministic | Authoritative safety; candidate week included only for initial-plan/weekly-review generation, never mistaken for the saved plan in chat | 🟢 | Recomputed |
 | `records` (total runs/distance, longest run, best pace, est. 5K/10K bests, week streaks — ctx-v2) | derived from `RunnerRun` (`records.ts`) | Milestone-aware coaching (congratulate PBs, calibrate encouragement) without re-deriving from the 10-run window | 🟡 personal (aggregates only — no run ids, dates, or routes) | Recomputed per request over all VALID runs; re-derived facts reconciled on run deletion |
 | `coachMemory` (≤12 facts: kind, fact text, source, age) | `CoachMemory` | Durable preferences/constraints/milestones so the coach doesn't re-ask | 🔴 free-text (runner-stated wording) | Until superseded/dismissed/expired; runner-controlled (confirm/forget/export/delete-all) |
 

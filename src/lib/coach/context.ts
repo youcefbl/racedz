@@ -183,7 +183,8 @@ export function buildRunnerCoachContext(input: {
         Math.abs(Date.parse(a.date) - Date.parse(coachLocalDate(now))) - Math.abs(Date.parse(b.date) - Date.parse(coachLocalDate(now)))
       ).slice(0, 14).sort((a, b) => a.date.localeCompare(b.date))
     } : null,
-    fixedWeeklyPlanSkeleton: input.skeleton.map((workout) => ({
+    // CHAT/POST_RUN must explain the saved plan, not mistake a newly computed candidate for it.
+    fixedWeeklyPlanSkeleton: (input.interaction.type === "INITIAL_PLAN" || input.interaction.type === "WEEKLY_REVIEW" ? input.skeleton : []).map((workout) => ({
       ...workout, instructions: truncate(workout.instructions, 300)
     })),
     // All-time bests and streaks, so milestones inform coaching without re-derivation (U-25).
@@ -258,7 +259,7 @@ export function buildRunnerCoachContext(input: {
 // Version of the context *shape* (not the prompt). Bump when the set/structure of context fields
 // changes, so a stored interaction can be traced to how its context was assembled.
 // v2: cache-aware key order (stable→volatile, live request last) + all-time records block.
-export const COACH_CONTEXT_VERSION = "ctx-v3-2026-11-14";
+export const COACH_CONTEXT_VERSION = "ctx-v4-2026-11-15";
 
 type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
 

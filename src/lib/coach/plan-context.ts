@@ -9,6 +9,7 @@ export type ActivePlanContextWorkout = {
   date: string; // scheduled calendar date (YYYY-MM-DD)
   type: string; // CoachWorkoutType
   targetDistanceKm: number | null;
+  targetPaceSecondsPerKm?: number | null;
   status: string; // PLANNED | COMPLETED | SKIPPED | CANCELLED
   completionType: string | null; // AS_PLANNED | PARTIAL | … when completed
   skipReason: string | null; // when skipped, if known
@@ -31,6 +32,7 @@ type Row = {
   scheduledFor: Date;
   workoutType: string;
   targetDistanceKm: number | null;
+  targetPaceSecondsPerKm: number | null;
   wstatus: string;
   completionType: string | null;
   skipReason: string | null;
@@ -40,7 +42,7 @@ type Row = {
 export async function getActivePlanForContext(userId: string): Promise<ActivePlanContext | null> {
   const rows = await getPrisma().$queryRaw<Row[]>`
     SELECT p."version", p."startsOn", p."endsOn", p."status"::text AS "status",
-      w."scheduledFor", w."workoutType"::text AS "workoutType", w."targetDistanceKm",
+      w."scheduledFor", w."workoutType"::text AS "workoutType", w."targetDistanceKm", w."targetPaceSecondsPerKm",
       w."status"::text AS "wstatus", w."completionType"::text AS "completionType",
       w."skipReason"::text AS "skipReason", r."distanceKm" AS "actualDistanceKm"
     FROM "TrainingPlan" p
@@ -61,6 +63,7 @@ export async function getActivePlanForContext(userId: string): Promise<ActivePla
       date: row.scheduledFor.toISOString().slice(0, 10),
       type: row.workoutType,
       targetDistanceKm: row.targetDistanceKm,
+      targetPaceSecondsPerKm: row.targetPaceSecondsPerKm,
       status: row.wstatus,
       completionType: row.completionType,
       skipReason: row.skipReason,

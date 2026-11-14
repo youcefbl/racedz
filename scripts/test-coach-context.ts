@@ -184,6 +184,9 @@ console.log("\nCoach context assembly evals passed.");
   assert.equal(scoped.context.nutrition, null);
   assert.equal(scoped.meta.sections.sleep, "omitted:not-relevant");
   assert.deepEqual(scoped.context.fixedSafetyDecision, safety);
+  assert.deepEqual(scoped.context.fixedWeeklyPlanSkeleton, [], "chat must not receive an unsaved candidate as its plan");
+  const review = assembleCoachContext(baseInput({ interaction: { type: "WEEKLY_REVIEW" } }), NOW);
+  assert.equal(review.context.fixedWeeklyPlanSkeleton.length, skeleton.length, "plan generation still receives its fixed candidate");
   const question = "Is the tiredness all day?";
   const large = assembleCoachContext(baseInput({
     runs: Array.from({ length: 10 }, (_, i) => ({ ...runs[0], id: `r${i}`, notes: "عيانة ".repeat(300), symptoms: "fatigue ".repeat(200) })),
