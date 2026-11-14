@@ -8,13 +8,15 @@ export function shiftDateLabel(label: string, days: number): string {
 }
 export function describeSleep(entries: Array<{ night: Date | string; durationMinutes: number }>, now: Date) {
   const today = coachLocalDate(now);
-  const yesterday = shiftDateLabel(today, -1);
-  const windowStart = shiftDateLabel(today, -7);
+  // Existing native "log last night" sends no date and the server defaults to today: these are
+  // wake-date labels, not bedtime dates. Preserve that contract rather than shifting stored logs.
+  const lastNightDate = today;
+  const windowStart = shiftDateLabel(today, -6);
   const byNight = new Map<string, number>();
   for (const entry of entries) {
     // SleepLog.night is a @db.Date label, including when Prisma returns a UTC-midnight Date.
     const night = typeof entry.night === "string" ? entry.night.slice(0, 10) : entry.night.toISOString().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(night) || night < windowStart || night > yesterday ||
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(night) || night < windowStart || night > today ||
       !Number.isFinite(entry.durationMinutes) || entry.durationMinutes < 0 || entry.durationMinutes > 1440) continue;
     byNight.set(night, entry.durationMinutes);
   }
@@ -22,10 +24,10 @@ export function describeSleep(entries: Array<{ night: Date | string; durationMin
   const toHours = (minutes: number) => Math.round(minutes / 6) / 10;
   const nights = [...byNight.entries()].sort(([a], [b]) => b.localeCompare(a));
   return {
-    windowStart, windowEnd: yesterday, nightsLoggedLast7: nights.length,
+    dateConvention: "WAKE_DATE", windowStart, windowEnd: today, nightsLoggedLast7: nights.length,
     averageHoursLast7: toHours(nights.reduce((total, [, minutes]) => total + minutes, 0) / nights.length),
-    lastNightDate: yesterday,
-    lastNightHours: byNight.has(yesterday) ? toHours(byNight.get(yesterday)!) : null,
+    lastNightDate,
+    lastNightHours: byNight.has(lastNightDate) ? toHours(byNight.get(lastNightDate)!) : null,
     recentNights: nights.map(([night, minutes]) => ({ night, hours: toHours(minutes) }))
   };
 }

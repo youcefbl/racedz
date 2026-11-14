@@ -31,7 +31,7 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | `goal.injuryNotes` / `injuryHistory` / `chronicConditions` / `healthNotes` / `constraints` | `RunnerGoal` | Safety gating and conservative advice | 🔴 health + free-text | Until goal changed/deleted |
 | `computedMetrics` (volumes, pace, effort, fatigue, pain trends) | derived from `RunnerRun` | Deterministic read of recent training | 🟡 (pain/fatigue lean 🔴) | Recomputed per request |
 | `consistency` / `intensityDistribution` | derived from `RunnerRun` | Cadence + 80/20 coaching | 🟢 | Recomputed |
-| `sleep` (calendar window, coverage, dated nights, durations) | `SleepLog` | Recovery / load advice; unknown last night stays null | 🔴 health | Previous 7 completed Africa/Algiers calendar nights, excluding today/future entries |
+| `sleep` (calendar window, coverage, dated nights, durations) | `SleepLog` | Recovery / load advice; unknown last night stays null | 🔴 health | 7 Africa/Algiers wake-date labels ending today; existing “log last night” stores today's date; future entries excluded |
 | `nutrition` (calorie/water aggregate) | `NutritionLog` | Fueling / hydration advice | 🔴 health | 7-day aggregate |
 | `targetRace` (title, type, date, wilaya, city, elevation, conditions) | `RaceEvent` | Race-specific prep | 🟡 personal | While linked |
 | `environment` (current + today's forecast, retrieval time/date, observation-time uncertainty) | Open-Meteo via GPS/wilaya | Heat/rain-aware advice; retrieval is not an observation timestamp | 🟡 (approximate) | Not stored |
