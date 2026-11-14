@@ -38,8 +38,22 @@ const onTopicPatterns: RegExp[] = [
   /(3ayan|3aya|3yit|3ya|njri|tejri|tjri|\bjri\b|tmrin|tamrin|nrta7|rah?ti|wja3|ywaj3|s7iti|nhbes)/i
 ];
 
-export function evaluateTopicality(message: string | null | undefined): { onTopic: boolean } {
+export function evaluateTopicality(
+  message: string | null | undefined,
+  followUp?: Pick<Partial<CoachResponse>, "followUpQuestion" | "quickReplies"> | null
+): { onTopic: boolean } {
   const text = (message ?? "").trim();
+  // A choice offered by this runner's recent coach question is necessarily a valid reply.
+  const normalize = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase();
+  if (followUp?.followUpQuestion && followUp.quickReplies?.some((reply) => normalize(reply) === normalize(text))) {
+    return { onTopic: true };
+  }
+  // Short clarifications/corrections need the pending question to supply their subject. Do not
+  // whitelist arbitrary prose merely because an earlier interaction once asked a question.
+  if (followUp?.followUpQuestion && text.length <= 240 &&
+    /^(all day|after poor sleep|only (?:today|yesterday|at night)|not what i meant|i meant\b|no[, ]|toute la journée|seulement\b|je voulais dire\b|non[, ]|طول النهار|غير اليوم|قصدي|ماشي هكا|لا[, ،]|nhar kamel|maشي)/iu.test(text)) {
+    return { onTopic: true };
+  }
   // Very short or empty messages can't be reliably classified; let them through.
   if (text.length < 6) return { onTopic: true };
   return { onTopic: onTopicPatterns.some((pattern) => pattern.test(text)) };

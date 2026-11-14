@@ -36,7 +36,7 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | `environment` (current + today's forecast) | Open-Meteo via GPS/wilaya | Heat/rain-aware advice | 🟡 (approximate) | Not stored |
 | `analysedRun` (distance, pace, splits, effort, weather) | `RunnerRun` | Post-run feedback | 🔴 free-text (notes/symptoms) | The selected run |
 | `recentRuns` (≤10) | `RunnerRun` | Recent training picture | 🔴 free-text (notes/symptoms) | Last 56 days, newest 10 |
-| `recentConversation` (≤6 turns, question + summary) | `CoachInteraction` | Conversational coherence | 🔴 free-text | Last 6 interactions |
+| `recentConversation` (≤6 turns, question, summary, follow-up, choices, next action, safety level) | Owner/active-goal/selected-run scoped `CoachInteraction` | Resolve short replies and avoid repeating questions | 🔴 free-text | Last 6 scoped interactions; implicit pending questions expire after 24 h |
 | `planAdherence` | derived (`adherence.ts`) | Aggregate completed/skipped | 🟢 | Recomputed |
 | `trainingPhase` / `planAdaptations` | `adaptive-planner.ts` | Name the phase + explain load changes | 🟢 | Recomputed |
 | `activePlan` (per-workout status + linked run) | `TrainingPlan` / `TrainingWorkout` / `RunnerRun` | Reference exactly which sessions happened | 🟡 personal | While plan active |
@@ -45,6 +45,11 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | `coachMemory` (≤12 facts: kind, fact text, source, age) | `CoachMemory` | Durable preferences/constraints/milestones so the coach doesn't re-ask | 🔴 free-text (runner-stated wording) | Until superseded/dismissed/expired; runner-controlled (confirm/forget/export/delete-all) |
 
 ## Trust & safety notes
+
+- `replyToInteractionId` is an optional CHAT request field, persisted for idempotency but not sent
+  to the provider. Explicit anchors must belong to the requester, active goal and selected run.
+  Existing clients use the latest scoped exchange. Urgent symptoms and active exercise holds still
+  take precedence over conversation lookup; consent remains mandatory before provider access.
 
 - **Untrusted content:** everything the runner authored (`runnerQuestion`, run titles/notes/symptoms,
   nutrition text, imported text) is data, never instructions. The prompt (`openai.ts`, v7+) forbids

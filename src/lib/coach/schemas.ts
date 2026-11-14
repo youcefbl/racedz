@@ -204,12 +204,16 @@ export const coachInteractionInputSchema = z
   .object({
     type: z.enum(["INITIAL_PLAN", "POST_RUN", "WEEKLY_REVIEW", "CHAT"]),
     runId: z.string().min(1).max(64).nullable().optional(),
+    replyToInteractionId: z.string().min(1).max(64).nullable().optional(),
     message: z.string().trim().max(1200).nullable().optional(),
     // Client idempotency key (review U-10): same key ⇒ same interaction, one provider call, one
     // quota charge. Optional so existing clients keep working; UUID-shaped charset enforced.
     requestId: z.string().trim().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/).optional()
   })
   .superRefine((input, context) => {
+    if (input.replyToInteractionId && input.type !== "CHAT") {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["replyToInteractionId"], message: "Only chat can reply to an interaction." });
+    }
     if (input.type === "POST_RUN" && !input.runId) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["runId"], message: "Post-run feedback requires a run." });
     }

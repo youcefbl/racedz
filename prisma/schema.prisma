@@ -887,6 +887,8 @@ model CoachInteraction {
   /// tap re-sends the same key; the service returns the stored interaction instead of spending a
   /// second provider call and quota charge. Null for requests from clients that don't send one.
   clientRequestId String?
+  /// Explicit conversation anchor. Owner/goal/run validated server-side; retained for idempotency.
+  replyToInteractionId String?
   goalId         String?
   runId          String?
   type           CoachInteractionType

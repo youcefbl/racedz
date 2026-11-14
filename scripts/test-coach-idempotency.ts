@@ -38,6 +38,8 @@ const prior = (over: Partial<Parameters<typeof classifyPriorInteraction>[0]> = {
 });
 
 // ---- The regression ---------------------------------------------------------------------------
+check("a changed reply anchor conflicts", classifyPriorInteraction(prior({ status: "COMPLETED", replyToInteractionId: "turn-a" }),
+  { ...chat, replyToInteractionId: "turn-b" }, STALE_BEFORE).kind === "MISMATCH", "same text is not the same conversation");
 check(
   "a PENDING row with a dead lease is reclaimed, not reported as in progress",
   classifyPriorInteraction(prior({ claimedAt: new Date(NOW.getTime() - 30 * 60_000) }), chat, STALE_BEFORE).kind ===

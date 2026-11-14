@@ -1,0 +1,28 @@
+import assert from "node:assert/strict";
+import { pendingFollowUp, selectConversation, type ConversationRow } from "../src/lib/coach/conversation";
+import { evaluateTopicality } from "../src/lib/coach/topicality";
+import { coachInteractionInputSchema } from "../src/lib/coach/schemas";
+
+const now = new Date("2026-11-14T10:00:00Z");
+const row: ConversationRow = {
+  id: "turn-1", goalId: "goal-1", runId: null, type: "CHAT", status: "COMPLETED",
+  userMessage: "I feel tired", response: {
+    summary: "Let's understand when.", followUpQuestion: "When do you feel tired?",
+    quickReplies: ["All day", "After poor sleep", "Toute la journée", "طول النهار"]
+  }, safety: { level: "CLEAR" }, createdAt: new Date("2026-11-14T09:00:00Z")
+};
+const options = { goalId: "goal-1", runId: null, now };
+assert.deepEqual(selectConversation([row, { ...row, id: "other-goal", goalId: "goal-2" },
+  { ...row, id: "other-run", runId: "run-2" }], options), [row]);
+assert.deepEqual(selectConversation([row], { ...options, replyToInteractionId: "not-owned" }), []);
+assert.deepEqual(selectConversation([row], { ...options, replyToInteractionId: row.id }), [row]);
+for (const reply of row.response!.quickReplies!) {
+  assert.equal(evaluateTopicality(reply, pendingFollowUp([row], now)).onTopic, true, reply);
+}
+assert.equal(evaluateTopicality("Write me a poem about the sea", pendingFollowUp([row], now)).onTopic, false);
+assert.equal(pendingFollowUp([{ ...row, status: "BLOCKED" }], now), null);
+assert.equal(pendingFollowUp([{ ...row, createdAt: new Date("2026-11-12T09:00:00Z") }], now), null);
+assert.equal(pendingFollowUp([row, { ...row, response: { summary: "Done", followUpQuestion: null } }], now), null);
+assert.equal(coachInteractionInputSchema.safeParse({ type: "WEEKLY_REVIEW", replyToInteractionId: row.id }).success, false);
+assert.equal(coachInteractionInputSchema.safeParse({ type: "CHAT", message: "All day", replyToInteractionId: row.id }).success, true);
+console.log("PASS — contextual replies, stale/consumed questions, goal/run isolation and anchor validation");

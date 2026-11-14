@@ -78,6 +78,10 @@ export type ConversationTurn = {
   at: Date | string;
   runnerQuestion: string | null;
   coachSummary: string | null;
+  followUpQuestion?: string | null;
+  quickReplies?: string[];
+  nextAction?: string | null;
+  safetyLevel?: string | null;
 };
 
 // Guardrails so one runner's free-text or GPS history can never blow up the prompt. We keep the
@@ -196,7 +200,11 @@ export function buildRunnerCoachContext(input: {
         type: turn.type,
         at: new Date(turn.at).toISOString(),
         runnerQuestion: truncate(turn.runnerQuestion, MAX_NOTE_CHARS),
-        coachSummary: truncate(turn.coachSummary, MAX_SUMMARY_CHARS)
+        coachSummary: truncate(turn.coachSummary, MAX_SUMMARY_CHARS),
+        followUpQuestion: truncate(turn.followUpQuestion ?? null, 300),
+        quickReplies: (turn.quickReplies ?? []).slice(0, 4).map((reply) => reply.slice(0, 120)),
+        nextAction: truncate(turn.nextAction ?? null, 300),
+        safetyLevel: turn.safetyLevel ?? null
       })),
     // What was actually planned vs done on the active plan (completed / skipped / completion rate /
     // consecutive misses), so the coach can reference real adherence and adapt to missed sessions

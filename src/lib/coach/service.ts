@@ -17,6 +17,7 @@ import {
   type WorkoutStatusValue
 } from "@/lib/coach/adherence";
 import { assembleCoachContext, type ConversationTurn } from "@/lib/coach/context";
+import { pendingFollowUp, selectConversation, type ConversationRow } from "@/lib/coach/conversation";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { detectNonFootActivity } from "@/lib/coach/motion-check";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics, type ConsistencyAssessment } from "@/lib/coach/metrics";
@@ -1440,12 +1441,13 @@ export type PriorInteractionOutcome =
   | { kind: "RETRY_FAILED" };
 
 export function classifyPriorInteraction(
-  prior: { status: string; type: string; runId: string | null; userMessage: string | null; claimedAt: Date | null },
-  input: { type: string; runId?: string | null; message?: string | null },
+  prior: { status: string; type: string; runId: string | null; userMessage: string | null; claimedAt: Date | null; replyToInteractionId?: string | null },
+  input: { type: string; runId?: string | null; message?: string | null; replyToInteractionId?: string | null },
   staleBefore: Date
 ): PriorInteractionOutcome {
   const samePayload =
     prior.type === input.type &&
+    (prior.replyToInteractionId ?? null) === (input.replyToInteractionId ?? null) &&
     (prior.runId ?? null) === (input.runId ?? null) &&
     (prior.userMessage ?? null) === (input.message ?? null);
   if (!samePayload) return { kind: "MISMATCH" };
@@ -1477,6 +1479,7 @@ async function claimInteractionRow(
     interactionId: string;
     userId: string;
     requestId: string | null;
+    replyToInteractionId: string | null;
     goalId: string;
     runId: string | null;
     type: string;
@@ -1487,9 +1490,9 @@ async function claimInteractionRow(
   try {
     return await prisma.$executeRaw`
       INSERT INTO "CoachInteraction" (
-        "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion", "claimedAt"
+        "id", "userId", "clientRequestId", "replyToInteractionId", "goalId", "runId", "type", "status", "userMessage", "safety", "promptVersion", "claimedAt"
       ) VALUES (
-        ${row.interactionId}, ${row.userId}, ${row.requestId}, ${row.goalId}, ${row.runId}, ${row.type}::"CoachInteractionType",
+        ${row.interactionId}, ${row.userId}, ${row.requestId}, ${row.replyToInteractionId}, ${row.goalId}, ${row.runId}, ${row.type}::"CoachInteractionType",
         'PENDING', ${row.message}, CAST(${JSON.stringify(row.safety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
       )
       ON CONFLICT ("id") DO UPDATE SET
@@ -1518,6 +1521,7 @@ function isRequestIdUniqueViolation(error: unknown): boolean {
 export async function createCoachInteraction(userId: string, rawInput: unknown) {
   const input = coachInteractionInputSchema.parse(rawInput);
   const prisma = getPrisma();
+  const requestNow = new Date();
 
   // Idempotency (combined review U-10): a client that re-sends the same requestId — double tap,
   // retry after a timeout, offline replay — gets the stored interaction back instead of a second
@@ -1525,9 +1529,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   let interactionId: string = randomUUID();
   if (input.requestId) {
     const existing = await prisma.$queryRaw<
-      Array<{ id: string; status: string; type: string; runId: string | null; userMessage: string | null; response: CoachResponse | null; safety: unknown; claimedAt: Date | null }>
+      Array<{ id: string; status: string; type: string; runId: string | null; replyToInteractionId: string | null; userMessage: string | null; response: CoachResponse | null; safety: unknown; claimedAt: Date | null }>
     >`
-      SELECT "id", "status"::text AS "status", "type"::text AS "type", "runId", "userMessage", "response", "safety", "claimedAt"
+      SELECT "id", "status"::text AS "status", "type"::text AS "type", "runId", "replyToInteractionId", "userMessage", "response", "safety", "claimedAt"
       FROM "CoachInteraction"
       WHERE "userId" = ${userId} AND "clientRequestId" = ${input.requestId}
       LIMIT 1
@@ -1538,6 +1542,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       // replay or overwrite the earlier one. Compared on the stored columns, so no extra state.
       const samePayload =
         prior.type === input.type &&
+        (prior.replyToInteractionId ?? null) === (input.replyToInteractionId ?? null) &&
         (prior.runId ?? null) === (input.runId ?? null) &&
         (prior.userMessage ?? null) === (input.message ?? null);
       if (!samePayload) {
@@ -1614,9 +1619,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     // Conditional ON CONFLICT: only a still-FAILED row may be re-claimed by a retry (19A-R03).
     const claimedUrgent = await prisma.$executeRaw`
       INSERT INTO "CoachInteraction" (
-        "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+        "id", "userId", "clientRequestId", "replyToInteractionId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
       ) VALUES (
-        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${input.replyToInteractionId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
         'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
         CAST(${JSON.stringify(decision)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
       )
@@ -1645,9 +1650,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     };
     const claimedHeldInteraction = await prisma.$executeRaw`
       INSERT INTO "CoachInteraction" (
-        "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+        "id", "userId", "clientRequestId", "replyToInteractionId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
       ) VALUES (
-        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${input.replyToInteractionId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
         'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
         CAST(${JSON.stringify(persistedSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
       )
@@ -1676,11 +1681,40 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     );
   }
 
+  // Scope history before interpreting short replies. Old clients use the latest exchange in this
+  // goal/run; newer clients may name an explicit anchor. No cross-account/goal/run lookup fallback.
+  const historyRows = await prisma.$queryRaw<ConversationRow[]>`
+    SELECT "id", "goalId", "runId", "type"::text AS "type", "status"::text AS "status",
+           "userMessage", "response", "safety", "createdAt"
+    FROM "CoachInteraction"
+    WHERE "userId" = ${userId} AND "goalId" = ${goal.id}
+      AND "runId" IS NOT DISTINCT FROM ${selectedRun?.id ?? null}::text
+      AND "id" <> ${interactionId} AND "status" IN ('COMPLETED', 'BLOCKED') AND "response" IS NOT NULL
+      AND (${input.replyToInteractionId ?? null}::text IS NULL OR "createdAt" <= (
+        SELECT "createdAt" FROM "CoachInteraction" WHERE "id" = ${input.replyToInteractionId ?? null}
+          AND "userId" = ${userId} AND "goalId" = ${goal.id}
+          AND "runId" IS NOT DISTINCT FROM ${selectedRun?.id ?? null}::text
+      ))
+    ORDER BY "createdAt" DESC, "id" DESC LIMIT 6
+  `;
+  const conversation = selectConversation(historyRows, {
+    goalId: goal.id, runId: selectedRun?.id ?? null, replyToInteractionId: input.replyToInteractionId, now: requestNow
+  });
+  if (input.replyToInteractionId && !conversation.some((row) => row.id === input.replyToInteractionId)) {
+    throw new CoachError("The conversation is unavailable for this goal and run.", 404, "CONVERSATION_NOT_FOUND");
+  }
+  const recentConversation: ConversationTurn[] = conversation.map((row) => ({
+    type: row.type as CoachInteractionInput["type"], at: row.createdAt,
+    runnerQuestion: row.userMessage, coachSummary: row.response?.summary ?? null,
+    followUpQuestion: row.response?.followUpQuestion, quickReplies: row.response?.quickReplies,
+    nextAction: row.response?.nextAction, safetyLevel: row.safety?.level
+  }));
+
   // Off-topic chat is refused before spending the runner's quota or any AI call. Because it skips
   // the entitlement/quota gate, persist these BLOCKED rows only up to a small daily cap per user so
   // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
   // per-user route rate limit, but that alone still allows thousands of rows/day).
-  if (input.type === "CHAT" && !evaluateTopicality(input.message).onTopic) {
+  if (input.type === "CHAT" && !evaluateTopicality(input.message, pendingFollowUp(conversation, requestNow)).onTopic) {
     const response = buildOffTopicCoachResponse(responseLocale);
     const offTopicSafety = { level: "CLEAR" as const, reasons: [], requiresProfessionalAdvice: false };
     const [logged] = await prisma.$queryRaw<{ count: bigint }[]>`
@@ -1693,9 +1727,9 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     if (Number(logged?.count ?? 0) < OFF_TOPIC_DAILY_LOG_CAP) {
       const claimedOffTopic = await prisma.$executeRaw`
         INSERT INTO "CoachInteraction" (
-          "id", "userId", "clientRequestId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
+          "id", "userId", "clientRequestId", "replyToInteractionId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
         ) VALUES (
-          ${interactionId}, ${userId}, ${input.requestId ?? null}, ${goal.id}, ${null}, 'CHAT'::"CoachInteractionType",
+          ${interactionId}, ${userId}, ${input.requestId ?? null}, ${input.replyToInteractionId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, 'CHAT'::"CoachInteractionType",
           'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
           CAST(${JSON.stringify(offTopicSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
         )
@@ -1745,6 +1779,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     interactionId,
     userId,
     requestId: input.requestId ?? null,
+    replyToInteractionId: input.replyToInteractionId ?? null,
     goalId: goal.id,
     runId: selectedRun?.id ?? null,
     type: input.type,
@@ -1793,25 +1828,6 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     // All-time bests/streaks for the context's records block (review U-25).
     getRunnerRecords(userId).catch(() => null)
   ]);
-
-  // Recent exchanges (this runner only) so the coach can build on what was already asked and
-  // advised instead of repeating itself. The just-inserted PENDING row is excluded by status.
-  const historyRows = await prisma.$queryRaw<Array<Pick<InteractionRow, "type" | "userMessage" | "response" | "createdAt">>>`
-    SELECT "type", "userMessage", "response", "createdAt"
-    FROM "CoachInteraction"
-    WHERE "userId" = ${userId} AND "id" <> ${interactionId}
-      AND "status" IN ('COMPLETED', 'BLOCKED') AND "response" IS NOT NULL
-    ORDER BY "createdAt" DESC
-    LIMIT 6
-  `;
-  const recentConversation: ConversationTurn[] = historyRows
-    .reverse()
-    .map((row) => ({
-      type: row.type,
-      at: row.createdAt,
-      runnerQuestion: row.userMessage,
-      coachSummary: row.response?.summary ?? null
-    }));
 
   // For post-run feedback, hand the coach the exact run under review (with per-km splits) so the
   // reply is centred on that effort rather than inferred from the recent-runs list.
