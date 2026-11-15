@@ -14,6 +14,12 @@ export const dynamic = "force-dynamic";
  */
 export const POST = withApi(async (request) => {
   const viewer = await optionalMobileUser(request);
+  // A token that is present but no longer valid gets a 401 so the app refreshes and resends, and
+  // the report is linked to the runner instead of silently stored as anonymous. No token at all
+  // (signed out) is accepted.
+  if (!viewer && request.headers.get("authorization")) {
+    throw new ApiError("UNAUTHENTICATED", "Session expired.");
+  }
   const key = viewer ? rateLimitKey("v1-diagnostics", viewer.id) : rateLimitKey("v1-diagnostics-anon", clientIp(request.headers) ?? "unknown");
   const limited = enforceRateLimit(key, viewer ? 60 : 20, 10 * 60_000);
   if (limited) return apiError(request, new ApiError("RATE_LIMITED", "Too many reports. Try again later."));

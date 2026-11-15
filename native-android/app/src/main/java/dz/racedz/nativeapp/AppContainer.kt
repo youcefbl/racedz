@@ -154,6 +154,7 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
                 api = api,
                 queue = telemetryQueue,
                 currentUserId = signedInUserId,
+                refreshAccessToken = { tokenProvider.refreshAccessToken() },
             )
         )
     }

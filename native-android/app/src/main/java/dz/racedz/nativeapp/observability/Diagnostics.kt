@@ -16,6 +16,7 @@ import java.io.StringWriter
 import java.time.Instant
 import java.util.ArrayDeque
 import java.util.UUID
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
@@ -68,7 +69,12 @@ class Diagnostics(
         }, EXIT_CHECK_DELAY_MS)
     }
 
-    fun flush() = TelemetryUploadWorker.enqueue(context)
+    private val sendScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
+    /** Sends queued telemetry now; the background worker picks up whatever cannot go yet. */
+    fun flush() {
+        sendScope.launch { TelemetryUploadWorker.sendNow(context) }
+    }
 
     // ---- RunTelemetry.Sink ------------------------------------------------------------------
 
