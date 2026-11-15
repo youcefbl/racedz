@@ -451,7 +451,7 @@ fun RunSummaryScreen(
                                 RunSyncWorker.cancel(context, owner, clientId)
                             }
                         }
-                        RunRecorder.reset()
+                        RunRecorder.discard()
                         GuidedSessionController.clear()
                         onDiscarded()
                     } else {

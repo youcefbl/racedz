@@ -37,6 +37,8 @@ class ZidRunApplication : Application(), ImageLoaderFactory {
             versionName = BuildConfig.VERSION_NAME,
             versionCode = BuildConfig.VERSION_CODE,
         )
+        // Our own crash/exit/issue reporting and run-session events, to the ZidRun API.
+        container.diagnostics.install()
         container.sessionManager.restore()
 
         // Proactive half of the stale-connection fix (see AppContainer.evictStaleConnections):

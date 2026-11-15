@@ -123,6 +123,10 @@ services:
       # before the reminder fires. 05:00 UTC → 06:00 Africa/Algiers.
       ROLLOVER_SCHEDULE: ${TRAINING_ROLLOVER_CRON:-0 5 * * *}
       ROLLOVER_URL: ${TRAINING_ROLLOVER_URL:-http://app:3003/api/internal/cron/plan-rollover}
+      # Nightly run upkeep: distance re-evaluation, abandoned run sessions, telemetry retention.
+      # 03:00 UTC, before the 03:30 backup so the backup holds the night's corrections.
+      RUN_MAINT_SCHEDULE: ${RUN_MAINTENANCE_CRON:-0 3 * * *}
+      RUN_MAINT_URL: ${RUN_MAINTENANCE_URL:-http://app:3003/api/internal/cron/run-maintenance}
     # `$$` escapes Compose interpolation so the variable is resolved by the in-container shell.
     command:
       - /bin/sh
@@ -146,12 +150,17 @@ services:
         #!/bin/sh
         curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${ROLLOVER_URL}" || echo "plan rollover request failed"
         EOF
-        chmod +x /usr/local/bin/run-nudge /usr/local/bin/run-broadcast /usr/local/bin/run-reminder /usr/local/bin/run-rollover
+        cat > /usr/local/bin/run-maintenance <<EOF
+        #!/bin/sh
+        curl -fsS -X POST -H "Authorization: Bearer $${CRON_SECRET}" "$${RUN_MAINT_URL}" || echo "run maintenance request failed"
+        EOF
+        chmod +x /usr/local/bin/run-nudge /usr/local/bin/run-broadcast /usr/local/bin/run-reminder /usr/local/bin/run-rollover /usr/local/bin/run-maintenance
         {
           echo "$${NUDGE_SCHEDULE} /usr/local/bin/run-nudge >/proc/1/fd/1 2>/proc/1/fd/2"
           echo "$${BROADCAST_SCHEDULE} /usr/local/bin/run-broadcast >/proc/1/fd/1 2>/proc/1/fd/2"
           echo "$${ROLLOVER_SCHEDULE} /usr/local/bin/run-rollover >/proc/1/fd/1 2>/proc/1/fd/2"
           echo "$${REMINDER_SCHEDULE} /usr/local/bin/run-reminder >/proc/1/fd/1 2>/proc/1/fd/2"
+          echo "$${RUN_MAINT_SCHEDULE} /usr/local/bin/run-maintenance >/proc/1/fd/1 2>/proc/1/fd/2"
         } > /etc/crontabs/root
         echo "cron scheduled: nudge [$${NUDGE_SCHEDULE}] broadcast [$${BROADCAST_SCHEDULE}] rollover [$${ROLLOVER_SCHEDULE}] reminder [$${REMINDER_SCHEDULE}]"
         crond -f -l 8

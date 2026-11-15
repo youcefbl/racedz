@@ -228,6 +228,10 @@ object RunRecorder {
         // live run — or its route — into the new session; the snapshot stays on disk for its
         // owner to resolve when they sign back in.
         if (_state.value.status != RecordingStatus.Idle) {
+            val dropped = _state.value
+            if (dropped.clientId.isNotEmpty()) {
+                RunTelemetry.emit { sessionEnded(dropped.clientId, "SIGNED_OUT", RunTelemetry.summaryOf(dropped, autoPauseCounts())) }
+            }
             route.clear()
             lastFix = null
             anchorFix = null
@@ -290,6 +294,10 @@ object RunRecorder {
         // A failed write means the run is no longer backed by anything — the runner is told, rather
         // than discovering it only after a process kill (P234-R02).
         _snapshotFailing.value = !written
+        if (!written && !snapshotFailureReported) {
+            snapshotFailureReported = true
+            RunTelemetry.emit { issue("recorder.snapshot_failed", context = RunTelemetry.summaryOf(current), runClientId = current.clientId) }
+        }
     }
 
     /**
@@ -354,6 +362,11 @@ object RunRecorder {
     private val distance = DistanceAccumulator()
     /** Moving time with its fractions kept; the state's whole seconds are derived from it. */
     private var movingSecondsExact: Double = 0.0
+    /** Auto-pauses this recording, by reason — reported with the session so flapping is visible. */
+    private var stationaryAutoPauses = 0
+    private var vehicleAutoPauses = 0
+    /** One snapshot-failure report per recording, not one per tick. */
+    private var snapshotFailureReported = false
     private var lastAcceptedTimeMs: Long = 0
     private var pausedAccumMs: Long = 0
     private var pauseStartedMs: Long = 0
@@ -406,6 +419,7 @@ object RunRecorder {
             is OutboxState.Present -> return false
             OutboxState.Unreadable -> {
                 _outboxBlocked.value = true
+                RunTelemetry.emit { issue("recorder.outbox_unreadable") }
                 return false
             }
             else -> Unit
@@ -435,6 +449,14 @@ object RunRecorder {
             sport = sport,
             elevationSource = if (barometer != null) "BARO" else "GPS",
         )
+        stationaryAutoPauses = 0
+        vehicleAutoPauses = 0
+        snapshotFailureReported = false
+        val started = _state.value
+        RunTelemetry.emit {
+            breadcrumb("recorder.start sport=$sport")
+            sessionStarted(started.clientId, sport, started.startedAtEpochMs)
+        }
         return true
     }
 
@@ -446,6 +468,8 @@ object RunRecorder {
     }
 
     private fun autoPause(reason: AutoPauseReason) {
+        if (reason == AutoPauseReason.Vehicle) vehicleAutoPauses++ else stationaryAutoPauses++
+        RunTelemetry.emit { breadcrumb("recorder.autopause ${reason.name}") }
         pauseStartedMs = System.currentTimeMillis()
         stationarySeconds = 0.0
         _state.update { it.copy(status = RecordingStatus.Paused, autoPauseReason = reason, currentPaceSecondsPerKm = null, headingDegrees = null, liveCadenceSpm = null) }
@@ -478,7 +502,26 @@ object RunRecorder {
         _state.update { it.copy(status = RecordingStatus.Finished, elapsedSeconds = elapsedSeconds(), touchLocked = false) }
         // The run is over and everything it measured is now at risk until the server has it.
         snapshot(force = true)
+        val finished = _state.value
+        RunTelemetry.emit { sessionEnded(finished.clientId, "FINISHED", RunTelemetry.summaryOf(finished, autoPauseCounts())) }
     }
+
+    /**
+     * The runner chose to throw this recording away (live screen or summary). Reported before the
+     * state is cleared, so the server can tell a discarded run from a lost one.
+     */
+    fun discard() {
+        val current = _state.value
+        if (current.clientId.isNotEmpty()) {
+            RunTelemetry.emit { sessionEnded(current.clientId, "DISCARDED", RunTelemetry.summaryOf(current, autoPauseCounts())) }
+        }
+        reset()
+    }
+
+    private fun autoPauseCounts(): Map<String, Any?> = mapOf(
+        "stationaryAutoPauses" to stationaryAutoPauses,
+        "vehicleAutoPauses" to vehicleAutoPauses,
+    )
 
     /**
      * Clears the recording and the outbox.
@@ -542,6 +585,21 @@ object RunRecorder {
 
     /** Restores a finished run into memory so the summary screen can show and save it. */
     fun resumeFinished(pending: PendingRun) {
+        if (!pending.finished) {
+            // The process died mid-recording (OS kill, crash) and this is what the snapshot kept.
+            RunTelemetry.emit {
+                issue(
+                    "recorder.restored_interrupted",
+                    context = mapOf(
+                        "distanceM" to Math.round(pending.request.distanceKm * 1000),
+                        "durationSeconds" to pending.request.durationSeconds,
+                        "routePoints" to (pending.request.route?.size ?: 0),
+                        "snapshotAgeSeconds" to (System.currentTimeMillis() - pending.updatedAtEpochMs) / 1000,
+                    ),
+                    runClientId = pending.request.clientId,
+                )
+            }
+        }
         route.clear()
         pending.request.route?.let { route += it }
         val movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds

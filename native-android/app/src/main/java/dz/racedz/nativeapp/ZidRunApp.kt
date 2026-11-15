@@ -463,6 +463,7 @@ fun ZidRunApp(
                 AppShell(
                     unreadNotifications = notificationsState.unreadCount,
                     onScreen = { route ->
+                        container.diagnostics.breadcrumb("screen $route")
                         analyticsPathFor(route)?.let { container.analytics.screen(it, locale.language) }
                     },
                     requestedTab = pendingShellTab,

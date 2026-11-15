@@ -358,7 +358,7 @@ fun RecordingScreen(
                 TextButton(onClick = {
                     confirmDiscard = false
                     RunTrackingService.stop(context)
-                    RunRecorder.reset()
+                    RunRecorder.discard()
                     onDiscarded()
                 }) {
                     Text(stringResource(R.string.runs_discard), color = zidRunOnDarkColors().danger)

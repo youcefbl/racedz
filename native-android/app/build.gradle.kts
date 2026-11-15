@@ -194,6 +194,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
+    // TelemetryUploadWorker (run-session events and diagnostics).
+    implementation(libs.androidx.work.runtime)
 
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)

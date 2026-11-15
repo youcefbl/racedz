@@ -131,6 +131,32 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
         sessionManager.onSessionCleared = { pushRegistrar.invalidateLocalToken() }
     }
     val registrationRepository = RegistrationRepository(api, apiClient, sessionManager)
+
+    private val signedInUserId: () -> String? = {
+        (sessionManager.state.value as? dz.racedz.nativeapp.core.auth.AuthState.SignedIn)?.userId
+    }
+
+    /** On-disk queue for run-session events and diagnostic reports (see observability/Diagnostics). */
+    private val telemetryQueue = dz.racedz.nativeapp.observability.TelemetryQueue(context)
+
+    val diagnostics = dz.racedz.nativeapp.observability.Diagnostics(
+        context = context.applicationContext,
+        queue = telemetryQueue,
+        appVersion = appInfo.versionName,
+        versionCode = appInfo.versionCode,
+        buildType = BuildConfig.BUILD_TYPE,
+        currentUserId = signedInUserId,
+    )
+
+    init {
+        dz.racedz.nativeapp.observability.TelemetryUploadWorker.install(
+            dz.racedz.nativeapp.observability.TelemetryUploadWorker.Dependencies(
+                api = api,
+                queue = telemetryQueue,
+                currentUserId = signedInUserId,
+            )
+        )
+    }
 }
 
 /**

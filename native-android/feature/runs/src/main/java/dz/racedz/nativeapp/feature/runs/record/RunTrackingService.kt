@@ -91,6 +91,12 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         // recording with no clientId that no snapshot could ever persist (review P1).
         val recorderState = RunRecorder.state.value.status
         if (recorderState == RecordingStatus.Idle || recorderState == RecordingStatus.Finished) {
+            if (intent == null && recorderState == RecordingStatus.Idle) {
+                // The OS restarted us after killing the process mid-run: the in-memory recording is
+                // gone and only its snapshot (if any) survived. The single most useful signal for
+                // "my run disappeared".
+                RunTelemetry.emit { issue("service.restarted_without_run", context = mapOf("flags" to flags)) }
+            }
             stopSelf()
             return START_NOT_STICKY
         }
@@ -112,6 +118,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         ) {
             // Should be unreachable — the UI requests permission before starting — but a service
             // that assumes it has permission crashes the whole app if it is ever wrong.
+            RunTelemetry.emit { issue("service.no_location_permission", runClientId = RunRecorder.state.value.clientId.ifEmpty { null }) }
             stopSelf()
             return
         }
@@ -126,6 +133,7 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
                 Looper.getMainLooper(),
             )
         } catch (error: SecurityException) {
+            RunTelemetry.emit { issue("service.location_security_exception", error.message, runClientId = RunRecorder.state.value.clientId.ifEmpty { null }) }
             stopSelf()
             return
         }

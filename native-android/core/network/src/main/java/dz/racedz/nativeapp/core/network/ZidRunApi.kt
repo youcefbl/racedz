@@ -265,6 +265,22 @@ interface ZidRunApi {
     @POST("api/v1/track")
     suspend fun track(@Body body: TrackRequest): Response<ApiEnvelope<JsonObject>>
 
+    // ---- telemetry (run sessions + diagnostics) --------------------------------------------------
+    // Raw JSON bodies: the payloads are built and queued on disk by the app's telemetry queue as
+    // JSON text, and are sent exactly as stored, so a retry posts byte-identical content.
+
+    /** A recording started. Idempotent on the body's clientId. */
+    @POST("api/v1/runs/sessions")
+    suspend fun startRunSession(@Body body: okhttp3.RequestBody): Response<ResponseBody>
+
+    /** A recording ended (finished, discarded, dropped). */
+    @PATCH("api/v1/runs/sessions/{clientId}")
+    suspend fun endRunSession(@Path("clientId") clientId: String, @Body body: okhttp3.RequestBody): Response<ResponseBody>
+
+    /** Up to 20 crash / process-exit / issue reports. Works signed out. */
+    @POST("api/v1/diagnostics")
+    suspend fun sendDiagnostics(@Body body: okhttp3.RequestBody): Response<ResponseBody>
+
     /** Files a moderation report against a race, run, or runner. */
     @POST("api/v1/reports")
     suspend fun createReport(@Body body: CreateReportRequest): Response<ApiEnvelope<JsonObject>>

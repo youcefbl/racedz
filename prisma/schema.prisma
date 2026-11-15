@@ -31,7 +31,7 @@ model User {
   language        String? // saved UI language ("en" | "fr" | "ar"), synced across devices
   theme           String? // saved appearance ("light" | "dark" | "race"), synced across devices
   profilePrivate  Boolean   @default(false) // opt-in: hide from public leaderboards, others' feeds, and following
-  distanceUnit    String?   // "km" | "mi" (null = km); synced across devices like theme (NATRUN-06.8)
+  distanceUnit    String? // "km" | "mi" (null = km); synced across devices like theme (NATRUN-06.8)
   mfaEnabled      Boolean   @default(false) // TOTP two-factor active (opt-in; primarily for admins)
   mfaSecret       String? // base32 TOTP secret, server-only; set while enrolled
   mfaBackupCodes  String[]  @default([]) // sha256 hashes of one-time recovery codes
@@ -59,7 +59,7 @@ model User {
   raceAnnouncements           RaceAnnouncement[]
   runnerGoals                 RunnerGoal[]
   runnerRuns                  RunnerRun[]
-  runBestEfforts    RunBestEffort[]
+  runBestEfforts              RunBestEffort[]
   trainingPlans               TrainingPlan[]
   coachSnapshots              CoachSnapshot[]
   coachMemories               CoachMemory[]
@@ -77,6 +77,8 @@ model User {
   nutritionEntries            NutritionEntry[]
   createdGroups               Group[]                    @relation("GroupCreator")
   groupMemberships            GroupMember[]
+  runSessions                 RunSession[]
+  diagnosticReports           ClientDiagnosticReport[]
 }
 
 enum UserRole {
@@ -423,16 +425,16 @@ model TtsCacheClaim {
 }
 
 model NativeAuthToken {
-  id        String    @id @default(cuid())
-  userId    String
-  token     String    @unique
+  id                    String    @id @default(cuid())
+  userId                String
+  token                 String    @unique
   /// What this token may be exchanged for (DD6-R02): WEBVIEW_BRIDGE (web login -> app WebView
   /// session) or WEB_HANDOFF (app -> signed-in browser). A token minted for one door never opens
   /// the other.
-  purpose   String    @default("WEBVIEW_BRIDGE")
+  purpose               String    @default("WEBVIEW_BRIDGE")
   /// WEB_HANDOFF only: the exact internal path the browser lands on. Bound at mint — the exchange
   /// ignores any client-supplied destination.
-  destination String?
+  destination           String?
   /// WEB_HANDOFF only: the MobileSession.familyId that minted it. Revocation is re-checked at
   /// exchange, so a signed-out/revoked device cannot still convert its link into a browser session.
   mobileSessionFamilyId String?
@@ -444,10 +446,10 @@ model NativeAuthToken {
   /// Deliberately nullable with NO default, and treated as INVALID at exchange: a default would let
   /// any future insert that forgets this field mint a token that looks freshly authenticated, which
   /// is the exact bypass this column exists to close.
-  securityStampAt DateTime?
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  securityStampAt       DateTime?
+  expiresAt             DateTime
+  usedAt                DateTime?
+  createdAt             DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -665,15 +667,23 @@ model RunnerRun {
   /// Bounded and never queried independently, hence JSON (owner decision 2026-08-16). Derived
   /// distance/time/pace come from src/lib/coach/laps.ts on read.
   laps                    Json?
+  /// The distance the phone measured, kept the first time the server corrects distanceKm from the
+  /// route (src/lib/runs/distance-correction.ts), so every correction can be audited and reverted.
+  deviceDistanceKm        Float?
+  /// DISTANCE_ALGO_VERSION that last evaluated this run; null = never evaluated. Bumping the
+  /// version makes the nightly job re-evaluate every run.
+  distanceAlgoVersion     Int?
+  distanceCorrectedAt     DateTime?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  goal         RunnerGoal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  workout      TrainingWorkout?   @relation(fields: [workoutId], references: [id], onDelete: SetNull)
-  interactions CoachInteraction[]
-  kudos        RunKudos[]
-  bestEfforts  RunBestEffort[]
+  user                User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal                RunnerGoal?             @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  workout             TrainingWorkout?        @relation(fields: [workoutId], references: [id], onDelete: SetNull)
+  interactions        CoachInteraction[]
+  kudos               RunKudos[]
+  bestEfforts         RunBestEffort[]
+  distanceEvaluations RunDistanceEvaluation[]
 
   @@unique([userId, clientId])
   @@index([userId, startedAt])
@@ -708,20 +718,20 @@ model RunBestEffort {
 }
 
 model TrainingPlan {
-  id        String             @id @default(cuid())
-  userId    String
-  goalId    String
-  version   Int
-  startsOn  DateTime
-  endsOn    DateTime
-  status    TrainingPlanStatus @default(DRAFT)
-  source    TrainingPlanSource @default(AI_ASSISTED)
-  summary   String?
+  id                  String             @id @default(cuid())
+  userId              String
+  goalId              String
+  version             Int
+  startsOn            DateTime
+  endsOn              DateTime
+  status              TrainingPlanStatus @default(DRAFT)
+  source              TrainingPlanSource @default(AI_ASSISTED)
+  summary             String?
   /// The coach interaction whose reply produced this plan (19A-R02) — the durable link that lets
   /// support reconcile "which ask changed my week". Null for RULE_BASED weeks and legacy rows.
   sourceInteractionId String?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal     RunnerGoal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
@@ -881,35 +891,35 @@ model SleepLog {
 }
 
 model CoachInteraction {
-  id             String                 @id @default(cuid())
-  userId         String
+  id                   String                 @id @default(cuid())
+  userId               String
   /// Client-generated idempotency key (combined review U-10). A retry after a timeout or double
   /// tap re-sends the same key; the service returns the stored interaction instead of spending a
   /// second provider call and quota charge. Null for requests from clients that don't send one.
-  clientRequestId String?
+  clientRequestId      String?
   /// Explicit conversation anchor. Owner/goal/run validated server-side; retained for idempotency.
   replyToInteractionId String?
-  goalId         String?
-  runId          String?
-  type           CoachInteractionType
-  status         CoachInteractionStatus @default(PENDING)
-  userMessage    String?
-  response       Json?
-  safety         Json
+  goalId               String?
+  runId                String?
+  type                 CoachInteractionType
+  status               CoachInteractionStatus @default(PENDING)
+  userMessage          String?
+  response             Json?
+  safety               Json
   // For HUMAN_NOTE interactions: the admin/coach who wrote the note (null for AI-generated ones).
-  authorId       String?
-  model          String?
-  promptVersion  String
-  contextVersion String? // shape-version of the assembled coach context (see COACH_CONTEXT_VERSION)
-  contextHash    String? // sha256 (16 hex) of the exact context payload sent, for reproducibility — no content stored
-  errorCode      String?
-  acceptedAt     DateTime?
+  authorId             String?
+  model                String?
+  promptVersion        String
+  contextVersion       String? // shape-version of the assembled coach context (see COACH_CONTEXT_VERSION)
+  contextHash          String? // sha256 (16 hex) of the exact context payload sent, for reproducibility — no content stored
+  errorCode            String?
+  acceptedAt           DateTime?
   /// Processing lease (19A-R03): stamped when a request claims (or re-claims) this row for
   /// generation. A PENDING row whose lease is old is a dead worker's, and its requestId may be
   /// reclaimed by a retry instead of returning "in progress" forever.
-  claimedAt      DateTime?
-  createdAt      DateTime               @default(now())
-  completedAt    DateTime?
+  claimedAt            DateTime?
+  createdAt            DateTime               @default(now())
+  completedAt          DateTime?
 
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal      RunnerGoal?  @relation(fields: [goalId], references: [id], onDelete: SetNull)
@@ -932,8 +942,8 @@ model AiUsageLog {
   status                AiRequestStatus
   inputTokens           Int             @default(0)
   cachedInputTokens     Int             @default(0)
-  cacheWrite30mTokens    Int             @default(0)
-  cacheWrite12hTokens    Int             @default(0)
+  cacheWrite30mTokens   Int             @default(0)
+  cacheWrite12hTokens   Int             @default(0)
   providerLatencyMs     Int?
   outputTokens          Int             @default(0)
   reasoningTokens       Int             @default(0)
@@ -1592,4 +1602,132 @@ model MobileIdempotencyRecord {
 
   @@unique([userId, endpoint, key])
   @@index([createdAt])
+}
+
+/// One evaluation of a run's distance by a given algorithm version: what the phone said, what the
+/// route says, and what was decided. The calibration record — grouped by device model and app
+/// version it shows where measurement is off, which is how the algorithm is tuned over time.
+model RunDistanceEvaluation {
+  id                 String              @id @default(cuid())
+  runId              String
+  algoVersion        Int
+  deviceKm           Float
+  routeKm            Float
+  routeMovingSeconds Int?
+  pointCount         Int
+  /// 0–1: how much the route can be trusted (timestamps, density, gaps, rejected points).
+  confidence         Float
+  decision           RunDistanceDecision
+  reason             String
+  appliedKm          Float?
+  sport              RunSport
+  appVersion         String?
+  deviceModel        String?
+  createdAt          DateTime            @default(now())
+
+  run RunnerRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, algoVersion])
+  @@index([algoVersion, decision])
+  @@index([deviceModel, appVersion])
+}
+
+enum RunDistanceDecision {
+  /// distanceKm was replaced by the route measurement.
+  APPLIED
+  /// Phone and route agree, or the difference is within tolerance.
+  KEPT
+  /// The route disagrees but not in a way the server corrects automatically — kept for review.
+  FLAGGED
+  /// Not enough route to judge (manual, imported, too few points, no timestamps).
+  SKIPPED
+}
+
+/// A recording's lifecycle as the phone reports it, keyed by the recording's clientId (the same id
+/// the run is saved under). Exists so a run that never reaches the server still leaves a trace:
+/// a STARTED session with no run after a day is a lost run to investigate.
+model RunSession {
+  id             String           @id @default(cuid())
+  userId         String
+  clientId       String
+  status         RunSessionStatus @default(STARTED)
+  sport          RunSport         @default(RUN)
+  startedAt      DateTime
+  /// Last known position at start, rounded to 3 decimals (~110 m) — enough to tell regions and GPS
+  /// conditions apart, not to pinpoint a doorstep.
+  startLat       Float?
+  startLng       Float?
+  startAccuracyM Float?
+  endedAt        DateTime?
+  /// FINISHED | DISCARDED | … as sent by the phone; SAVED/ABANDONED are set by the server.
+  endReason      String?
+  /// Recorder totals at the end: distance, durations, points, auto-pauses, laps.
+  summary        Json?
+  /// Device facts and state at start (model, OS, app version, battery, power saving, permissions).
+  device         Json?
+  appVersion     String?
+  deviceModel    String?
+  runId          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([status, startedAt])
+  @@index([userId, startedAt])
+}
+
+enum RunSessionStatus {
+  STARTED
+  FINISHED
+  DISCARDED
+  SAVED
+  /// Started more than a day ago and never saved, finished or discarded — the run was lost.
+  ABANDONED
+}
+
+/// A crash, an OS process kill, or a named non-fatal problem reported by the app, with the device
+/// facts needed to reproduce it. Retained 90 days (run-maintenance cron).
+model ClientDiagnosticReport {
+  id                 String         @id @default(cuid())
+  /// Client-generated UUID — a retried upload is stored once.
+  reportId           String         @unique
+  userId             String?
+  installId          String?
+  kind               DiagnosticKind
+  /// Short stable tag, e.g. "crash", "process_exit", "recorder.snapshot_failed".
+  code               String
+  message            String?
+  stackTrace         String?
+  /// Groups the same problem across devices: hash of code + exception + top frames.
+  fingerprint        String
+  occurredAt         DateTime
+  platform           String
+  appVersion         String?
+  buildType          String?
+  deviceManufacturer String?
+  deviceModel        String?
+  osVersion          String?
+  sdkInt             Int?
+  /// Device state when it happened: battery, power saving, thermal, memory, network, permissions.
+  device             Json?
+  /// What the app was doing: recorder state, breadcrumbs, exit-info details.
+  context            Json?
+  runClientId        String?
+  createdAt          DateTime       @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([fingerprint, createdAt])
+  @@index([userId, createdAt])
+  @@index([kind, createdAt])
+}
+
+enum DiagnosticKind {
+  CRASH
+  /// An OS-recorded process death (ApplicationExitInfo): kills, ANRs, native crashes.
+  PROCESS_EXIT
+  ISSUE
 }

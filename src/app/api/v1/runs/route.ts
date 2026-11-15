@@ -15,6 +15,8 @@ import {
 import { createRunnerRun, linkCoachInteractionsToRun } from "@/lib/coach/service";
 import { CoachError } from "@/lib/coach/errors";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
+import { evaluateRunDistance } from "@/lib/runs/distance-correction";
+import { markRunSessionSaved } from "@/lib/runs/telemetry";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +120,7 @@ export const POST = withApi(async (request) => {
     select: runSelect,
   });
   if (existing) {
+    await markRunSessionSaved(viewer.id, clientId, existing.id).catch(() => undefined);
     // A retry of an already-stored run still carries its in-run Coach chats: the first attempt may
     // have created the run but lost its response before (or without) linking them. Idempotent — the
     // helper only touches this user's still-unlinked interactions, so re-linking is a safe no-op.
@@ -171,6 +174,12 @@ export const POST = withApi(async (request) => {
     }
     throw error;
   }
+
+  // Best-effort follow-ups that must never fail a save the runner has already made: link the
+  // recording's session, and check the phone's distance against its own route — the response
+  // then carries the corrected distance, so the phone shows the same number the server stores.
+  await markRunSessionSaved(viewer.id, clientId, created.run.id).catch((error) => console.error("[api/v1][runs] session link failed", error));
+  await evaluateRunDistance(created.run.id).catch((error) => console.error("[api/v1][runs] distance evaluation failed", error));
 
   const stored = await prisma.runnerRun.findUnique({ where: { id: created.run.id }, select: runSelect });
   return apiOk(request, toRunDto(stored!), { status: 201 });

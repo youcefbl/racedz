@@ -134,6 +134,14 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                     onSaved(result.value.id)
                 }
                 is ApiResult.Failure -> {
+                    RunTelemetry.emit {
+                        issue(
+                            "run.save_failed",
+                            result.error.message,
+                            context = mapOf("code" to result.error.code.name, "routePoints" to (request.route?.size ?: 0)),
+                            runClientId = request.clientId,
+                        )
+                    }
                     // Deliberately does NOT clear the recording or the outbox. The run is still on
                     // disk and still sendable; losing an hour's effort to a dropped request would be
                     // the worst thing this screen could do. A transport failure also arms the
