@@ -281,3 +281,17 @@ console.log("PASS — bounded intent matching preserves broad context for ambigu
   assert.equal(bounded.context.planAdaptations.length, 12);
   console.log("PASS — mandatory plan sections stay within deterministic bounds");
 }
+
+{
+  const forecast = {
+    label: "Clear", currentTemperatureC: 28, apparentTemperatureC: 29, humidityPct: 45,
+    windKph: 12, windDirectionDegrees: 270, todayHighC: 31, todayLowC: 20,
+    precipitationChancePct: 5, source: "wilaya" as const
+  };
+  const morning = assembleCoachContext(baseInput({ forecast }), new Date("2026-07-18T08:00:00Z")).context;
+  const later = assembleCoachContext(baseInput({ forecast }), new Date("2026-07-18T09:00:00Z")).context;
+  assert.deepEqual(morning.environment, later.environment, "same-day forecast block must remain cache-stable");
+  assert.ok(!("retrievedAt" in (morning.environment ?? {})), "volatile retrieval time belongs only in request.asOf");
+  assert.notEqual(morning.request.asOf, later.request.asOf);
+  console.log("PASS — forecast context is cache-stable while request time remains explicit");
+}

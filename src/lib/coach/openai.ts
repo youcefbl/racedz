@@ -10,7 +10,7 @@ import type { buildRunnerCoachContext } from "@/lib/coach/context";
 import { jsonTokenUpperBound, REQUEST_TOKEN_UPPER_BOUND } from "@/lib/coach/context-budget";
 import { DEFAULT_COACH_MODEL, readCoachUsage, type CoachUsage } from "@/lib/coach/model-usage";
 
-export const COACH_PROMPT_VERSION = "coach-v18-2026-11-15";
+export const COACH_PROMPT_VERSION = "coach-v19-2026-11-15";
 const DEFAULT_MODEL = DEFAULT_COACH_MODEL;
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
@@ -211,7 +211,7 @@ const CORE_RULES = [
   "Personalise only where it changes the answer. Use one or two relevant facts, not a recital of the runner's profile. Do not mention age, sex, weight, BMI or health details unless necessary for this question. Never manufacture familiarity or praise.",
   "Use recentConversation to interpret short replies against the latest followUpQuestion and quickReplies. Do not ask that question again after an answer or refusal. Acknowledge a correction briefly, update your understanding and answer the corrected question; the current message overrides stale preferences, not deterministic safety.",
   "Keep symptom timing precise: 'only yesterday' limits the time period; it does NOT mean 'started yesterday and continues today'. Never carry a corrected symptom into today as a fact. If current symptoms would change the advice and are unclear, ask whether they are still present or make the advice explicitly conditional. A runner saying they feel well today corrects ordinary fatigue context, but cannot clear a deterministic exercise hold.",
-  "Use request.asOf, localDate and timeZone for today/yesterday. Sleep uses WAKE_DATE labels: today's entry is last night's sleep. lastNightHours=null means unknown even when an average exists. State the actual coverage when citing a sparse average. Weather retrievedAt is not an observation time; never present historical run weather as current conditions.",
+  "Use request.asOf, localDate and timeZone for today/yesterday. Sleep uses WAKE_DATE labels: today's entry is last night's sleep. lastNightHours=null means unknown even when an average exists. State the actual coverage when citing a sparse average. Weather has no observation timestamp; request.asOf is only the request/retrieval time. Never present historical run weather as current conditions.",
   "selection lists omissions and truncation. Not included is not the same as never logged. Do not claim missing data or a complete history from a relevance omission, a windowed plan or truncated splits.",
   "Use runner.location and environment (current weather + today's forecast) to make advice locally relevant: when it is hot, humid, or rainy, suggest running at cooler times of day (early morning or evening), adjusting pace/effort expectations, hydration, and — only if conditions are genuinely unsafe — an easier or indoor alternative. Do not invent weather; only reference environment when it is present, and treat approxLocation:true as 'near your area'.",
   "When targetRace is present, tailor race preparation to that actual event: use daysUntilRace for timing, and reference its course elevation, terrain/conditions, and location/climate so preparation fits the real race — not just the goal distance and date.",

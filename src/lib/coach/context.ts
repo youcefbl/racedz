@@ -279,7 +279,8 @@ export function buildRunnerCoachContext(input: {
 // v2: cache-aware key order (stable→volatile, live request last) + all-time records block.
 // v5: request.liveRun — a typed, device-reported snapshot for questions asked during a run.
 // v6: conversation status prevents a blocked response from becoming clarification context.
-export const COACH_CONTEXT_VERSION = "ctx-v6-2026-11-15";
+// v7: volatile forecast retrieval time lives only in the final request block for prefix caching.
+export const COACH_CONTEXT_VERSION = "ctx-v7-2026-11-15";
 
 type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
 
@@ -414,7 +415,6 @@ function describeRecords(records: PersonalRecords) {
 
 function describeForecast(forecast: ForecastConditions, now: Date) {
   return {
-    retrievedAt: now.toISOString(),
     forecastDate: coachLocalDate(now),
     // Retrieval time is not an observation timestamp. Never imply minute-accurate live weather.
     observationTimeKnown: false,
