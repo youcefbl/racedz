@@ -43,7 +43,9 @@ async function main() {
     const reply = { responseMode: mode === "clarify" ? "CLARIFY" : "ANSWER", summary: "Synthetic coach reply.",
       nextAction: null, quickReplies: mode === "clarify" ? ["All day", "After poor sleep"] : [], warningSignals: [],
       requiresProfessionalAdvice: false, usedSignalKeys: ["RUNNER_QUESTION"], missingSignalKeys: [],
-      followUpQuestion: mode === "clarify" ? "When do you feel tired?" : null, memoryCandidates: [] };
+      followUpQuestion: mode === "clarify" ? "When do you feel tired?" : null, memoryCandidates: [],
+      // Required by non-CHAT provider schemas; harmlessly stripped by the compact CHAT schema.
+      progressAssessment: "Synthetic assessment.", positiveSignals: [], recoveryAdvice: [] };
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ id: `mock-${contexts.length}`, model: "gpt-6-luna", object: "response", status: "completed",
       output: [{ id: "m", type: "message", role: "assistant", status: "completed", content: [{ type: "output_text",
@@ -83,6 +85,15 @@ async function main() {
     const run = await createRunnerRun(a, { startedAt: new Date(), distanceKm: 3, durationSeconds: 1200, perceivedEffort: 3 });
     await assert.rejects(ask("All day", { runId: run.run.id, replyToInteractionId: first.id }), rejects("CONVERSATION_NOT_FOUND"), "cross-run anchor");
     assert.equal(contexts.length, calls, "scope denials are provider-free");
+    // Native renders POST_RUN and CHAT in one thread. A legacy runless CHAT reply must therefore
+    // retain the preceding same-goal post-run clarification even without an explicit anchor.
+    mode = "clarify";
+    const postRun = await createCoachInteraction(a, { type: "POST_RUN", runId: run.run.id, requestId: randomUUID() });
+    assert.equal(postRun.status, "COMPLETED");
+    mode = "answer";
+    assert.equal((await ask("All day")).status, "COMPLETED");
+    assert.equal(contexts.at(-1)?.recentConversation.at(-1)?.followUpQuestion, "When do you feel tired?",
+      "runless chat must see the post-run follow-up shown in its thread");
     // Backwards-compatible client: no explicit anchor, same goal/run.
     mode = "clarify";
     await ask("I feel tired after running");
@@ -104,6 +115,9 @@ async function main() {
     await assert.rejects(createCoachInteraction(b, { type: "CHAT", message: "How should I run?" }), rejects("CONSENT_REQUIRED"), "consent before provider");
     const urgent = await createCoachInteraction(b, { type: "CHAT", message: "J'ai une douleur thoracique", replyToInteractionId: "not-owned" });
     assert.equal(urgent.status, "BLOCKED");
+    const [urgentRow] = await prisma.$queryRaw<Array<{ replyToInteractionId: string | null }>>`
+      SELECT "replyToInteractionId" FROM "CoachInteraction" WHERE "id" = ${urgent.id}`;
+    assert.equal(urgentRow.replyToInteractionId, null, "provider-free safety paths must not persist an unvalidated anchor");
     assert.equal(contexts.length, beforeSafety, "safety and consent never reach the provider");
     console.log("PASS — isolated PostgreSQL: migrations, reply anchors, legacy follow-up, owner/goal/run isolation, idempotency, metering and safety/consent");
   } finally {
