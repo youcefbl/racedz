@@ -189,6 +189,27 @@ object GpsQuality {
         return !distanceM.isFinite() || distanceM < 1.0
     }
 
+    /** Distance from the pause point that resumes a stationary auto-pause without a jog-speed fix. */
+    const val AUTO_RESUME_DISPLACEMENT_M = 8.0
+
+    /**
+     * Whether a fix while stationary-paused means the runner is off again.
+     *
+     * A jog-speed Doppler reading resumes at once. A slow walker never reaches that speed, so
+     * walking away from where the pause began also resumes — as long as the GPS says the phone is
+     * moving (or has no speed at all). The displacement has to beat the fix's own accuracy, so drift
+     * around a red light does not restart the clock. Before this, a walk below 1 m/s stayed paused
+     * for most of its length (2026-11-14: 138 s moving out of 36 min).
+     */
+    fun shouldAutoResume(reportedSpeedMps: Float?, displacementFromPauseM: Double?, accuracyM: Float?): Boolean {
+        val speed = reportedSpeedMps?.takeIf { it.isFinite() && !(trustDisplacementWhenSpeedIsZero && it == 0f) }
+        if (speed != null && speed >= AUTO_RESUME_SPEED_MPS) return true
+        if (speed != null && speed < MIN_MOVING_SPEED_MPS) return false
+        val displacement = displacementFromPauseM?.takeIf { it.isFinite() } ?: return false
+        val needed = maxOf(AUTO_RESUME_DISPLACEMENT_M, accuracyM?.takeIf { it.isFinite() }?.toDouble() ?: 0.0)
+        return displacement >= needed
+    }
+
     /** Great-circle distance in metres. */
     fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val earthRadiusM = 6_371_000.0

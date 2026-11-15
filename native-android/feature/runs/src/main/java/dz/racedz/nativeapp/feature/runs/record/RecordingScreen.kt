@@ -208,6 +208,7 @@ fun RecordingScreen(
     val locale = currentLocale()
 
     var confirmFinish by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
     val guided by GuidedSessionController.state.collectAsStateWithLifecycle()
     var lapNotice by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(lapNotice) {
@@ -332,6 +333,44 @@ fun RecordingScreen(
 
     // Back leaves the screen, not the run. Recording continues in the service.
     BackHandler(enabled = state.status != RecordingStatus.Finished) { onMinimize() }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            containerColor = zidRunOnDarkColors().surface,
+            title = {
+                Text(
+                    stringResource(R.string.runs_discard_confirm_title),
+                    color = zidRunOnDarkColors().textStrong,
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.runs_discard_confirm_body,
+                        ZidRunFormat.distanceWithUnit(state.distanceKm, locale, dz.racedz.nativeapp.core.design.ZidRunUnits.label(context), digits = 2),
+                        ZidRunFormat.duration(state.elapsedSeconds),
+                    ),
+                    color = zidRunOnDarkColors().text,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDiscard = false
+                    RunTrackingService.stop(context)
+                    RunRecorder.reset()
+                    onDiscarded()
+                }) {
+                    Text(stringResource(R.string.runs_discard), color = zidRunOnDarkColors().danger)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false }) {
+                    Text(stringResource(R.string.runs_keep_running), color = zidRunOnDarkColors().primary)
+                }
+            },
+        )
+    }
 
     if (confirmFinish) {
         // Finishing is irreversible from here, and the button sits next to Pause where a tired
@@ -661,11 +700,10 @@ fun RecordingScreen(
                     RunRecorder.LapResult.NotRecording -> Unit
                 }
             },
-            onDiscard = {
-                RunTrackingService.stop(context)
-                RunRecorder.reset()
-                onDiscarded()
-            },
+            // Never one tap. Discard shares the left slot with Lap and appears the moment the run
+            // pauses — including an *auto*-pause the runner did not see coming — so a tap meant
+            // for Lap could land on it and destroy the run (2026-11-14, a walk lost this way).
+            onDiscard = { confirmDiscard = true },
         )
 
         Spacer(Modifier.height(ZidRunDimens.spaceLg))

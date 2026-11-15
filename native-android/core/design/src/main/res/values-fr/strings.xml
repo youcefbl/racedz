@@ -483,6 +483,8 @@
     <string name="runs_effort_easy">Très facile</string>
     <string name="runs_effort_max">À fond</string>
     <string name="runs_discard_confirm">Appuyez encore pour supprimer</string>
+    <string name="runs_discard_confirm_title">Supprimer cette sortie ?</string>
+    <string name="runs_discard_confirm_body">%1$s en %2$s seront supprimés. Action irréversible.</string>
     <string name="runs_mode_free">Libre</string>
     <string name="runs_mode_guided">Guidée</string>
     <string name="runs_type_label">Séance</string>

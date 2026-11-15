@@ -63,4 +63,31 @@ class AutoPauseRulesTest {
     fun `an unknown stored interval falls back to one kilometre`() {
         assertEquals(RunSettings.CueInterval.One, RunSettings.CueInterval.fromMeters(750))
     }
+
+    @Test
+    fun `a jog-speed fix resumes at once`() {
+        assertTrue(GpsQuality.shouldAutoResume(reportedSpeedMps = 1.2f, displacementFromPauseM = 0.0, accuracyM = 5f))
+    }
+
+    @Test
+    fun `a slow walker resumes after walking away from the pause point`() {
+        // 0.7 m/s never reaches the jog threshold; 10 m from where they stopped does.
+        assertFalse(GpsQuality.shouldAutoResume(reportedSpeedMps = 0.7f, displacementFromPauseM = 4.0, accuracyM = 5f))
+        assertTrue(GpsQuality.shouldAutoResume(reportedSpeedMps = 0.7f, displacementFromPauseM = 10.0, accuracyM = 5f))
+    }
+
+    @Test
+    fun `drift at a red light does not resume`() {
+        // Doppler says still: displacement is drift, however large.
+        assertFalse(GpsQuality.shouldAutoResume(reportedSpeedMps = 0.1f, displacementFromPauseM = 12.0, accuracyM = 5f))
+        // A vague fix has to move further than its own accuracy.
+        assertFalse(GpsQuality.shouldAutoResume(reportedSpeedMps = 0.6f, displacementFromPauseM = 12.0, accuracyM = 20f))
+    }
+
+    @Test
+    fun `without a speed, displacement alone decides`() {
+        assertFalse(GpsQuality.shouldAutoResume(reportedSpeedMps = null, displacementFromPauseM = 5.0, accuracyM = 5f))
+        assertTrue(GpsQuality.shouldAutoResume(reportedSpeedMps = null, displacementFromPauseM = 9.0, accuracyM = 5f))
+        assertFalse(GpsQuality.shouldAutoResume(reportedSpeedMps = null, displacementFromPauseM = null, accuracyM = 5f))
+    }
 }

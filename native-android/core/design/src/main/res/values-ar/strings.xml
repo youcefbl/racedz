@@ -498,6 +498,8 @@
     <string name="runs_effort_easy">ساهل بزاف</string>
     <string name="runs_effort_max">بكل قوتي</string>
     <string name="runs_discard_confirm">عاود اضغط باش ما تحفظهاش</string>
+    <string name="runs_discard_confirm_title">تمسح هاد الجَرية؟</string>
+    <string name="runs_discard_confirm_body">%1$s فـ%2$s رايحين يتمسحو، وما تقدرش ترجّعهم.</string>
     <string name="runs_mode_free">حرّة</string>
     <string name="runs_mode_guided">موجّهة</string>
     <string name="runs_type_label">الحصة</string>

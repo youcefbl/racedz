@@ -503,6 +503,8 @@
     <string name="runs_effort_easy">Very easy</string>
     <string name="runs_effort_max">All out</string>
     <string name="runs_discard_confirm">Tap again to discard</string>
+    <string name="runs_discard_confirm_title">Discard this run?</string>
+    <string name="runs_discard_confirm_body">%1$s in %2$s will be deleted. This can\'t be undone.</string>
     <string name="runs_mode_free">Free run</string>
     <string name="runs_mode_guided">Guided</string>
     <string name="runs_type_label">Workout</string>

@@ -230,6 +230,9 @@ object RunRecorder {
         if (_state.value.status != RecordingStatus.Idle) {
             route.clear()
             lastFix = null
+            anchorFix = null
+            distance.reset()
+            movingSecondsExact = 0.0
             _state.value = RecordingState()
         }
         refreshOutboxBlocked()
@@ -321,6 +324,9 @@ object RunRecorder {
         if (_state.value.clientId == clientId && _state.value.status == RecordingStatus.Finished) {
             route.clear()
             lastFix = null
+            anchorFix = null
+            distance.reset()
+            movingSecondsExact = 0.0
             coachInteractionIds.clear()
             _state.value = RecordingState()
         }
@@ -342,6 +348,12 @@ object RunRecorder {
     val state: StateFlow<RecordingState> = _state.asStateFlow()
 
     private var lastFix: Location? = null
+    /** The last fix that was counted — where the next counted stretch starts (elevation baseline). */
+    private var anchorFix: Location? = null
+    /** Distance and moving time from the fix stream; see [DistanceAccumulator]. */
+    private val distance = DistanceAccumulator()
+    /** Moving time with its fractions kept; the state's whole seconds are derived from it. */
+    private var movingSecondsExact: Double = 0.0
     private var lastAcceptedTimeMs: Long = 0
     private var pausedAccumMs: Long = 0
     private var pauseStartedMs: Long = 0
@@ -400,6 +412,9 @@ object RunRecorder {
         }
         route.clear()
         lastFix = null
+        anchorFix = null
+        distance.reset()
+        movingSecondsExact = 0.0
         lastAcceptedTimeMs = 0
         pausedAccumMs = 0
         pauseStartedMs = 0
@@ -444,6 +459,8 @@ object RunRecorder {
         // A fix from before the pause would otherwise be treated as the previous point and turn the
         // whole break into one enormous segment.
         lastFix = null
+        anchorFix = null
+        distance.reset()
         highSpeedSeconds = 0.0
         stationarySeconds = 0.0
         paceWindow.clear()
@@ -472,6 +489,9 @@ object RunRecorder {
     fun reset() {
         route.clear()
         lastFix = null
+        anchorFix = null
+        distance.reset()
+        movingSecondsExact = 0.0
         lastSnapshotMs = 0L
         stationarySeconds = 0.0
         paceWindow.clear()
@@ -525,6 +545,7 @@ object RunRecorder {
         route.clear()
         pending.request.route?.let { route += it }
         val movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds
+        movingSecondsExact = movingSeconds.toDouble()
         // Rebuild the step total from the saved cadence so that re-saving this restored run posts the
         // same avgCadence rather than losing it — the request carries cadence, not the raw steps.
         recordedSteps = pending.request.avgCadence?.let { (it.toLong() * movingSeconds) / 60 } ?: 0
@@ -685,11 +706,16 @@ object RunRecorder {
 
         val previous = lastFix
         val speed = if (location.hasSpeed()) location.speed else null
+        val step = distance.onFix(
+            DistanceAccumulator.Fix(location.latitude, location.longitude, location.time, accuracy, speed),
+            recordingAgeSeconds = (location.time - current.startedAtEpochMs) / 1000.0,
+        )
 
         if (previous == null) {
             route += location.toRoutePoint()
             lastAcceptedTimeMs = location.time
             lastFix = location
+            anchorFix = location
             _state.update {
                 it.copy(
                     status = RecordingStatus.Recording,
@@ -699,43 +725,41 @@ object RunRecorder {
             }
             return
         }
+        // A teleport is ignored entirely — it is not the previous point for anything that follows.
+        if (step.rejected) return
 
-        val distanceM = GpsQuality.haversineMeters(
-            previous.latitude, previous.longitude, location.latitude, location.longitude,
-        )
-        val elapsed = (location.time - previous.time) / 1000.0
-        val speedDistance = if (speed != null && speed >= 0 && elapsed > 0) speed * elapsed else distanceM
-        highSpeedSeconds = GpsQuality.advanceHighSpeedWindow(highSpeedSeconds, speedDistance, elapsed)
-
-        val counts = GpsQuality.shouldCountSegment(
-            distanceM = distanceM,
-            elapsedSeconds = elapsed,
-            reportedSpeedMps = speed,
-            recordingAgeSeconds = (location.time - current.startedAtEpochMs) / 1000.0,
-        )
+        val speedDistance = if (speed != null && speed >= 0 && step.elapsedSeconds > 0) speed * step.elapsedSeconds else step.fixDistanceM
+        highSpeedSeconds = GpsQuality.advanceHighSpeedWindow(highSpeedSeconds, speedDistance, step.elapsedSeconds)
 
         // Standing-still bookkeeping. Only usable fixes reach here, so a signal loss (no fixes at
-        // all) never counts as stationary. Any accepted segment resets the window; a run that has
-        // not moved yet is still acquiring, not paused — auto-pause only applies once underway.
+        // all) never counts as stationary. The window is *consecutive* stationary time: any fix that
+        // reads as movement resets it, so a slow walker whose Doppler dips below the floor for a
+        // second now and then is not auto-paused (which used to flap pause/resume every few
+        // seconds on a walk). A run that has not moved yet is still acquiring, not paused.
         stationarySeconds = when {
-            counts -> 0.0
-            elapsed > 0 && GpsQuality.isStationaryFix(distanceM, speed) -> stationarySeconds + elapsed
+            step.moving -> 0.0
+            step.stationary -> stationarySeconds + step.elapsedSeconds
             else -> stationarySeconds
         }
+        // Summed from GPS timestamps, not a wall clock, so it survives the OS throttling our timer
+        // while the screen is off; per fix, so a slow walk between counted points is moving time.
+        movingSecondsExact += step.movingSeconds
 
-        if (counts) {
-            paceWindow.add(location.time, distanceM, elapsed)
+        if (step.counted) {
+            paceWindow.add(location.time, step.countedMeters, step.countedSeconds)
             val baro = barometer
             var gain = current.elevationGainM
+            val from = anchorFix
             if (baro != null && baro.ready) {
                 // The barometer owns climb once it has settled (NATRUN-07.6).
                 gain = baro.gainM
-            } else if (previous.hasAltitude() && location.hasAltitude()) {
-                val delta = location.altitude - previous.altitude
+            } else if (from != null && from.hasAltitude() && location.hasAltitude()) {
+                val delta = location.altitude - from.altitude
                 // Only rises above a metre count: GPS altitude noise would otherwise invent climb on
                 // a flat road.
                 if (delta > 1) gain += delta
             }
+            anchorFix = location
             route += location.toRoutePoint()
             if (route.size >= MAX_ROUTE_POINTS * 2) downsampleRoute()
             lastAcceptedTimeMs = location.time
@@ -743,10 +767,8 @@ object RunRecorder {
             _state.update {
                 it.copy(
                     status = RecordingStatus.Recording,
-                    distanceMeters = it.distanceMeters + distanceM,
-                    // Summed from GPS timestamps, not a wall clock, so it survives the OS throttling
-                    // our timer while the screen is off.
-                    movingSeconds = it.movingSeconds + if (elapsed < GpsQuality.MAX_MOVING_GAP_S) elapsed.toInt() else 0,
+                    distanceMeters = it.distanceMeters + step.countedMeters,
+                    movingSeconds = movingSecondsExact.toInt(),
                     elevationGainM = gain,
                     gpsAccuracyM = accuracy,
                     currentPaceSecondsPerKm = paceWindow.paceSecondsPerKm(location.time),
@@ -755,15 +777,24 @@ object RunRecorder {
                     headingDegrees = reliableHeading(location),
                 )
             }
-        } else if (current.distanceMeters == 0.0 && route.size == 1) {
+        } else if (current.distanceMeters == 0.0 && route.size == 1 && !step.moving) {
             // Still stationary: keep replacing the acquisition fix rather than saving its drift as
             // the start of the route, so the first real movement is measured from a settled position.
+            // Only while not moving — re-anchoring a slow first stride would mean it never adds up.
             route[0] = location.toRoutePoint()
+            distance.resettle(DistanceAccumulator.Fix(location.latitude, location.longitude, location.time, accuracy, speed))
+            anchorFix = location
             lastAcceptedTimeMs = location.time
-            _state.update { it.copy(gpsAccuracyM = accuracy, route = route.toList()) }
+            _state.update { it.copy(gpsAccuracyM = accuracy, route = route.toList(), movingSeconds = movingSecondsExact.toInt()) }
         } else {
-            // A fix that did not count is a runner who is not moving on foot: no heading either.
-            _state.update { it.copy(gpsAccuracyM = accuracy, headingDegrees = null) }
+            // Moving but still inside the jitter floor keeps its heading; standing still has none.
+            _state.update {
+                it.copy(
+                    gpsAccuracyM = accuracy,
+                    movingSeconds = movingSecondsExact.toInt(),
+                    headingDegrees = if (step.moving) reliableHeading(location) else null,
+                )
+            }
         }
 
         lastFix = location
@@ -784,21 +815,24 @@ object RunRecorder {
     /**
      * Whether a fix while stationary-paused means the runner is off again.
      *
-     * The GPS velocity decides when it exists. Without one (some providers, the emulator), moving
-     * [AUTO_RESUME_DISPLACEMENT_M] from where the pause began is the signal — [lastFix] is frozen
-     * for the whole pause, so drift has to add up to a real displacement, not a jitter step.
+     * See [GpsQuality.shouldAutoResume]. [lastFix] is frozen for the whole pause, so the
+     * displacement is measured from where the runner stopped and drift has to add up to a real
+     * distance, not a jitter step.
      */
     private fun shouldAutoResume(location: Location): Boolean {
-        if (!GpsQuality.isUsableFix(if (location.hasAccuracy()) location.accuracy else null)) return false
-        val speedIsUsable = location.hasSpeed() && location.speed.isFinite() &&
-            !(GpsQuality.trustDisplacementWhenSpeedIsZero && location.speed == 0f)
-        if (speedIsUsable) return location.speed >= GpsQuality.AUTO_RESUME_SPEED_MPS
-        val origin = lastFix ?: return false
-        return GpsQuality.haversineMeters(origin.latitude, origin.longitude, location.latitude, location.longitude) >=
-            AUTO_RESUME_DISPLACEMENT_M
+        val accuracy = if (location.hasAccuracy()) location.accuracy else null
+        if (!GpsQuality.isUsableFix(accuracy)) return false
+        val origin = lastFix
+        val displacement = origin?.let {
+            GpsQuality.haversineMeters(it.latitude, it.longitude, location.latitude, location.longitude)
+        }
+        return GpsQuality.shouldAutoResume(
+            reportedSpeedMps = if (location.hasSpeed()) location.speed else null,
+            displacementFromPauseM = displacement,
+            accuracyM = accuracy,
+        )
     }
 
-    private const val AUTO_RESUME_DISPLACEMENT_M = 8.0
 
     /** The GPS bearing, only when the phone is moving fast enough for it to be a direction. */
     private fun reliableHeading(location: Location): Float? {
