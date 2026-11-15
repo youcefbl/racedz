@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   Bot,
   Bug,
@@ -46,6 +47,7 @@ const adminNavItems: DashboardNavItem[] = [
   { href: "/admin/coach", label: "AI Coach", description: "Usage and subscriptions", icon: Bot },
   { href: "/admin/tips", label: "Coach tips", description: "Review and publish tips", icon: Lightbulb },
   { href: "/admin/errors", label: "Client errors", description: "App crash reports", icon: Bug },
+  { href: "/admin/run-diagnostics", label: "Run diagnostics", description: "Lost runs, crashes, distances", icon: Activity },
   { href: "/admin/audit", label: "Audit", description: "Admin action log", icon: History }
 ];
 
@@ -72,7 +74,7 @@ export function DashboardShell({ section, children }: { section: DashboardSectio
 
   return (
     <div className="bg-gray-50 lg:bg-white" dir={section === "organizer" && locale === "ar" ? "rtl" : "ltr"}>
-      <div className="grid w-full lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid w-full grid-cols-[minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-gray-200 bg-white lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:border-b-0 lg:border-r">
           <div className="px-4 py-4 sm:px-6 lg:px-5 lg:py-6">
             <div className="hidden lg:block">

@@ -35,12 +35,15 @@ export function StatCard({
   label,
   value,
   icon: Icon = ShieldCheck,
-  tone = "teal"
+  tone = "teal",
+  hint
 }: {
   label: string;
   value: number | string;
   icon?: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   tone?: "teal" | "orange";
+  /** One short supporting line under the value. */
+  hint?: string;
 }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -54,6 +57,7 @@ export function StatCard({
       </div>
       <p className="text-sm font-semibold text-gray-500">{label}</p>
       <p className="mt-2 text-3xl font-black text-gray-950">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-gray-500">{hint}</p> : null}
     </div>
   );
 }
