@@ -248,3 +248,25 @@ console.log("PASS — bounded intent matching preserves broad context for ambigu
   assert.equal(large.meta.sections.recentRuns, "trimmed:token-budget");
   console.log("PASS — relevance, Arabic-heavy budget, latest question and safety preservation");
 }
+
+// Mandatory plan sections are bounded before compaction, so retrying the same large but otherwise
+// valid context cannot deterministically fail after all optional sections have been removed.
+{
+  const manyWorkouts = Array.from({ length: 40 }, (_, index) => ({
+    date: `2026-07-${String((index % 28) + 1).padStart(2, "0")}`,
+    type: "EASY", targetDistanceKm: 5, targetPaceSecondsPerKm: 360,
+    status: "PLANNED", completionType: null, skipReason: null, actualDistanceKm: null
+  }));
+  const bounded = assembleCoachContext(baseInput({
+    goal: baseGoal({ chronicConditions: ["ASTHMA", "DIABETES", "HYPERTENSION", "HEART_CONDITION"] }),
+    interaction: { type: "WEEKLY_REVIEW" },
+    activePlan: { version: 1, startsOn: "2026-07-01", endsOn: "2026-08-31", status: "ACTIVE", workouts: manyWorkouts },
+    skeleton: Array.from({ length: 40 }, (_, index) => ({ ...skeleton[0], title: `حصة ${index}`, instructions: "تعليمات ".repeat(200) })),
+    planAdaptations: Array.from({ length: 40 }, (_, index) => `تعديل ${index}: ${"استرجاع ".repeat(100)}`)
+  }), NOW);
+  assert.ok(jsonTokenUpperBound(bounded.context) <= CONTEXT_TOKEN_UPPER_BOUND);
+  assert.equal(bounded.context.activePlan?.workouts.length, 14);
+  assert.equal(bounded.context.fixedWeeklyPlanSkeleton.length, 7);
+  assert.equal(bounded.context.planAdaptations.length, 12);
+  console.log("PASS — mandatory plan sections stay within deterministic bounds");
+}

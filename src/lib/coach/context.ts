@@ -94,6 +94,9 @@ const MAX_RECENT_RUNS = 10;
 const MAX_CONVERSATION_TURNS = 6;
 const MAX_NOTE_CHARS = 500;
 const MAX_SUMMARY_CHARS = 400;
+const MAX_ACTIVE_PLAN_WORKOUTS = 14;
+const MAX_PLAN_ADAPTATIONS = 12;
+const MAX_PLAN_WORKOUTS = 7;
 
 export function buildRunnerCoachContext(input: {
   goal: ContextGoal;
@@ -165,7 +168,7 @@ export function buildRunnerCoachContext(input: {
       constraints: truncate(input.goal.constraints, MAX_NOTE_CHARS),
       injuryNotes: truncate(input.goal.injuryNotes, MAX_NOTE_CHARS),
       injuryHistory: truncate(input.goal.injuryHistory, MAX_NOTE_CHARS),
-      chronicConditions: input.goal.chronicConditions,
+      chronicConditions: input.goal.chronicConditions.slice(0, 8).map((condition) => condition.slice(0, 80)),
       healthNotes: truncate(input.goal.healthNotes, MAX_NOTE_CHARS)
     },
     // Facts carry their source so the coach can use a runner-stated preference confidently while
@@ -181,10 +184,17 @@ export function buildRunnerCoachContext(input: {
       totalWorkouts: input.activePlan.workouts.length,
       workouts: [...input.activePlan.workouts].sort((a, b) =>
         Math.abs(Date.parse(a.date) - Date.parse(coachLocalDate(now))) - Math.abs(Date.parse(b.date) - Date.parse(coachLocalDate(now)))
-      ).slice(0, 14).sort((a, b) => a.date.localeCompare(b.date))
+      ).slice(0, MAX_ACTIVE_PLAN_WORKOUTS).sort((a, b) => a.date.localeCompare(b.date)).map((workout) => ({
+        ...workout,
+        type: workout.type.slice(0, 40),
+        status: workout.status.slice(0, 40),
+        completionType: truncate(workout.completionType, 80),
+        skipReason: truncate(workout.skipReason, 120)
+      }))
     } : null,
     // CHAT/POST_RUN must explain the saved plan, not mistake a newly computed candidate for it.
-    fixedWeeklyPlanSkeleton: (input.interaction.type === "INITIAL_PLAN" || input.interaction.type === "WEEKLY_REVIEW" ? input.skeleton : []).map((workout) => ({
+    fixedWeeklyPlanSkeleton: (input.interaction.type === "INITIAL_PLAN" || input.interaction.type === "WEEKLY_REVIEW" ? input.skeleton : [])
+      .slice(0, MAX_PLAN_WORKOUTS).map((workout) => ({
       ...workout, instructions: truncate(workout.instructions, 300)
     })),
     // All-time bests and streaks, so milestones inform coaching without re-derivation (U-25).
@@ -229,13 +239,14 @@ export function buildRunnerCoachContext(input: {
     // The training phase the deterministic planner placed this week in, and the reasons it eased or cut
     // load (missed sessions, fatigue, pain). Lets the coach explain the "why" instead of guessing.
     trainingPhase: input.trainingPhase ?? null,
-    planAdaptations: input.planAdaptations ?? [],
+    planAdaptations: (input.planAdaptations ?? []).slice(0, MAX_PLAN_ADAPTATIONS)
+      .map((adaptation) => adaptation.slice(0, 300)),
     fixedSafetyDecision: input.safety,
     selection: {
       intent: needs.intent,
       omittedForRelevance: Object.entries(needs).filter(([, value]) => value === false).map(([key]) => key),
       trimmedSections: [] as string[],
-      activePlanWindowed: (input.activePlan?.workouts.length ?? 0) > 14
+      activePlanWindowed: (input.activePlan?.workouts.length ?? 0) > MAX_ACTIVE_PLAN_WORKOUTS
     },
     // Last on purpose: the live request is the most volatile section (see the ordering note above).
     request: {
