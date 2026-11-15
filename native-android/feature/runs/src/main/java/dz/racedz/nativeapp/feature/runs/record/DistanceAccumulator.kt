@@ -84,7 +84,8 @@ class DistanceAccumulator {
         }
         val fixDistance = GpsQuality.haversineMeters(previous.lat, previous.lng, fix.lat, fix.lng)
 
-        if (!fixDistance.isFinite() || fixDistance > MAX_FIX_JUMP_M) {
+        val reportedSpeed = fix.speedMps?.takeIf { it.isFinite() && it > 0f }
+        if (!fixDistance.isFinite() || (fixDistance > MAX_FIX_JUMP_M && !explainedBySpeed(fixDistance, elapsed, reportedSpeed))) {
             if (elapsed <= GpsQuality.MAX_MOVING_GAP_S) {
                 // A bad fix, not a sprint: drop it and keep measuring from where we were.
                 return Step(0.0, 0.0, 0.0, moving = false, stationary = false, elapsedSeconds = elapsed, fixDistanceM = 0.0, rejected = true)
@@ -125,8 +126,22 @@ class DistanceAccumulator {
     }
 
     companion object {
-        /** A jump this far between two consecutive fixes is a bad fix (or a signal gap), never a stride. */
+        /**
+         * A jump this far between two consecutive fixes is a bad fix (or a signal gap), never a
+         * stride — unless the GPS's own Doppler speed accounts for it ([explainedBySpeed]).
+         */
         const val MAX_FIX_JUMP_M = 60.0
+
+        /**
+         * Whether a long jump is real travel: the fix's Doppler speed over the time between fixes
+         * covers it, with slack for timing and position error. A teleport is a position error with
+         * no matching velocity, so it still fails. Without this, a ride (or a fix that arrives 2–3 s
+         * late at cycling speed) lost every segment over 60 m.
+         */
+        fun explainedBySpeed(distanceM: Double, elapsedSeconds: Double, speedMps: Float?): Boolean {
+            if (speedMps == null || elapsedSeconds > GpsQuality.MAX_MOVING_GAP_S) return false
+            return distanceM <= speedMps * elapsedSeconds * 1.5 + 30.0
+        }
 
         /**
          * How far from the anchor a fix must be before the stretch is counted: the fix's reported

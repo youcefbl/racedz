@@ -1,5 +1,6 @@
 package dz.racedz.nativeapp
 
+import kotlin.concurrent.thread
 import android.content.Context
 import dz.racedz.nativeapp.core.auth.AccountRepository
 import dz.racedz.nativeapp.core.auth.AuthRepository
@@ -57,9 +58,15 @@ class AppContainer(context: Context, appVersion: String, val appInfo: AppInfo) {
      * than after their first VISIBLE failure. Safe and cheap to call whenever: eviction of an
      * already-empty or already-healthy pool is a no-op, and the very next request simply opens a
      * fresh connection either way.
+     *
+     * Always off the main thread: closing a live TLS connection writes its close_notify to the
+     * socket, and the foreground callback runs on main — with a run recording (so connections are
+     * live) StrictMode killed the app on every screen unlock (NetworkOnMainThreadException, 0.8.3).
      */
     fun evictStaleConnections() {
-        okHttpClient.connectionPool.evictAll()
+        thread(name = "zidrun-evict-connections", isDaemon = true) {
+            runCatching { okHttpClient.connectionPool.evictAll() }
+        }
     }
 
     val sessionManager: SessionManager = SessionManager(api, tokenStore).also {

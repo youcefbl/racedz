@@ -13,7 +13,11 @@ enum class RecordingStatus { Idle, Acquiring, Recording, Paused, Finished }
 enum class AutoPauseReason {
     /** Standing still (a light, a stop). Resumes by itself on the first real movement. */
     Stationary,
-    /** Sustained vehicle speed. Never resumes by itself — the runner decides. */
+    /**
+     * Sustained vehicle speed. No longer raised (a recording now keeps going at any speed, as a
+     * watch does — pausing a motorbike ride after two minutes and never resuming lost the ride);
+     * kept so a snapshot written by an older build still restores, and resumes on movement.
+     */
     Vehicle,
 }
 
@@ -744,9 +748,8 @@ object RunRecorder {
         val current = _state.value
         if (current.status == RecordingStatus.Finished) return
         if (current.status == RecordingStatus.Paused) {
-            // Only a stationary auto-pause resumes by itself. A hand pause is the runner's, and the
-            // vehicle pause exists precisely because the phone is moving fast.
-            if (current.autoPauseReason == AutoPauseReason.Stationary && shouldAutoResume(location)) {
+            // Any auto-pause resumes by itself on real movement; a hand pause is the runner's.
+            if (current.autoPauseReason != null && shouldAutoResume(location)) {
                 resume()
                 // Fall through: this fix is the first of the resumed stretch.
                 onLocation(location)
@@ -858,9 +861,13 @@ object RunRecorder {
         lastFix = location
 
         if (highSpeedSeconds >= GpsQuality.NON_FOOT_AUTO_PAUSE_SECONDS) {
-            // Sustained vehicle speed. Pause rather than discard: the runner may have genuinely run
-            // and then got in a car, and deleting their run would be far worse than a stray pause.
-            autoPause(AutoPauseReason.Vehicle)
+            // Sustained vehicle speed. Keep recording — what was covered is the runner's record,
+            // and the live non-foot banner plus the server's motion check already say it does not
+            // look like a run. Counted once per stretch for diagnostics; the window restarts so the
+            // next stretch is a new one.
+            vehicleAutoPauses++
+            RunTelemetry.emit { breadcrumb("recorder.vehicle_speed") }
+            highSpeedSeconds = 0.0
         } else if (
             RunSettings.autoPauseEnabled &&
             current.distanceMeters > 0.0 &&

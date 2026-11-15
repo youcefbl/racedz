@@ -139,6 +139,24 @@ class DistanceAccumulatorTest {
     }
 
     @Test
+    fun `a motorbike ride with fixes arriving every 3 s keeps its distance`() {
+        // 25 m/s (90 km/h): every fix is 75 m from the last, past the 60 m teleport bound. The
+        // owner's ride on 0.8.3 lost these; the Doppler speed explains them, so they now count.
+        val fixes = straightLine(speedMps = 25.0, seconds = 300, noiseM = 2.0, seed = 11)
+            .filterIndexed { i, _ -> i % 3 == 0 }
+        val totals = replay(fixes)
+        assertEquals(7_500.0, totals.meters, 150.0)
+    }
+
+    @Test
+    fun `a teleport is still rejected at speed - the jump must match the Doppler`() {
+        val fixes = straightLine(speedMps = 12.0, seconds = 120, noiseM = 1.0, seed = 12).toMutableList()
+        fixes[60] = fixes[60].copy(lat = fixes[60].lat + 400.0 / metresPerDegLat)
+        val totals = replay(fixes)
+        assertEquals(1_440.0, totals.meters, 30.0)
+    }
+
+    @Test
     fun `a long signal gap is not bridged with a straight line`() {
         val before = straightLine(speedMps = 2.0, seconds = 60, noiseM = 0.5, seed = 6)
         // 90 s with no fixes, then the runner reappears 300 m further on.

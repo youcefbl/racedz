@@ -22,7 +22,7 @@ object GpsQuality {
      */
     const val SPEEDLESS_STARTUP_SETTLE_SECONDS = 15.0
 
-    /** Two consecutive minutes above plausible foot speed auto-pauses; this is a vehicle, not a run. */
+    /** Two consecutive minutes above plausible foot speed is a vehicle stretch (diagnostics only; never pauses). */
     const val NON_FOOT_AUTO_PAUSE_SECONDS = 120.0
 
     /** Above this speed the segment counts toward the non-foot window. ~25 km/h. */
