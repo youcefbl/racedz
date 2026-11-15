@@ -151,12 +151,20 @@ export function selectMemoryForContext(
     SCHEDULE: ["SCHEDULE", "COMMITMENT"], RECOVERY: ["STRATEGY_WORKED", "STRATEGY_FAILED"],
     RUN_ANALYSIS: ["PERFORMANCE", "TERRAIN"], NUTRITION: ["PREFERENCE"]
   };
-  const words = (options.question ?? "").toLocaleLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [];
+  const stopWords = new Set([
+    "the", "and", "what", "when", "where", "which", "with", "that", "this", "how", "can", "should", "about", "from", "your", "you", "for", "are", "was", "were", "have", "has",
+    "les", "des", "une", "que", "quoi", "quand", "avec", "pour", "votre", "vos", "est", "sont", "comment", "dans", "mon", "mes",
+    "wach", "kifach", "rani", "ta3i", "ndir", "كيف", "ماذا", "واش", "علاش", "على", "هذا", "هذه", "تاع", "تاعي", "في", "من", "إلى", "هل"
+  ]);
+  const terms = (value: string) => (value.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])
+    .filter((word) => !stopWords.has(word));
+  const words = [...new Set(terms(options.question ?? ""))];
   const score = (record: MemoryRecord) => {
     if (["CONSTRAINT", "REJECTED_SUGGESTION", "COACH_NOTE"].includes(record.kind)) return 100;
     if (record.kind === "COACHING_TONE") return 90;
+    const factWords = new Set(terms(record.value));
     return (relevantKinds[options.intent ?? "GENERAL"]?.includes(record.kind) ? 30 : 0) +
-      words.filter((word) => record.value.toLocaleLowerCase().includes(word)).length;
+      words.filter((word) => factWords.has(word)).length;
   };
 
   const ranked = records
