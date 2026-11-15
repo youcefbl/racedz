@@ -368,7 +368,10 @@ object RunRecorder {
     private var movingSecondsExact: Double = 0.0
     /** Auto-pauses this recording, by reason — reported with the session so flapping is visible. */
     private var stationaryAutoPauses = 0
+    /** Real vehicle auto-pauses — only builds before 0.8.4 raised them; kept for their snapshots. */
     private var vehicleAutoPauses = 0
+    /** Stretches of sustained vehicle speed seen while recording went on (0.8.5+; never a pause). */
+    private var vehicleSpeedWindows = 0
     /** One snapshot-failure report per recording, not one per tick. */
     private var snapshotFailureReported = false
     private var lastAcceptedTimeMs: Long = 0
@@ -455,6 +458,7 @@ object RunRecorder {
         )
         stationaryAutoPauses = 0
         vehicleAutoPauses = 0
+        vehicleSpeedWindows = 0
         snapshotFailureReported = false
         val started = _state.value
         RunTelemetry.emit {
@@ -525,6 +529,7 @@ object RunRecorder {
     private fun autoPauseCounts(): Map<String, Any?> = mapOf(
         "stationaryAutoPauses" to stationaryAutoPauses,
         "vehicleAutoPauses" to vehicleAutoPauses,
+        "vehicleSpeedWindows" to vehicleSpeedWindows,
     )
 
     /**
@@ -863,9 +868,9 @@ object RunRecorder {
         if (highSpeedSeconds >= GpsQuality.NON_FOOT_AUTO_PAUSE_SECONDS) {
             // Sustained vehicle speed. Keep recording — what was covered is the runner's record,
             // and the live non-foot banner plus the server's motion check already say it does not
-            // look like a run. Counted once per stretch for diagnostics; the window restarts so the
-            // next stretch is a new one.
-            vehicleAutoPauses++
+            // look like a run. Counted once per stretch for diagnostics — as a speed window, not a
+            // pause, since nothing paused; the window restarts so the next stretch is a new one.
+            vehicleSpeedWindows++
             RunTelemetry.emit { breadcrumb("recorder.vehicle_speed") }
             highSpeedSeconds = 0.0
         } else if (

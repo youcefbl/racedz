@@ -332,12 +332,23 @@ function yesNo(value: unknown, yes: string, no: string) {
   return value === true ? yes : value === false ? no : null;
 }
 
+/**
+ * Vehicle figures by build. Before 0.8.4 `vehicleAutoPauses` were real pauses that never resumed;
+ * 0.8.4 stopped pausing but still counted fast stretches under that key; from 0.8.5 they are
+ * `vehicleSpeedWindows` and `vehicleAutoPauses` is always 0.
+ */
+function vehicleFigures(summary: Record<string, unknown>, appVersion: string | null) {
+  const legacy = num(summary.vehicleAutoPauses) ?? 0;
+  if (appVersion?.startsWith("0.8.4")) return { pauses: 0, speedWindows: legacy };
+  return { pauses: legacy, speedWindows: num(summary.vehicleSpeedWindows) ?? 0 };
+}
+
 function SessionRow({ session, days }: { session: AdminRunSessionRow; days: number }) {
   const status = STATUS_BADGES[session.status] ?? { label: session.status, variant: "default" as const };
   const distanceM = num(session.summary.distanceM);
   const battery = num(session.device.batteryPct);
   const stationary = num(session.summary.stationaryAutoPauses);
-  const vehicle = num(session.summary.vehicleAutoPauses);
+  const vehicle = vehicleFigures(session.summary, session.appVersion);
   const ended = session.endedAt ? `${session.endReason?.toLowerCase().replace(/_/g, " ") ?? "ended"} ${formatClock(session.endedAt).split(", ").pop()}` : "ended — never";
   return (
     <tr className="border-t border-gray-100 align-top">
@@ -371,7 +382,21 @@ function SessionRow({ session, days }: { session: AdminRunSessionRow; days: numb
           "—"
         ) : (
           <>
-            <span className={stationary >= 10 ? "font-semibold text-brand-orangeText" : ""}>{stationary}</span> standing · {vehicle ?? 0} vehicle
+            <span className={stationary >= 10 ? "font-semibold text-brand-orangeText" : ""}>{stationary}</span> standing
+            {vehicle.pauses > 0 ? (
+              <>
+                {" · "}
+                <span className="font-semibold text-brand-orangeText">{vehicle.pauses} vehicle (paused, no auto-resume)</span>
+              </>
+            ) : null}
+            {vehicle.speedWindows > 0 ? (
+              <>
+                <br />
+                <span className="text-gray-500">
+                  {vehicle.speedWindows} vehicle-speed {vehicle.speedWindows === 1 ? "stretch" : "stretches"} · kept recording
+                </span>
+              </>
+            ) : null}
           </>
         )}
       </td>
