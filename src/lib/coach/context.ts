@@ -79,6 +79,7 @@ type TargetRun = ContextRun & {
 // build on recent history instead of repeating advice the runner just received.
 export type ConversationTurn = {
   type: CoachInteractionInput["type"];
+  status?: "COMPLETED" | "BLOCKED";
   at: Date | string;
   runnerQuestion: string | null;
   coachSummary: string | null;
@@ -134,7 +135,7 @@ export function buildRunnerCoachContext(input: {
 }, now: Date = new Date()) {
   const latest = input.recentConversation?.at(-1);
   const age = latest ? now.getTime() - new Date(latest.at).getTime() : Infinity;
-  const needs = selectContextNeeds(input.interaction, latest?.followUpQuestion && age >= 0 && age <= FOLLOW_UP_MAX_AGE_MS
+  const needs = selectContextNeeds(input.interaction, latest?.status !== "BLOCKED" && latest?.followUpQuestion && age >= 0 && age <= FOLLOW_UP_MAX_AGE_MS
     ? `${latest.runnerQuestion ?? ""} ${latest.followUpQuestion}` : "");
   // Key order is deliberate (review U-20): stable sections first, volatile sections last, the live
   // request at the very end. The serialized context is the provider prompt's tail, and prefix
@@ -224,6 +225,7 @@ export function buildRunnerCoachContext(input: {
       .slice(-MAX_CONVERSATION_TURNS)
       .map((turn) => ({
         type: turn.type,
+        status: turn.status ?? "COMPLETED",
         at: new Date(turn.at).toISOString(),
         runnerQuestion: truncate(turn.runnerQuestion, MAX_NOTE_CHARS),
         coachSummary: truncate(turn.coachSummary, MAX_SUMMARY_CHARS),
@@ -276,7 +278,8 @@ export function buildRunnerCoachContext(input: {
 // changes, so a stored interaction can be traced to how its context was assembled.
 // v2: cache-aware key order (stable→volatile, live request last) + all-time records block.
 // v5: request.liveRun — a typed, device-reported snapshot for questions asked during a run.
-export const COACH_CONTEXT_VERSION = "ctx-v5-2026-11-15";
+// v6: conversation status prevents a blocked response from becoming clarification context.
+export const COACH_CONTEXT_VERSION = "ctx-v6-2026-11-15";
 
 type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
 

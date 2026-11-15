@@ -1624,12 +1624,12 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       INSERT INTO "CoachInteraction" (
         "id", "userId", "clientRequestId", "replyToInteractionId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
       ) VALUES (
-        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${input.replyToInteractionId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
         'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
         CAST(${JSON.stringify(decision)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
       )
       ON CONFLICT ("id") DO UPDATE SET
-        "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
+        "status" = 'BLOCKED', "replyToInteractionId" = NULL, "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
       WHERE "CoachInteraction"."status" = 'FAILED'
     `;
     if (claimedUrgent === 0) {
@@ -1655,12 +1655,12 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
       INSERT INTO "CoachInteraction" (
         "id", "userId", "clientRequestId", "replyToInteractionId", "goalId", "runId", "type", "status", "userMessage", "response", "safety", "promptVersion", "completedAt"
       ) VALUES (
-        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${input.replyToInteractionId ?? null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
+        ${interactionId}, ${userId}, ${input.requestId ?? null}, ${null}, ${goal.id}, ${selectedRun?.id ?? null}, ${input.type}::"CoachInteractionType",
         'BLOCKED', ${input.message ?? null}, CAST(${JSON.stringify(response)} AS JSONB),
         CAST(${JSON.stringify(persistedSafety)} AS JSONB), ${COACH_PROMPT_VERSION}, NOW()
       )
       ON CONFLICT ("id") DO UPDATE SET
-        "status" = 'BLOCKED', "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
+        "status" = 'BLOCKED', "replyToInteractionId" = NULL, "response" = EXCLUDED."response", "safety" = EXCLUDED."safety", "completedAt" = NOW()
       WHERE "CoachInteraction"."status" = 'FAILED'
     `;
     if (claimedHeldInteraction === 0) {
@@ -1713,7 +1713,7 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     throw new CoachError("The conversation is unavailable for this goal and run.", 404, "CONVERSATION_NOT_FOUND");
   }
   const recentConversation: ConversationTurn[] = conversation.map((row) => ({
-    type: row.type as CoachInteractionInput["type"], at: row.createdAt,
+    type: row.type as CoachInteractionInput["type"], status: row.status as "COMPLETED" | "BLOCKED", at: row.createdAt,
     runnerQuestion: row.userMessage, coachSummary: row.response?.summary ?? null,
     followUpQuestion: row.response?.followUpQuestion, quickReplies: row.response?.quickReplies,
     nextAction: row.response?.nextAction, safetyLevel: row.safety?.level

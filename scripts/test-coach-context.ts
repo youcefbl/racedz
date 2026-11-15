@@ -224,6 +224,17 @@ assert.equal(selectContextNeeds({ type: "CHAT", message: "I am tired and need hy
   "questions spanning multiple domains retain broad context");
 console.log("PASS — bounded intent matching preserves broad context for ambiguous questions");
 
+{
+  const afterBlocked = assembleCoachContext(baseInput({
+    interaction: { type: "CHAT", message: "Can I reschedule to Friday?" },
+    recentConversation: [{ type: "CHAT", status: "BLOCKED", at: NOW, runnerQuestion: "off topic",
+      coachSummary: "blocked", followUpQuestion: "What should you eat?" }]
+  }), NOW);
+  assert.equal(afterBlocked.context.selection.intent, "SCHEDULE",
+    "a blocked response must not steer the next request's context selection");
+  console.log("PASS — blocked history is visible but cannot become follow-up intent");
+}
+
 // Targeted questions omit unrelated enrichment, while safety and the actual plan stay available.
 {
   const scoped = assembleCoachContext(baseInput({ interaction: { type: "CHAT", message: "Can I reschedule to Friday?" },
