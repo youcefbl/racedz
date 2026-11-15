@@ -145,10 +145,28 @@ fun StartRunScreen(
     // Live conditions for where the run will happen. Read once on entry from the last known fix when
     // location is already granted; with no fix the server falls back to the runner's wilaya. A
     // nicety — never gated on permission and never blocking the run.
+    // True once the town/weather come from a real position rather than the profile's wilaya.
+    var placeFromFix by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val fix = lastKnownLocation(context)
         viewModel.loadWeather(fix?.latitude, fix?.longitude)
-        if (fix != null) viewModel.setPlaceName(cityName(context, fix.latitude, fix.longitude))
+        if (fix != null) {
+            placeFromFix = true
+            viewModel.setPlaceName(cityName(context, fix.latitude, fix.longitude))
+        }
+    }
+    // Get the receiver searching now, not at start (see rememberGpsWarmup).
+    val gpsWarmup = rememberGpsWarmup()
+    // With no recent cached fix the weather above came from the profile's wilaya, and the card named
+    // that wilaya as if it were where the runner stood ("Alger" for a runner in Blida, 2026-11-15).
+    // As soon as the warm-up has a position, re-place the card on it — once.
+    LaunchedEffect(gpsWarmup.placeable, placeFromFix) {
+        val lat = gpsWarmup.latitude
+        val lng = gpsWarmup.longitude
+        if (placeFromFix || !gpsWarmup.placeable || lat == null || lng == null) return@LaunchedEffect
+        placeFromFix = true
+        viewModel.loadWeather(lat, lng)
+        viewModel.setPlaceName(cityName(context, lat, lng))
     }
     // Arriving from the coach's "Log this run" means the runner already chose a planned session, so
     // Guided is the mode they asked for (DEV-R06). Starting in Free associated the workout but ran
@@ -227,10 +245,14 @@ fun StartRunScreen(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg)) {
+                // Says what the warm-up actually sees. It used to read "GPS ready" unconditionally,
+                // including on a phone that then needed three minutes to find a usable fix. Before
+                // location has ever been granted there is nothing to report, so it keeps the old copy.
+                val gpsSearching = gpsWarmup.permitted && !gpsWarmup.ready
                 ReadyChip(
                     icon = Icons.Filled.LocationOn,
-                    label = stringResource(R.string.runs_ready_gps),
-                    tint = zidRunOnDarkColors().primary,
+                    label = stringResource(if (gpsSearching) R.string.runs_gps_searching else R.string.runs_ready_gps),
+                    tint = if (gpsSearching) zidRunOnDarkColors().textMuted else zidRunOnDarkColors().primary,
                 )
                 ReadyChip(
                     icon = Icons.Filled.Lock,

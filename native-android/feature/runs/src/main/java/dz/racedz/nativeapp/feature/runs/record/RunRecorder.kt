@@ -40,6 +40,11 @@ data class RecordingState(
     /** Steps counted while actually recording, from the device step counter. 0 with no sensor. */
     val stepCount: Long = 0,
     /**
+     * Seconds the step counter says the runner was actually stepping. Measured from the sensor, not
+     * from GPS, so steps taken while the GPS was unusable are timed too — see [avgCadenceSpm].
+     */
+    val steppingSeconds: Int = 0,
+    /**
      * Coach interactions the runner started during this run, before it had a server id. Buffered so
      * they can be handed to the server at save and linked to the run they were asked on.
      */
@@ -80,7 +85,13 @@ data class RecordingState(
     val autoPaused: Boolean get() = autoPauseReason != null
 
     /**
-     * Average step cadence in steps per minute over moving time, or null.
+     * Average step cadence in steps per minute over the time spent stepping, or null.
+     *
+     * The denominator is [steppingSeconds] — time measured by the step counter itself — and only
+     * falls back to GPS [movingSeconds] when there is no stepping time (a run restored from a
+     * snapshot that only kept the cadence). Dividing every step by GPS moving time inflated cadence
+     * whenever the GPS was unusable while the runner kept walking: the 2026-11-15 M21 walk counted
+     * 1,171 steps over 331 GPS-moving seconds and reported 212 spm for a stroll.
      *
      * Null until there is enough of a run to mean something — a stray handful of steps over ten
      * seconds is noise, not a cadence — and null on devices with no step counter. The server reads
@@ -88,10 +99,13 @@ data class RecordingState(
      * the wire contract's range.
      */
     val avgCadenceSpm: Int?
-        get() = if (stepCount > 0 && movingSeconds >= 60) {
-            (stepCount / (movingSeconds / 60.0)).toInt().coerceIn(0, 300)
-        } else {
-            null
+        get() {
+            val seconds = if (steppingSeconds >= 60) steppingSeconds else movingSeconds
+            return if (stepCount > 0 && seconds >= 60) {
+                (stepCount / (seconds / 60.0)).toInt().coerceIn(0, 300)
+            } else {
+                null
+            }
         }
 
     /** Average pace over moving time, which is what runners compare against. */
@@ -396,6 +410,10 @@ object RunRecorder {
     private var recordedSteps: Long = 0
     private var lastStepCounter: Long = -1
 
+    /** When [lastStepCounter] was read, for timing the stepping between readings. */
+    private var lastStepAtMs: Long = -1
+    private var steppingMs: Long = 0
+
     /** Ids of coach interactions asked during this run, in order, deduped. Sent at save to be linked. */
     private val coachInteractionIds = mutableListOf<String>()
 
@@ -447,6 +465,8 @@ object RunRecorder {
         heartRate.reset()
         recordedSteps = 0
         lastStepCounter = -1
+        lastStepAtMs = -1
+        steppingMs = 0
         coachInteractionIds.clear()
         _state.value = RecordingState(
             status = RecordingStatus.Acquiring,
@@ -499,6 +519,7 @@ object RunRecorder {
         cadenceWindow.clear()
         // Re-baseline the step counter so steps taken during the pause are not counted on resume.
         lastStepCounter = -1
+        lastStepAtMs = -1
         _state.update { it.copy(status = RecordingStatus.Recording, autoPauseReason = null) }
     }
 
@@ -550,6 +571,8 @@ object RunRecorder {
         cadenceWindow.clear()
         recordedSteps = 0
         lastStepCounter = -1
+        lastStepAtMs = -1
+        steppingMs = 0
         coachInteractionIds.clear()
         _snapshotFailing.value = false
         // A delete that fails would otherwise leave the file blocking every future recording with
@@ -617,6 +640,8 @@ object RunRecorder {
         // same avgCadence rather than losing it — the request carries cadence, not the raw steps.
         recordedSteps = pending.request.avgCadence?.let { (it.toLong() * movingSeconds) / 60 } ?: 0
         lastStepCounter = -1
+        lastStepAtMs = -1
+        steppingMs = movingSeconds * 1000L
         coachInteractionIds.clear()
         pending.request.coachInteractionIds?.let { coachInteractionIds += it }
         _state.value = RecordingState(
@@ -631,6 +656,7 @@ object RunRecorder {
             route = route.toList(),
             workoutId = pending.request.workoutId,
             stepCount = recordedSteps,
+            steppingSeconds = movingSeconds,
             askedCoachIds = coachInteractionIds.toList(),
             draftIsPublic = pending.request.isPublic == true,
             laps = pending.request.laps.orEmpty(),
@@ -719,22 +745,45 @@ object RunRecorder {
      * steps this run has accumulated. A reading arriving while paused or idle re-baselines instead of
      * counting, so a break — or steps before the run — never inflates the cadence.
      */
-    fun onSteps(cumulativeSinceBoot: Long) {
+    fun onSteps(cumulativeSinceBoot: Long, atMs: Long = System.currentTimeMillis()) {
         val status = _state.value.status
         if (status != RecordingStatus.Recording && status != RecordingStatus.Acquiring) {
             lastStepCounter = -1
+            lastStepAtMs = -1
             return
         }
         // A reboot mid-run resets the sensor to a smaller total; treat that as a new baseline rather
         // than subtracting into the negatives.
         if (lastStepCounter in 0..cumulativeSinceBoot) {
-            recordedSteps += cumulativeSinceBoot - lastStepCounter
+            val delta = cumulativeSinceBoot - lastStepCounter
+            recordedSteps += delta
+            if (delta > 0 && lastStepAtMs in 0 until atMs) {
+                steppingMs += steppingCreditMs(atMs - lastStepAtMs, delta)
+            }
         }
         lastStepCounter = cumulativeSinceBoot
-        val now = System.currentTimeMillis()
-        cadenceWindow.add(now, recordedSteps)
-        _state.update { it.copy(stepCount = recordedSteps, liveCadenceSpm = cadenceWindow.cadenceSpm(now)) }
+        lastStepAtMs = atMs
+        cadenceWindow.add(atMs, recordedSteps)
+        _state.update {
+            it.copy(
+                stepCount = recordedSteps,
+                steppingSeconds = (steppingMs / 1000).toInt(),
+                liveCadenceSpm = cadenceWindow.cadenceSpm(atMs),
+            )
+        }
     }
+
+    /**
+     * How much of the [gapMs] between two step readings the runner spent stepping, given [steps]
+     * were counted in it. The sensor reports every few seconds while feet are moving, so a short gap
+     * is all stepping. After a long silence — standing at a crossing, a stop — the steps arrive in
+     * one reading at the end; crediting the whole gap would hide the stop, so it is capped at one
+     * second per step (60 spm, slower than any walk), which keeps the stop out of the denominator.
+     */
+    internal fun steppingCreditMs(gapMs: Long, steps: Long): Long =
+        if (gapMs <= CONTINUOUS_STEPPING_GAP_MS) gapMs else minOf(gapMs, steps * 1_000L)
+
+    private const val CONTINUOUS_STEPPING_GAP_MS = 10_000L
 
     /**
      * Remembers a coach interaction the runner started mid-run, so its id rides to the server at
