@@ -39,20 +39,36 @@ const onTopicPatterns: RegExp[] = [
   /(3ayan|3aya|3yit|3ya|njri|tejri|tjri|\bjri\b|tmrin|tamrin|nrta7|rah?ti|wja3|ywaj3|s7iti|nhbes)/i
 ];
 
+const isOnTopicText = (text: string) => onTopicPatterns.some((pattern) => pattern.test(text));
+const correctionSubject = /^(?:today|yesterday|tomorrow|tonight|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|aujourd'hui|hier|demain|matin|soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|lyoum|lbare7|ghedwa|البارح|اليوم|غدوة|الصباح|العشية|الجمعة)(?![\p{L}\p{N}])/iu;
+
+function correctionRemainder(text: string): string | null {
+  const prefix = /^(?:not what i meant|i meant|no|non|je voulais dire|قصدي|ماشي هكا|لا|la|qasdi|machi hka)(?:\s*[,،:]\s*|\s+)/iu;
+  if (!prefix.test(text)) return null;
+  return text.replace(prefix, "")
+    .replace(/^(?:i meant|je voulais dire|قصدي|qasdi)(?:\s*[,،:]\s*|\s+)/iu, "")
+    .trim();
+}
+
 export function evaluateTopicality(
   message: string | null | undefined,
   followUp?: Pick<Partial<CoachResponse>, "followUpQuestion" | "quickReplies"> | null
 ): { onTopic: boolean } {
   const text = (message ?? "").trim();
-  // Repair applies to an ANSWER too, not only to a still-pending clarification.
-  if (followUp && text.length <= 240 && /^(not what i meant|i meant\b|no[, ]|just one practical|une seule action|je voulais dire\b|non[, ]|قصدي|ماشي هكا|لا[, ،]|la[, ]+qasdi)/iu.test(text)) {
-    return { onTopic: true };
-  }
   // A choice offered by this runner's recent coach question is necessarily a valid reply.
   const normalize = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase();
   if (followUp?.followUpQuestion && followUp.quickReplies?.some((reply) => normalize(reply) === normalize(text))) {
     return { onTopic: true };
   }
+  // A correction may follow an ANSWER as well as a clarification, but the prefix alone is not a
+  // topicality bypass. Its short remainder must itself be about running or identify a bounded time
+  // correction such as "No, I meant Friday" / "machi hka, qasdi lyoum".
+  const corrected = followUp && text.length <= 240 ? correctionRemainder(text) : null;
+  if (corrected !== null && corrected.length <= 120 &&
+    (corrected.length === 0 || isOnTopicText(corrected) || correctionSubject.test(corrected))) {
+    return { onTopic: true };
+  }
+  if (followUp && /^(?:just one practical action|une seule action)[.!]?$/iu.test(text)) return { onTopic: true };
   // Short clarifications/corrections need the pending question to supply their subject. Do not
   // whitelist arbitrary prose merely because an earlier interaction once asked a question.
   if (followUp?.followUpQuestion && text.length <= 240 &&
@@ -61,7 +77,7 @@ export function evaluateTopicality(
   }
   // Very short or empty messages can't be reliably classified; let them through.
   if (text.length < 6) return { onTopic: true };
-  return { onTopic: onTopicPatterns.some((pattern) => pattern.test(text)) };
+  return { onTopic: isOnTopicText(text) };
 }
 
 export function buildOffTopicCoachResponse(locale: "en" | "fr" | "ar"): CoachResponse {

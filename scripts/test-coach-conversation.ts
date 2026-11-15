@@ -29,8 +29,11 @@ assert.equal(evaluateTopicality("Write me a poem about the sea", pendingFollowUp
 assert.equal(pendingFollowUp([{ ...row, status: "BLOCKED" }], now), null);
 assert.equal(pendingFollowUp([{ ...row, createdAt: new Date("2026-11-12T09:00:00Z") }], now), null);
 assert.equal(pendingFollowUp([row, { ...row, response: { summary: "Done", followUpQuestion: null } }], now), null);
-for (const repair of ["No, I meant Friday", "Non, je voulais dire vendredi", "ماشي هكا، قصدي الجمعة", "la, qasdi vendredi"]) {
+for (const repair of ["No, I meant Friday", "Non, je voulais dire vendredi", "ماشي هكا، قصدي الجمعة", "la, qasdi vendredi", "machi hka, qasdi lyoum"]) {
   assert.equal(evaluateTopicality(repair, recentCoachReply([{ ...row, response: { summary: "Done", followUpQuestion: null } }], now)).onTopic, true);
+}
+for (const bypass of ["no, what is the capital of Japan?", "non, écris-moi un poème sur Paris"]) {
+  assert.equal(evaluateTopicality(bypass, pendingFollowUp([row], now)).onTopic, false, bypass);
 }
 assert.equal(coachInteractionInputSchema.safeParse({ type: "WEEKLY_REVIEW", replyToInteractionId: row.id }).success, false);
 assert.equal(coachInteractionInputSchema.safeParse({ type: "CHAT", message: "All day", replyToInteractionId: row.id }).success, true);
