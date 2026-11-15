@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -252,6 +253,27 @@ class ApiClientTest {
         val request = server.takeRequest()
         assertNull(request.getHeader("Authorization"))
         assertTrue(request.getHeader("X-Request-Id")!!.isNotBlank())
+    }
+
+    @Test
+    fun `an anonymous diagnostics upload carries no token even when signed in`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(202))
+        server.enqueue(MockResponse().setResponseCode(202))
+        val provider = object : AuthTokenProvider {
+            override fun currentAccessToken(): String = "runner-b-token"
+            override suspend fun refreshAccessToken(): String? = null
+        }
+        val (api, _) = api(provider)
+        val body = "{}".toRequestBody()
+
+        api.sendDiagnosticsAnonymously(body)
+        api.sendDiagnostics(body)
+
+        val anonymous = server.takeRequest()
+        assertNull(anonymous.getHeader("Authorization"))
+        // The local marker never leaves the device.
+        assertNull(anonymous.getHeader(ANONYMOUS_CALL_HEADER))
+        assertEquals("Bearer runner-b-token", server.takeRequest().getHeader("Authorization"))
     }
 
     @Test

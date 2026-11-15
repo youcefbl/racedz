@@ -42,14 +42,17 @@ function userWhere(q: string): Prisma.UserWhereInput {
 export async function getRunDiagnosticsStats(days: DiagnosticPeriod) {
   const prisma = getPrisma();
   const since = new Date(Date.now() - days * DAY);
-  const [sessionsByStatus, lost, reports, applied, flagged] = await Promise.all([
+  const crashWhere: Prisma.ClientDiagnosticReportWhereInput = { createdAt: { gte: since }, kind: { in: ["CRASH", "PROCESS_EXIT"] } };
+  const [sessionsByStatus, lost, crashes, problems, devices, applied, flagged] = await Promise.all([
     prisma.runSession.groupBy({ by: ["status"], where: { startedAt: { gte: since } }, _count: { _all: true } }),
     prisma.runSession.count({ where: { status: "ABANDONED", startedAt: { gte: new Date(Date.now() - 30 * DAY) } } }),
-    prisma.clientDiagnosticReport.findMany({
-      where: { createdAt: { gte: since }, kind: { in: ["CRASH", "PROCESS_EXIT"] } },
-      select: { fingerprint: true, deviceModel: true, installId: true },
-      take: REPORT_SCAN_LIMIT,
-    }),
+    // Exact numbers from the database, not a capped scan: during a big incident the page must not
+    // read "1000" while hiding the rest (review P2). Groups are one row per distinct problem or
+    // device, so they stay small even when reports do not.
+    prisma.clientDiagnosticReport.count({ where: crashWhere }),
+    prisma.clientDiagnosticReport.groupBy({ by: ["fingerprint"], where: crashWhere }),
+    // A device is its install id; reports from before install ids existed fall back to the model.
+    prisma.clientDiagnosticReport.groupBy({ by: ["installId", "deviceModel"], where: crashWhere }),
     prisma.runDistanceEvaluation.count({ where: { algoVersion: DISTANCE_ALGO_VERSION, decision: "APPLIED" } }),
     prisma.runDistanceEvaluation.count({ where: { algoVersion: DISTANCE_ALGO_VERSION, decision: "FLAGGED" } }),
   ]);
@@ -61,9 +64,9 @@ export async function getRunDiagnosticsStats(days: DiagnosticPeriod) {
     discarded: byStatus.DISCARDED ?? 0,
     open: (byStatus.STARTED ?? 0) + (byStatus.FINISHED ?? 0),
     lost30d: lost,
-    crashes: reports.length,
-    crashProblems: new Set(reports.map((r) => r.fingerprint)).size,
-    crashDevices: new Set(reports.map((r) => r.installId ?? r.deviceModel ?? "?")).size,
+    crashes,
+    crashProblems: problems.length,
+    crashDevices: new Set(devices.map((r) => r.installId ?? r.deviceModel ?? "?")).size,
     applied,
     flagged,
     algoVersion: DISTANCE_ALGO_VERSION,
@@ -162,9 +165,12 @@ export type AdminDiagnosticGroup = {
   fingerprint: string;
   kind: string;
   code: string;
+  /** Exact, from the database. */
   count: number;
   runners: number;
   devices: string[];
+  /** True when runners/devices/versions/duringRun come from the newest [REPORT_SCAN_LIMIT] reports only. */
+  sampled: boolean;
   appVersions: string[];
   firstAt: Date;
   lastAt: Date;
@@ -188,8 +194,7 @@ export async function getAdminDiagnosticGroups(filters: DiagnosticFilters): Prom
   const prisma = getPrisma();
   const q = filters.q?.trim();
   const kind = filters.kind === "CRASH" || filters.kind === "PROCESS_EXIT" || filters.kind === "ISSUE" ? filters.kind : undefined;
-  const rows = await prisma.clientDiagnosticReport.findMany({
-    where: {
+  const where: Prisma.ClientDiagnosticReportWhereInput = {
       createdAt: { gte: new Date(Date.now() - filters.days * DAY) },
       ...(kind ? { kind } : {}),
       ...(q
@@ -202,7 +207,9 @@ export async function getAdminDiagnosticGroups(filters: DiagnosticFilters): Prom
             ],
           }
         : {}),
-    },
+  };
+  const rows = await prisma.clientDiagnosticReport.findMany({
+    where,
     orderBy: { occurredAt: "desc" },
     take: REPORT_SCAN_LIMIT,
     select: {
@@ -228,6 +235,7 @@ export async function getAdminDiagnosticGroups(filters: DiagnosticFilters): Prom
         firstAt: row.occurredAt,
         lastAt: row.occurredAt,
         duringRun: 0,
+        sampled: false,
         runnerKeys: new Set(),
         deviceSet: new Set(),
         versionSet: new Set(),
@@ -254,12 +262,31 @@ export async function getAdminDiagnosticGroups(filters: DiagnosticFilters): Prom
     if (row.runClientId) group.duringRun += 1;
   }
 
-  return [...groups.values()].slice(0, GROUP_LIMIT).map(({ runnerKeys, deviceSet, versionSet, ...group }) => ({
-    ...group,
-    runners: runnerKeys.size,
-    devices: [...deviceSet],
-    appVersions: [...versionSet].sort(),
-  }));
+  const shown = [...groups.values()].slice(0, GROUP_LIMIT);
+  // The scan is capped, so its tallies undercount a busy problem. The count and first-seen time of
+  // every shown group come from the database instead; the rest is labelled as sampled.
+  const sampled = rows.length >= REPORT_SCAN_LIMIT;
+  const exact = shown.length
+    ? await prisma.clientDiagnosticReport.groupBy({
+        by: ["fingerprint"],
+        where: { AND: [where, { fingerprint: { in: shown.map((g) => g.fingerprint) } }] },
+        _count: { _all: true },
+        _min: { occurredAt: true },
+      })
+    : [];
+  const exactBy = new Map(exact.map((row) => [row.fingerprint, row]));
+  return shown.map(({ runnerKeys, deviceSet, versionSet, ...group }) => {
+    const db = exactBy.get(group.fingerprint);
+    return {
+      ...group,
+      count: db?._count._all ?? group.count,
+      firstAt: db?._min.occurredAt ?? group.firstAt,
+      sampled,
+      runners: runnerKeys.size,
+      devices: [...deviceSet],
+      appVersions: [...versionSet].sort(),
+    };
+  });
 }
 
 export type AdminDistanceRow = {

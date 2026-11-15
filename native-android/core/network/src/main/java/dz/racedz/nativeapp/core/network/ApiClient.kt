@@ -177,8 +177,15 @@ internal class AuthHeaderInterceptor(private val tokenProvider: AuthTokenProvide
             .header("X-Request-Id", UUID.randomUUID().toString())
             .header("Accept", "application/json")
 
-        tokenProvider.currentAccessToken()?.let { token ->
-            builder.header("Authorization", "Bearer $token")
+        // A call marked anonymous never carries the signed-in account's token (diagnostics that
+        // belong to nobody, or to another account, must not be filed under this one).
+        val anonymous = original.header(ANONYMOUS_CALL_HEADER) != null
+        if (anonymous) {
+            builder.removeHeader(ANONYMOUS_CALL_HEADER)
+        } else {
+            tokenProvider.currentAccessToken()?.let { token ->
+                builder.header("Authorization", "Bearer $token")
+            }
         }
 
         // A marker the app puts on calls whose server work happens inside the request. It is a local
@@ -204,6 +211,9 @@ internal class AuthHeaderInterceptor(private val tokenProvider: AuthTokenProvide
  * work, not for the network.
  */
 const val SLOW_CALL_HEADER: String = "X-ZidRun-Slow-Call"
+
+/** Marks a call that must go without the signed-in account's token; removed before sending. */
+const val ANONYMOUS_CALL_HEADER: String = "X-ZidRun-Anonymous"
 
 /** Long enough for a slow generation, short enough that a genuinely dead request still ends. */
 internal const val SLOW_CALL_READ_TIMEOUT_SECONDS_INT: Int = 120

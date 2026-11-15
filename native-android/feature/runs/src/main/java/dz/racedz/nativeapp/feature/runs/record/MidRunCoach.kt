@@ -57,13 +57,17 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            // A failure leaves canCoach=false: unknown entitlement hides the affordance rather than
-            // showing a coach button that would only 402 on tap. The server is the real gate anyway.
-            val canCoach = when (val result = coach.overview()) {
-                is ApiResult.Success -> result.value.entitlement.tier != "NONE"
-                is ApiResult.Failure -> false
-            }
-            _state.update { it.copy(canCoach = canCoach, ready = true) }
+            resolveCoachEntitlement(
+                check = {
+                    when (val result = coach.overview()) {
+                        is ApiResult.Success ->
+                            if (result.value.entitlement.tier != "NONE") EntitlementCheck.Entitled else EntitlementCheck.NotEntitled
+                        is ApiResult.Failure ->
+                            if (result.error.requiresSignIn) EntitlementCheck.SignedOut else EntitlementCheck.Unavailable
+                    }
+                },
+                onResult = { canCoach -> _state.update { it.copy(canCoach = canCoach, ready = true) } },
+            )
         }
     }
 
@@ -299,3 +303,36 @@ class RunCoachVoiceRecorder(private val context: Context) {
         const val MIME_TYPE = "audio/mp4"
     }
 }
+
+/** What one entitlement lookup said. [Unavailable] (offline, server error) is not an answer. */
+internal enum class EntitlementCheck { Entitled, NotEntitled, Unavailable, SignedOut }
+
+/**
+ * Resolves whether the coach button shows, retrying while the answer is unknown.
+ *
+ * A failed lookup used to mean "not entitled" for the whole run, so a dropped connection at the
+ * start line hid the coach until the next run even after signal came back. Now only a real answer
+ * (or a signed-out session) settles it; an unavailable lookup reports "hidden for now" and tries
+ * again with backoff (15 s doubling to 2 min) for as long as the recording screen lives.
+ */
+internal suspend fun resolveCoachEntitlement(
+    check: suspend () -> EntitlementCheck,
+    onResult: (canCoach: Boolean) -> Unit,
+    wait: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
+) {
+    var backoffMs = ENTITLEMENT_RETRY_START_MS
+    while (true) {
+        when (check()) {
+            EntitlementCheck.Entitled -> { onResult(true); return }
+            EntitlementCheck.NotEntitled, EntitlementCheck.SignedOut -> { onResult(false); return }
+            EntitlementCheck.Unavailable -> {
+                onResult(false)
+                wait(backoffMs)
+                backoffMs = (backoffMs * 2).coerceAtMost(ENTITLEMENT_RETRY_MAX_MS)
+            }
+        }
+    }
+}
+
+private const val ENTITLEMENT_RETRY_START_MS = 15_000L
+private const val ENTITLEMENT_RETRY_MAX_MS = 120_000L

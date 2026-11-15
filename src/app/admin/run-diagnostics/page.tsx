@@ -490,6 +490,7 @@ function DiagnosticGroupCard({ group, open }: { group: AdminDiagnosticGroup; ope
           <p className="text-xs text-gray-500">
             {group.count} {group.count === 1 ? "report" : "reports"} · {group.runners} {group.runners === 1 ? "runner" : "runners"} · {group.devices.join(", ")} · {versions} ·{" "}
             {group.duringRun > 0 ? `${group.duringRun} during a recording` : "not during a recording"}
+            {group.sampled ? " · runner, device and recording figures from the newest 1,000 reports" : ""}
           </p>
         </div>
         <p className="shrink-0 text-right text-xs text-gray-500">

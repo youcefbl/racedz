@@ -126,7 +126,6 @@ export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurem
     const step = haversineMeters(last, p);
     const dt = p.t != null && last.t != null ? (p.t - last.t) / 1000 : null;
 
-    if (dt != null && dt > 0) speeds.push(step / dt);
     if (dt != null && dt <= 0) {
       rejectedPoints++;
       continue;
@@ -142,6 +141,9 @@ export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurem
       last = p;
       continue;
     }
+    // Only segments that passed validation describe how the runner moved: a rejected teleport
+    // (or a bridged gap) pushed here would itself flag the run as non-foot (review P1).
+    if (dt != null) speeds.push(step / dt);
     if (dt != null && step / dt >= MIN_MOVING_SPEED_MPS) movingSeconds += dt;
 
     const fromBase = haversineMeters(base, p);

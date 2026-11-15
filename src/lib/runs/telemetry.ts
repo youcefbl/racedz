@@ -49,7 +49,65 @@ export const runSessionEndSchema = z.object({
   summary: deviceFactsSchema.optional(),
 });
 
-const KEY_DENYLIST = /^(lat|lng|lon|latitude|longitude|location|coords?|email|phone|token|access_?token|refresh_?token|password|authorization|cookie)$/i;
+/** Words that make a key unsafe whatever its value: coordinates, contact details, credentials. */
+const ALWAYS_SENSITIVE_WORDS = new Set([
+  "lat", "lng", "lon", "latitude", "longitude", "coord", "coords", "coordinate", "coordinates",
+  "position", "address", "email", "phone", "token", "password", "passwd", "secret", "authorization",
+  "auth", "cookie", "session", "credential", "credentials", "bearer", "jwt",
+]);
+
+/**
+ * Location-ish words. A key with one of these is kept only as a switch or a count
+ * (`locationEnabled`, `permFineLocation`, `recorderRoutePoints`) — never as a value that could
+ * hold a place (`lastLocation`, `routeTrack`, `gpsFix`).
+ */
+const LOCATION_WORDS = new Set(["location", "loc", "route", "gps", "geo", "track", "fix", "place"]);
+const COUNT_WORDS = new Set(["points", "count", "counts", "size", "total"]);
+
+/** `startLat` / `last_latitude` / `route-coordinates` → ["start","lat"] / ["last","latitude"] / … */
+function keyWords(key: string): string[] {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** Whether a fact under [key] could store a location, contact detail or credential. */
+export function isSensitiveKey(key: string, value: unknown): boolean {
+  const words = keyWords(key);
+  if (words.length === 0) return false;
+  // Glued names ("accesstoken", "userEmail" lower-cased by a client) are caught on the whole key too.
+  const glued = words.join("");
+  if (words.some((w) => ALWAYS_SENSITIVE_WORDS.has(w))) return true;
+  if (/(latitude|longitude|coordinates?|token|password|email|phone|secret|cookie)/.test(glued)) return true;
+  if (words.some((w) => LOCATION_WORDS.has(w))) {
+    if (typeof value === "boolean") return false;
+    if (typeof value === "number" && COUNT_WORDS.has(words[words.length - 1])) return false;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Masks what a free-text field (exception message, stack trace, breadcrumb) could carry by
+ * accident: e-mail addresses, bearer/JWT tokens and `token=`-style secrets, coordinate pairs (an
+ * Android `Location.toString()` prints them) and phone numbers.
+ */
+export function redactText(text: string): string {
+  return text
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [token]")
+    .replace(/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]+/g, "[token]")
+    .replace(
+      /\b((?:access|refresh|id|auth)?_?token|password|passwd|secret|api_?key)(\s*[=:]\s*)("?)[^\s&"',;)]+/gi,
+      "$1$2$3[redacted]",
+    )
+    .replace(/\b(lat|lng|lon|latitude|longitude)(\s*[=:]\s*)-?\d+(?:\.\d+)?/gi, "$1$2[redacted]")
+    .replace(/-?\d{1,3}\.\d{4,}\s*[,;/ ]\s*-?\d{1,3}\.\d{4,}/g, "[coordinates]")
+    .replace(/(?:\+|00)213[\s.-]?\d(?:[\s.-]?\d){7,8}\b|\b0[5-7]\d(?:[\s.-]?\d){7}\b/g, "[phone]");
+}
 
 /** Drops keys that would turn a diagnostic payload into a store of location or credentials. */
 export function scrubFacts(value: unknown, depth = 0): unknown {
@@ -58,12 +116,12 @@ export function scrubFacts(value: unknown, depth = 0): unknown {
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [key, inner] of Object.entries(value as Record<string, unknown>).slice(0, 80)) {
-      if (KEY_DENYLIST.test(key)) continue;
+      if (isSensitiveKey(key, inner)) continue;
       out[key] = scrubFacts(inner, depth + 1);
     }
     return out;
   }
-  if (typeof value === "string") return value.slice(0, 2000);
+  if (typeof value === "string") return redactText(value.slice(0, 2000));
   return value;
 }
 
@@ -183,9 +241,10 @@ export async function storeDiagnosticReports(userId: string | null, reports: z.i
           installId: report.installId ?? null,
           kind: report.kind,
           code: report.code,
-          message: report.message ?? null,
-          stackTrace: report.stackTrace ?? null,
-          fingerprint: diagnosticFingerprint(report.code, report.stackTrace),
+          // Free text is masked too: an exception message can quote whatever the code held.
+          message: report.message != null ? redactText(report.message) : null,
+          stackTrace: report.stackTrace != null ? redactText(report.stackTrace) : null,
+          fingerprint: diagnosticFingerprint(report.code, report.stackTrace != null ? redactText(report.stackTrace) : null),
           occurredAt: report.occurredAt,
           platform: report.platform,
           appVersion: report.appVersion ?? null,

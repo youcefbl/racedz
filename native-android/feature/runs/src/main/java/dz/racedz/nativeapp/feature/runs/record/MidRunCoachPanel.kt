@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -57,6 +58,8 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 fun MidRunCoachButton(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
+            // 48 dp: a mid-run tap with a moving thumb — the label alone measured ~36 dp.
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
             .background(zidRunOnDarkColors().primary.copy(alpha = 0.14f))
             .clickable(role = Role.Button, onClick = onOpen)

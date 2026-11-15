@@ -281,6 +281,11 @@ interface ZidRunApi {
     @POST("api/v1/diagnostics")
     suspend fun sendDiagnostics(@Body body: okhttp3.RequestBody): Response<ResponseBody>
 
+    /** The same, with no token even when signed in: the reports are stored with no account. */
+    @POST("api/v1/diagnostics")
+    @Headers("$ANONYMOUS_CALL_HEADER: 1")
+    suspend fun sendDiagnosticsAnonymously(@Body body: okhttp3.RequestBody): Response<ResponseBody>
+
     /** Files a moderation report against a race, run, or runner. */
     @POST("api/v1/reports")
     suspend fun createReport(@Body body: CreateReportRequest): Response<ApiEnvelope<JsonObject>>

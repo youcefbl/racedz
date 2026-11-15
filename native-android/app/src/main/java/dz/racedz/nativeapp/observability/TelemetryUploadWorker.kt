@@ -32,7 +32,10 @@ import retrofit2.Response
  * of up to 20. A 2xx or a refused body (4xx other than auth/not-found/rate limits) removes the
  * envelope — a body the server refuses once it will refuse forever; anything transient retries.
  * Session events belong to the account that recorded them: if a different account is signed in
- * when they are sent, they are dropped rather than filed under the wrong person.
+ * when they are sent, they are dropped rather than filed under the wrong person. Diagnostics carry
+ * the account that was signed in when they happened (or none): they go with the token only while
+ * that same account is signed in, and otherwise anonymously — never under another account
+ * ([diagnosticRoute]).
  */
 class TelemetryUploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -42,7 +45,14 @@ class TelemetryUploadWorker(context: Context, params: WorkerParameters) : Corout
         val currentUserId: () -> String?,
         /** Refreshes the session after a 401 (the raw API has no refresh of its own); null = signed out. */
         val refreshAccessToken: suspend () -> String?,
+        /** Posts a diagnostics batch, with the signed-in token or [anonymous]ly. Replaced in tests. */
+        val postDiagnostics: suspend (body: okhttp3.RequestBody, anonymous: Boolean) -> Response<*> = { body, anonymous ->
+            if (anonymous) api.sendDiagnosticsAnonymously(body) else api.sendDiagnostics(body)
+        },
     )
+
+    /** How one diagnostic is sent. */
+    enum class DiagnosticRoute { SignedIn, Anonymous }
 
     override suspend fun doWork(): Result {
         val deps = dependencies ?: return Result.success()
@@ -62,6 +72,16 @@ class TelemetryUploadWorker(context: Context, params: WorkerParameters) : Corout
         private val drainLock = Mutex()
 
         private enum class Outcome { Done, Retry }
+
+        /**
+         * With the token only when the diagnostic's owner is the account signed in now; anything
+         * else (no owner, signed out, another account) goes with no account at all.
+         */
+        fun diagnosticRoute(ownerUserId: String?, currentUserId: String?): DiagnosticRoute =
+            if (ownerUserId != null && ownerUserId == currentUserId) DiagnosticRoute.SignedIn else DiagnosticRoute.Anonymous
+
+        /** Drains the queue once; for the on-device regression test. True = something must retry. */
+        suspend fun drainForTest(deps: Dependencies): Boolean = drain(deps)
 
         fun install(deps: Dependencies) {
             dependencies = deps
@@ -119,21 +139,27 @@ class TelemetryUploadWorker(context: Context, params: WorkerParameters) : Corout
                 }
             }
 
-            diagnostics.chunked(20).forEach { batch ->
-                val reports = JSONArray()
-                batch.forEach { reports.put(it.payload) }
-                val outcome = send(deps) { deps.api.sendDiagnostics(JSONObject().put("reports", reports).toString().toRequestBody(JSON)) }
-                when (outcome) {
-                    Outcome.Done -> batch.forEach(deps.queue::remove)
-                    Outcome.Retry -> transientFailure = true
+            val current = deps.currentUserId()
+            diagnostics.groupBy { diagnosticRoute(it.ownerUserId, current) }.forEach { (route, group) ->
+                val anonymous = route == DiagnosticRoute.Anonymous
+                group.chunked(20).forEach { batch ->
+                    val reports = JSONArray()
+                    batch.forEach { reports.put(it.payload) }
+                    val body = JSONObject().put("reports", reports).toString()
+                    // Anonymous batches never refresh-and-replay with a token (see send).
+                    val outcome = send(deps, allowRefresh = !anonymous) { deps.postDiagnostics(body.toRequestBody(JSON), anonymous) }
+                    when (outcome) {
+                        Outcome.Done -> batch.forEach(deps.queue::remove)
+                        Outcome.Retry -> transientFailure = true
+                    }
                 }
             }
             transientFailure
         }
 
-        private suspend fun send(deps: Dependencies, call: suspend () -> Response<*>): Outcome = try {
+        private suspend fun send(deps: Dependencies, allowRefresh: Boolean = true, call: suspend () -> Response<*>): Outcome = try {
             var response = call()
-            if (response.code() == 401) {
+            if (response.code() == 401 && allowRefresh) {
                 // An expired access token: refresh once and replay, as ApiClient does. If the
                 // session is gone the replay goes without a token (diagnostics are then stored
                 // anonymously; session events wait for the owner to sign back in).

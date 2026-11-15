@@ -17,9 +17,13 @@ import org.json.JSONObject
  * Synchronous on purpose — the crash handler writes from a dying thread and cannot wait for a
  * coroutine. Writes are a few KB.
  */
-class TelemetryQueue(context: Context) {
+class TelemetryQueue(private val dir: File) {
 
-    private val dir = File(context.applicationContext.filesDir, "telemetry").apply { mkdirs() }
+    constructor(context: Context) : this(File(context.applicationContext.filesDir, "telemetry"))
+
+    init {
+        dir.mkdirs()
+    }
 
     data class Envelope(val file: File, val type: String, val ownerUserId: String?, val payload: JSONObject)
 

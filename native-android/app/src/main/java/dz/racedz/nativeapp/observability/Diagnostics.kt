@@ -90,7 +90,7 @@ class Diagnostics(
         if (!CrashReporting.isEnabled(this.context)) return
         val payload = baseReport(kind = "ISSUE", code = code, message = message, runClientId = runClientId)
         payload.put("context", contextJson(context))
-        queue.enqueue(TelemetryQueue.TYPE_DIAGNOSTIC, payload)
+        queue.enqueue(TelemetryQueue.TYPE_DIAGNOSTIC, payload, currentUserId())
         flush()
     }
 
@@ -135,8 +135,9 @@ class Diagnostics(
         )
         payload.put("stackTrace", trace.take(MAX_TRACE_CHARS))
         payload.put("context", contextJson(mapOf("thread" to thread.name)))
-        // Synchronous: the process is about to die. Upload happens on the next launch.
-        queue.enqueue(TelemetryQueue.TYPE_DIAGNOSTIC, payload)
+        // Synchronous: the process is about to die. Upload happens on the next launch — under the
+        // account signed in now, or anonymously if a different one is signed in by then.
+        queue.enqueue(TelemetryQueue.TYPE_DIAGNOSTIC, payload, runCatching { currentUserId() }.getOrNull())
     }
 
     /**
@@ -188,7 +189,9 @@ class Diagnostics(
                     )
                 ),
             )
-            queue.enqueue(TelemetryQueue.TYPE_DIAGNOSTIC, payload)
+            // The exit happened before this launch, under an account we cannot know for sure: only
+            // an interrupted run of the signed-in runner ties it to them, otherwise it is anonymous.
+            queue.enqueue(TelemetryQueue.TYPE_DIAGNOSTIC, payload, interruptedRun?.let { currentUserId() })
         }
     }
 

@@ -6,7 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { decideDistance, measureRoute, type RoutePoint } from "../src/lib/runs/distance-correction";
-import { diagnosticFingerprint, scrubFacts } from "../src/lib/runs/telemetry";
+import { diagnosticFingerprint, redactText, scrubFacts } from "../src/lib/runs/telemetry";
 
 const LAT = 36.0;
 const LNG = 3.0;
@@ -77,6 +77,25 @@ test("a teleport point is ignored", () => {
   assert.equal(m.rejectedPoints, 1);
 });
 
+test("rejected teleports never reach the speed percentile or the decision", () => {
+  // A valid 6.5 m/s route (below the foot p90 limit) of 10 points, one of which is a bad fix —
+  // before the fix, that one rejected point alone made speedP90Mps ~157,000 and FLAGGED the run.
+  const valid = Array.from({ length: 10 }, (_, s) => point(s * 5, 6.5 * 5 * s, 0));
+  const route = [...valid];
+  route[5] = point(25, 6.5 * 25, 5_000_000);
+  const m = measureRoute(route, "RUN");
+  assert.equal(m.rejectedPoints, 1);
+  assert.ok(m.speedP90Mps <= 6.6, `speedP90Mps ${m.speedP90Mps}`);
+  // Same route with that point valid: the rejected fix must not change the speed or the verdict.
+  const clean = measureRoute(valid, "RUN");
+  assert.equal(m.speedP90Mps, clean.speedP90Mps);
+  assert.notEqual(decideDistance({ ...facts, sport: "RUN", deviceKm: 0.2 }, m).reason, "non_foot_speeds");
+  assert.equal(
+    decideDistance({ ...facts, sport: "RUN", deviceKm: 0.2 }, m).decision,
+    decideDistance({ ...facts, sport: "RUN", deviceKm: 0.2 }, clean).decision,
+  );
+});
+
 test("a long gap is not bridged", () => {
   const before = Array.from({ length: 61 }, (_, s) => point(s, 2 * s, 0));
   const after = Array.from({ length: 61 }, (_, s) => point(1000 + s, 2000 + 2 * s, 0));
@@ -126,6 +145,61 @@ test("untimed or tiny routes are not trusted", () => {
 test("scrubFacts drops location and credential keys at any depth", () => {
   const scrubbed = scrubFacts({ model: "X", lat: 1, nested: { longitude: 2, token: "t", ok: true }, list: [{ email: "a@b" }] }) as Record<string, unknown>;
   assert.deepEqual(scrubbed, { model: "X", nested: { ok: true }, list: [{}] });
+});
+
+test("scrubFacts catches compound and glued sensitive keys, keeps switches and counts", () => {
+  const scrubbed = scrubFacts({
+    startLat: 36.75,
+    lastLatitude: 36.75,
+    last_longitude: 3.04,
+    routeCoordinates: [[36.75, 3.04]],
+    "route-coordinates": "x",
+    lastLocation: { a: 1 },
+    gpsFix: "36.75,3.04",
+    authToken: "t",
+    accesstoken: "t",
+    userEmail: "a@b.dz",
+    contactPhone: "0555",
+    homeAddress: "x",
+    position: { lat: 1 },
+    // Kept: switches, permission grants and counts are not places.
+    locationEnabled: true,
+    permFineLocation: false,
+    gpsProviderEnabled: true,
+    recorderRoutePoints: 210,
+    routePoints: 12,
+    accuracyM: 4,
+    model: "PLG110",
+  }) as Record<string, unknown>;
+  assert.deepEqual(scrubbed, {
+    locationEnabled: true,
+    permFineLocation: false,
+    gpsProviderEnabled: true,
+    recorderRoutePoints: 210,
+    routePoints: 12,
+    accuracyM: 4,
+    model: "PLG110",
+  });
+});
+
+test("free text is redacted: messages, stack traces and breadcrumbs", () => {
+  const message =
+    "IllegalStateException: failed for runner@example.dz with Bearer abc.def-ghi " +
+    "token=s3cr3t&x=1 at Location[gps 36.752500,3.042000 hAcc=4] lat=36.7525 phone 0555123456 / +213 555 12 34 56 " +
+    "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.sig code=401";
+  const out = redactText(message);
+  for (const leaked of ["runner@example.dz", "abc.def-ghi", "s3cr3t", "36.752500", "3.042000", "36.7525", "0555123456", "555 12 34 56", "eyJhbGciOiJIUzI1NiJ9"]) {
+    assert.ok(!out.includes(leaked), `leaked ${leaked}: ${out}`);
+  }
+  // Diagnostic value survives: exception type, structure, HTTP codes.
+  assert.ok(out.startsWith("IllegalStateException: failed for [email]"), out);
+  assert.ok(out.includes("code=401"), out);
+  // A stack trace keeps its frames and line numbers.
+  const trace = "java.lang.RuntimeException: x\n\tat dz.racedz.A.run(A.kt:120)";
+  assert.equal(redactText(trace), trace);
+  // Breadcrumb strings inside facts go through the same redaction.
+  const facts = scrubFacts({ breadcrumbs: ["screen shell/runs", "sent to runner@example.dz"] }) as { breadcrumbs: string[] };
+  assert.deepEqual(facts.breadcrumbs, ["screen shell/runs", "sent to [email]"]);
 });
 
 test("fingerprints ignore line numbers and group the same crash", () => {
