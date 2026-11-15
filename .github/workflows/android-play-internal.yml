@@ -7,7 +7,14 @@ on:
       # separate android-v* scheme in use. The previous glob never matched any tag actually pushed,
       # so every release to date was published via workflow_dispatch instead of the tag trigger.
       - "v*"
+  # Manual publishing must name its version: falling back to the in-file versionCode (13) would be
+  # rejected by Play as soon as any tag-derived code (>= 80000) has been uploaded.
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, X.Y.Z-rcN (N = 1..98) or X.Y.Z for a final; must exceed every code already on Play"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,30 +33,32 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Derive version from release tag
-        # Tag vX.Y.Z-rcN -> versionName X.Y.Z, versionCode X*1000000 + Y*10000 + Z*100 + N.
-        # A final tag vX.Y.Z uses N=99, so it always outranks its own release candidates.
-        # Manual runs (workflow_dispatch from a branch) keep the values in app/build.gradle.kts.
+      - name: Test the version scheme
+        run: bash scripts/test-android-version-from-tag.sh
+
+      - name: Derive version
+        # vX.Y.Z-rcN -> versionName X.Y.Z, versionCode X*1000000 + Y*10000 + Z*100 + N (N = 1..98);
+        # a final vX.Y.Z uses N = 99 so it outranks its own candidates. Rules and tests live in
+        # scripts/android-version-from-tag.sh / scripts/test-android-version-from-tag.sh.
+        # Tag pushes use the tag; manual runs must supply the same form as the `version` input.
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
-            echo "Not a tag build; using versionCode/versionName from app/build.gradle.kts"
-            echo "ZIDRUN_VERSION_ARGS=" >> "$GITHUB_ENV"
-            exit 0
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            label="$INPUT_VERSION"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            label="$GITHUB_REF_NAME"
+          else
+            echo "Refusing to publish from a non-tag push ($GITHUB_REF)"; exit 1
           fi
-          tag="$GITHUB_REF_NAME"
-          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-rc([0-9]+))?$ ]]; then
-            echo "Tag '$tag' is not vX.Y.Z or vX.Y.Z-rcN"; exit 1
-          fi
-          major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]} rc=${BASH_REMATCH[5]:-99}
-          if (( minor > 99 || patch > 99 || rc < 1 || rc > 99 )); then
-            echo "Tag '$tag' is outside the versionCode scheme (minor/patch <= 99, rc 1..98)"; exit 1
-          fi
-          code=$(( 10#$major * 1000000 + 10#$minor * 10000 + 10#$patch * 100 + 10#$rc ))
-          name="$major.$minor.$patch"
+          # Captured first: a failure inside `read < <(...)` would not stop the job under set -e.
+          parsed=$(bash scripts/android-version-from-tag.sh "$label")
+          read -r name code <<< "$parsed"
           date=$(git log -1 --format=%cs "$GITHUB_SHA")
-          echo "Tag $tag -> versionName $name, versionCode $code, releaseDate $date"
+          echo "$label -> versionName $name, versionCode $code, releaseDate $date"
           echo "ZIDRUN_VERSION_ARGS=-Pzidrun.versionCode=$code -Pzidrun.versionName=$name -Pzidrun.releaseDate=$date" >> "$GITHUB_ENV"
+          echo "ZIDRUN_VERSION_LABEL=$label" >> "$GITHUB_ENV"
 
       - name: Set up Java 17
         uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4.7.1
@@ -110,7 +119,7 @@ jobs:
       - name: Keep signed AAB as a run artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: zidrun-aab-${{ github.ref_name }}
+          name: zidrun-aab-${{ env.ZIDRUN_VERSION_LABEL }}
           path: |
             native-android/app/build/outputs/bundle/release/app-release.aab
             native-android/app/build/outputs/bundle/release/app-release.aab.sha256

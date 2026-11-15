@@ -64,7 +64,8 @@ android {
         // install as a downgrade; versionName is what the filename is derived from, so the two can
         // never disagree. Do not reuse a number that has already left this machine.
         //
-        // CI overrides all three from the release tag (.github/workflows/android-play-internal.yml):
+        // CI overrides all three from the release tag, or from the required `version` input of a manual
+        // run (.github/workflows/android-play-internal.yml, scheme in scripts/android-version-from-tag.sh):
         // -Pzidrun.versionCode / -Pzidrun.versionName / -Pzidrun.releaseDate. Tag-derived codes are
         // in the 10^4+ range, so once a tagged build reaches Play, a hand-bumped local code below
         // that will be rejected there — keep Play uploads on the tag path.
