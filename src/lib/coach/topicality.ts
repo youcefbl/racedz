@@ -17,11 +17,11 @@ import type { CoachResponse } from "@/lib/coach/schemas";
 const onTopicPatterns: RegExp[] = [
   /\b(sleep|slept|tired|sommeil|dormi|récupérer|programme|sortie|sorties)\b|النوم|الاسترجاع|رقدت|نعاس/iu,
   // English
-  /\b(run(?:ning|ner|s)?|jog|race|races|racing|marathon|half[- ]?marathon|sprint|pace|paces|tempo|interval|fartlek|stride|cadence|split|negative split|taper|warm[- ]?up|cool[- ]?down|cross[- ]?train|treadmill|track|trail|5k|10k|21k|42k|km|kilomet|mile|long run|easy run|recovery|rest day|workout|training|train|plan|fitness|endurance|stamina|vo2|heart rate|hr zone|effort|fatigue|injur|knee|shin|calf|hamstring|achilles|plantar|ankle|hip|cramp|blister|stretch|mobility|hydrat|nutrition|fuel|gel|carb|protein|electrolyte|shoe|trainers|sweat|breath)/i,
+  /\b(run(?:ning|ner|s)?|jog|race|races|racing|marathon|half[- ]?marathon|sprint|pace|paces|tempo|interval|fartlek|stride|cadence|split|negative split|taper|warm[- ]?up|cool[- ]?down|cross[- ]?train|treadmill|track|trail|5k|10k|21k|42k|km|kilomet|mile|long run|easy run|recovery|rest day|workout|training|train|plan|fitness|endurance|stamina|vo2|heart rate|hr zone|effort|fatigue|injur|knee|shin|calf|hamstring|achilles|plantar|ankle|hip|cramp|blister|stretch|mobility|hydrat|nutrition|fuel|gel|carb|protein|electrolyte|shoe|trainers|sweat|breath|goal|week|session|coach|schedule|walk|hik(?:e|ing)|personal best|\bpb\b|finish time|age group)/i,
   // French
-  /\b(cour(?:ir|se|ses|eur)|jogging|allure|rythme|fractionn|seuil|sortie longue|récupération|échauffement|entra[iî]nement|s[ée]ance|plan|endurance|blessure|genou|mollet|tendon|cheville|hanche|étirement|hydrat|nutrition|foul[ée]e|cadence|fréquence cardiaque|fatigue|marathon|trail|piste|tapis)/i,
+  /\b(cour(?:ir|se|ses|eur)|jogging|allure|rythme|fractionn|seuil|sortie longue|récupération|échauffement|entra[iî]nement|s[ée]ance|plan|endurance|blessure|genou|mollet|tendon|cheville|hanche|étirement|hydrat|nutrition|foul[ée]e|cadence|fréquence cardiaque|fatigue|marathon|trail|piste|tapis|objectif|semaine|coach|marche|randonn)/i,
   // Arabic (MSA)
-  /(جري|الجري|ركض|الركض|سباق|ماراثون|وتيرة|إيقاع|تدريب|حصة|خطة|تحمل|إصابة|ركبة|عضلة|كاحل|إطالة|إحماء|استشفاء|تغذية|ترطيب|نبض|تعب|مسافة|كيلومتر|هرولة)/,
+  /(جري|الجري|ركض|الركض|سباق|ماراثون|وتيرة|إيقاع|تدريب|حصة|خطة|تحمل|إصابة|ركبة|عضلة|كاحل|إطالة|إحماء|استشفاء|تغذية|ترطيب|نبض|تعب|مسافة|كيلومتر|هرولة|هدف|الهدف|أسبوع|الأسبوع|مشي|المشي)/,
   // Algerian darija, Arabic script.
   //
   // This list is not a nicety. The product's documented Arabic voice IS darija, and the system
@@ -43,7 +43,9 @@ const isOnTopicText = (text: string) => onTopicPatterns.some((pattern) => patter
 const correctionSubject = /^(?:today|yesterday|tomorrow|tonight|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|aujourd'hui|hier|demain|matin|soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|lyoum|lbare7|ghedwa|البارح|اليوم|غدوة|الصباح|العشية|الجمعة)(?![\p{L}\p{N}])/iu;
 
 function correctionRemainder(text: string): string | null {
-  const prefix = /^(?:not what i meant|i meant|no|non|je voulais dire|قصدي|ماشي هكا|لا|la|qasdi|machi hka)(?:\s*[,،:]\s*|\s+)/iu;
+  // The app pre-fills its repair composer with "What I meant was…" / "Ce que je voulais dire…" /
+  // "قصدي…", so those leads — with or without the ellipsis — are corrections too.
+  const prefix = /^(?:what i meant (?:was|is)|not what i meant|i meant|no|non|ce que je voulais dire|je voulais dire|قصدي|ماشي هكا|لا|la|qasdi|machi hka)(?:\s*(?:…|\.\.\.))?(?:\s*[,،:]\s*|\s+)/iu;
   if (!prefix.test(text)) return null;
   return text.replace(prefix, "")
     .replace(/^(?:i meant|je voulais dire|قصدي|qasdi)(?:\s*[,،:]\s*|\s+)/iu, "")

@@ -14,6 +14,7 @@
  *   npm run test:coach-topicality
  */
 import { evaluateTopicality } from "../src/lib/coach/topicality";
+import { isArabicCoachQuestion } from "../src/lib/coach/response-locale";
 
 let passed = 0;
 let failed = 0;
@@ -51,6 +52,14 @@ expect("Quand placer ma sortie facile ?", true, "french: easy run scheduling");
 expect("How should I manage poor sleep?", true, "english: sleep belongs to recovery");
 expect("النوم تاعي مليح للاسترجاع؟", true, "darija: sleep and recovery");
 
+// ---- Goal / plan questions without a running keyword (M21 production smoke 2026-11-15) -------
+expect("How realistic is this goal, and why does this first week fit me?", true, "english: goal feasibility (persona-plan question a)");
+expect("Is my goal too ambitious for the date I picked?", true, "english: goal ambition");
+expect("Can I swap two sessions this week?", true, "english: swap sessions");
+expect("How fast should I walk to warm up for a walk-run?", true, "english: walking");
+expect("Mon objectif est-il réaliste ?", true, "french: goal realism");
+expect("الهدف تاعي معقول؟", true, "darija: is my goal reasonable");
+
 // ---- Still refused. A gate that passes everything is not a gate ----------------------------------
 expect("واش نديري باش نطيب الكسكس؟", false, "darija: how do I cook couscous");
 expect("شكون ربح الماتش تاع البارح؟", false, "darija: who won yesterday's match");
@@ -60,6 +69,30 @@ expect("ما هي عاصمة اليابان؟", false, "MSA: capital of Japan");
 
 // ---- Too short to classify: let it through rather than refuse blind -------------------------------
 expect("ok", true, "very short message is not classified");
+
+// ---- Repair corrections use the app's own pre-filled lead -------------------------------------
+const pendingAnswer = { followUpQuestion: null, quickReplies: [] };
+for (const [message, note] of [
+  ["What I meant was… friday instead", "en repair lead with ellipsis + day"],
+  ["Ce que je voulais dire… demain", "fr repair lead"],
+  ["قصدي… غدوة", "ar repair lead"]
+] as const) {
+  const ok = evaluateTopicality(message, pendingAnswer).onTopic;
+  console.log(`${ok ? "  ok  " : "  FAIL"}  ${note} — "${message}"`);
+  if (ok) passed += 1; else failed += 1;
+}
+
+// ---- Reply-language detection must not mistake English words for arabizi ----------------------
+for (const [message, arabic, note] of [
+  ["Could I win my age group in a local 5K race one day?", false, "english 'win' is not arabizi"],
+  ["Who will win the next World Cup?", false, "english 'win' (off-topic decline stays English)"],
+  ["wach ndir ki nhes rouhi 3ayan ?", true, "arabizi is still detected"],
+  ["win rak tejri lyoum? wach", true, "arabizi with other markers"]
+] as const) {
+  const ok = isArabicCoachQuestion(message) === arabic;
+  console.log(`${ok ? "  ok  " : "  FAIL"}  ${note} — "${message}"`);
+  if (ok) passed += 1; else failed += 1;
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
