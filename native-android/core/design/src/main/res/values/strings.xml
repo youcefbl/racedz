@@ -704,6 +704,8 @@
     <string name="coach_chat_hint">Ask a question</string>
     <string name="coach_chat_send">Send</string>
     <string name="coach_consent_required">Your coach needs your consent to use health details. Open your goal and save it to continue.</string>
+    <string name="coach_chat_limit_reached">Your coach has answered all the questions it can for now. Your allowance renews over the next 24 hours.</string>
+    <string name="coach_chat_subscription_required">Your free coach trial has ended. Subscribe to keep asking your coach.</string>
     <string name="coach_consent_review_goal">Review goal and consent</string>
     <string name="coach_voice_record">Record a voice note</string>
     <string name="coach_voice_stop">Stop recording</string>

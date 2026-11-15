@@ -105,7 +105,9 @@ fun CoachOnboardingScreen(
     var step by rememberSaveable { mutableStateOf(1) }
 
     // Step 1 — goal.
-    var goalType by rememberSaveable { mutableStateOf("TEN_K") }
+    // No preselected goal: a default chip ("10K") was easy to submit without noticing, which built
+    // a plan for a race the runner never chose (M21 production smoke, 2026-11-15).
+    var goalType by rememberSaveable { mutableStateOf("") }
     var customGoal by rememberSaveable { mutableStateOf("") }
     var weeks by rememberSaveable { mutableStateOf("8") }
     var targetDistanceKm by rememberSaveable { mutableStateOf("") }
@@ -190,7 +192,8 @@ fun CoachOnboardingScreen(
     val weeklyValue = weeklyKm.toDoubleOrNull()
     val weeksValue = weeks.toIntOrNull()
 
-    val step1Ok = (weeksValue ?: 0) > 0 &&
+    val step1Ok = goalType.isNotEmpty() &&
+        (weeksValue ?: 0) > 0 &&
         (goalType != "OTHER" || customGoal.trim().length >= 3) &&
         parseTargetTimeSeconds(targetTime) != INVALID_TIME
     val step2Ok = weeklyValue != null &&
@@ -494,6 +497,14 @@ fun CoachOnboardingScreen(
                                 ?.let { ReviewRow(stringResource(R.string.coach_setup_custom_goal), it) }
                             targetDateFor(weeksValue)?.let {
                                 ReviewRow(stringResource(R.string.coach_setup_target_date), it.toString())
+                            }
+                            // Optional targets are part of what the coach uses ("Your 5K goal of
+                            // 30:00…"), so the review shows them — it used to omit both.
+                            targetDistanceKm.toDoubleOrNull()?.let {
+                                ReviewRow(stringResource(R.string.coach_setup_target_distance), trimNumber(it))
+                            }
+                            parseTargetTimeSeconds(targetTime).takeIf { it > 0 }?.let {
+                                ReviewRow(stringResource(R.string.coach_setup_target_time), formatTargetTime(it))
                             }
                             ReviewRow(stringResource(R.string.coach_setup_experience), experienceLabel(experience))
                             ReviewRow(

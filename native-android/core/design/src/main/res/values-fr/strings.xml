@@ -684,6 +684,8 @@
     <string name="coach_chat_hint">Posez une question</string>
     <string name="coach_chat_send">Envoyer</string>
     <string name="coach_consent_required">Votre coach a besoin de votre consentement pour utiliser vos données de santé. Ouvrez votre objectif et enregistrez-le pour continuer.</string>
+    <string name="coach_chat_limit_reached">Votre coach a répondu à toutes les questions possibles pour le moment. Votre quota se renouvelle dans les prochaines 24 heures.</string>
+    <string name="coach_chat_subscription_required">Votre essai gratuit du coach est terminé. Abonnez-vous pour continuer à poser vos questions.</string>
     <string name="coach_consent_review_goal">Revoir l\'objectif et le consentement</string>
     <string name="coach_voice_record">Enregistrer une note vocale</string>
     <string name="coach_voice_stop">Arrêter l\'enregistrement</string>

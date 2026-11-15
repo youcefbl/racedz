@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -73,6 +74,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import dz.racedz.nativeapp.core.network.CoachMessageDto
@@ -101,6 +103,18 @@ fun ConversationScreen(
     // Focus target for the follow-up "Answer" affordance (B83-R09): answering the coach's
     // question means typing, so the action lands the runner in the composer.
     val composerFocus = remember { FocusRequester() }
+
+    // The list is reverse-laid-out, and Compose keeps the first *visible* item anchored when items
+    // are inserted ahead of it. A new question/reply goes in at index 0, so without this the
+    // runner's own question and the coach's answer landed below the fold and had to be scrolled to
+    // (M21 production smoke, 2026-11-15). Follow the conversation whenever it grows or a send
+    // starts/ends.
+    val listState = rememberLazyListState()
+    LaunchedEffect(state.conversation.messages.size, state.pendingQuestion, state.generating) {
+        if (state.conversation.messages.isNotEmpty() || state.pendingQuestion != null) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     // Voice note + reply playback (COACHPAR-001). Both are held by the screen rather than the view
     // model because both own Android resources — a microphone and a bound TTS service — that must
@@ -173,6 +187,7 @@ fun ConversationScreen(
 
             else -> {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(ZidRunDimens.spaceLg),
                     verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
@@ -316,7 +331,13 @@ fun ConversationScreen(
                     // A consent refusal is actionable, not a fault: show the localized instruction
                     // rather than the server's English sentence, and offer the one action that
                     // resolves it. Retrying the message cannot.
-                    val message = if (state.consentRequired) stringResource(R.string.coach_consent_required) else it
+                    val message = when {
+                        state.consentRequired -> stringResource(R.string.coach_consent_required)
+                        state.sendBlock == CoachSendBlock.LimitReached -> stringResource(R.string.coach_chat_limit_reached)
+                        state.sendBlock == CoachSendBlock.SubscriptionRequired ->
+                            stringResource(R.string.coach_chat_subscription_required)
+                        else -> it
+                    }
                     ZidRunInlineError(message, modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg))
                     if (state.consentRequired) {
                         ZidRunTextButton(

@@ -204,6 +204,10 @@ fun ZidRunTextField(
      * filled everything they could see met a permanently disabled Confirm (DEV-R03).
      */
     required: Boolean = false,
+    /** Decorative trailing icon (e.g. a dropdown arrow on a picker field). Ignored for passwords. */
+    trailingIcon: ImageVector? = null,
+    /** Shows the value but takes no typing — for fields filled by a picker. */
+    readOnly: Boolean = false,
 ) {
     val colors = ZidRunTheme.colors
     var passwordVisible by remember { mutableStateOf(false) }
@@ -261,8 +265,9 @@ fun ZidRunTextField(
                     }
                 }
             } else {
-                null
+                trailingIcon?.let { { Icon(it, contentDescription = null, tint = colors.textMuted) } }
             },
+            readOnly = readOnly,
             visualTransformation = if (isPassword && !passwordVisible) {
                 PasswordVisualTransformation()
             } else {

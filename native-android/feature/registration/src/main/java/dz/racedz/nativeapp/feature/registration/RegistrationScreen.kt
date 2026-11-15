@@ -65,6 +65,7 @@ import dz.racedz.nativeapp.core.design.ZidRunOutlinedButton
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTextField
+import dz.racedz.nativeapp.core.design.ZidRunWilayaField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTestTags
 import dz.racedz.nativeapp.core.design.currentLocale
@@ -333,7 +334,7 @@ private fun DetailsStep(state: RegistrationUiState, viewModel: RegistrationViewM
         }
     }
 
-    ZidRunTextField(state.wilaya, viewModel::onWilaya, stringResource(R.string.registration_wilaya), required = true)
+    ZidRunWilayaField(state.wilaya, viewModel::onWilaya, stringResource(R.string.registration_wilaya), required = true)
     ZidRunTextField(state.city, viewModel::onCity, stringResource(R.string.registration_city), required = true)
     ZidRunTextField(state.emergencyName, viewModel::onEmergencyName, stringResource(R.string.registration_emergency_name), required = true)
     ZidRunTextField(

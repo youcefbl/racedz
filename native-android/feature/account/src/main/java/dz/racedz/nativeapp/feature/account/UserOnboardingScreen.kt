@@ -33,6 +33,7 @@ import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunDisplayTitle
 import dz.racedz.nativeapp.core.design.ZidRunInlineError
 import dz.racedz.nativeapp.core.design.ZidRunTextField
+import dz.racedz.nativeapp.core.design.ZidRunWilayaField
 import dz.racedz.nativeapp.core.design.ZidRunTextButton
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTestTags
@@ -140,11 +141,12 @@ fun UserOnboardingScreen(
                 }
             }
 
-            ZidRunTextField(
+            // Picked, not typed: race filters match on the canonical wilaya names, so free text
+            // ("alger", "Algiers") silently fell out of every wilaya filter.
+            ZidRunWilayaField(
                 value = wilaya,
-                onValueChange = { wilaya = it.take(60) },
+                onValueChange = { wilaya = it },
                 label = stringResource(R.string.registration_wilaya),
-                enabled = !state.saving,
             )
             ZidRunTextField(
                 value = city,

@@ -702,6 +702,8 @@
     <string name="coach_chat_hint">اكتب سؤالك</string>
     <string name="coach_chat_send">ابعث</string>
     <string name="coach_consent_required">الكوتش لازم موافقتك باش يستعمل معلومات صحتك. حلّ الهدف تاعك واحفظو باش تكمّل.</string>
+    <string name="coach_chat_limit_reached">الكوتش جاوبك على كامل الأسئلة لي يقدر عليهم دركا. الحصة تاعك تتجدد في الـ24 ساعة الجاية.</string>
+    <string name="coach_chat_subscription_required">التجربة المجانية تاع الكوتش كملات. اشترك باش تكمّل تسقسي الكوتش تاعك.</string>
     <string name="coach_consent_review_goal">راجع الهدف والموافقة</string>
     <string name="coach_voice_record">سجّل رسالة صوتية</string>
     <string name="coach_voice_stop">حبس التسجيل</string>

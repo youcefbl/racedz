@@ -305,27 +305,6 @@ fun ZidRunApp(
             if (authState is AuthState.SignedIn) {
                 ensurePushChannel(context)
                 container.pushRegistrar.registerCurrentToken()
-
-                /*
-                 * Ask to post notifications, once signed in.
-                 *
-                 * Without this the whole feature is inert on Android 13+: the token registers, the
-                 * server sends, FCM delivers, and the system drops it on the floor because the app
-                 * has no POST_NOTIFICATIONS grant. Verified on the M21 — the first test push was
-                 * accepted by FCM and simply never appeared. The permission was only ever requested
-                 * at hold-to-begin, so a runner who never started a run, or who declined there,
-                 * would never receive a reminder and would never be told why.
-                 *
-                 * Asked here rather than at launch because a signed-in runner is the only one there
-                 * is anything to notify about. The system shows this at most twice in an app's
-                 * lifetime and ignores it thereafter, so re-asking on later launches is harmless.
-                 */
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
             }
         }
 
@@ -363,6 +342,33 @@ fun ZidRunApp(
         // SplashRoute, so a one-shot flag stayed false for the rest of that process — and every race
         // link a runner opened afterwards was parked here and silently never opened.
         val currentEntry by navController.currentBackStackEntryAsState()
+
+        /*
+         * Ask to post notifications, once signed in — but only once the runner is in the app proper.
+         *
+         * Without this the whole feature is inert on Android 13+: the token registers, the server
+         * sends, FCM delivers, and the system drops it on the floor because the app has no
+         * POST_NOTIFICATIONS grant. Verified on the M21 — the first test push was accepted by FCM and
+         * simply never appeared. The permission was only ever requested at hold-to-begin, so a runner
+         * who never started a run, or who declined there, would never receive a reminder.
+         *
+         * Gated on the SHELL destination: asking the moment sign-in succeeded put the system dialog
+         * on top of the first-run "Tell us about you" form, before the runner had seen anything
+         * there was to be notified about (M21 production smoke, 2026-11-15). Once per process; the
+         * system itself shows it at most twice in an app's lifetime.
+         */
+        var notificationPermissionAsked by remember { mutableStateOf(false) }
+        val onShell = currentEntry?.destination?.route == RootDestinations.SHELL
+        LaunchedEffect(authState, onShell) {
+            if (authState is AuthState.SignedIn && onShell && !notificationPermissionAsked &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionAsked = true
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         LaunchedEffect(currentEntry, pendingRaceSlug) {
             val slug = pendingRaceSlug ?: return@LaunchedEffect
             if (currentEntry?.destination?.route == RootDestinations.SPLASH) return@LaunchedEffect

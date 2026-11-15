@@ -70,6 +70,7 @@ import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunSearchField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
+import dz.racedz.nativeapp.core.design.ZidRunWilayaPickerSheet
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.RaceSummaryDto
 import dz.racedz.nativeapp.core.network.resolveMediaUrl
@@ -125,8 +126,9 @@ fun RacesScreen(
     }
 
     if (wilayaPickerOpen) {
-        WilayaPickerSheet(
+        ZidRunWilayaPickerSheet(
             selected = state.wilaya,
+            allLabel = stringResource(R.string.races_filter_all_algeria),
             onSelect = {
                 viewModel.onWilayaChange(it)
                 wilayaPickerOpen = false
@@ -245,65 +247,6 @@ fun RacesScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * Wilaya filter. A plain scrollable list rather than a dropdown: 58 entries do not fit a menu, and
- * a sheet gives each row a full-width 44dp target.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun WilayaPickerSheet(
-    selected: String?,
-    onSelect: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val colors = ZidRunTheme.colors
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = colors.borderStrong) },
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = ZidRunDimens.spaceXxl),
-        ) {
-            item(key = "all") {
-                WilayaRow(
-                    label = stringResource(R.string.races_filter_all_algeria),
-                    selected = selected == null,
-                    onClick = { onSelect(null) },
-                )
-            }
-            items(AlgeriaWilayas, key = { it }) { wilaya ->
-                WilayaRow(label = wilaya, selected = selected == wilaya, onClick = { onSelect(wilaya) })
-            }
-        }
-    }
-}
-
-@Composable
-private fun WilayaRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    val colors = ZidRunTheme.colors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = ZidRunDimens.minTouchTarget)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = ZidRunDimens.spaceLg, vertical = ZidRunDimens.spaceMd),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (selected) colors.primary else colors.textStrong,
-            modifier = Modifier.weight(1f),
-        )
-        if (selected) {
-            // Decorative: `selectable` already reports the selected state to TalkBack.
-            Icon(Icons.Filled.Check, contentDescription = null, tint = colors.primary)
         }
     }
 }

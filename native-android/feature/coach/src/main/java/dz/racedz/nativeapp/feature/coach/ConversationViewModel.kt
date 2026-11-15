@@ -37,6 +37,14 @@ data class ConversationUiState(
      * sentence (the server used to report this as a plain validation error — see FDE-R01).
      */
     val consentRequired: Boolean = false,
+    /**
+     * Why the last send was refused by the Coach's commercial gate, if it was: the daily/monthly
+     * question allowance is used up (RATE_LIMITED) or the trial has ended (SUBSCRIPTION_REQUIRED).
+     * Like [consentRequired], neither is a failure Retry can fix, so the screen explains it in the
+     * runner's language instead of showing "That answer did not come through" with a Retry that
+     * fails again (M21 production smoke, 2026-11-15).
+     */
+    val sendBlock: CoachSendBlock? = null,
     /** True while the microphone is open. */
     val recording: Boolean = false,
     /** True while a finished recording is being turned into text. */
@@ -62,7 +70,7 @@ data class ConversationUiState(
     val canUseVoice: Boolean get() = conversation.entitlement.tier == "SUBSCRIBED"
 
     /** True when Retry can actually do something — a consent gate is not cleared by retrying. */
-    val canRetry: Boolean get() = !consentRequired && (pendingQuestion != null || pendingRunAnalysis)
+    val canRetry: Boolean get() = !consentRequired && sendBlock == null && (pendingQuestion != null || pendingRunAnalysis)
 
     val isOffline: Boolean get() = error?.code == ApiErrorCode.Offline
     val hasCoaching: Boolean get() = conversation.entitlement.tier != "NONE"
@@ -252,6 +260,7 @@ class ConversationViewModel(
                         generating = false,
                         sendError = result.error.message,
                         consentRequired = result.error.code == ApiErrorCode.ConsentRequired,
+                        sendBlock = CoachSendBlock.from(result.error.code),
                     )
                 }
             }
@@ -287,6 +296,7 @@ class ConversationViewModel(
                         generating = false,
                         sendError = result.error.message,
                         consentRequired = result.error.code == ApiErrorCode.ConsentRequired,
+                        sendBlock = CoachSendBlock.from(result.error.code),
                     )
                 }
             }
@@ -316,7 +326,7 @@ class ConversationViewModel(
         savedState?.remove<Boolean>(KEY_PENDING_RUN_ANALYSIS)
         savedState?.remove<String>(KEY_PENDING_QUESTION)
         _state.update {
-            it.copy(sendError = null, pendingQuestion = null, pendingRunAnalysis = false, consentRequired = false)
+            it.copy(sendError = null, pendingQuestion = null, pendingRunAnalysis = false, consentRequired = false, sendBlock = null)
         }
     }
 
@@ -343,7 +353,7 @@ class ConversationViewModel(
         recorder = newRecorder
         try {
             newRecorder.start()
-            _state.update { it.copy(recording = true, sendError = null, consentRequired = false) }
+            _state.update { it.copy(recording = true, sendError = null, consentRequired = false, sendBlock = null) }
         } catch (error: Exception) {
             recorder = null
             _state.update { it.copy(recording = false, voiceError = VoiceError.MicUnavailable) }
@@ -419,5 +429,22 @@ class ConversationViewModel(
             true
         }
         is ApiResult.Failure -> false
+    }
+}
+
+/** A send refused by the Coach's allowance/entitlement gate rather than by a fault. */
+enum class CoachSendBlock {
+    /** Today's (or this month's) question allowance is used up. */
+    LimitReached,
+
+    /** The free trial has ended and there is no active subscription. */
+    SubscriptionRequired;
+
+    companion object {
+        fun from(code: ApiErrorCode): CoachSendBlock? = when (code) {
+            ApiErrorCode.RateLimited -> LimitReached
+            ApiErrorCode.SubscriptionRequired -> SubscriptionRequired
+            else -> null
+        }
     }
 }

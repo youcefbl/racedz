@@ -61,6 +61,7 @@ import dz.racedz.nativeapp.core.design.ZidRunPill
 import dz.racedz.nativeapp.core.design.ZidRunSectionTitle
 import dz.racedz.nativeapp.core.design.ZidRunStatusView
 import dz.racedz.nativeapp.core.design.ZidRunTextField
+import dz.racedz.nativeapp.core.design.ZidRunWilayaField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.core.network.ProfileRequest
@@ -174,7 +175,7 @@ fun ProfilePreferencesScreen(viewModel: AccountViewModel, onBack: () -> Unit) {
             keyboardType = KeyboardType.Phone,
             errorText = state.error?.fieldErrors?.get("phone"),
         )
-        ZidRunTextField(
+        ZidRunWilayaField(
             value = wilaya,
             onValueChange = { wilaya = it },
             label = stringResource(R.string.registration_wilaya),
