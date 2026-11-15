@@ -16,6 +16,12 @@ assert.deepEqual(selectConversation([row, { ...row, id: "other-goal", goalId: "g
   { ...row, id: "other-run", runId: "run-2" }], options), [row]);
 assert.deepEqual(selectConversation([row], { ...options, replyToInteractionId: "not-owned" }), []);
 assert.deepEqual(selectConversation([row], { ...options, replyToInteractionId: row.id }), [row]);
+const postRun = { ...row, id: "post-run", runId: "run-1", type: "POST_RUN" };
+assert.deepEqual(selectConversation([postRun], { ...options, scope: "GOAL" }), [postRun],
+  "runless chat retains a same-goal post-run clarification");
+assert.deepEqual(selectConversation([postRun], { ...options, scope: "GOAL", replyToInteractionId: postRun.id }), [postRun],
+  "runless chat may explicitly anchor the same-goal post-run exchange");
+assert.deepEqual(selectConversation([postRun], options), [], "exact run scope remains the default");
 for (const reply of row.response!.quickReplies!) {
   assert.equal(evaluateTopicality(reply, pendingFollowUp([row], now)).onTopic, true, reply);
 }

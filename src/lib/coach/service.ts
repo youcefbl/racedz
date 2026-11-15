@@ -1684,24 +1684,30 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
     );
   }
 
-  // Scope history before interpreting short replies. Old clients use the latest exchange in this
-  // goal/run; newer clients may name an explicit anchor. No cross-account/goal/run lookup fallback.
+  // Scope history before interpreting short replies. Run-specific requests remain on that run. A
+  // runless CHAT follows the unified thread the clients display, including a preceding POST_RUN
+  // clarification from the same goal. Ownership and goal boundaries remain enforced in SQL and code.
+  const conversationScope = input.type === "CHAT" && selectedRun === null ? "GOAL" : "EXACT_RUN";
+  const conversationRunPredicate = conversationScope === "GOAL"
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`"runId" IS NOT DISTINCT FROM ${selectedRun?.id ?? null}::text`;
   const historyRows = await prisma.$queryRaw<ConversationRow[]>`
     SELECT "id", "goalId", "runId", "type"::text AS "type", "status"::text AS "status",
            "userMessage", "response", "safety", "createdAt"
     FROM "CoachInteraction"
     WHERE "userId" = ${userId} AND "goalId" = ${goal.id}
-      AND "runId" IS NOT DISTINCT FROM ${selectedRun?.id ?? null}::text
+      AND ${conversationRunPredicate}
       AND "id" <> ${interactionId} AND "status" IN ('COMPLETED', 'BLOCKED') AND "response" IS NOT NULL
       AND (${input.replyToInteractionId ?? null}::text IS NULL OR "createdAt" <= (
         SELECT "createdAt" FROM "CoachInteraction" WHERE "id" = ${input.replyToInteractionId ?? null}
           AND "userId" = ${userId} AND "goalId" = ${goal.id}
-          AND "runId" IS NOT DISTINCT FROM ${selectedRun?.id ?? null}::text
+          AND ${conversationRunPredicate}
       ))
     ORDER BY "createdAt" DESC, "id" DESC LIMIT 6
   `;
   const conversation = selectConversation(historyRows, {
-    goalId: goal.id, runId: selectedRun?.id ?? null, replyToInteractionId: input.replyToInteractionId, now: requestNow
+    goalId: goal.id, runId: selectedRun?.id ?? null, scope: conversationScope,
+    replyToInteractionId: input.replyToInteractionId, now: requestNow
   });
   if (input.replyToInteractionId && !conversation.some((row) => row.id === input.replyToInteractionId)) {
     throw new CoachError("The conversation is unavailable for this goal and run.", 404, "CONVERSATION_NOT_FOUND");
