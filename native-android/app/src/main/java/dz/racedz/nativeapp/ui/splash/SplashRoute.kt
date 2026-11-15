@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dz.racedz.nativeapp.BuildConfig
 import dz.racedz.nativeapp.R
 import dz.racedz.nativeapp.core.design.ZidRunDarkColors
 import dz.racedz.nativeapp.core.design.ZidRunDimens
@@ -44,7 +45,8 @@ import dz.racedz.nativeapp.core.design.R as DesignR
  * hands off. Always renders on the dark palette regardless of the user's chosen theme — matching
  * 01-splash-screen.png and the existing Capacitor splash — because the theme preference itself is
  * part of what session restoration resolves. No owner/environment/framework/API detail is shown
- * here (native-design/NATIVE_APP_DESIGN_FLOW.md).
+ * here (native-design/NATIVE_APP_DESIGN_FLOW.md) — only the app version, so a tester can tell at a
+ * glance which build is installed.
  */
 @Composable
 fun SplashRoute(onFinished: () -> Unit) {
@@ -95,6 +97,15 @@ fun SplashRoute(onFinished: () -> Unit) {
             SplashDot(color = ZidRunDarkColors.accent, animate = !reducedMotion, delayMillis = 150)
             SplashDot(color = ZidRunDarkColors.textMuted, animate = !reducedMotion, delayMillis = 300)
         }
+
+        Text(
+            text = "v${BuildConfig.VERSION_NAME}",
+            color = ZidRunDarkColors.textMuted,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = ZidRunDimens.spaceXl),
+        )
     }
 }
 

@@ -141,6 +141,10 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         startStepCounter()
         startBarometer()
         startHeartRate()
+        // The run voice lives with the run, not the screen: cues must play with the phone in a
+        // pocket. Idempotent, so a sticky restart does not double them; it stops itself when the
+        // run finishes (after the last cue is heard) or is discarded.
+        RunCueDirector.start(this)
 
         val serviceScope = CoroutineScope(Dispatchers.Main).also { scope = it }
         ticker = serviceScope.launch {

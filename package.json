@@ -18,6 +18,7 @@
     "eval:coach": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/coach-quality-eval.ts",
     "eval:coach:report": "tsx scripts/coach-quality-report.ts",
     "test:coach-service": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-coach-service.ts",
+    "cues:generate": "tsx --env-file=.env scripts/generate-run-cue-clips.ts",
     "test:workout": "tsx scripts/test-workout-structure.ts",
     "test:audio": "tsx scripts/test-audio-coaching.ts",
     "test:run-incident": "tsx scripts/test-run-incident.ts",

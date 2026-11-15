@@ -1,0 +1,1110 @@
+{
+ "started": {
+  "text": "Enregistrement démarré.",
+  "hash": "fc94f68ef09aec9d"
+ },
+ "paused": {
+  "text": "En pause.",
+  "hash": "da32ab32e2bdeeec"
+ },
+ "resumed": {
+  "text": "Reprise.",
+  "hash": "fefd6bda0e58082c"
+ },
+ "done": {
+  "text": "Séance terminée. Retour au calme quand vous voulez.",
+  "hash": "816a7b8d1bab813f"
+ },
+ "tip_warmup": {
+  "text": "Commencez tout doucement. Laissez le corps monter en température.",
+  "hash": "da5433fa0a55c1a2"
+ },
+ "tip_warmup_last_minute": {
+  "text": "Encore une minute d'échauffement. Préparez-vous à travailler.",
+  "hash": "d5d4a9bf8ce1a525"
+ },
+ "tip_cooldown": {
+  "text": "Bien joué. Relâchez complètement et laissez la respiration se calmer.",
+  "hash": "842ce60a12532042"
+ },
+ "tip_one_minute_left": {
+  "text": "Encore une minute. Tenez bon.",
+  "hash": "bcd1ce31f3776063"
+ },
+ "tip_mid_step": {
+  "text": "Mi-fraction. Restez en contrôle, ne forcez pas.",
+  "hash": "2c963e51158c365d"
+ },
+ "tip_last_rep": {
+  "text": "Dernière fraction. Donnez tout, proprement.",
+  "hash": "9ff26dfaa86bf5c5"
+ },
+ "tip_halfway": {
+  "text": "Mi-parcours. Vous gérez très bien.",
+  "hash": "6f6e2f4ee1f1c672"
+ },
+ "tip_last_km": {
+  "text": "Dernier kilomètre. Terminez en beauté.",
+  "hash": "e7c54ef0a752b56f"
+ },
+ "tip_hydrate": {
+  "text": "Pensez à boire si vous le pouvez.",
+  "hash": "c98d297dfa3a3597"
+ },
+ "step_warmup": {
+  "text": "Échauffement.",
+  "hash": "c919eaf16dfa13ed"
+ },
+ "step_work": {
+  "text": "Effort.",
+  "hash": "42da9d538abfb567"
+ },
+ "step_recovery": {
+  "text": "Récupération.",
+  "hash": "e2664c3be8d6d693"
+ },
+ "step_cooldown": {
+  "text": "Retour au calme.",
+  "hash": "4c2d707d697cc550"
+ },
+ "step_steady": {
+  "text": "Régulier.",
+  "hash": "f0c99cc58958295a"
+ },
+ "word_time": {
+  "text": "Temps",
+  "hash": "17d2ce8d4cc81460"
+ },
+ "word_pace": {
+  "text": "Allure",
+  "hash": "cb5893bc75a18a92"
+ },
+ "word_point": {
+  "text": "virgule",
+  "hash": "1bc54f6b9111c699"
+ },
+ "word_in": {
+  "text": "en",
+  "hash": "3777c5c53f6a98e0"
+ },
+ "unit_km": {
+  "text": "kilomètres",
+  "hash": "a4e0eb15001fa8ec"
+ },
+ "unit_km_one": {
+  "text": "kilomètre",
+  "hash": "623a05320deb4bb4"
+ },
+ "unit_mi": {
+  "text": "miles",
+  "hash": "a34dac0c38f2c103"
+ },
+ "unit_mi_one": {
+  "text": "mile",
+  "hash": "6578029778ce8faf"
+ },
+ "per_km": {
+  "text": "au kilomètre",
+  "hash": "ec5fb8b79c5c5db3"
+ },
+ "per_mi": {
+  "text": "au mile",
+  "hash": "afc0cfb24e84d673"
+ },
+ "run_finished": {
+  "text": "Course terminée.",
+  "hash": "63813037b2105bee"
+ },
+ "rep_done": {
+  "text": "Fraction terminée en",
+  "hash": "3a315ac778983844"
+ },
+ "num_0": {
+  "text": "zéro",
+  "hash": "5f4b5696c30e3af3"
+ },
+ "num_1": {
+  "text": "un",
+  "hash": "5f99dd47eca5ddbf"
+ },
+ "num_2": {
+  "text": "deux",
+  "hash": "e2a5a531bc09dc7b"
+ },
+ "num_3": {
+  "text": "trois",
+  "hash": "ac2fc19d1138c99d"
+ },
+ "num_4": {
+  "text": "quatre",
+  "hash": "56d104a1264179cf"
+ },
+ "num_5": {
+  "text": "cinq",
+  "hash": "becaef17f2a64de2"
+ },
+ "num_6": {
+  "text": "six",
+  "hash": "f48a84b917313255"
+ },
+ "num_7": {
+  "text": "sept",
+  "hash": "ecec0a5925e7eb96"
+ },
+ "num_8": {
+  "text": "huit",
+  "hash": "59edb521d3e83583"
+ },
+ "num_9": {
+  "text": "neuf",
+  "hash": "0fb1a29557df4444"
+ },
+ "num_10": {
+  "text": "dix",
+  "hash": "49cedb8aaeb8789b"
+ },
+ "num_11": {
+  "text": "onze",
+  "hash": "a2e006a13a031453"
+ },
+ "num_12": {
+  "text": "douze",
+  "hash": "0802c82e503ff9cd"
+ },
+ "num_13": {
+  "text": "treize",
+  "hash": "851f1270f2bcaf97"
+ },
+ "num_14": {
+  "text": "quatorze",
+  "hash": "77f1f0ee07af0b3c"
+ },
+ "num_15": {
+  "text": "quinze",
+  "hash": "e0150ce7f889cc07"
+ },
+ "num_16": {
+  "text": "seize",
+  "hash": "8589e7f4ba10ff58"
+ },
+ "num_17": {
+  "text": "dix-sept",
+  "hash": "f993221c04533d52"
+ },
+ "num_18": {
+  "text": "dix-huit",
+  "hash": "c44d3dfac19f5da6"
+ },
+ "num_19": {
+  "text": "dix-neuf",
+  "hash": "bc8032ee14b03d16"
+ },
+ "num_20": {
+  "text": "vingt",
+  "hash": "00365c51d68887f4"
+ },
+ "num_21": {
+  "text": "vingt et un",
+  "hash": "e75ac32db24f29f8"
+ },
+ "num_22": {
+  "text": "vingt-deux",
+  "hash": "f7e035da06d3301a"
+ },
+ "num_23": {
+  "text": "vingt-trois",
+  "hash": "cedfac9484edc4df"
+ },
+ "num_24": {
+  "text": "vingt-quatre",
+  "hash": "1fccf2ff2fb73422"
+ },
+ "num_25": {
+  "text": "vingt-cinq",
+  "hash": "74c1e688502eef05"
+ },
+ "num_26": {
+  "text": "vingt-six",
+  "hash": "0c8421d74a58d2d3"
+ },
+ "num_27": {
+  "text": "vingt-sept",
+  "hash": "8f6418fd43930de4"
+ },
+ "num_28": {
+  "text": "vingt-huit",
+  "hash": "b33f7ec524982828"
+ },
+ "num_29": {
+  "text": "vingt-neuf",
+  "hash": "a587f30bd3d905a6"
+ },
+ "num_30": {
+  "text": "trente",
+  "hash": "ad22ef05b1506756"
+ },
+ "num_31": {
+  "text": "trente et un",
+  "hash": "77906f6341487d22"
+ },
+ "num_32": {
+  "text": "trente-deux",
+  "hash": "22f0afb559a74cd9"
+ },
+ "num_33": {
+  "text": "trente-trois",
+  "hash": "00311eac99dd930d"
+ },
+ "num_34": {
+  "text": "trente-quatre",
+  "hash": "7d9992786e02ede8"
+ },
+ "num_35": {
+  "text": "trente-cinq",
+  "hash": "78a89c202466eca7"
+ },
+ "num_36": {
+  "text": "trente-six",
+  "hash": "be75c34825afcf3b"
+ },
+ "num_37": {
+  "text": "trente-sept",
+  "hash": "064b82ceef57bc22"
+ },
+ "num_38": {
+  "text": "trente-huit",
+  "hash": "82192fef46f64a24"
+ },
+ "num_39": {
+  "text": "trente-neuf",
+  "hash": "f5a38ed2bf41fa06"
+ },
+ "num_40": {
+  "text": "quarante",
+  "hash": "709636305d9323e5"
+ },
+ "num_41": {
+  "text": "quarante et un",
+  "hash": "cfe50794628d265b"
+ },
+ "num_42": {
+  "text": "quarante-deux",
+  "hash": "186dafeffafa4bf3"
+ },
+ "num_43": {
+  "text": "quarante-trois",
+  "hash": "58818402010a4c5b"
+ },
+ "num_44": {
+  "text": "quarante-quatre",
+  "hash": "5f4c819ae5a26a42"
+ },
+ "num_45": {
+  "text": "quarante-cinq",
+  "hash": "140724fa81bdac10"
+ },
+ "num_46": {
+  "text": "quarante-six",
+  "hash": "47ff02badf92742b"
+ },
+ "num_47": {
+  "text": "quarante-sept",
+  "hash": "17b66185961e6d7c"
+ },
+ "num_48": {
+  "text": "quarante-huit",
+  "hash": "22b5d95e841001af"
+ },
+ "num_49": {
+  "text": "quarante-neuf",
+  "hash": "86ffe53c53d40320"
+ },
+ "num_50": {
+  "text": "cinquante",
+  "hash": "26f5fca3ca12e96d"
+ },
+ "num_51": {
+  "text": "cinquante et un",
+  "hash": "9fa90b9431459b81"
+ },
+ "num_52": {
+  "text": "cinquante-deux",
+  "hash": "19f0202702e00daf"
+ },
+ "num_53": {
+  "text": "cinquante-trois",
+  "hash": "c0bf764531a802ec"
+ },
+ "num_54": {
+  "text": "cinquante-quatre",
+  "hash": "92f51db39100e990"
+ },
+ "num_55": {
+  "text": "cinquante-cinq",
+  "hash": "ec89bddc38ccb6fd"
+ },
+ "num_56": {
+  "text": "cinquante-six",
+  "hash": "cd20452d075ab149"
+ },
+ "num_57": {
+  "text": "cinquante-sept",
+  "hash": "e4b0d18a3f89aac3"
+ },
+ "num_58": {
+  "text": "cinquante-huit",
+  "hash": "b906bac16185e25f"
+ },
+ "num_59": {
+  "text": "cinquante-neuf",
+  "hash": "dc5302c953049ed5"
+ },
+ "num_60": {
+  "text": "soixante",
+  "hash": "fd427b0b267fa5e4"
+ },
+ "num_61": {
+  "text": "soixante et un",
+  "hash": "cf6becc77b0f3a87"
+ },
+ "num_62": {
+  "text": "soixante-deux",
+  "hash": "227415589fd37db0"
+ },
+ "num_63": {
+  "text": "soixante-trois",
+  "hash": "25d1523b3cb0a8c6"
+ },
+ "num_64": {
+  "text": "soixante-quatre",
+  "hash": "34b284ef46a1b60e"
+ },
+ "num_65": {
+  "text": "soixante-cinq",
+  "hash": "094a7945024f14ab"
+ },
+ "num_66": {
+  "text": "soixante-six",
+  "hash": "3663d6dbd348559f"
+ },
+ "num_67": {
+  "text": "soixante-sept",
+  "hash": "250bd4a1c7884bff"
+ },
+ "num_68": {
+  "text": "soixante-huit",
+  "hash": "b83dd73e857bbbcf"
+ },
+ "num_69": {
+  "text": "soixante-neuf",
+  "hash": "4fb4226524e83388"
+ },
+ "num_70": {
+  "text": "soixante-dix",
+  "hash": "d6196163c906e2de"
+ },
+ "num_71": {
+  "text": "soixante et onze",
+  "hash": "eab399b9d09d3465"
+ },
+ "num_72": {
+  "text": "soixante-douze",
+  "hash": "2f63eb3295896649"
+ },
+ "num_73": {
+  "text": "soixante-treize",
+  "hash": "bead9cbdb519fca1"
+ },
+ "num_74": {
+  "text": "soixante-quatorze",
+  "hash": "94751ad406bd9ff6"
+ },
+ "num_75": {
+  "text": "soixante-quinze",
+  "hash": "31aaa91a30e7aa4f"
+ },
+ "num_76": {
+  "text": "soixante-seize",
+  "hash": "9e4f3d8c5dc34129"
+ },
+ "num_77": {
+  "text": "soixante-dix-sept",
+  "hash": "9abda5b713f9c3bc"
+ },
+ "num_78": {
+  "text": "soixante-dix-huit",
+  "hash": "d4dbc913d0452132"
+ },
+ "num_79": {
+  "text": "soixante-dix-neuf",
+  "hash": "756db79b917f04df"
+ },
+ "num_80": {
+  "text": "quatre-vingts",
+  "hash": "f1dfcc7edc23dfb0"
+ },
+ "num_81": {
+  "text": "quatre-vingt-un",
+  "hash": "f1da677cbc814d9b"
+ },
+ "num_82": {
+  "text": "quatre-vingt-deux",
+  "hash": "f1b74053da85842a"
+ },
+ "num_83": {
+  "text": "quatre-vingt-trois",
+  "hash": "f2312a75b690cb6f"
+ },
+ "num_84": {
+  "text": "quatre-vingt-quatre",
+  "hash": "e05543b88235fe55"
+ },
+ "num_85": {
+  "text": "quatre-vingt-cinq",
+  "hash": "6fa7a5d94af9ca85"
+ },
+ "num_86": {
+  "text": "quatre-vingt-six",
+  "hash": "d81ef7548b8c2f3c"
+ },
+ "num_87": {
+  "text": "quatre-vingt-sept",
+  "hash": "29d144aace66e80b"
+ },
+ "num_88": {
+  "text": "quatre-vingt-huit",
+  "hash": "2b42ed2b10064121"
+ },
+ "num_89": {
+  "text": "quatre-vingt-neuf",
+  "hash": "f22cb2ee58b3b93a"
+ },
+ "num_90": {
+  "text": "quatre-vingt-dix",
+  "hash": "e26d0f30b729048f"
+ },
+ "num_91": {
+  "text": "quatre-vingt-onze",
+  "hash": "debdf0fe2f9ac04e"
+ },
+ "num_92": {
+  "text": "quatre-vingt-douze",
+  "hash": "bb370fb772c1a9a8"
+ },
+ "num_93": {
+  "text": "quatre-vingt-treize",
+  "hash": "7af668c0f922c7c9"
+ },
+ "num_94": {
+  "text": "quatre-vingt-quatorze",
+  "hash": "ec3dbe433f30b685"
+ },
+ "num_95": {
+  "text": "quatre-vingt-quinze",
+  "hash": "e171c9489058ec9d"
+ },
+ "num_96": {
+  "text": "quatre-vingt-seize",
+  "hash": "8c6d82d35c68087d"
+ },
+ "num_97": {
+  "text": "quatre-vingt-dix-sept",
+  "hash": "697a9bd8a25caae5"
+ },
+ "num_98": {
+  "text": "quatre-vingt-dix-huit",
+  "hash": "d443432f083553d2"
+ },
+ "num_99": {
+  "text": "quatre-vingt-dix-neuf",
+  "hash": "64a7f24cc29dc7a7"
+ },
+ "num_100": {
+  "text": "cent",
+  "hash": "d044946e876d17f8"
+ },
+ "min_1": {
+  "text": "une minute",
+  "hash": "ee0d9ccdead71d62"
+ },
+ "min_2": {
+  "text": "deux minutes",
+  "hash": "c95243bb3d9d8719"
+ },
+ "min_3": {
+  "text": "trois minutes",
+  "hash": "96fb8309d2441616"
+ },
+ "min_4": {
+  "text": "quatre minutes",
+  "hash": "6815e7fddfc48b37"
+ },
+ "min_5": {
+  "text": "cinq minutes",
+  "hash": "09f60cd25b15e42a"
+ },
+ "min_6": {
+  "text": "six minutes",
+  "hash": "fc2abffec0918ccb"
+ },
+ "min_7": {
+  "text": "sept minutes",
+  "hash": "85a42cb4b7e8fa05"
+ },
+ "min_8": {
+  "text": "huit minutes",
+  "hash": "1cee03b8d4f4ef91"
+ },
+ "min_9": {
+  "text": "neuf minutes",
+  "hash": "ea9bb8639accfa37"
+ },
+ "min_10": {
+  "text": "dix minutes",
+  "hash": "c102a5993f7831dc"
+ },
+ "min_11": {
+  "text": "onze minutes",
+  "hash": "12f344ab709e6806"
+ },
+ "min_12": {
+  "text": "douze minutes",
+  "hash": "01d025ed18c9a1e2"
+ },
+ "min_13": {
+  "text": "treize minutes",
+  "hash": "3b4d39dac80d14c5"
+ },
+ "min_14": {
+  "text": "quatorze minutes",
+  "hash": "dae55b6a070a87a8"
+ },
+ "min_15": {
+  "text": "quinze minutes",
+  "hash": "b1f376822b93358b"
+ },
+ "min_16": {
+  "text": "seize minutes",
+  "hash": "4688f070e5be0c15"
+ },
+ "min_17": {
+  "text": "dix-sept minutes",
+  "hash": "526d41f7910bb767"
+ },
+ "min_18": {
+  "text": "dix-huit minutes",
+  "hash": "b8d649c0ce3c3196"
+ },
+ "min_19": {
+  "text": "dix-neuf minutes",
+  "hash": "3e48b2c10ed68fc2"
+ },
+ "min_20": {
+  "text": "vingt minutes",
+  "hash": "93af685f0b24e91d"
+ },
+ "min_21": {
+  "text": "vingt et une minutes",
+  "hash": "a2a9e29ad9b402bf"
+ },
+ "min_22": {
+  "text": "vingt-deux minutes",
+  "hash": "d9d948dba0c26f92"
+ },
+ "min_23": {
+  "text": "vingt-trois minutes",
+  "hash": "b730c9162b12a6fc"
+ },
+ "min_24": {
+  "text": "vingt-quatre minutes",
+  "hash": "8926ab974eefc583"
+ },
+ "min_25": {
+  "text": "vingt-cinq minutes",
+  "hash": "4d7a50c69de1d4f5"
+ },
+ "min_26": {
+  "text": "vingt-six minutes",
+  "hash": "aa1d97c7a6b80dcf"
+ },
+ "min_27": {
+  "text": "vingt-sept minutes",
+  "hash": "05feff07a0c11cd8"
+ },
+ "min_28": {
+  "text": "vingt-huit minutes",
+  "hash": "879f0f33bb6d46bb"
+ },
+ "min_29": {
+  "text": "vingt-neuf minutes",
+  "hash": "e61f0d45c586eb2d"
+ },
+ "min_30": {
+  "text": "trente minutes",
+  "hash": "659285ae653e5381"
+ },
+ "min_31": {
+  "text": "trente et une minutes",
+  "hash": "20d256e27ae73232"
+ },
+ "min_32": {
+  "text": "trente-deux minutes",
+  "hash": "589132e77900f36b"
+ },
+ "min_33": {
+  "text": "trente-trois minutes",
+  "hash": "270ce672e5f49cdd"
+ },
+ "min_34": {
+  "text": "trente-quatre minutes",
+  "hash": "fc793b8b403210ed"
+ },
+ "min_35": {
+  "text": "trente-cinq minutes",
+  "hash": "becf41c2fa929d51"
+ },
+ "min_36": {
+  "text": "trente-six minutes",
+  "hash": "a9c2dea338077d87"
+ },
+ "min_37": {
+  "text": "trente-sept minutes",
+  "hash": "8c97e09c569d9bb4"
+ },
+ "min_38": {
+  "text": "trente-huit minutes",
+  "hash": "f2083aae31f40dcb"
+ },
+ "min_39": {
+  "text": "trente-neuf minutes",
+  "hash": "f3ae38c760880813"
+ },
+ "min_40": {
+  "text": "quarante minutes",
+  "hash": "d0b2b9283c93490e"
+ },
+ "min_41": {
+  "text": "quarante et une minutes",
+  "hash": "7786f5a8454909f7"
+ },
+ "min_42": {
+  "text": "quarante-deux minutes",
+  "hash": "3378474c4f5121de"
+ },
+ "min_43": {
+  "text": "quarante-trois minutes",
+  "hash": "310a945a1e6b691d"
+ },
+ "min_44": {
+  "text": "quarante-quatre minutes",
+  "hash": "a387060958a94eae"
+ },
+ "min_45": {
+  "text": "quarante-cinq minutes",
+  "hash": "3bc31c3c672d0f44"
+ },
+ "min_46": {
+  "text": "quarante-six minutes",
+  "hash": "76a98b30e4e163f7"
+ },
+ "min_47": {
+  "text": "quarante-sept minutes",
+  "hash": "c6cb525454ae2a03"
+ },
+ "min_48": {
+  "text": "quarante-huit minutes",
+  "hash": "23445763c8573810"
+ },
+ "min_49": {
+  "text": "quarante-neuf minutes",
+  "hash": "607b9af462df4b54"
+ },
+ "min_50": {
+  "text": "cinquante minutes",
+  "hash": "1e3b576ca07e09f1"
+ },
+ "min_51": {
+  "text": "cinquante et une minutes",
+  "hash": "0331858a8159edf6"
+ },
+ "min_52": {
+  "text": "cinquante-deux minutes",
+  "hash": "ae9736136b88e3e1"
+ },
+ "min_53": {
+  "text": "cinquante-trois minutes",
+  "hash": "cec8b64c32842979"
+ },
+ "min_54": {
+  "text": "cinquante-quatre minutes",
+  "hash": "0285a43649e10931"
+ },
+ "min_55": {
+  "text": "cinquante-cinq minutes",
+  "hash": "1f86fdd80cfbd77a"
+ },
+ "min_56": {
+  "text": "cinquante-six minutes",
+  "hash": "a2a553f8d149ec44"
+ },
+ "min_57": {
+  "text": "cinquante-sept minutes",
+  "hash": "c6c4ce4b60463f83"
+ },
+ "min_58": {
+  "text": "cinquante-huit minutes",
+  "hash": "276499e69ebb63a4"
+ },
+ "min_59": {
+  "text": "cinquante-neuf minutes",
+  "hash": "2cb15251a1ca008f"
+ },
+ "sec_1": {
+  "text": "une seconde",
+  "hash": "e5a8ccd467a2af8b"
+ },
+ "sec_2": {
+  "text": "deux secondes",
+  "hash": "bf786091d9b98ccd"
+ },
+ "sec_3": {
+  "text": "trois secondes",
+  "hash": "b4c2fa0642f8a785"
+ },
+ "sec_4": {
+  "text": "quatre secondes",
+  "hash": "b3c77e6bae9564fc"
+ },
+ "sec_5": {
+  "text": "cinq secondes",
+  "hash": "56e9bbcdd23d79f5"
+ },
+ "sec_6": {
+  "text": "six secondes",
+  "hash": "a929193f59128814"
+ },
+ "sec_7": {
+  "text": "sept secondes",
+  "hash": "08eaaaa766ef42e5"
+ },
+ "sec_8": {
+  "text": "huit secondes",
+  "hash": "05b2b666c8871c11"
+ },
+ "sec_9": {
+  "text": "neuf secondes",
+  "hash": "ea27dda1b67011fa"
+ },
+ "sec_10": {
+  "text": "dix secondes",
+  "hash": "9b4927cfc8cbdcc4"
+ },
+ "sec_11": {
+  "text": "onze secondes",
+  "hash": "3c1b138c623dab7d"
+ },
+ "sec_12": {
+  "text": "douze secondes",
+  "hash": "9d92dfe22b126040"
+ },
+ "sec_13": {
+  "text": "treize secondes",
+  "hash": "8f68aa2714fa0985"
+ },
+ "sec_14": {
+  "text": "quatorze secondes",
+  "hash": "e2bcf387a25fcb06"
+ },
+ "sec_15": {
+  "text": "quinze secondes",
+  "hash": "0e01eeea8b8d9e04"
+ },
+ "sec_16": {
+  "text": "seize secondes",
+  "hash": "dbe8d1cc730ffa8f"
+ },
+ "sec_17": {
+  "text": "dix-sept secondes",
+  "hash": "fb5d030bd5005925"
+ },
+ "sec_18": {
+  "text": "dix-huit secondes",
+  "hash": "aab57a284e2db474"
+ },
+ "sec_19": {
+  "text": "dix-neuf secondes",
+  "hash": "c680a973f1c8fcfe"
+ },
+ "sec_20": {
+  "text": "vingt secondes",
+  "hash": "3a5870672d214f69"
+ },
+ "sec_21": {
+  "text": "vingt et une secondes",
+  "hash": "4f5830cc0df4067c"
+ },
+ "sec_22": {
+  "text": "vingt-deux secondes",
+  "hash": "8bb7fe5117118c23"
+ },
+ "sec_23": {
+  "text": "vingt-trois secondes",
+  "hash": "a2d7ffd389b6429c"
+ },
+ "sec_24": {
+  "text": "vingt-quatre secondes",
+  "hash": "926d525189095f55"
+ },
+ "sec_25": {
+  "text": "vingt-cinq secondes",
+  "hash": "9cd60dd2a9e066d8"
+ },
+ "sec_26": {
+  "text": "vingt-six secondes",
+  "hash": "7f19e31e65419f41"
+ },
+ "sec_27": {
+  "text": "vingt-sept secondes",
+  "hash": "fb62dd8382b325fe"
+ },
+ "sec_28": {
+  "text": "vingt-huit secondes",
+  "hash": "379551a2e97fe6e5"
+ },
+ "sec_29": {
+  "text": "vingt-neuf secondes",
+  "hash": "9ff5501c2bf5ffcc"
+ },
+ "sec_30": {
+  "text": "trente secondes",
+  "hash": "242d4838b07d18ef"
+ },
+ "sec_31": {
+  "text": "trente et une secondes",
+  "hash": "32afba7b420e2b00"
+ },
+ "sec_32": {
+  "text": "trente-deux secondes",
+  "hash": "1324d526e49d713e"
+ },
+ "sec_33": {
+  "text": "trente-trois secondes",
+  "hash": "2dbfe31552162f04"
+ },
+ "sec_34": {
+  "text": "trente-quatre secondes",
+  "hash": "dd4a22cc9ba6d72c"
+ },
+ "sec_35": {
+  "text": "trente-cinq secondes",
+  "hash": "48e057a49fb6e81c"
+ },
+ "sec_36": {
+  "text": "trente-six secondes",
+  "hash": "9f77d56692752044"
+ },
+ "sec_37": {
+  "text": "trente-sept secondes",
+  "hash": "cd2854dd973adcf1"
+ },
+ "sec_38": {
+  "text": "trente-huit secondes",
+  "hash": "d1f900325590dd34"
+ },
+ "sec_39": {
+  "text": "trente-neuf secondes",
+  "hash": "e2a4041f6b9acd80"
+ },
+ "sec_40": {
+  "text": "quarante secondes",
+  "hash": "2acdfa98f1cabf17"
+ },
+ "sec_41": {
+  "text": "quarante et une secondes",
+  "hash": "58402e1efaa17f43"
+ },
+ "sec_42": {
+  "text": "quarante-deux secondes",
+  "hash": "13a534dd99267a65"
+ },
+ "sec_43": {
+  "text": "quarante-trois secondes",
+  "hash": "8973633f73269301"
+ },
+ "sec_44": {
+  "text": "quarante-quatre secondes",
+  "hash": "1a66e0d2e3dfca98"
+ },
+ "sec_45": {
+  "text": "quarante-cinq secondes",
+  "hash": "c5c72890a1d4597d"
+ },
+ "sec_46": {
+  "text": "quarante-six secondes",
+  "hash": "06b7955635e14d9b"
+ },
+ "sec_47": {
+  "text": "quarante-sept secondes",
+  "hash": "7e3f63285c5b48e5"
+ },
+ "sec_48": {
+  "text": "quarante-huit secondes",
+  "hash": "97eee5a03f40d1ff"
+ },
+ "sec_49": {
+  "text": "quarante-neuf secondes",
+  "hash": "4bcef16dd309ca10"
+ },
+ "sec_50": {
+  "text": "cinquante secondes",
+  "hash": "20a1ac8e02204a53"
+ },
+ "sec_51": {
+  "text": "cinquante et une secondes",
+  "hash": "0e6fbcd5ffe4e210"
+ },
+ "sec_52": {
+  "text": "cinquante-deux secondes",
+  "hash": "716692b2722a83f5"
+ },
+ "sec_53": {
+  "text": "cinquante-trois secondes",
+  "hash": "a27a1492c23f5b2a"
+ },
+ "sec_54": {
+  "text": "cinquante-quatre secondes",
+  "hash": "68fa8e5590ab24f1"
+ },
+ "sec_55": {
+  "text": "cinquante-cinq secondes",
+  "hash": "b9f99403fedfe6f5"
+ },
+ "sec_56": {
+  "text": "cinquante-six secondes",
+  "hash": "bec95b1db933cae4"
+ },
+ "sec_57": {
+  "text": "cinquante-sept secondes",
+  "hash": "961161f38c4d337b"
+ },
+ "sec_58": {
+  "text": "cinquante-huit secondes",
+  "hash": "0c48e189603ccdad"
+ },
+ "sec_59": {
+  "text": "cinquante-neuf secondes",
+  "hash": "ce47231349fd2b88"
+ },
+ "hr_1": {
+  "text": "une heure",
+  "hash": "ad5a2ef991696742"
+ },
+ "hr_2": {
+  "text": "deux heures",
+  "hash": "b22c2299f95601b6"
+ },
+ "hr_3": {
+  "text": "trois heures",
+  "hash": "f056f9b88f84b013"
+ },
+ "hr_4": {
+  "text": "quatre heures",
+  "hash": "6f7846407d46ad54"
+ },
+ "hr_5": {
+  "text": "cinq heures",
+  "hash": "195087d066a16742"
+ },
+ "hr_6": {
+  "text": "six heures",
+  "hash": "77c0e1bf0979cf84"
+ },
+ "hr_7": {
+  "text": "sept heures",
+  "hash": "36fd1743cc24f6dd"
+ },
+ "hr_8": {
+  "text": "huit heures",
+  "hash": "ff2fbee11dfa6086"
+ },
+ "hr_9": {
+  "text": "neuf heures",
+  "hash": "788cca57747b240b"
+ },
+ "m_50": {
+  "text": "cinquante mètres",
+  "hash": "709021767aff9f40"
+ },
+ "m_100": {
+  "text": "cent mètres",
+  "hash": "a08c838f9902605c"
+ },
+ "m_150": {
+  "text": "cent cinquante mètres",
+  "hash": "5885312a45954b16"
+ },
+ "m_200": {
+  "text": "deux cents mètres",
+  "hash": "cbb51c3af8aceaf7"
+ },
+ "m_250": {
+  "text": "deux cent cinquante mètres",
+  "hash": "939c5402c40cee27"
+ },
+ "m_300": {
+  "text": "trois cents mètres",
+  "hash": "5568252761ed312d"
+ },
+ "m_350": {
+  "text": "trois cent cinquante mètres",
+  "hash": "2402999e345e4019"
+ },
+ "m_400": {
+  "text": "quatre cents mètres",
+  "hash": "666a0b6898930f49"
+ },
+ "m_450": {
+  "text": "quatre cent cinquante mètres",
+  "hash": "56b30dadb55110fe"
+ },
+ "m_500": {
+  "text": "cinq cents mètres",
+  "hash": "9456a48dc1b97eb0"
+ },
+ "m_550": {
+  "text": "cinq cent cinquante mètres",
+  "hash": "e82c4ecf6985efe8"
+ },
+ "m_600": {
+  "text": "six cents mètres",
+  "hash": "21c0d98009f867aa"
+ },
+ "m_650": {
+  "text": "six cent cinquante mètres",
+  "hash": "4d07daecfce19df0"
+ },
+ "m_700": {
+  "text": "sept cents mètres",
+  "hash": "a7ad551ae1c81de8"
+ },
+ "m_750": {
+  "text": "sept cent cinquante mètres",
+  "hash": "7c3aa4c98d9ed799"
+ },
+ "m_800": {
+  "text": "huit cents mètres",
+  "hash": "6478a96229376eca"
+ },
+ "m_850": {
+  "text": "huit cent cinquante mètres",
+  "hash": "79873653ecb3e612"
+ },
+ "m_900": {
+  "text": "neuf cents mètres",
+  "hash": "26414ae72561b841"
+ },
+ "m_950": {
+  "text": "neuf cent cinquante mètres",
+  "hash": "99bfb6cdee9a5977"
+ }
+}

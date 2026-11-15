@@ -63,8 +63,8 @@ android {
         // docs/NATIVE_ANDROID_OPTION_PLAN.md. versionCode must increase or Android refuses the
         // install as a downgrade; versionName is what the filename is derived from, so the two can
         // never disagree. Do not reuse a number that has already left this machine.
-        versionCode = 10
-        versionName = "0.8.2"
+        versionCode = 11
+        versionName = "0.8.3"
         // Shown on the About screen. A deliberate constant rather than a build timestamp: a value
         // that changed on every compile would churn the build inputs and would tell a runner when
         // the APK was compiled, not when the release was made. Bump it with versionName.
@@ -145,6 +145,12 @@ android {
         compose = true
         // ZidRunApplication reads BuildConfig.VERSION_NAME to report the app version on sign-in.
         buildConfig = true
+    }
+
+    // Run-voice clips (feature:runs assets/cues) are opened with AssetManager.openFd, which only
+    // works on stored (uncompressed) entries. MP3 is already compressed, so this costs nothing.
+    androidResources {
+        noCompress += "mp3"
     }
 
     packaging {

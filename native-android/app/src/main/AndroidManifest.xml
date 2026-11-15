@@ -56,6 +56,14 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
         </intent>
+        <!--
+          Run voice cues use the device text-to-speech engine. On API 30+ an app cannot see (or
+          bind to) any TTS engine without this entry: TextToSpeech init fails and every cue is
+          silent on speaker and headset alike (reproduced on an OPPO PLG110, 2026-11-15).
+        -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <application

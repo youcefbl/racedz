@@ -70,110 +70,6 @@ import dz.racedz.nativeapp.core.design.ZidRunFormat
 import dz.racedz.nativeapp.core.design.currentLocale
 
 /**
- * The periodic progress cue (built outside composition so a LaunchedEffect can speak it): distance
- * so far, elapsed, and the pace held over the interval just closed. Whole kilometres are read as a
- * count ("3"), fractional marks with one decimal ("2.5"), so the voice never says "three point
- * zero zero".
- */
-private fun progressCue(
-    context: android.content.Context,
-    distanceMeters: Double,
-    elapsedSeconds: Int,
-    intervalPaceSecondsPerKm: Int?,
-    locale: java.util.Locale,
-): String {
-    // In the account's unit (NATRUN-06.8): whole values read as a count, halves with one decimal.
-    val units = distanceMeters / dz.racedz.nativeapp.core.design.ZidRunUnits.current.meters
-    val value = if (units % 1.0 == 0.0) {
-        ZidRunFormat.count(units.toInt(), locale)
-    } else {
-        ZidRunFormat.decimal(units, locale, digits = 1)
-    }
-    val pace = intervalPaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—"
-    return context.getString(
-        R.string.runs_cue_progress,
-        value,
-        ZidRunFormat.duration(elapsedSeconds),
-        pace,
-        dz.racedz.nativeapp.core.design.ZidRunUnits.spokenLabel(context),
-    )
-}
-
-/**
- * Which progress mark was last spoken for which recording. Process-level rather than remembered
- * in composition, so minimising the screen and coming back neither repeats the last mark nor
- * measures the next interval's pace from the moment of return.
- */
-private object ProgressCueTracker {
-    var clientId: String = ""
-    var lastIndex: Int = 0
-    var lastElapsedSeconds: Int = 0
-
-    class Mark(val secondsSincePrevious: Int, val previousIndex: Int)
-
-    /** Records [index] as spoken and returns how far it is from the previous mark, or null if it is not new. */
-    fun advance(clientId: String, index: Int, elapsedSeconds: Int): Mark? {
-        if (this.clientId != clientId) {
-            this.clientId = clientId
-            lastIndex = 0
-            lastElapsedSeconds = 0
-        }
-        if (index <= lastIndex) return null
-        val mark = Mark(elapsedSeconds - lastElapsedSeconds, lastIndex)
-        lastIndex = index
-        lastElapsedSeconds = elapsedSeconds
-        return mark
-    }
-}
-
-private fun stepCue(context: android.content.Context, step: dz.racedz.nativeapp.core.network.GuidedStepDto): String {
-    val role = when (step.role) {
-        "WARMUP" -> R.string.runs_step_warmup
-        "WORK" -> R.string.runs_step_work
-        "RECOVERY" -> R.string.runs_step_recovery
-        "COOLDOWN" -> R.string.runs_step_cooldown
-        else -> R.string.runs_step_steady
-    }
-    val seconds = step.seconds
-    val meters = step.meters
-    // Spoken and displayed counts use the same Western-digit rule as the rest of the app; see
-    // stepTargetLabel for why a %d placeholder is not enough.
-    val locale = dz.racedz.nativeapp.core.design.localeOf(context)
-    val target = when {
-        // A stride's 20 s work rep must be spoken as seconds, not "0 minutes".
-        seconds != null && seconds < 60 -> context.getString(
-            R.string.runs_step_seconds,
-            ZidRunFormat.count(seconds, locale),
-        )
-        seconds != null -> context.getString(
-            R.string.runs_step_minutes,
-            ZidRunFormat.count(seconds / 60, locale),
-        )
-        meters != null -> context.getString(
-            R.string.runs_step_metres,
-            ZidRunFormat.count(meters, locale),
-        )
-        else -> ""
-    }
-    return context.getString(R.string.runs_cue_step, context.getString(role), target)
-}
-
-/** Localized text for one mid-step coaching cue. Built outside composition, like the others. */
-private fun cueText(context: android.content.Context, cue: GuidedCueEngine.Cue): String = context.getString(
-    when (cue) {
-        GuidedCueEngine.Cue.WarmupTip -> R.string.runs_cue_warmup_tip
-        GuidedCueEngine.Cue.WarmupLastMinute -> R.string.runs_cue_warmup_last_minute
-        GuidedCueEngine.Cue.CooldownTip -> R.string.runs_cue_cooldown_tip
-        GuidedCueEngine.Cue.OneMinuteLeft -> R.string.runs_cue_one_minute_left
-        GuidedCueEngine.Cue.MidStep -> R.string.runs_cue_mid_step
-        GuidedCueEngine.Cue.LastRep -> R.string.runs_cue_last_rep
-        GuidedCueEngine.Cue.Halfway -> R.string.runs_cue_halfway
-        GuidedCueEngine.Cue.LastKm -> R.string.runs_cue_last_km
-        GuidedCueEngine.Cue.Hydrate -> R.string.runs_cue_hydrate
-    }
-)
-
-/**
  * The during-run screen (03-during-run.png).
  *
  * Dark in every theme (the current theme's dark palette — see zidRunOnDarkColors) and laid out for
@@ -193,12 +89,6 @@ fun RecordingScreen(
     modifier: Modifier = Modifier,
     /** The mid-run coach, for subscribers. Null in previews and where coaching is not wired. */
     coachViewModel: MidRunCoachViewModel? = null,
-    /**
-     * Server-synthesized audio for a cue, used only when the device has no voice for the runner's
-     * language. Null in previews; the endpoint is entitlement-gated, so a refusal simply means the
-     * device voice (or silence) as before.
-     */
-    fetchCueAudio: (suspend (String, String) -> ByteArray?)? = null,
 ) {
     // This screen is dark in every theme, so the system bars must be too (DEV-R01).
     ZidRunDarkSurfaceSystemBars()
@@ -218,18 +108,9 @@ fun RecordingScreen(
         }
     }
 
-    // One engine for the life of the screen, shut down on leave so it does not hold audio focus
-    // after the run.
-    val voice = remember(RunSettings.audioCuesEnabled, fetchCueAudio) {
-        if (RunSettings.audioCuesEnabled) RunVoice(context, locale, fetchCueAudio) else null
-    }
-    // On the way out via Finish the last cue ("Run finished…") is still being spoken; let it end.
-    // Every other exit (minimise, discard) cuts immediately as before.
-    DisposableEffect(voice) {
-        onDispose {
-            if (RunRecorder.state.value.status == RecordingStatus.Finished) voice?.releaseWhenQuiet() else voice?.release()
-        }
-    }
+    // The run voice is owned by RunCueDirector (started with the run service), so cues keep playing
+    // with the screen off. The screen only tells it which language the runner is reading.
+    LaunchedEffect(locale) { RunCueDirector.setLocale(locale) }
 
     // The screen stays awake for the life of the recording (Strava parity, P0-1). Set on the host
     // view rather than as a window flag so it is scoped exactly to this screen and released with it;
@@ -242,92 +123,22 @@ fun RecordingScreen(
 
     val haptics = LocalHapticFeedback.current
 
-    // Progress cues every N metres (RunSettings.cueInterval): distance, time, and the pace held over
-    // the interval that just closed, from the clock rather than route timestamps so a 500 m interval
-    // does not need its own split logic. Keyed on the interval index so a recomposition cannot
-    // repeat one, and the interval pace comes from the previous mark's elapsed time.
-    val cueInterval = remember { RunSettings.cueInterval }
-    val intervalIndex = if (cueInterval.meters > 0) (state.distanceMeters / cueInterval.meters).toInt() else 0
-    LaunchedEffect(intervalIndex) {
-        if (intervalIndex <= 0 || cueInterval.meters <= 0) return@LaunchedEffect
-        val elapsed = state.elapsedSeconds
-        val mark = ProgressCueTracker.advance(state.clientId, intervalIndex, elapsed) ?: return@LaunchedEffect
-        // Only when this mark closes exactly one interval — several marks jumping at once (a GPS
-        // catch-up) or a re-entry after a process death would otherwise average across a gap.
-        val closesOneInterval = mark.previousIndex == intervalIndex - 1 && mark.secondsSincePrevious > 0
-        val intervalPace = if (closesOneInterval) (mark.secondsSincePrevious * 1000.0 / cueInterval.meters).toInt() else null
-        voice?.sayCue(progressCue(context, intervalIndex * cueInterval.meters, elapsed, intervalPace, locale))
-    }
-
-    // A tick the wrist can feel at every completed kilometre, whether or not cues are on.
+    // A tick the wrist can feel at every completed kilometre, whether or not cues are on. Spoken
+    // cues (progress, status, guided steps) are decided by RunCueDirector, screen on or off.
     val splitCount = state.splits.size
     LaunchedEffect(splitCount) {
         if (splitCount > 0) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
     }
 
-    // Started / paused / resumed are spoken on the transition, never on first composition of an
-    // already-running screen (minimise and come back must stay silent). Auto-pauses get a double
-    // tick so a runner with music on still notices the clock stopped.
+    // Auto-pauses get a double tick so a runner with music on still notices the clock stopped.
     var lastStatus by remember { mutableStateOf<RecordingStatus?>(null) }
     LaunchedEffect(state.status, state.autoPauseReason) {
         val previous = lastStatus
         lastStatus = state.status
         if (previous == null) return@LaunchedEffect
-        when {
-            previous == RecordingStatus.Acquiring && state.status == RecordingStatus.Recording ->
-                voice?.sayCue(context.getString(R.string.runs_cue_started))
-            previous != RecordingStatus.Paused && state.status == RecordingStatus.Paused -> {
-                voice?.sayCue(context.getString(R.string.runs_cue_paused))
-                if (state.autoPaused) {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                }
-            }
-            previous == RecordingStatus.Paused && state.status == RecordingStatus.Recording ->
-                voice?.sayCue(context.getString(R.string.runs_cue_resumed))
-        }
-    }
-
-    // The first step — the warm-up — is announced once when the guided run begins. advanceIfDue only
-    // fires on a *transition* to the next step, so without this the runner never hears the warm-up
-    // (or the cool-down, when it is the step being entered) called out at its start.
-    var announcedFirstStep by remember { mutableStateOf(false) }
-    LaunchedEffect(guided.session, state.status) {
-        if (announcedFirstStep) return@LaunchedEffect
-        if (guided.session == null || state.status == RecordingStatus.Idle) return@LaunchedEffect
-        guided.currentStep?.let {
-            announcedFirstStep = true
-            voice?.sayCue(stepCue(context, it))
-        }
-    }
-
-    // The mid-step coaching commentary (NATGAP-15). One engine for the life of the screen; it
-    // latches each cue per step so a condition true for a whole minute is still spoken once.
-    val cueEngine = remember { GuidedCueEngine() }
-    DisposableEffect(Unit) { onDispose { cueEngine.reset() } }
-
-    // Guided steps advance off the same numbers shown on screen, and each change is spoken once.
-    LaunchedEffect(state.elapsedSeconds, state.distanceMeters) {
-        val entered = GuidedSessionController.advanceIfDue(state.elapsedSeconds, state.distanceMeters)
-        if (entered != null) {
-            // The rep just finished, before announcing the one starting — that is the order the
-            // runner needs it in, and the speech layer queues rather than interrupts.
-            cueEngine.onStepChanged(entered, state.elapsedSeconds)?.let { split ->
-                voice?.sayCue(
-                    context.getString(R.string.runs_cue_rep_split, ZidRunFormat.duration(split.seconds))
-                )
-            }
-            voice?.sayCue(stepCue(context, entered))
-        } else if (guided.isComplete && guided.session != null) {
-            voice?.sayCue(context.getString(R.string.runs_cue_done))
-        } else {
-            // Only while inside a step: on a transition tick the announcements above are enough.
-            cueEngine.onTick(
-                step = guided.currentStep,
-                elapsedSecondsInStep = GuidedSessionController.elapsedInStep(state.elapsedSeconds),
-                metersInStep = GuidedSessionController.metersInStep(state.distanceMeters),
-                totalElapsedSeconds = state.elapsedSeconds,
-            ).forEach { cue -> voice?.sayCue(cueText(context, cue)) }
+        if (previous != RecordingStatus.Paused && state.status == RecordingStatus.Paused && state.autoPaused) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
 
@@ -397,17 +208,9 @@ fun RecordingScreen(
             confirmButton = {
                 TextButton(onClick = {
                     confirmFinish = false
+                    // RunCueDirector hears the Finished state and says "Run finished…" itself.
                     RunRecorder.finish()
                     RunTrackingService.stop(context)
-                    val finished = RunRecorder.state.value
-                    voice?.sayCue(
-                        context.getString(
-                            R.string.runs_cue_finished,
-                            ZidRunFormat.distanceValue(finished.distanceKm, locale),
-                            ZidRunFormat.duration(finished.elapsedSeconds),
-                            dz.racedz.nativeapp.core.design.ZidRunUnits.spokenLabel(context),
-                        )
-                    )
                     onFinished()
                 }) {
                     Text(stringResource(R.string.runs_finish), color = zidRunOnDarkColors().primary)
@@ -657,7 +460,7 @@ fun RecordingScreen(
         if (coachViewModel != null && coachState?.canCoach == true && state.status != RecordingStatus.Finished) {
             Spacer(Modifier.height(ZidRunDimens.spaceMd))
             MidRunCoachButton(onOpen = coachViewModel::open)
-            MidRunCoachSheet(viewModel = coachViewModel, speak = { text -> voice?.say(text) })
+            MidRunCoachSheet(viewModel = coachViewModel, speak = RunCueDirector::sayText)
         }
 
         Spacer(Modifier.height(ZidRunDimens.spaceMd))

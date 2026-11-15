@@ -27,6 +27,8 @@ const NATIVE_ARABIC_COPY_FILES = [
   "src/lib/coach/tts-allowlist.ts",
   "src/lib/coach/workout-i18n.ts",
   "src/lib/coach/workout-structure.ts",
+  // Text behind every bundled run-voice clip (spoken on the phone).
+  "scripts/run-cue-vocabulary.ts",
 ].map((file) => path.join(process.cwd(), file));
 
 type LocaleDir = (typeof LOCALES)[number];
