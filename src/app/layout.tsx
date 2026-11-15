@@ -64,6 +64,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   viewportFit: "cover",
+  // Declares that the site renders its own light AND dark themes. Without it, Samsung Internet's
+  // "dark mode for web pages" force-inverts the default light theme and the brand-green buttons
+  // come out dark red (M21 production smoke, 2026-11-15, /verify-email). Each theme's CSS still
+  // sets the exact `color-scheme` on :root, so form controls follow the theme the runner picked.
+  colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#15803D" },
     { media: "(prefers-color-scheme: dark)", color: "#080d18" }
