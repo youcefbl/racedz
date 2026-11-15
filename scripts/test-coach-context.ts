@@ -4,6 +4,7 @@ import { calculateCoachMetrics } from "../src/lib/coach/metrics";
 import { evaluateCoachSafety } from "../src/lib/coach/safety";
 import { CONTEXT_TOKEN_UPPER_BOUND, jsonTokenUpperBound } from "../src/lib/coach/context-budget";
 import { coachInteractionInputSchema } from "../src/lib/coach/schemas";
+import { selectContextNeeds } from "../src/lib/coach/context-selection";
 
 // Deterministic coach-context evals (no live AI). Assert the assembled context's privacy exclusions,
 // section presence/omission, hash determinism, and localization across profiles.
@@ -204,6 +205,24 @@ function baseInput(over: Partial<Input> = {}): Input {
 }
 
 console.log("\nCoach context assembly evals passed.");
+
+// Common substrings must not narrow away the records and runs needed to answer the real question.
+for (const message of [
+  "Can I beat my 10k PB this spring?",
+  "Great run yesterday, what next?",
+  "Should I repeat this week?",
+  "I'm interested in trail running",
+  "How should I run while visiting Spain?",
+]) {
+  const needs = selectContextNeeds({ type: "CHAT", message });
+  assert.equal(needs.intent, "GENERAL", message);
+  assert.equal(needs.records, true, message);
+  assert.equal(needs.recentRuns, true, message);
+}
+assert.equal(selectContextNeeds({ type: "CHAT", message: "What should I eat before my long run?" }).intent, "NUTRITION");
+assert.equal(selectContextNeeds({ type: "CHAT", message: "I am tired and need hydration advice" }).intent, "GENERAL",
+  "questions spanning multiple domains retain broad context");
+console.log("PASS — bounded intent matching preserves broad context for ambiguous questions");
 
 // Targeted questions omit unrelated enrichment, while safety and the actual plan stay available.
 {
