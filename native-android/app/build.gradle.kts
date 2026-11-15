@@ -63,12 +63,18 @@ android {
         // docs/NATIVE_ANDROID_OPTION_PLAN.md. versionCode must increase or Android refuses the
         // install as a downgrade; versionName is what the filename is derived from, so the two can
         // never disagree. Do not reuse a number that has already left this machine.
-        versionCode = 13
-        versionName = "0.8.5"
+        //
+        // CI overrides all three from the release tag (.github/workflows/android-play-internal.yml):
+        // -Pzidrun.versionCode / -Pzidrun.versionName / -Pzidrun.releaseDate. Tag-derived codes are
+        // in the 10^4+ range, so once a tagged build reaches Play, a hand-bumped local code below
+        // that will be rejected there — keep Play uploads on the tag path.
+        versionCode = (findProperty("zidrun.versionCode") as String?)?.toInt() ?: 13
+        versionName = (findProperty("zidrun.versionName") as String?) ?: "0.8.5"
         // Shown on the About screen. A deliberate constant rather than a build timestamp: a value
         // that changed on every compile would churn the build inputs and would tell a runner when
         // the APK was compiled, not when the release was made. Bump it with versionName.
-        buildConfigField("String", "RELEASE_DATE", "\"2026-09-04\"")
+        val releaseDate = (findProperty("zidrun.releaseDate") as String?) ?: "2026-09-04"
+        buildConfigField("String", "RELEASE_DATE", "\"$releaseDate\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
