@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Don't advertise the framework/version in responses (SEC-001: no framework/version banners).
   poweredByHeader: false,
+  // Stamped into client bundles so crash reports can be tied to the deploy that produced them
+  // (.git is excluded from the Docker build context, so a build timestamp stands in for a SHA).
+  env: {
+    NEXT_PUBLIC_BUILD_ID: process.env.NEXT_PUBLIC_BUILD_ID || new Date().toISOString().slice(0, 16).replace("T", " ")
+  },
   // Blog posts are MDX files read from src/content at runtime (the blog + sitemap render
   // dynamically for the ?lang param). Standalone tracing wouldn't copy these non-imported
   // files, so include them explicitly for the routes that read them.

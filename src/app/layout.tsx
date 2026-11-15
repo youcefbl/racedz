@@ -51,6 +51,10 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }]
   },
+  // iOS Safari otherwise rewrites plain-text phone numbers, dates and addresses into links before
+  // React hydrates, which trips React #418 (hydration mismatch) on race pages. Contact details
+  // that should be tappable are already real tel:/mailto: links.
+  formatDetection: { telephone: false, date: false, address: false, email: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

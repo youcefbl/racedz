@@ -20,7 +20,7 @@ export function reportClientError(input: {
       digest: input.error.digest,
       route: input.route,
       boundary: input.boundary,
-      context: input.context,
+      context: { ...input.context, build: process.env.NEXT_PUBLIC_BUILD_ID ?? "unknown" },
       platform: Capacitor.isNativePlatform() ? "android" : "web"
     });
 
