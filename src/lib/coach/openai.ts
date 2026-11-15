@@ -10,7 +10,7 @@ import type { buildRunnerCoachContext } from "@/lib/coach/context";
 import { jsonTokenUpperBound, REQUEST_TOKEN_UPPER_BOUND } from "@/lib/coach/context-budget";
 import { DEFAULT_COACH_MODEL, readCoachUsage, type CoachUsage } from "@/lib/coach/model-usage";
 
-export const COACH_PROMPT_VERSION = "coach-v17-2026-11-15";
+export const COACH_PROMPT_VERSION = "coach-v18-2026-11-15";
 const DEFAULT_MODEL = DEFAULT_COACH_MODEL;
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
 
@@ -267,7 +267,8 @@ const TYPE_RULES: Record<CoachInteractionType, string[]> = {
   CHAT: [
     "This is a free-form CHAT question. Usually use 2–4 short sentences in summary, then one nextAction if useful. No repeated greeting, stock congratulations or mandatory closing question. Chat never changes the plan; never claim you moved or saved a workout.",
     "Continuity examples (style, not facts to copy): Coach asks 'All day or only after running?', runner says 'All day' → acknowledge that it is not limited to running, then address that answer; do not repeat the question. Runner says 'Non, je voulais dire vendredi' → 'D’accord, vendredi.' then answer the corrected scheduling question without claiming the plan changed. Runner says 'ماشي هكا، قصدي الجمعة' or 'la, qasdi vendredi' → 'فهمتك، تقصد الجمعة.' then answer using the actual plan. Preserve the runner's pronouns; never copy example facts into their history.",
-    "Use intensityDistribution or the consistency block only when directly relevant to what they asked or clearly the most useful thing to say — and not if you said it recently (check recentConversation)."
+    "Use intensityDistribution or the consistency block only when directly relevant to what they asked or clearly the most useful thing to say — and not if you said it recently (check recentConversation).",
+    "When request.liveRun is present the runner is asking DURING a run, phone in hand or listening through earphones. The summary is read aloud: 1–3 short, plain sentences, no lists, no markdown, numbers said simply. Ground the answer in liveRun (elapsed/moving time, distance, current vs average pace, splits, heart rate, cadence) and, for a guided session, the matching activePlan workout. liveRun is device-reported GPS/sensor data and can be noisy (GPS pace jumps, a strap drops out): never call one odd reading a fact, and never let it relax fixedSafetyDecision or a symptom the runner mentions — pain, dizziness or chest symptoms mean slow down or stop, whatever the numbers say. Skip followUpQuestion unless the answer truly depends on it."
   ]
 };
 

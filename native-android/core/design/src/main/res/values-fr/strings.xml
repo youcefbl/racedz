@@ -425,6 +425,7 @@
     <string name="runs_coach_listening">Écoute…</string>
     <string name="runs_coach_transcribing">Transcription…</string>
     <string name="runs_coach_thinking">Le coach réfléchit…</string>
+    <string name="runs_coach_sees_run">Le coach voit cette sortie en direct : temps, distance, allure, splits et fréquence cardiaque.</string>
     <string name="runs_tts_missing">Les indications vocales nécessitent une voix pour votre langue. Installez-en une pour les entendre.</string>
     <string name="runs_tts_install">Installer une voix</string>
     <string name="runs_hold">Maintenez</string>
@@ -451,6 +452,11 @@
     <string name="runs_gps_good">GPS bon</string>
     <string name="runs_gps_none">Pas de GPS</string>
     <string name="runs_map_recenter">Recentrer la carte sur moi</string>
+    <string name="runs_map_zoom_in">Zoomer</string>
+    <string name="runs_map_zoom_out">Dézoomer</string>
+    <string name="runs_map_fit_route">Voir tout le parcours</string>
+    <string name="runs_map_expand">Ouvrir la carte en plein écran</string>
+    <string name="runs_map_close">Fermer la carte</string>
     <string name="runs_cadence_unavailable">Cadence pas encore disponible</string>
     <string name="runs_lock_screen">Verrouiller l\'écran</string>
     <string name="runs_unlock_screen">Déverrouiller l\'écran</string>

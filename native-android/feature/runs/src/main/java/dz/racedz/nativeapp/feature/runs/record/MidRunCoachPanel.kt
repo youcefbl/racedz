@@ -147,6 +147,13 @@ fun MidRunCoachSheet(
                 style = MaterialTheme.typography.titleMedium,
                 color = zidRunOnDarkColors().textStrong,
             )
+            // Says plainly what the coach is given, so "am I too fast?" is asked with confidence
+            // and nobody is surprised that heart rate travelled with the question.
+            Text(
+                text = stringResource(R.string.runs_coach_sees_run),
+                style = MaterialTheme.typography.bodySmall,
+                color = zidRunOnDarkColors().textMuted,
+            )
 
             // The status line: reply, an in-flight note, or the prompt hint.
             val status = when {

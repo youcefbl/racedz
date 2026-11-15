@@ -23,6 +23,7 @@ cost-tracked. Context is rebuilt per request and scoped by `userId`; it is never
 | Context field | Source | Purpose | Sensitivity | Retention |
 |---|---|---|---|---|
 | `request.type` / `runnerQuestion` / `responseLocale` | request | Route the reply, echo the runner's question, set language | 🔴 free-text (question) | Stored on `CoachInteraction` |
+| `request.liveRun` (sport, status, elapsed/moving s, distance, current/average pace, completed split paces, elevation gain, current/average HR, cadence, guided flag; `provenance: device-reported-unverified`) | native recording screen, CHAT asked during an unsaved run | Answer a mid-run question about the run in progress (the run has no server id yet) | 🔴 health (heart rate) | **Not stored** — sent per request only; the interaction keeps only the question and is linked to the run on save. Numbers/enums only (no free text), bounded by `coachLiveRunSchema`; rejected on non-CHAT or with a `runId`; never an input to `fixedSafetyDecision` |
 | `request.asOf` / `localDate` / `timeZone` | injected server clock, Africa/Algiers | Ground relative dates without relying on provider/host time | 🟢 | Recomputed |
 | `runner.sex` / `runner.age` | `User` | Physiology-appropriate advice | 🟡 personal | From account |
 | `runner.location` (wilaya, city) | `User` | Local climate / time-of-day advice | 🟡 personal | From account |

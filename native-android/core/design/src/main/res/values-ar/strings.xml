@@ -440,6 +440,7 @@
     <string name="runs_coach_listening">راهو يسمع…</string>
     <string name="runs_coach_transcribing">راهو يكتب واش قلت…</string>
     <string name="runs_coach_thinking">الكوتش راهو يخمّم…</string>
+    <string name="runs_coach_sees_run">الكوتش يشوف هاد السورتي مباشرة: الوقت، المسافة، الريتم، الكيلومترات ونبضات القلب.</string>
     <string name="runs_tts_missing">التوجيهات الصوتية لازمها صوت للّغة تاعك. ركّب واحد باش تسمع التسخين، المراحل، والنصائح.</string>
     <string name="runs_tts_install">نصّب الصوت</string>
     <string name="runs_hold">شدّ</string>
@@ -466,6 +467,11 @@
     <string name="runs_gps_good">GPS مليح</string>
     <string name="runs_gps_none">ما كاش GPS</string>
     <string name="runs_map_recenter">رجّع الخريطة عليّ</string>
+    <string name="runs_map_zoom_in">قرّب</string>
+    <string name="runs_map_zoom_out">بعّد</string>
+    <string name="runs_map_fit_route">بيّن الطريق كامل</string>
+    <string name="runs_map_expand">حلّ الخريطة في الشاشة كاملة</string>
+    <string name="runs_map_close">سدّ الخريطة</string>
     <string name="runs_cadence_unavailable">الكادونس مازال ما بانش</string>
     <string name="runs_lock_screen">قفّل الشاشة</string>
     <string name="runs_unlock_screen">حلّ الشاشة</string>

@@ -244,6 +244,11 @@ export function buildRunnerCoachContext(input: {
       timeZone: COACH_TIME_ZONE,
       type: input.interaction.type,
       runnerQuestion: input.interaction.message ?? null,
+      // Asked mid-run from the recording screen: what the phone sees right now. Device-reported
+      // and unverified (labelled so); numbers only. Null for every other request.
+      liveRun: input.interaction.type === "CHAT" && input.interaction.liveRun
+        ? { provenance: "device-reported-unverified" as const, ...input.interaction.liveRun }
+        : null,
       // A live Arabic question gets an Algerian-Arabic answer even when the saved Coach language
       // is French or English. Other messages continue to follow the saved preference.
       responseLocale: resolveCoachResponseLocale(
@@ -259,7 +264,8 @@ export function buildRunnerCoachContext(input: {
 // Version of the context *shape* (not the prompt). Bump when the set/structure of context fields
 // changes, so a stored interaction can be traced to how its context was assembled.
 // v2: cache-aware key order (stable→volatile, live request last) + all-time records block.
-export const COACH_CONTEXT_VERSION = "ctx-v4-2026-11-15";
+// v5: request.liveRun — a typed, device-reported snapshot for questions asked during a run.
+export const COACH_CONTEXT_VERSION = "ctx-v5-2026-11-15";
 
 type CoachContextInput = Parameters<typeof buildRunnerCoachContext>[0];
 
@@ -312,7 +318,8 @@ function describeContextSections(input: CoachContextInput, context: ReturnType<t
     consistency: s(Boolean(input.consistency), "insufficient-data"),
     intensity: s(Boolean(input.intensity), "insufficient-data"),
     coachMemory: s((input.memory?.length ?? 0) > 0, "no-memory-stored"),
-    records: s(Boolean(input.records && input.records.totalRuns > 0), "no-runs-logged")
+    records: s(Boolean(input.records && input.records.totalRuns > 0), "no-runs-logged"),
+    liveRun: s(Boolean(context.request.liveRun), "not-asked-mid-run")
   };
   for (const key of context.selection.omittedForRelevance) {
     sections[key === "forecast" ? "environment" : key] = "omitted:not-relevant";

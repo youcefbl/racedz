@@ -9,7 +9,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +20,9 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +61,7 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.zidRunOnDarkColors
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.feature.runs.MapControl
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -79,7 +84,8 @@ import kotlin.math.tan
  *  - **Follow** keeps the newest fix centred at street zoom; the camera glides there over ~1 s so a
  *    1 Hz fix does not make the map hop (instant when the device asks for reduced motion).
  *  - **A pan** hands the camera to the runner; the marker keeps moving live and a 44 dp recenter
- *    control appears. Tapping it resumes following. Pinch steps the zoom one level at a time.
+ *    control appears. Tapping it resumes following. Pinch, or the +/− controls, step the zoom one
+ *    level at a time.
  *  - **The marker** is a ring at the newest fix, with a heading arrow only while
  *    [headingDegrees] is non-null — the recorder blanks it below walking speed, so a stopped
  *    runner never sees an arrow pointing nowhere.
@@ -167,7 +173,9 @@ fun LiveRunMap(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(zoom) {
+                // Keyed on Unit, not zoom: keyed on zoom, each level change restarted the detector
+                // mid-pinch, so one pinch could never travel more than a single level and felt dead.
+                .pointerInput(Unit) {
                     var pinch = 1f
                     detectTransformGestures { _, pan, zoomChange, _ ->
                         if (pan != Offset.Zero) {
@@ -179,10 +187,10 @@ fun LiveRunMap(
                             camera.following = false
                         }
                         pinch *= zoomChange
-                        if (pinch > 1.4f) {
+                        if (pinch > PINCH_STEP_IN) {
                             camera.zoom = min(MAX_ZOOM, camera.zoom + 1)
                             pinch = 1f
-                        } else if (pinch < 0.71f) {
+                        } else if (pinch < PINCH_STEP_OUT) {
                             camera.zoom = max(MIN_ZOOM, camera.zoom - 1)
                             pinch = 1f
                         }
@@ -292,6 +300,30 @@ fun LiveRunMap(
                 .padding(horizontal = 4.dp, vertical = 1.dp),
         )
 
+        // Zoom buttons: pinching with one hand while running is hard, a tap is not. Top-end so the
+        // thumb-zone recenter control and the attribution keep their corners.
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(ZidRunDimens.spaceSm),
+            verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+        ) {
+            MapControl(
+                icon = Icons.Filled.Add,
+                label = stringResource(R.string.runs_map_zoom_in),
+                onClick = { camera.zoom = min(MAX_ZOOM, camera.zoom + 1) },
+                background = colors.surfaceMuted,
+                tint = colors.textStrong,
+            )
+            MapControl(
+                icon = Icons.Filled.Remove,
+                label = stringResource(R.string.runs_map_zoom_out),
+                onClick = { camera.zoom = max(MIN_ZOOM, camera.zoom - 1) },
+                background = colors.surfaceMuted,
+                tint = colors.textStrong,
+            )
+        }
+
         if (!camera.following) {
             val label = stringResource(R.string.runs_map_recenter)
             IconButton(
@@ -325,7 +357,10 @@ fun rememberLiveMapCamera(): LiveMapCameraState = remember { LiveMapCameraState(
 
 private const val TILE_SIZE = 256.0
 private const val MAX_ZOOM = 18
-private const val MIN_ZOOM = 12
+private const val MIN_ZOOM = 11
+/** Pinch ratio that steps one zoom level; a modest spread is enough with a phone held mid-stride. */
+private const val PINCH_STEP_IN = 1.25f
+private const val PINCH_STEP_OUT = 0.8f
 /** Street level: a block or two around the runner, the route visible behind them. */
 private const val DEFAULT_ZOOM = 16
 /** A shade under the 1 Hz fix interval, so the marker is always moving toward the newest fix. */

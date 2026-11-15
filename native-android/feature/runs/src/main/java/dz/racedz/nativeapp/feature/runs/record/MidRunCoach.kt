@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dz.racedz.nativeapp.core.auth.CoachRepository
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.AskCoachRequest
+import dz.racedz.nativeapp.core.network.LiveRunSnapshotDto
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +22,12 @@ import kotlinx.coroutines.launch
  * A run has no server id until it is saved, so a question asked mid-run is a plain CHAT interaction
  * with no runId; its id is handed to [RunRecorder.recordCoachInteraction] and linked to the run at
  * save time. Only subscribers get the affordance — the entitlement is read once up front, and the
- * server enforces it regardless. Both voice and text are supported: voice is transcribed and asked
- * straight away (hands are moving), text is for when speaking is not possible.
+ * server enforces it regardless. Both voice and text are supported: voice is transcribed into the
+ * composer for the runner to check and send, text is for when speaking is not possible.
+ *
+ * The question is about *this* run, so each ask carries a typed [LiveRunSnapshotDto] of what the
+ * recorder sees at that moment (server `coachLiveRunSchema`) — a separate field, never text spliced
+ * into the runner's words.
  */
 data class MidRunCoachUiState(
     /**
@@ -95,13 +100,26 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
      * proper mid-run request with a typed, provenance-tagged live snapshot is a Coach-contract change
      * tracked for later; until then the coach answers as general CHAT rather than misattributing text.
      */
-    fun ask(message: String, speak: (String) -> Unit) {
+    fun ask(
+        message: String,
+        speak: (String) -> Unit,
+        snapshot: () -> LiveRunSnapshotDto? = {
+            RunRecorder.state.value.toCoachSnapshot(
+                guided = GuidedSessionController.state.value.session != null,
+            )
+        },
+    ) {
         val trimmed = message.trim()
         if (trimmed.isEmpty() || _state.value.asking) return
         _state.update { it.copy(asking = true, error = null, reply = null) }
         val requestId = requestIdFor(trimmed)
         viewModelScope.launch {
-            val request = AskCoachRequest(type = "CHAT", message = trimmed, requestId = requestId)
+            val request = AskCoachRequest(
+                type = "CHAT",
+                message = trimmed,
+                requestId = requestId,
+                liveRun = snapshot(),
+            )
             when (val result = coach.ask(request)) {
                 is ApiResult.Success -> {
                     RunRecorder.recordCoachInteraction(result.value.id)
@@ -152,6 +170,42 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
         pendingVoiceFile = null
         super.onCleared()
     }
+}
+
+/**
+ * The live snapshot sent with a mid-run question, or null when there is no run in progress.
+ *
+ * Every value is clamped to the server's bounds (`coachLiveRunSchema`) so a GPS glitch — a 20 s/km
+ * "pace" from a jump, a strap reading 0 bpm — becomes a missing value instead of a rejected
+ * question. Pace and HR outside the plausible range are dropped, not clamped: a clamped number
+ * would be a made-up one.
+ */
+internal fun RecordingState.toCoachSnapshot(guided: Boolean): LiveRunSnapshotDto? {
+    val liveStatus = when {
+        status == RecordingStatus.Paused && autoPaused -> "AUTO_PAUSED"
+        status == RecordingStatus.Paused -> "PAUSED"
+        status == RecordingStatus.Recording || status == RecordingStatus.Acquiring ->
+            if (autoPaused) "AUTO_PAUSED" else "RECORDING"
+        else -> return null
+    }
+    fun pace(value: Int?) = value?.takeIf { it in 60..7_200 }
+    fun bpm(value: Int?) = value?.takeIf { it in 30..240 }
+    return LiveRunSnapshotDto(
+        sport = sport.takeIf { it in setOf("RUN", "WALK", "TRAIL", "RIDE") } ?: "RUN",
+        status = liveStatus,
+        elapsedSeconds = elapsedSeconds.coerceIn(0, 172_800),
+        movingSeconds = movingSeconds.coerceIn(0, 172_800),
+        distanceKm = (Math.round(distanceKm.coerceIn(0.0, 400.0) * 100) / 100.0),
+        currentPaceSecondsPerKm = pace(currentPaceSecondsPerKm),
+        averagePaceSecondsPerKm = pace(averagePaceSecondsPerKm),
+        // Newest 60, oldest first — the server's cap, and plenty for any question about the run.
+        splitPacesSecondsPerKm = splits.mapNotNull { pace(it.paceSecondsPerKm) }.takeLast(60),
+        elevationGainM = Math.round(elevationGainM.coerceIn(0.0, 10_000.0)).toDouble(),
+        heartRateBpm = bpm(heartRateBpm),
+        averageHeartRateBpm = bpm(averageHeartRate),
+        cadenceSpm = (liveCadenceSpm ?: avgCadenceSpm)?.takeIf { it in 30..260 },
+        guidedWorkout = guided,
+    )
 }
 
 /**

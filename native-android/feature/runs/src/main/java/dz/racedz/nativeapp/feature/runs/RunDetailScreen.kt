@@ -232,7 +232,7 @@ fun RunDetailScreen(
                     )
                 }
 
-                RunMap(
+                ExpandableRunMap(
                     route = run.route,
                     modifier = Modifier
                         .fillMaxWidth()

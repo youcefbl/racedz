@@ -200,6 +200,28 @@ export const createSleepLogSchema = z
     }
   });
 
+// A question asked DURING a run (native recording screen). The run has no server id yet, so the
+// recorder sends what it can see right now. Numbers and fixed enums only — no free text, so it cannot
+// carry instructions — and every value is bounded. It is device-reported and unverified: it informs
+// the answer, never the safety decision (which runs on the runner's words and saved data alone).
+export const coachLiveRunSchema = z.object({
+  sport: z.enum(["RUN", "WALK", "TRAIL", "RIDE"]).default("RUN"),
+  status: z.enum(["RECORDING", "PAUSED", "AUTO_PAUSED"]),
+  elapsedSeconds: z.number().int().min(0).max(172_800),
+  movingSeconds: z.number().int().min(0).max(172_800),
+  distanceKm: z.number().min(0).max(400),
+  currentPaceSecondsPerKm: z.number().int().min(60).max(7_200).nullable().optional(),
+  averagePaceSecondsPerKm: z.number().int().min(60).max(7_200).nullable().optional(),
+  // Completed whole-km split paces, oldest first. Bounded so a long hike cannot bloat the context.
+  splitPacesSecondsPerKm: z.array(z.number().int().min(60).max(7_200)).max(60).default([]),
+  elevationGainM: z.number().min(0).max(10_000).nullable().optional(),
+  heartRateBpm: z.number().int().min(30).max(240).nullable().optional(),
+  averageHeartRateBpm: z.number().int().min(30).max(240).nullable().optional(),
+  cadenceSpm: z.number().int().min(30).max(260).nullable().optional(),
+  // Whether this run is a guided session of the saved plan (the workout itself is in activePlan).
+  guidedWorkout: z.boolean().default(false)
+});
+
 export const coachInteractionInputSchema = z
   .object({
     type: z.enum(["INITIAL_PLAN", "POST_RUN", "WEEKLY_REVIEW", "CHAT"]),
@@ -208,7 +230,8 @@ export const coachInteractionInputSchema = z
     message: z.string().trim().max(1200).nullable().optional(),
     // Client idempotency key (review U-10): same key ⇒ same interaction, one provider call, one
     // quota charge. Optional so existing clients keep working; UUID-shaped charset enforced.
-    requestId: z.string().trim().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/).optional()
+    requestId: z.string().trim().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
+    liveRun: coachLiveRunSchema.nullable().optional()
   })
   .superRefine((input, context) => {
     if (input.replyToInteractionId && input.type !== "CHAT") {
@@ -216,6 +239,10 @@ export const coachInteractionInputSchema = z
     }
     if (input.type === "POST_RUN" && !input.runId) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["runId"], message: "Post-run feedback requires a run." });
+    }
+
+    if (input.liveRun && (input.type !== "CHAT" || input.runId)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["liveRun"], message: "A live run snapshot is only for a chat asked during an unsaved run." });
     }
 
     if (input.type === "CHAT" && !input.message) {

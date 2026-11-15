@@ -445,6 +445,7 @@
     <string name="runs_coach_listening">Listening…</string>
     <string name="runs_coach_transcribing">Transcribing…</string>
     <string name="runs_coach_thinking">Coach is thinking…</string>
+    <string name="runs_coach_sees_run">Your coach sees this run live: time, distance, pace, splits and heart rate.</string>
     <string name="runs_tts_missing">Spoken cues need a voice for your language. Install one to hear warm-up, splits and coaching.</string>
     <string name="runs_tts_install">Install voice</string>
     <string name="runs_hold">Hold</string>
@@ -471,6 +472,11 @@
     <string name="runs_gps_good">GPS good</string>
     <string name="runs_gps_none">No GPS</string>
     <string name="runs_map_recenter">Recenter map on me</string>
+    <string name="runs_map_zoom_in">Zoom in</string>
+    <string name="runs_map_zoom_out">Zoom out</string>
+    <string name="runs_map_fit_route">Show the whole route</string>
+    <string name="runs_map_expand">Open map full screen</string>
+    <string name="runs_map_close">Close map</string>
     <string name="runs_cadence_unavailable">Cadence not available yet</string>
     <string name="runs_lock_screen">Lock screen</string>
     <string name="runs_unlock_screen">Unlock screen</string>

@@ -52,7 +52,7 @@ import dz.racedz.nativeapp.core.design.ZidRunTextField
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.core.design.currentLocale
-import dz.racedz.nativeapp.feature.runs.RunMap
+import dz.racedz.nativeapp.feature.runs.ExpandableRunMap
 
 /**
  * What the runner sees after Finish and before the run is stored.
@@ -121,7 +121,7 @@ fun RunSummaryScreen(
             // A failed-fix run has nothing to draw, and a full 1.5:1 empty panel pushed Save and
             // Discard two screens down — exactly when the runner most wants to discard (DEV-R08).
             if (state.route.orEmpty().size > 1) {
-                RunMap(
+                ExpandableRunMap(
                     route = state.route,
                     modifier = Modifier
                         .fillMaxWidth()

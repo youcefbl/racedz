@@ -683,6 +683,31 @@ data class AskCoachRequest(
      * second provider call and quota charge — the main mobile failure mode on a 120s request.
      */
     val requestId: String? = null,
+    /** What the recorder sees right now, for a question asked during an unsaved run; else null. */
+    val liveRun: LiveRunSnapshotDto? = null,
+)
+
+/**
+ * A typed mid-run snapshot (server `coachLiveRunSchema`). Numbers and fixed enums only, so it can
+ * never carry instructions; the server labels it device-reported and keeps it out of safety.
+ */
+@Serializable
+data class LiveRunSnapshotDto(
+    val sport: String = "RUN",
+    /** RECORDING, PAUSED or AUTO_PAUSED. */
+    val status: String,
+    val elapsedSeconds: Int,
+    val movingSeconds: Int,
+    val distanceKm: Double,
+    val currentPaceSecondsPerKm: Int? = null,
+    val averagePaceSecondsPerKm: Int? = null,
+    /** Completed split paces (per km), oldest first. */
+    val splitPacesSecondsPerKm: List<Int> = emptyList(),
+    val elevationGainM: Double? = null,
+    val heartRateBpm: Int? = null,
+    val averageHeartRateBpm: Int? = null,
+    val cadenceSpm: Int? = null,
+    val guidedWorkout: Boolean = false,
 )
 
 @Serializable
