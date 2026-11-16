@@ -1,5 +1,6 @@
 package dz.racedz.nativeapp.core.network
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -182,6 +183,40 @@ class ApiClientTest {
             0,
             okHttp.connectionPool.connectionCount()
         )
+    }
+
+    /**
+     * Found on a Galaxy M21 (2026-11-16): leaving the run summary while a request was in flight
+     * cancelled it, OkHttp surfaced that as IOException("Canceled"), and the offline branch then
+     * evicted the pool on the main thread — NetworkOnMainThreadException, app killed. A cancelled
+     * call is a cancellation, never an "offline" result.
+     */
+    @Test
+    fun `a call cancelled with its coroutine stays a cancellation, not an offline failure`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"data":[]}""")
+                .setHeadersDelay(5, java.util.concurrent.TimeUnit.SECONDS)
+        )
+        val (api, client, _) = apiWithClient()
+
+        var result: ApiResult<*>? = null
+        var cancelled = false
+        val job = launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                result = client.call { api.races() }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                cancelled = true
+                throw e
+            }
+        }
+        server.takeRequest()
+        job.cancel()
+        job.join()
+
+        assertTrue("cancellation must propagate", cancelled)
+        assertNull("no Offline result for a cancelled call", result)
     }
 
     @Test

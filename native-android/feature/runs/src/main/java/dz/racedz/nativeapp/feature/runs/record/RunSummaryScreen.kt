@@ -54,6 +54,9 @@ import dz.racedz.nativeapp.core.design.ZidRunTopBar
 import dz.racedz.nativeapp.core.design.currentLocale
 import dz.racedz.nativeapp.feature.runs.ExpandableRunMap
 
+/** The server's minimum duration for any run (createRunnerRunSchema.durationSeconds). */
+private const val MIN_SAVABLE_SECONDS = 60
+
 /**
  * What the runner sees after Finish and before the run is stored.
  *
@@ -82,6 +85,28 @@ fun RunSummaryScreen(
     var effort by rememberSaveable { mutableStateOf(5) }
     var confirmDiscard by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // No GPS distance at all — the receiver never got a fix. The run is still saveable: the distance
+    // is pre-filled from the step counter, in the runner's unit, and they can correct it (or type it
+    // when there were no steps either). See NoGpsDistance.
+    val noGpsDistance = state.distanceKm <= 0.0
+    val stepEstimateKm = remember(state.stepCount, state.avgCadenceSpm) {
+        NoGpsDistance.estimateKm(state.stepCount, state.avgCadenceSpm)
+    }
+    var noGpsDistanceText by rememberSaveable {
+        mutableStateOf(
+            stepEstimateKm?.let {
+                String.format(java.util.Locale.ROOT, "%.2f", dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(it))
+            }.orEmpty(),
+        )
+    }
+    // normalizeNumber drops anything that is not a digit or separator, so "0,31abc12" would quietly
+    // read as 0.3112 — refuse text with anything else in it instead of guessing.
+    val noGpsDistanceKm = noGpsDistanceText
+        .takeIf { text -> text.all { Character.isDigit(it) || it in ".,٫،٬ " } }
+        ?.let { dz.racedz.nativeapp.feature.runs.manual.normalizeNumber(it).toDoubleOrNull() }
+        ?.let { dz.racedz.nativeapp.core.design.ZidRunUnits.toKm(it) }
+    val noGpsDistanceValid = NoGpsDistance.isValid(noGpsDistanceKm)
 
     // The background worker may finish this save while the screen is open (NATRUN-07.2): leave the
     // way a foreground save leaves, to the saved run.
@@ -304,6 +329,38 @@ fun RunSummaryScreen(
                 )
             }
 
+            if (noGpsDistance) {
+                ZidRunCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
+                        Text(
+                            text = stringResource(R.string.runs_no_gps_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.textStrong,
+                        )
+                        Text(
+                            text = stringResource(
+                                if (stepEstimateKm != null) R.string.runs_no_gps_estimated else R.string.runs_no_gps_enter,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textMuted,
+                        )
+                        ZidRunTextField(
+                            value = noGpsDistanceText,
+                            onValueChange = { noGpsDistanceText = it.take(10) },
+                            label = stringResource(R.string.runs_manual_distance_label, distanceUnitLabel()),
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                            errorText = if (noGpsDistanceText.isNotBlank() && !noGpsDistanceValid) {
+                                stringResource(R.string.runs_manual_error_distance)
+                            } else {
+                                null
+                            },
+                            required = true,
+                            enabled = !saveState.saving,
+                        )
+                    }
+                }
+            }
+
             ZidRunTextField(
                 value = title,
                 onValueChange = { title = it.take(120) },
@@ -394,20 +451,19 @@ fun RunSummaryScreen(
 
             saveState.error?.let { ZidRunInlineError(it) }
 
-            /*
-             * A run with no distance cannot be saved, and the server is right to refuse it — so say
-             * so here rather than letting the runner press Save into a rejection. This happens for
-             * real: a recording that never got a usable fix, or one stopped seconds after starting.
-             * Discard stays available, which is the only thing left to do with it.
-             */
-            val nothingToSave = state.distanceKm <= 0.0
-            if (nothingToSave) {
+            // A no-GPS recording saves once its distance (estimated or typed) is one the server accepts;
+            // the field above says what is wrong until then. Under a minute the server refuses any
+            // run (createRunnerRunSchema), and its "Check the highlighted fields" highlighted nothing
+            // here — so say why instead, and leave Discard as the way out.
+            val tooShort = state.elapsedSeconds < MIN_SAVABLE_SECONDS
+            if (tooShort) {
                 Text(
-                    text = stringResource(R.string.runs_nothing_to_save),
+                    text = stringResource(R.string.runs_too_short_to_save),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textMuted,
                 )
             }
+            val nothingToSave = tooShort || (noGpsDistance && !noGpsDistanceValid)
 
             ZidRunButton(
                 text = stringResource(R.string.runs_save),
@@ -416,6 +472,7 @@ fun RunSummaryScreen(
                         title = title.trim().takeIf { it.isNotEmpty() },
                         notes = notes.trim().takeIf { it.isNotEmpty() },
                         perceivedEffort = effort,
+                        noGpsDistanceKm = if (noGpsDistance) noGpsDistanceKm else null,
                         onSaved = onSaved,
                         onFailedRetryable = { request ->
                             // The runner asked to save and the network said no: keep their exact

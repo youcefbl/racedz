@@ -460,7 +460,10 @@
     <string name="runs_finish">Finish</string>
     <string name="runs_discard">Discard</string>
     <string name="runs_save">Save run</string>
-    <string name="runs_nothing_to_save">This recording has no distance, so there is nothing to save. Discard it and start again.</string>
+    <string name="runs_no_gps_title">No GPS signal on this recording</string>
+    <string name="runs_no_gps_estimated">The phone never got a GPS fix, so there is no route. The distance below is estimated from your steps. Check it, then save.</string>
+    <string name="runs_no_gps_enter">The phone never got a GPS fix, so there is no route. Enter the distance you covered to save it.</string>
+    <string name="runs_too_short_to_save">This recording is under a minute, which is too short to save. Discard it and start again.</string>
     <string name="runs_auto_paused">Paused — that looked faster than running. Resume when you are back on foot.</string>
     <string name="runs_gps_weak">Weak GPS</string>
     <string name="runs_stat_calories">Calories</string>

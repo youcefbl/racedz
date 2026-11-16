@@ -455,7 +455,10 @@
     <string name="runs_finish">حبس الجَرية</string>
     <string name="runs_discard">ما تحفظش</string>
     <string name="runs_save">سجّل</string>
-    <string name="runs_nothing_to_save">هاذ التسجيل ما فيه حتى مسافة، ما كاين والو باش يتحفظ. امسحو وعاود من جديد.</string>
+    <string name="runs_no_gps_title">ما كانش إشارة GPS في هاذ التسجيل</string>
+    <string name="runs_no_gps_estimated">التيليفون ما شدّش GPS، داك علاش ما كاينش مسار. المسافة اللي تحت محسوبة من خطواتك. شوفها وصلّحها إذا لازم، ومن بعد احفظ.</string>
+    <string name="runs_no_gps_enter">التيليفون ما شدّش GPS، داك علاش ما كاينش مسار. اكتب المسافة اللي درتها باش تحفظ.</string>
+    <string name="runs_too_short_to_save">هاذ التسجيل أقل من دقيقة، قصير بزاف باش يتحفظ. امسحو وعاود من جديد.</string>
     <string name="runs_auto_paused">حبسنا التسجيل — السرعة هذي كبيرة بزاف على الجري. كمّل كي ترجع تجري.</string>
     <string name="runs_gps_weak">GPS ضعيف</string>
     <string name="runs_stat_calories">السعرات</string>

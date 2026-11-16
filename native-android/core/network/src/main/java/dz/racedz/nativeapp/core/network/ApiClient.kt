@@ -4,6 +4,10 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
@@ -90,7 +94,16 @@ class ApiClient(
             // needing to know a restart was the fix. Safe to call unconditionally: on a build that
             // predates this parameter, or when genuinely offline, there is nothing to evict and
             // this is a no-op either way.
-            okHttpClient?.connectionPool?.evictAll()
+            //
+            // Two guards, both found on a Galaxy M21 (2026-11-16) leaving the run summary with a
+            // request in flight: OkHttp reports a call cancelled with its coroutine as an
+            // IOException("Canceled"), not a CancellationException — so a screen going away is not
+            // a network failure and must stay a cancellation. And evictAll() closes TLS sockets,
+            // which writes close_notify; run from Dispatchers.Main that is network I/O on the main
+            // thread and StrictMode killed the app. Still synchronous, so the next attempt is
+            // guaranteed the fresh pool.
+            currentCoroutineContext().ensureActive()
+            okHttpClient?.let { client -> withContext(Dispatchers.IO) { client.connectionPool.evictAll() } }
             ApiResult.Failure(
                 ApiCallException(ApiErrorCode.Offline, "You appear to be offline. Check your connection.", cause = io)
             )

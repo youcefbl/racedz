@@ -67,7 +67,7 @@ import java.time.ZoneOffset
  * dot, dropping everything else, so the same field parses whether typed on an Arabic or Latin
  * keyboard. Does not touch what is displayed — only what is parsed for validation/submit.
  */
-private fun normalizeNumber(input: String): String = buildString {
+internal fun normalizeNumber(input: String): String = buildString {
     for (ch in input.trim()) {
         val digit = Character.digit(ch, 10)
         when {

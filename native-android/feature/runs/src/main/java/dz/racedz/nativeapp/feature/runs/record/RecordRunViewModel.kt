@@ -83,6 +83,12 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
         title: String? = null,
         notes: String? = null,
         perceivedEffort: Int = 5,
+        /**
+         * The runner's distance for a recording the GPS never measured (see [NoGpsDistance]). When
+         * set, the run is posted as a MANUAL entry: no route, no laps (they were split on GPS
+         * metres, all zero), and the step counter's stepping time as moving time.
+         */
+        noGpsDistanceKm: Double? = null,
         onSaved: (String) -> Unit,
         /** Called with the exact failed request so the caller can arm the background retry (NATRUN-07.2). */
         onFailedRetryable: ((CreateRunRequest) -> Unit)? = null,
@@ -92,7 +98,7 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
 
         _state.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
-            val request = CreateRunRequest(
+            val gpsRequest = CreateRunRequest(
                 clientId = recording.clientId,
                 startedAt = Instant.ofEpochMilli(recording.startedAtEpochMs).toString(),
                 distanceKm = recording.distanceKm,
@@ -122,6 +128,19 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 laps = recording.laps.takeIf { it.isNotEmpty() },
                 sport = recording.sport,
             )
+            val request = if (noGpsDistanceKm != null) {
+                gpsRequest.copy(
+                    distanceKm = noGpsDistanceKm,
+                    source = "MANUAL",
+                    route = null,
+                    laps = null,
+                    movingTimeSeconds = recording.steppingSeconds
+                        .coerceAtMost(recording.elapsedSeconds)
+                        .takeIf { it > 0 },
+                )
+            } else {
+                gpsRequest
+            }
 
             when (val result = repository.create(request)) {
                 is ApiResult.Success -> {
