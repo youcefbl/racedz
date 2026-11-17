@@ -552,6 +552,9 @@
     <string name="runs_interrupted_summary">التسجيل حبس فجأة على %1$s. احفظ واش تسجّل ولا امسحو.</string>
     <string name="runs_interrupted_channel">انقطاع التسجيل</string>
     <string name="runs_interrupted_continue_notice">حبس على %1$s. اضغط في ظرف دقيقتين باش تكمّل نفس الجَرية؛ من بعد تقدر غير تحفظ واش تسجّل.</string>
+    <string name="runs_notifications_off_title">الإشعارات مطفية</string>
+    <string name="runs_notifications_off_body">إذا التيليفون سدّ ZidRun وسط الجَرية، التطبيق ما يقدرش يخبرك، والجَرية تحبس وين تسدّ. كي تكون الإشعارات خدّامة، تقدر تضغط وتكمّل نفس الجَرية.</string>
+    <string name="runs_notifications_off_action">اسمح بالإشعارات</string>
     <string name="runs_finish_confirm_title">تحبس الجَرية؟</string>
     <string name="runs_finish_confirm_body">جريت %1$s فـ%2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>
     <string name="runs_keep_running">كمّل</string>

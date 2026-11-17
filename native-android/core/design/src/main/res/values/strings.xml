@@ -549,6 +549,9 @@
     <string name="runs_interrupted_summary">Recording stopped unexpectedly at %1$s. Save the recorded part or discard it.</string>
     <string name="runs_interrupted_channel">Run interruptions</string>
     <string name="runs_interrupted_continue_notice">Stopped at %1$s. Tap within 2 minutes to continue this run; after that you can still save what was recorded.</string>
+    <string name="runs_notifications_off_title">Notifications are off</string>
+    <string name="runs_notifications_off_body">If your phone closes ZidRun during a run, the app cannot tell you, and the run stops where it was closed. With notifications on, you can tap to continue the same run.</string>
+    <string name="runs_notifications_off_action">Allow notifications</string>
     <string name="runs_finish_confirm_title">Finish this run?</string>
     <string name="runs_finish_confirm_body">%1$s in %2$s. You can add a title and notes next.</string>
     <string name="runs_keep_running">Keep running</string>

@@ -529,6 +529,9 @@
     <string name="runs_interrupted_summary">L\'enregistrement s\'est arrêté de façon inattendue à %1$s. Sauvegardez la partie enregistrée ou supprimez-la.</string>
     <string name="runs_interrupted_channel">Interruptions d\'enregistrement</string>
     <string name="runs_interrupted_continue_notice">Arrêté à %1$s. Touchez dans les 2 minutes pour continuer cette course ; ensuite, vous pourrez toujours sauvegarder ce qui a été enregistré.</string>
+    <string name="runs_notifications_off_title">Les notifications sont désactivées</string>
+    <string name="runs_notifications_off_body">Si votre téléphone ferme ZidRun pendant une sortie, l\'app ne peut pas vous prévenir et la sortie s\'arrête là. Avec les notifications, vous pouvez toucher pour continuer la même sortie.</string>
+    <string name="runs_notifications_off_action">Autoriser les notifications</string>
     <string name="runs_finish_confirm_title">Terminer cette sortie ?</string>
     <string name="runs_finish_confirm_body">%1$s en %2$s. Vous pourrez ajouter un titre et des notes ensuite.</string>
     <string name="runs_keep_running">Continuer</string>

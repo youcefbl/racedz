@@ -425,6 +425,10 @@ fun StartRunScreen(
                 onTriggered = { onHoldComplete() },
             )
 
+            // Notifications off means a crash mid-run goes unannounced (RunInterruptionNotice). Said
+            // before the start, below the control, so it never moves what the runner reaches for.
+            NotificationsOffNotice()
+
             // A search that drags on gets the few things a runner can actually do about it — below
             // the start control, so appearing 20 s in never moves what the runner is about to touch.
             if (gpsWarmup.showTips) GpsTipsCard()
