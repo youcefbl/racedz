@@ -59,6 +59,9 @@ class Diagnostics(
         RunTelemetry.sink = this
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            // First, while there is still a process: make a run in progress durable and tell the
+            // runner it stopped, with a tap that continues it (RunInterruptionNotice).
+            dz.racedz.nativeapp.feature.runs.record.RunInterruptionNotice.onProcessCrash(context)
             runCatching { recordCrash(thread, error) }
             previous?.uncaughtException(thread, error)
         }

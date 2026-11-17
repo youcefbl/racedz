@@ -455,6 +455,20 @@ fun RecordingScreen(
             )
         }
 
+        // After the phone killed the app mid-run and recording picked up again (RecordingRecovery):
+        // said for the rest of the run, so a gap on the map and a clock that skipped are explained.
+        if (state.resumedAfterInterruption && state.status != RecordingStatus.Finished) {
+            Text(
+                text = stringResource(R.string.runs_resumed_banner),
+                style = MaterialTheme.typography.bodySmall,
+                color = zidRunOnDarkColors().textMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(vertical = ZidRunDimens.spaceXs)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
+
         // Ask-the-coach mid-run, for entitled runners (trial or subscribed), and not once finished.
         val coachState = coachViewModel?.state?.collectAsStateWithLifecycle()?.value
         if (coachViewModel != null && coachState?.canCoach == true && state.status != RecordingStatus.Finished) {

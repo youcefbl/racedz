@@ -40,6 +40,12 @@ class ZidRunApplication : Application(), ImageLoaderFactory {
         // Our own crash/exit/issue reporting and run-session events, to the ZidRun API.
         container.diagnostics.install()
         container.sessionManager.restore()
+        // Before any Activity: when Android restarts the run tracking service after killing the
+        // process mid-run, there is no UI to say whose run it is, and recovery must only ever
+        // continue the signed-in account's own recording (RecordingRecovery).
+        dz.racedz.nativeapp.feature.runs.record.RunRecorder.setOwner(
+            (container.sessionManager.state.value as? dz.racedz.nativeapp.core.auth.AuthState.SignedIn)?.userId,
+        )
 
         // Proactive half of the stale-connection fix (see AppContainer.evictStaleConnections):
         // every time the app comes back to the foreground — including the very first launch,

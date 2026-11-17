@@ -498,6 +498,14 @@
     <string name="runs_gps_tip_still">Gardez le téléphone immobile, écran vers le ciel, 30 à 60 secondes avant de démarrer.</string>
     <string name="runs_gps_tip_battery">Désactivez l\'économiseur de batterie et réglez la localisation sur haute précision si le téléphone le propose.</string>
     <string name="runs_gps_tip_start_anyway">Vous pouvez démarrer quand même : le temps compte tout de suite et la distance dès que le signal est bon.</string>
+    <!-- Reprise après que le téléphone a fermé l'app pendant une course (RecordingRecovery). -->
+    <string name="runs_resumed_after_interruption">Reprise après une interruption</string>
+    <string name="runs_resumed_banner">Votre téléphone a fermé l\'app et l\'enregistrement a repris. Le temps de fermeture n\'est pas compté.</string>
+    <string name="runs_interrupted_title">Enregistrement arrêté</string>
+    <string name="runs_interrupted_notice">L\'enregistrement s\'est arrêté de façon inattendue à %1$s. Ouvrez ZidRun pour sauvegarder la partie enregistrée ou la supprimer.</string>
+    <string name="runs_interrupted_summary">L\'enregistrement s\'est arrêté de façon inattendue à %1$s. Sauvegardez la partie enregistrée ou supprimez-la.</string>
+    <string name="runs_interrupted_channel">Interruptions d\'enregistrement</string>
+    <string name="runs_interrupted_continue_notice">Arrêté à %1$s. Touchez dans les 2 minutes pour continuer cette course ; ensuite, vous pourrez toujours sauvegarder ce qui a été enregistré.</string>
     <string name="runs_finish_confirm_title">Terminer cette sortie ?</string>
     <string name="runs_finish_confirm_body">%1$s en %2$s. Vous pourrez ajouter un titre et des notes ensuite.</string>
     <string name="runs_keep_running">Continuer</string>

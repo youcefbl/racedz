@@ -30,6 +30,15 @@ val OFFLINE_GUIDED_SESSION = GuidedSessionDto(
     ),
 )
 
+/** A guided session's position, durable in the outbox so a recovered run continues the same step. */
+@kotlinx.serialization.Serializable
+data class GuidedSnapshot(
+    val session: GuidedSessionDto,
+    val stepIndex: Int,
+    val stepStartedAtSeconds: Int,
+    val stepStartedAtMeters: Double,
+)
+
 data class GuidedProgress(
     val session: GuidedSessionDto? = null,
     val stepIndex: Int = 0,
@@ -69,6 +78,27 @@ object GuidedSessionController {
 
     fun clear() {
         _state.value = GuidedProgress()
+    }
+
+    /** The current position, for the recorder's snapshot; null when no guided session is running. */
+    fun snapshot(): GuidedSnapshot? {
+        val current = _state.value
+        val session = current.session ?: return null
+        return GuidedSnapshot(session, current.stepIndex, stepStartedAtSeconds, stepStartedAtMeters)
+    }
+
+    /**
+     * Puts a recovered run back on the step it was on. Null — a free run, or a snapshot that did not
+     * record a position — continues unguided rather than guessing where in the workout it was.
+     */
+    fun restore(snapshot: GuidedSnapshot?) {
+        if (snapshot == null) {
+            clear()
+            return
+        }
+        _state.value = GuidedProgress(session = snapshot.session, stepIndex = snapshot.stepIndex.coerceIn(0, snapshot.session.steps.size))
+        stepStartedAtSeconds = snapshot.stepStartedAtSeconds.coerceAtLeast(0)
+        stepStartedAtMeters = snapshot.stepStartedAtMeters.coerceAtLeast(0.0)
     }
 
     fun elapsedInStep(totalElapsedSeconds: Int): Int = (totalElapsedSeconds - stepStartedAtSeconds).coerceAtLeast(0)

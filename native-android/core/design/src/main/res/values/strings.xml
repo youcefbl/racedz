@@ -518,6 +518,14 @@
     <string name="runs_gps_tip_still">Hold the phone still, screen up, for 30 to 60 seconds before you start.</string>
     <string name="runs_gps_tip_battery">Turn off battery saver, and set Location to high accuracy if your phone offers it.</string>
     <string name="runs_gps_tip_start_anyway">You can start anyway: time counts straight away and distance starts once the signal is good.</string>
+    <!-- Recovery after the phone killed the app mid-run (RecordingRecovery). -->
+    <string name="runs_resumed_after_interruption">Resumed after an interruption</string>
+    <string name="runs_resumed_banner">Your phone closed the app and recording picked up again. The time it was closed isn\'t counted.</string>
+    <string name="runs_interrupted_title">Run recording stopped</string>
+    <string name="runs_interrupted_notice">Recording stopped unexpectedly at %1$s. Open ZidRun to save the recorded part or discard it.</string>
+    <string name="runs_interrupted_summary">Recording stopped unexpectedly at %1$s. Save the recorded part or discard it.</string>
+    <string name="runs_interrupted_channel">Run interruptions</string>
+    <string name="runs_interrupted_continue_notice">Stopped at %1$s. Tap within 2 minutes to continue this run; after that you can still save what was recorded.</string>
     <string name="runs_finish_confirm_title">Finish this run?</string>
     <string name="runs_finish_confirm_body">%1$s in %2$s. You can add a title and notes next.</string>
     <string name="runs_keep_running">Keep running</string>

@@ -454,7 +454,25 @@ fun ZidRunApp(
                     // Owner-scoped: another account's snapshot is neither hydrated nor shown.
                     val pending = RunRecorder.pendingFor(userId) ?: return@LaunchedEffect
                     if (RunRecorder.state.value.status == RecordingStatus.Idle) {
-                        RunRecorder.resumeFinished(pending)
+                        if (pending.finished || pending.saveRequested) {
+                            RunRecorder.resumeFinished(pending)
+                        } else {
+                            // Killed mid-run and opened again before Android restarted the service:
+                            // continue the recording if it is fresh, otherwise it is salvaged here.
+                            val locationGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            val outcome = RunRecorder.recoverInterrupted(System.currentTimeMillis(), locationGranted, trigger = "app_open")
+                            if (outcome != RunRecorder.RecoveryOutcome.Nothing) {
+                                dz.racedz.nativeapp.feature.runs.record.RunInterruptionNotice.cancel(context)
+                            }
+                            if (outcome == RunRecorder.RecoveryOutcome.Resumed) {
+                                dz.racedz.nativeapp.feature.runs.record.RunTrackingService.start(context)
+                                navController.navigate(RootDestinations.RUN_RECORDING)
+                                return@LaunchedEffect
+                            }
+                        }
                     }
                     // Only a settled (Finished) run is auto-surfaced. A live recording also keeps a
                     // snapshot on disk; navigating away from it into the save screen would be wrong.

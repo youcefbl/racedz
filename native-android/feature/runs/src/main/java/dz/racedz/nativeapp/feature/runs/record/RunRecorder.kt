@@ -82,6 +82,16 @@ data class RecordingState(
     val sport: String = "RUN",
     /** Manual lap boundaries pressed so far, from the start of the run (NATRUN-06.5). */
     val laps: List<dz.racedz.nativeapp.core.network.LapMarkDto> = emptyList(),
+    /**
+     * This recording was continued after the OS killed the app mid-run ([RecordingRecovery]). The
+     * live screen and the notification say so; the time the app was dead is not on the clock.
+     */
+    val resumedAfterInterruption: Boolean = false,
+    /**
+     * Set when this run was restored for saving after the recording stopped unexpectedly and could
+     * not be continued: when the last snapshot was written, i.e. roughly when it stopped.
+     */
+    val interruptedAtEpochMs: Long? = null,
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
 
@@ -269,6 +279,8 @@ object RunRecorder {
             anchorFix = null
             distance.reset()
             gpsElevation.reset()
+            elevationBaseM = 0.0
+            recoveries = 0
             movingSecondsExact = 0.0
             _state.value = RecordingState()
         }
@@ -316,12 +328,14 @@ object RunRecorder {
         val existing = box.load(ownerUserId)
         if (existing?.saveRequested == true && existing.request.clientId == current.clientId) return
 
+        val finished = current.status == RecordingStatus.Finished
         val written = box.save(
             PendingRun(
                 request = current.toCreateRequest(),
-                finished = current.status == RecordingStatus.Finished,
+                finished = finished,
                 updatedAtEpochMs = now,
                 ownerUserId = ownerUserId,
+                live = if (finished) null else current.toLiveRecording(),
             )
         )
         // A failed write means the run is no longer backed by anything — the runner is told, rather
@@ -369,6 +383,8 @@ object RunRecorder {
             anchorFix = null
             distance.reset()
             gpsElevation.reset()
+            elevationBaseM = 0.0
+            recoveries = 0
             movingSecondsExact = 0.0
             coachInteractionIds.clear()
             _state.value = RecordingState()
@@ -377,11 +393,11 @@ object RunRecorder {
     }
 
     /**
-     * Restores a recording left behind by a previous process — finished or not (RED-R01).
+     * The recording left behind by a previous process — finished or not (RED-R01).
      *
-     * An interrupted in-progress recording has no reliable way to resume its GPS stream, so it is
-     * salvaged the same way as a finished one: [resumeFinished] presents what was measured for an
-     * explicit save or discard. Filtering to `finished` here used to leave an interrupted run
+     * An interrupted one is continued by [recoverInterrupted] when [RecordingRecovery] allows it,
+     * and otherwise salvaged like a finished one: [resumeFinished] presents what was measured for
+     * an explicit save or discard. Filtering to `finished` here used to leave an interrupted run
      * invisible on disk while the Idle singleton offered Record — and the one-file outbox would
      * then overwrite it on the next recording's first snapshot.
      */
@@ -394,6 +410,13 @@ object RunRecorder {
     /** The last fix that was counted — where the next counted stretch starts (elevation baseline). */
     private var anchorFix: Location? = null
     private val gpsElevation = GpsElevationGain()
+    /**
+     * Climb counted before the barometer's own total started — a run continued after a process
+     * death starts a fresh barometer, whose gain is added to this. 0 for a run recorded in one go.
+     */
+    private var elevationBaseM = 0.0
+    /** Times this recording was continued after a process death; see [RecordingRecovery]. */
+    private var recoveries = 0
     /** Distance and moving time from the fix stream; see [DistanceAccumulator]. */
     private val distance = DistanceAccumulator()
     /** Moving time with its fractions kept; the state's whole seconds are derived from it. */
@@ -480,6 +503,8 @@ object RunRecorder {
         anchorFix = null
         distance.reset()
         gpsElevation.reset()
+        elevationBaseM = 0.0
+        recoveries = 0
         movingSecondsExact = 0.0
         lastAcceptedTimeMs = 0
         pausedAccumMs = 0
@@ -543,7 +568,8 @@ object RunRecorder {
         lastFix = null
         anchorFix = null
         distance.reset()
-        gpsElevation.reset()
+        // New smoothing window, same total: nothing measured across the pause, nothing lost.
+        gpsElevation.restartWindow()
         highSpeedSeconds = 0.0
         stationarySeconds = 0.0
         paceWindow.clear()
@@ -597,6 +623,8 @@ object RunRecorder {
         anchorFix = null
         distance.reset()
         gpsElevation.reset()
+        elevationBaseM = 0.0
+        recoveries = 0
         movingSecondsExact = 0.0
         lastSnapshotMs = 0L
         stationarySeconds = 0.0
@@ -648,13 +676,158 @@ object RunRecorder {
         snapshot(force = true)
     }
 
+    private fun RecordingState.toLiveRecording() = LiveRecording(
+        paused = status == RecordingStatus.Paused,
+        autoPauseReason = autoPauseReason?.name,
+        elapsedSeconds = elapsedSeconds(),
+        stepCount = stepCount,
+        steppingSeconds = steppingSeconds,
+        elevationGainM = elevationGainM,
+        heartRateSamples = heartRate.samples,
+        guided = GuidedSessionController.snapshot(),
+        recoveries = recoveries,
+    )
+
+    /** What [recoverInterrupted] did. */
+    sealed interface RecoveryOutcome {
+        /** Recording again; the caller must (re)start the tracking service. */
+        data object Resumed : RecoveryOutcome
+
+        /** Restored as a stopped run for the runner to save or discard; [stoppedAtEpochMs] is when. */
+        data class Salvaged(val stoppedAtEpochMs: Long) : RecoveryOutcome
+
+        /** Nothing interrupted for this account, or a recording is already in memory. */
+        data object Nothing : RecoveryOutcome
+    }
+
+    /**
+     * Continues — or failing that salvages — a recording the OS killed mid-run (see
+     * [RecordingRecovery] for exactly when it may continue). Called from the tracking service's
+     * sticky restart and when the app is opened; whichever comes first wins, the other finds the
+     * recorder busy and does nothing.
+     *
+     * Continuing never bridges the dead time: the clock resumes where the last snapshot left it (the
+     * time the app was dead, and the few seconds between that snapshot and the death, count as
+     * paused), the route starts a new segment, and GPS, steps, barometer and heart rate all start
+     * from fresh baselines.
+     */
+    fun recoverInterrupted(nowMs: Long, locationPermitted: Boolean, trigger: String): RecoveryOutcome {
+        if (_state.value.status != RecordingStatus.Idle) return RecoveryOutcome.Nothing
+        val pending = pendingFor(ownerUserId)
+        return when (val decision = RecordingRecovery.decide(pending, ownerUserId, nowMs, locationPermitted)) {
+            RecordingRecovery.Decision.Nothing -> RecoveryOutcome.Nothing
+            is RecordingRecovery.Decision.Salvage -> {
+                val run = pending ?: return RecoveryOutcome.Nothing
+                resumeFinished(run, reason = "${trigger}:${decision.reason}")
+                RecoveryOutcome.Salvaged(run.updatedAtEpochMs)
+            }
+            RecordingRecovery.Decision.Resume -> {
+                val run = pending ?: return RecoveryOutcome.Nothing
+                continueRecording(run, run.live ?: return RecoveryOutcome.Nothing, nowMs, trigger)
+                RecoveryOutcome.Resumed
+            }
+        }
+    }
+
+    /**
+     * The service could not get back into the foreground after a recovery (Android refused the
+     * start, or permission vanished in between): stop here and keep what was recorded for saving.
+     */
+    fun abandonRecovery(reason: String) {
+        val current = _state.value
+        if (current.status == RecordingStatus.Idle || current.status == RecordingStatus.Finished) return
+        RunTelemetry.emit { issue("recorder.recovery_abandoned", reason, runClientId = current.clientId) }
+        finish()
+        _state.update { it.copy(interruptedAtEpochMs = System.currentTimeMillis(), resumedAfterInterruption = false) }
+    }
+
+    private fun continueRecording(pending: PendingRun, live: LiveRecording, nowMs: Long, trigger: String) {
+        val request = pending.request
+        route.clear()
+        request.route?.let { route += it }
+        // Whatever the runner did while the app was dead is a break nothing measures or draws across.
+        routeSegment = (route.maxOfOrNull { it.segmentIndex } ?: 0) + 1
+        lastFix = null
+        anchorFix = null
+        distance.reset()
+        gpsElevation.seed(live.elevationGainM)
+        elevationBaseM = live.elevationGainM
+        movingSecondsExact = (request.movingTimeSeconds ?: 0).toDouble()
+        lastAcceptedTimeMs = 0
+        highSpeedSeconds = 0.0
+        stationarySeconds = 0.0
+        paceWindow.clear()
+        cadenceWindow.clear()
+        heartRate.seed(request.averageHeartRate, live.heartRateSamples)
+        recordedSteps = live.stepCount
+        lastStepCounter = -1
+        lastStepAtMs = -1
+        steppingMs = live.steppingSeconds * 1000L
+        coachInteractionIds.clear()
+        request.coachInteractionIds?.let { coachInteractionIds += it }
+        stationaryAutoPauses = 0
+        vehicleAutoPauses = 0
+        vehicleSpeedWindows = 0
+        snapshotFailureReported = false
+        lastSnapshotMs = 0L
+        recoveries = live.recoveries + 1
+
+        val startedAt = runCatching { java.time.Instant.parse(request.startedAt).toEpochMilli() }.getOrDefault(pending.updatedAtEpochMs)
+        val elapsedMs = live.elapsedSeconds * 1000L
+        // The clock carries on from the snapshot: everything since — the dead time and the last
+        // few seconds before the death that no snapshot kept — counts as paused.
+        pausedAccumMs = (nowMs - startedAt - elapsedMs).coerceAtLeast(0L)
+        pauseStartedMs = if (live.paused) nowMs else 0L
+        val autoPauseReason = live.autoPauseReason?.let { name -> AutoPauseReason.entries.firstOrNull { it.name == name } }
+
+        GuidedSessionController.restore(live.guided)
+        _state.value = RecordingState(
+            status = if (live.paused) RecordingStatus.Paused else RecordingStatus.Recording,
+            clientId = request.clientId,
+            startedAtEpochMs = startedAt,
+            distanceMeters = request.distanceKm * 1000.0,
+            elapsedSeconds = live.elapsedSeconds,
+            movingSeconds = movingSecondsExact.toInt(),
+            elevationGainM = live.elevationGainM,
+            route = route.toList(),
+            autoPauseReason = if (live.paused) autoPauseReason else null,
+            workoutId = request.workoutId,
+            stepCount = recordedSteps,
+            steppingSeconds = live.steppingSeconds,
+            askedCoachIds = coachInteractionIds.toList(),
+            draftIsPublic = request.isPublic == true,
+            averageHeartRate = heartRate.average,
+            elevationSource = if (barometer != null) "BARO" else "GPS",
+            sport = request.sport ?: "RUN",
+            laps = request.laps.orEmpty(),
+            resumedAfterInterruption = true,
+        )
+        RunTelemetry.emit {
+            issue(
+                "recorder.resumed_after_interruption",
+                context = mapOf(
+                    "trigger" to trigger,
+                    "deadSeconds" to (nowMs - pending.updatedAtEpochMs) / 1000,
+                    "recoveries" to recoveries,
+                    "paused" to live.paused,
+                    "guided" to (live.guided != null),
+                    "routePoints" to route.size,
+                ),
+                runClientId = request.clientId,
+            )
+        }
+        // Durable at once with the new recovery count, so a crash straight after cannot loop.
+        snapshot(force = true)
+    }
+
     /** Restores a finished run into memory so the summary screen can show and save it. */
-    fun resumeFinished(pending: PendingRun) {
+    fun resumeFinished(pending: PendingRun, reason: String? = null) {
         if (!pending.finished) {
             // The process died mid-recording (OS kill, crash) and this is what the snapshot kept.
             RunTelemetry.emit {
                 issue(
                     "recorder.restored_interrupted",
+                    reason,
                     context = mapOf(
                         "distanceM" to Math.round(pending.request.distanceKm * 1000),
                         "durationSeconds" to pending.request.durationSeconds,
@@ -695,6 +868,7 @@ object RunRecorder {
             draftIsPublic = pending.request.isPublic == true,
             laps = pending.request.laps.orEmpty(),
             sport = pending.request.sport ?: "RUN",
+            interruptedAtEpochMs = if (pending.finished) null else pending.updatedAtEpochMs,
         )
     }
 
@@ -770,7 +944,7 @@ object RunRecorder {
         baro.add(hPa.toDouble())
         // Gain is what the barometer owns; the state mirrors it so the live screen counts climb
         // between fixes too.
-        if (baro.ready) _state.update { it.copy(elevationGainM = baro.gainM) }
+        if (baro.ready) _state.update { it.copy(elevationGainM = elevationBaseM + baro.gainM) }
     }
 
     /**
@@ -901,7 +1075,7 @@ object RunRecorder {
             var gain = current.elevationGainM
             if (baro != null && baro.ready) {
                 // The barometer owns climb once it has settled (NATRUN-07.6).
-                gain = baro.gainM
+                gain = elevationBaseM + baro.gainM
             } else if (location.hasAltitude()) {
                 // Smoothed with the server's own rule (see GpsElevationGain): summing every rise
                 // over a metre between counted points turned altitude jitter into tens of metres of

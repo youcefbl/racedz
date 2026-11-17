@@ -161,4 +161,30 @@ data class PendingRun(
      * background worker may post it. The recorder's periodic snapshot never overwrites such a slot.
      */
     val saveRequested: Boolean = false,
+    /**
+     * What only a recording in progress has: whether it was paused, the exact clock, the raw step
+     * and heart-rate totals, the guided-workout position. Present on every unfinished snapshot
+     * written since 2026-11-17; it is what lets [RecordingRecovery] continue a run the OS killed
+     * instead of only salvaging it. Null on finished runs and on older snapshots.
+     */
+    val live: LiveRecording? = null,
+)
+
+/** The in-progress part of a snapshot; see [PendingRun.live]. */
+@kotlinx.serialization.Serializable
+data class LiveRecording(
+    val paused: Boolean = false,
+    /** [AutoPauseReason] name when the recorder paused itself; null when recording or paused by hand. */
+    val autoPauseReason: String? = null,
+    /** The run clock at the snapshot, pauses excluded. */
+    val elapsedSeconds: Int = 0,
+    val stepCount: Long = 0,
+    val steppingSeconds: Int = 0,
+    /** Climb so far, unrounded (the request carries a whole number, and only when positive). */
+    val elevationGainM: Double = 0.0,
+    val heartRateSamples: Int = 0,
+    /** Where a guided workout had got to; null for a free run. */
+    val guided: GuidedSnapshot? = null,
+    /** How many times this recording has already been continued after a process death. */
+    val recoveries: Int = 0,
 )

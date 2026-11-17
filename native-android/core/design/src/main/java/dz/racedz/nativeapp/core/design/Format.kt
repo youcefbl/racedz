@@ -26,6 +26,7 @@ object ZidRunFormat {
      */
     private val compactDateFormat = DateTimeFormatter.ofPattern("dd MMM yyyy")
     private val dateTimeFormat = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
+    private val clockTimeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
     fun date(iso: String, locale: Locale): String = runCatching {
         Instant.parse(iso).atZone(ZoneId.systemDefault()).format(dateFormat.withLocale(locale))
@@ -46,6 +47,10 @@ object ZidRunFormat {
     fun dateTime(iso: String, locale: Locale): String = runCatching {
         isolate(Instant.parse(iso).atZone(ZoneId.systemDefault()).format(dateTimeFormat.withLocale(locale)))
     }.getOrDefault("")
+
+    /** A wall-clock time ("07:42"), isolated so an Arabic sentence keeps it intact. */
+    fun clockTime(epochMs: Long, locale: Locale): String =
+        isolate(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(clockTimeFormat.withLocale(locale)))
 
     fun money(amount: Int, locale: Locale): String =
         NumberFormat.getIntegerInstance(locale).format(amount)

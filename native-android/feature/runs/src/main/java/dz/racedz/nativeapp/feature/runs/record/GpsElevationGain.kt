@@ -22,9 +22,25 @@ internal class GpsElevationGain {
         private set
 
     fun reset() {
+        restartWindow()
+        gainM = 0.0
+    }
+
+    /**
+     * A break in the route (a pause, or recovery after the app was killed): the smoothing starts
+     * over from the next sample, so no climb is measured across the break — but the climb already
+     * counted stands. Resetting the total here (as 0.8.8's first cut did) made the live elevation
+     * fall back to the climb since the last resume.
+     */
+    fun restartWindow() {
         window.clear()
         reference = null
-        gainM = 0.0
+    }
+
+    /** Continues a recording restored after a process death from the climb it had reached. */
+    fun seed(totalGainM: Double) {
+        restartWindow()
+        gainM = totalGainM.coerceAtLeast(0.0)
     }
 
     /** Adds one altitude sample (metres) and returns the total climb so far. */

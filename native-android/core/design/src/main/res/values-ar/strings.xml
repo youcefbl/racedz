@@ -517,6 +517,14 @@
     <string name="runs_gps_tip_still">خلّي التيليفون ساكن ووجهو للسما من 30 حتى 60 ثانية قبل ما تبدا.</string>
     <string name="runs_gps_tip_battery">طفّي توفير البطارية، وحط الموقع على الدقة العالية إذا التيليفون فيه هاذ الخيار.</string>
     <string name="runs_gps_tip_start_anyway">تقدر تبدا ضرك: الوقت يتحسب طول، والمسافة تبدا كي تولّي الإشارة مليحة.</string>
+    <!-- الرجوع للتسجيل كي التيليفون يسدّ التطبيق وسط الجَرية (RecordingRecovery). -->
+    <string name="runs_resumed_after_interruption">رجع يسجّل من بعد انقطاع</string>
+    <string name="runs_resumed_banner">التيليفون سدّ التطبيق والتسجيل رجع بدا وحدو. الوقت اللي كان فيه مسدود ما يتحسبش.</string>
+    <string name="runs_interrupted_title">التسجيل حبس</string>
+    <string name="runs_interrupted_notice">التسجيل حبس فجأة على %1$s. حلّ ZidRun باش تحفظ واش تسجّل ولا تمسحو.</string>
+    <string name="runs_interrupted_summary">التسجيل حبس فجأة على %1$s. احفظ واش تسجّل ولا امسحو.</string>
+    <string name="runs_interrupted_channel">انقطاع التسجيل</string>
+    <string name="runs_interrupted_continue_notice">حبس على %1$s. اضغط في ظرف دقيقتين باش تكمّل نفس الجَرية؛ من بعد تقدر غير تحفظ واش تسجّل.</string>
     <string name="runs_finish_confirm_title">تحبس الجَرية؟</string>
     <string name="runs_finish_confirm_body">جريت %1$s فـ%2$s. تقدر تزيد عنوان وملاحظات من بعد.</string>
     <string name="runs_keep_running">كمّل</string>

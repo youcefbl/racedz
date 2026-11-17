@@ -85,27 +85,61 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
             }
         }
 
-        // A sticky restart hands us a null intent. That is only meaningful while the recorder still
-        // holds a live run (in memory — the singleton outlives an Activity, not a process). With an
-        // idle recorder there is nothing to keep alive: starting GPS here would build a phantom
-        // recording with no clientId that no snapshot could ever persist (review P1).
-        val recorderState = RunRecorder.state.value.status
-        if (recorderState == RecordingStatus.Idle || recorderState == RecordingStatus.Finished) {
-            if (intent == null && recorderState == RecordingStatus.Idle) {
-                // The OS restarted us after killing the process mid-run: the in-memory recording is
-                // gone and only its snapshot (if any) survived. The single most useful signal for
-                // "my run disappeared".
-                RunTelemetry.emit { issue("service.restarted_without_run", context = mapOf("flags" to flags)) }
+        // A sticky restart hands us a null intent: the OS killed the process mid-run and brought the
+        // service back in a new one, where the in-memory recording is gone and only its snapshot
+        // survived. A service restarted in the background may not re-enter the foreground or read
+        // location on Android 12+ (see RunInterruptionNotice), so it does not try to record: it
+        // tells the runner, and the run continues when they open the app (RecordingRecovery).
+        // Builds before 2026-11-17 stopped here silently.
+        if (intent == null && RunRecorder.state.value.status == RecordingStatus.Idle) {
+            val pending = RunRecorder.restorePending()
+            val decision = RecordingRecovery.decide(pending, RunRecorder.currentOwnerUserId(), System.currentTimeMillis(), hasLocationPermission())
+            when (decision) {
+                RecordingRecovery.Decision.Resume ->
+                    pending?.let { RunInterruptionNotice.post(this, it.updatedAtEpochMs, canContinue = true) }
+                is RecordingRecovery.Decision.Salvage ->
+                    pending?.let { RunInterruptionNotice.post(this, it.updatedAtEpochMs, canContinue = false) }
+                RecordingRecovery.Decision.Nothing -> Unit
+            }
+            RunTelemetry.emit {
+                issue(
+                    "service.restarted_without_run",
+                    context = mapOf("flags" to flags, "decision" to decision.toString()),
+                    runClientId = pending?.request?.clientId,
+                )
             }
             stopSelf()
             return START_NOT_STICKY
         }
-        startForeground(NOTIFICATION_ID, buildNotification())
+        // Only a live run is worth keeping alive: starting GPS for an idle recorder would build a
+        // phantom recording with no clientId that no snapshot could ever persist (review P1).
+        val recorderState = RunRecorder.state.value.status
+        if (recorderState == RecordingStatus.Idle || recorderState == RecordingStatus.Finished) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (error: RuntimeException) {
+            // Android 12+ may refuse a foreground start it does not consider user-initiated, and a
+            // location-type service needs the permission at this moment. A recovered run is then
+            // kept for saving rather than recorded without GPS behind a missing notification.
+            RunTelemetry.emit { issue("service.start_foreground_refused", error.javaClass.simpleName, runClientId = RunRecorder.state.value.clientId.ifEmpty { null }) }
+            if (RunRecorder.state.value.resumedAfterInterruption) {
+                RunRecorder.abandonRecovery("start_foreground_refused")
+                RunRecorder.state.value.interruptedAtEpochMs?.let { RunInterruptionNotice.post(this, it, canContinue = false) }
+            }
+            stopSelf()
+            return START_NOT_STICKY
+        }
         startTracking()
         // START_STICKY: if the OS kills us under memory pressure mid-run, come back and keep
         // recording rather than silently ending someone's run.
         return START_STICKY
     }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     // Lint cannot follow the guard below across the early return, so it is suppressed rather than
     // worked around: permission IS checked immediately above the call, and the call is additionally
@@ -356,9 +390,13 @@ class RunTrackingService : Service(), LocationListener, SensorEventListener {
         val launch = launchIntent()
 
         val paused = RunRecorder.state.value.status == RecordingStatus.Paused
+        val resumed = RunRecorder.state.value.resumedAfterInterruption
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(getString(R.string.runs_notification_title))
+            // Stays for the rest of the run: the runner should know the app was closed and that the
+            // time it was closed is not on the clock.
+            .apply { if (resumed) setSubText(getString(R.string.runs_resumed_after_interruption)) }
             .setContentText(text)
             .setOngoing(true)
             .setSilent(true)

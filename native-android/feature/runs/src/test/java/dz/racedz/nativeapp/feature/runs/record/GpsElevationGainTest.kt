@@ -49,4 +49,28 @@ class GpsElevationGainTest {
         g.add(500.0)
         assertEquals(0.0, g.gainM, 0.0)
     }
+
+    @Test
+    fun aPauseKeepsTheClimbAndMeasuresNothingAcrossIt() {
+        val g = GpsElevationGain()
+        List(60) { 280.0 + it * 0.5 }.forEach(g::add) // ~26 m up before the pause
+        val before = g.gainM
+        assertTrue("got $before", before > 20)
+        g.restartWindow()
+        // Resumed 30 m higher (a lift, a bus): that jump is not climb, and the total stands.
+        g.add(340.0)
+        assertEquals(before, g.gainM, 0.0)
+        List(60) { 340.0 + it * 0.5 }.forEach(g::add)
+        assertTrue("got ${g.gainM}", g.gainM > before + 20)
+    }
+
+    @Test
+    fun aRecoveredRunContinuesFromItsClimb() {
+        val g = GpsElevationGain()
+        g.seed(57.0)
+        g.add(100.0)
+        assertEquals(57.0, g.gainM, 0.0)
+        List(60) { 100.0 + it * 0.5 }.forEach(g::add)
+        assertTrue(g.gainM > 57.0 + 20)
+    }
 }

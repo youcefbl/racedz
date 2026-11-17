@@ -183,6 +183,21 @@ fun RunSummaryScreen(
                 )
             }
 
+            // The recording stopped unexpectedly and could not be continued (RecordingRecovery): say
+            // when, so the runner knows the run ends there and why, with Save and Discard below.
+            state.interruptedAtEpochMs?.let { stoppedAt ->
+                Text(
+                    text = stringResource(R.string.runs_interrupted_summary, ZidRunFormat.clockTime(stoppedAt, currentLocale())),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textStrong,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                        .background(colors.accentSoft)
+                        .padding(ZidRunDimens.spaceMd),
+                )
+            }
+
             // The same non-foot test the server will apply the moment this is saved. Said here,
             // where Discard is still one tap away, rather than only on the saved run's detail
             // screen — by then the runner's only remedy is to delete a run they already logged.

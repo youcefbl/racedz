@@ -33,4 +33,12 @@ class HeartRateAverager {
     val average: Int? get() = if (count == 0) null else (sum / count).toInt()
     val samples: Int get() = count
     fun reset() { sum = 0; count = 0 }
+
+    /** Continues an average restored after a process death: [samples] readings averaging [average]. */
+    fun seed(average: Int?, samples: Int) {
+        reset()
+        if (average == null || samples <= 0 || average !in 30..250) return
+        sum = average.toLong() * samples
+        count = samples
+    }
 }
