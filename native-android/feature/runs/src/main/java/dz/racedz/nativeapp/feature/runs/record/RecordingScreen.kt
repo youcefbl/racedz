@@ -281,13 +281,16 @@ fun RecordingScreen(
 
         Spacer(Modifier.height(ZidRunDimens.spaceLg))
 
+        // A ride reads speed, not minutes per kilometre (same numbers underneath).
+        val ride = state.sport == "RIDE"
+        val paceOrSpeed: (Int) -> String = { if (ride) ZidRunFormat.speed(it) else ZidRunFormat.pace(it) }
         Row(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
         ) {
             LiveTile(
-                label = stringResource(R.string.runs_current_pace),
-                value = state.currentPaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
+                label = stringResource(if (ride) R.string.runs_current_speed else R.string.runs_current_pace),
+                value = state.currentPaceSecondsPerKm?.let { paceOrSpeed(it) } ?: "—",
                 tint = zidRunOnDarkColors().primary,
                 modifier = Modifier.weight(1f),
             )
@@ -304,8 +307,8 @@ fun RecordingScreen(
                 )
             } else {
                 LiveTile(
-                    label = stringResource(R.string.runs_avg_pace),
-                    value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
+                    label = stringResource(if (ride) R.string.runs_avg_speed else R.string.runs_avg_pace),
+                    value = state.averagePaceSecondsPerKm?.let { paceOrSpeed(it) } ?: "—",
                     tint = zidRunOnDarkColors().accent,
                     modifier = Modifier.weight(1f),
                 )
@@ -339,8 +342,8 @@ fun RecordingScreen(
             StatHairline()
             if (state.heartRateBpm != null) {
                 SmallStat(
-                    label = stringResource(R.string.runs_avg_pace),
-                    value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
+                    label = stringResource(if (ride) R.string.runs_avg_speed else R.string.runs_avg_pace),
+                    value = state.averagePaceSecondsPerKm?.let { paceOrSpeed(it) } ?: "—",
                     modifier = Modifier.weight(1f),
                 )
             } else {
@@ -443,9 +446,15 @@ fun RecordingScreen(
         // quietly leaves the activity out of records, streaks and the coach's picture — learning
         // that only afterwards, from a run already in the list, is too late to do anything about
         // it. Here the runner can still stop, or finish and discard.
-        if (state.nonFootReason != null) {
+        state.activityMismatch?.let { mismatch ->
             Text(
-                text = stringResource(R.string.runs_nonfoot_live),
+                text = stringResource(
+                    when (mismatch) {
+                        GpsQuality.ActivityMismatch.TooFastForWalk -> R.string.runs_mismatch_walk_live
+                        GpsQuality.ActivityMismatch.RideTooFast -> R.string.runs_mismatch_ride_live
+                        else -> R.string.runs_nonfoot_live
+                    }
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = zidRunOnDarkColors().accent,
                 textAlign = TextAlign.Center,
@@ -535,10 +544,13 @@ fun RecordingScreen(
 @Composable
 private fun StatusHeader(state: RecordingState, onLock: () -> Unit) {
     val recording = state.status == RecordingStatus.Recording || state.status == RecordingStatus.Acquiring
+    // The activity rides along in the status ("Recording · Walk"): the Start screen remembers the
+    // last sport, so a runner who forgot to change it sees which one this is the whole way.
+    val sport = stringResource(dz.racedz.nativeapp.core.design.RunSport.fromCode(state.sport).labelRes)
     val label = when {
         state.status == RecordingStatus.Paused -> stringResource(R.string.runs_paused)
         else -> stringResource(R.string.runs_recording)
-    }
+    } + " · " + sport
     val tint = when {
         state.status == RecordingStatus.Paused -> zidRunOnDarkColors().textMuted
         !state.hasUsableFix -> zidRunOnDarkColors().accent

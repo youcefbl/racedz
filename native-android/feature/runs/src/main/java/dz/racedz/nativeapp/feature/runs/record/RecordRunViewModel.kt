@@ -123,7 +123,7 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 // The summary screen's choice, from the recording state so a retry (or a restore
                 // after process death) posts the same value. Never public for a flagged activity;
                 // the server enforces the same rule.
-                isPublic = recording.draftIsPublic && recording.nonFootReason == null,
+                isPublic = recording.draftIsPublic && recording.activityMismatch == null,
                 // Manual laps pressed during the run; the outbox carries the same list.
                 laps = recording.laps.takeIf { it.isNotEmpty() },
                 sport = recording.sport,

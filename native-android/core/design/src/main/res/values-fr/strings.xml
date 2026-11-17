@@ -381,6 +381,19 @@
     <string name="runs_validity_pace">L\'allure moyenne est plus rapide que ce qu\'un humain peut courir — cela ressemble à un vélo, une voiture ou un scooter. La sortie est conservée, mais elle ne compte ni dans vos records, ni dans votre régularité, ni pour votre coach.</string>
     <string name="runs_validity_generic">Cette activité ne ressemble pas à une course à pied. Elle est conservée, mais elle ne compte ni dans vos records, ni dans votre régularité, ni pour votre coach.</string>
     <string name="runs_validity_pill">Pas une course</string>
+    <!-- Contrôles par activité (classifyActivity / GpsQuality.checkActivity). -->
+    <string name="runs_current_speed">Vitesse actuelle</string>
+    <string name="runs_avg_speed">Vitesse moy.</string>
+    <string name="runs_mismatch_walk_live">C\'est bien rapide pour une marche. Vous pourrez changer l\'activité à la fin.</string>
+    <string name="runs_mismatch_ride_live">C\'est plus rapide qu\'un vélo. Cette sortie ne comptera pas dans vos records.</string>
+    <string name="runs_mismatch_walk_title">C\'est bien rapide pour une marche</string>
+    <string name="runs_mismatch_walk_body">Enregistrée comme marche, elle ne comptera ni dans vos records, ni dans votre régularité, ni pour votre coach. C\'était une course ou du vélo ?</string>
+    <string name="runs_mismatch_ride_title">Plus rapide qu\'un vélo</string>
+    <string name="runs_mismatch_ride_body">La vitesse moyenne dépasse celle d\'un vélo : cela ressemble à un véhicule à moteur. La sortie est conservée, mais ne comptera pas dans vos records.</string>
+    <string name="runs_mismatch_was">Changer en %1$s</string>
+    <string name="runs_mismatch_keep">Garder en %1$s</string>
+    <string name="runs_validity_walk">C\'était trop rapide pour une marche : elle ne compte ni dans vos records, ni dans votre régularité, ni pour votre coach.</string>
+    <string name="runs_validity_ride">La vitesse moyenne dépasse celle d\'un vélo : cette sortie ne compte pas dans vos records.</string>
     <string name="runs_nonfoot_live">Cela ne ressemble pas à de la course — cette sortie ne comptera pas dans vos records.</string>
     <string name="runs_badges">Badges</string>
     <string name="runs_badges_earned">%1$s sur %2$s obtenus</string>

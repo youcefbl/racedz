@@ -1,5 +1,12 @@
 package dz.racedz.nativeapp.feature.runs.record
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -198,34 +205,16 @@ fun RunSummaryScreen(
                 )
             }
 
-            // The same non-foot test the server will apply the moment this is saved. Said here,
-            // where Discard is still one tap away, rather than only on the saved run's detail
-            // screen — by then the runner's only remedy is to delete a run they already logged.
-            state.nonFootReason?.let { reason ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                        .background(colors.accentSoft)
-                        .padding(ZidRunDimens.spaceMd),
-                    verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
-                ) {
-                    Text(
-                        text = stringResource(R.string.runs_validity_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = colors.textStrong,
-                    )
-                    Text(
-                        text = stringResource(
-                            when (reason) {
-                                GpsQuality.NonFootReason.Cadence -> R.string.runs_validity_cadence
-                                GpsQuality.NonFootReason.Speed -> R.string.runs_validity_pace
-                            }
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.text,
-                    )
-                }
+            // Which activity this is saved as. Repeated here because the Start screen remembers the
+            // last one, and changeable because the sport cannot be edited once saved.
+            SummarySportPicker(selected = state.sport, onSelect = RunRecorder::setSport)
+
+            // The same sport-specific test the server will apply the moment this is saved. Said
+            // here, where the sport can still be changed and Discard is one tap away, rather than
+            // only on the saved run's detail screen. Never a block: "Keep" saves it as recorded,
+            // and it is then kept but not counted (and never published).
+            state.activityMismatch?.let { mismatch ->
+                ActivityMismatchCard(mismatch = mismatch, sport = state.sport, onChangeSport = RunRecorder::setSport)
             }
 
             ZidRunCard {
@@ -245,9 +234,11 @@ fun RunSummaryScreen(
                         modifier = Modifier.weight(1f),
                     )
                     Hairline()
+                    // A ride reads speed, not minutes per kilometre.
+                    val ride = state.sport == "RIDE"
                     SummaryStat(
-                        value = shownPace?.let { ZidRunFormat.pace(it) } ?: "—",
-                        label = stringResource(R.string.runs_stat_pace),
+                        value = shownPace?.let { if (ride) ZidRunFormat.speed(it) else ZidRunFormat.pace(it) } ?: "—",
+                        label = stringResource(if (ride) R.string.runs_avg_speed else R.string.runs_stat_pace),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -447,7 +438,7 @@ fun RunSummaryScreen(
              * failed save retried later — or restored after a process kill — posts what was chosen.
              * A run the on-foot test flags cannot be published, here or on the server.
              */
-            val publishable = state.nonFootReason == null
+            val publishable = state.activityMismatch == null
             ZidRunCard {
                 Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
                     Row(
@@ -578,4 +569,103 @@ private fun SummaryStat(value: String, label: String, modifier: Modifier = Modif
 @Composable
 private fun Hairline() {
     Box(Modifier.width(1.dp).fillMaxHeight().background(ZidRunTheme.colors.border))
+}
+
+/** The four activities as chips, the current one filled; picking one re-runs the sport check. */
+@Composable
+private fun SummarySportPicker(selected: String, onSelect: (String) -> Unit) {
+    val colors = ZidRunTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
+        Text(
+            text = stringResource(R.string.runs_sport),
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.textMuted,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+        ) {
+            dz.racedz.nativeapp.core.design.RunSport.entries.forEach { sport ->
+                val isSelected = sport.code == selected
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerPill))
+                        .background(if (isSelected) colors.primary else colors.surfaceMuted)
+                        .selectable(selected = isSelected, role = Role.RadioButton) { onSelect(sport.code) }
+                        .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
+                ) {
+                    Icon(
+                        sport.icon,
+                        contentDescription = null,
+                        tint = if (isSelected) colors.onPrimary else colors.textMuted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(ZidRunDimens.spaceXs))
+                    Text(
+                        text = stringResource(sport.labelRes),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isSelected) colors.onPrimary else colors.textStrong,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * "This does not fit the activity it was recorded as" — with the activities it could have been,
+ * one tap each, and Keep. Keep only folds the choices away: the run is saved as recorded and the
+ * server marks it, exactly as it would have without the card.
+ */
+@Composable
+private fun ActivityMismatchCard(mismatch: GpsQuality.ActivityMismatch, sport: String, onChangeSport: (String) -> Unit) {
+    val colors = ZidRunTheme.colors
+    var kept by rememberSaveable(mismatch, sport) { mutableStateOf(false) }
+    val (title, body) = when (mismatch) {
+        GpsQuality.ActivityMismatch.TooFastForWalk -> R.string.runs_mismatch_walk_title to R.string.runs_mismatch_walk_body
+        GpsQuality.ActivityMismatch.RideTooFast -> R.string.runs_mismatch_ride_title to R.string.runs_mismatch_ride_body
+        GpsQuality.ActivityMismatch.LowCadence -> R.string.runs_validity_title to R.string.runs_validity_cadence
+        GpsQuality.ActivityMismatch.Vehicle -> R.string.runs_validity_title to R.string.runs_validity_pace
+    }
+    // What it could have been instead: a too-fast walk was a run or a ride; wheels on a run, walk
+    // or trail were a ride. A ride at motorway speed has nothing better to offer.
+    val alternatives = when (mismatch) {
+        GpsQuality.ActivityMismatch.TooFastForWalk -> listOf("RUN", "RIDE")
+        GpsQuality.ActivityMismatch.Vehicle, GpsQuality.ActivityMismatch.LowCadence -> listOf("RIDE")
+        GpsQuality.ActivityMismatch.RideTooFast -> emptyList()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+            .background(colors.accentSoft)
+            .padding(ZidRunDimens.spaceMd)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+    ) {
+        Text(text = stringResource(title), style = MaterialTheme.typography.titleSmall, color = colors.textStrong)
+        Text(text = stringResource(body), style = MaterialTheme.typography.bodySmall, color = colors.text)
+        if (!kept && alternatives.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm),
+            ) {
+                alternatives.forEach { code ->
+                    val option = dz.racedz.nativeapp.core.design.RunSport.fromCode(code)
+                    dz.racedz.nativeapp.core.design.ZidRunButton(
+                        text = stringResource(R.string.runs_mismatch_was, stringResource(option.labelRes)),
+                        onClick = { onChangeSport(code) },
+                        leadingIcon = option.icon,
+                    )
+                }
+                dz.racedz.nativeapp.core.design.ZidRunButton(
+                    text = stringResource(R.string.runs_mismatch_keep, stringResource(dz.racedz.nativeapp.core.design.RunSport.fromCode(sport).labelRes)),
+                    onClick = { kept = true },
+                    containerColor = colors.surface,
+                    contentColor = colors.textStrong,
+                )
+            }
+        }
+    }
 }

@@ -174,6 +174,46 @@ object GpsQuality {
         return null
     }
 
+    /** Why an activity does not fit the sport it was recorded as (see [checkActivity]). */
+    enum class ActivityMismatch {
+        /** Faster than anyone on foot: a vehicle, on a run, walk or trail run. */
+        Vehicle,
+        /** Running speed with a step rate no runner has: wheels. */
+        LowCadence,
+        /** A "walk" at running speed (an 18 km/h walk saved as valid on 2026-11-17). */
+        TooFastForWalk,
+        /** A "ride" averaging motor-vehicle speed. */
+        RideTooFast,
+        ;
+
+        /** On-foot verdicts the old two-reason check knew; the others are sport mix-ups. */
+        val nonFoot: Boolean get() = this == Vehicle || this == LowCadence
+    }
+
+    /** See src/lib/coach/motion-check.ts WALK_MAX_AVG_SPEED_KMH: a comfortable jog, not a walk. */
+    const val WALK_MAX_AVG_SPEED_KMH = 9.5
+
+    /** See RIDE_MAX_AVG_SPEED_KMH there: an average no amateur ride reaches; peaks are not judged. */
+    const val RIDE_MAX_AVG_SPEED_KMH = 55.0
+
+    /**
+     * The sport-specific test the server applies at save time (classifyActivity in
+     * src/lib/coach/motion-check.ts), thresholds included, so the live screen and the summary can
+     * say so while the sport can still be changed. Never a refusal: only whether it counts.
+     */
+    fun checkActivity(sport: String, distanceKm: Double, movingSeconds: Int, avgCadenceSpm: Int?): ActivityMismatch? {
+        if (distanceKm < NON_FOOT_MIN_DISTANCE_KM || movingSeconds < NON_FOOT_MIN_MOVING_SECONDS) return null
+        val speedKmh = distanceKm / (movingSeconds / 3600.0)
+        if (sport == "RIDE") return if (speedKmh > RIDE_MAX_AVG_SPEED_KMH) ActivityMismatch.RideTooFast else null
+        when (detectNonFootActivity(distanceKm, movingSeconds, avgCadenceSpm)) {
+            NonFootReason.Speed -> return ActivityMismatch.Vehicle
+            NonFootReason.Cadence -> return ActivityMismatch.LowCadence
+            null -> Unit
+        }
+        if (sport == "WALK" && speedKmh > WALK_MAX_AVG_SPEED_KMH) return ActivityMismatch.TooFastForWalk
+        return null
+    }
+
     /**
      * Whether a usable fix reads as "standing still" for the auto-pause window.
      *

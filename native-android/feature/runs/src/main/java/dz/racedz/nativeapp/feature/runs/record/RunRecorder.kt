@@ -145,6 +145,14 @@ data class RecordingState(
         get() = if (sport == "RIDE") null else GpsQuality.detectNonFootActivity(distanceKm, movingSeconds, avgCadenceSpm)
 
     /**
+     * Why this recording does not fit its sport, or null — [nonFootReason] plus the sport mix-ups
+     * (a walk at running speed, a ride at motorway speed). The server's verdict at save time; a
+     * mismatched activity is saved but not counted, and is never published.
+     */
+    val activityMismatch: GpsQuality.ActivityMismatch?
+        get() = GpsQuality.checkActivity(sport, distanceKm, movingSeconds, avgCadenceSpm)
+
+    /**
      * GPS strength, from the reported accuracy. Four buckets rather than a number, because a runner
      * glancing mid-stride needs "is it working", not "12.4 m".
      */
@@ -667,6 +675,19 @@ object RunRecorder {
     }
 
     /**
+     * The runner changed the activity on the summary screen, before saving (the sport cannot be
+     * changed afterwards). A ride cannot complete a running workout — the server refuses that
+     * pairing — so changing to Ride drops the workout link rather than failing the save.
+     */
+    fun setSport(sport: String) {
+        val current = _state.value
+        if (current.status != RecordingStatus.Finished || current.sport == sport) return
+        _state.update { it.copy(sport = sport, workoutId = if (sport == "RIDE") null else it.workoutId) }
+        RunTelemetry.emit { breadcrumb("recorder.sport_changed ${current.sport}->$sport") }
+        snapshot(force = true)
+    }
+
+    /**
      * Records the visibility chosen on the summary screen and makes it durable at once — the
      * choice must survive the same process death the run itself survives.
      */
@@ -889,7 +910,7 @@ object RunRecorder {
         coachInteractionIds = askedCoachIds.takeIf { it.isNotEmpty() },
         // Never public for a run that fails the on-foot test — the server would refuse it anyway,
         // and a retry must not keep asking.
-        isPublic = draftIsPublic && nonFootReason == null,
+        isPublic = draftIsPublic && activityMismatch == null,
         laps = laps.takeIf { it.isNotEmpty() },
         sport = sport,
     )

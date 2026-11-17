@@ -47,3 +47,58 @@ export function detectNonFootActivity(input: {
   }
   return null;
 }
+
+// ---- Sport-specific plausibility (2026-11-17) -------------------------------------------------
+//
+// detectNonFootActivity above asks one question — "was this on foot?" — and used to be applied the
+// same way to RUN, WALK and TRAIL while RIDE skipped it entirely. That let an 18 km/h "walk" save as
+// a valid walk (M21 fake-GPS run) and pollute walk records. Each sport now has its own envelope.
+// Nothing is ever refused or re-labelled here: the runner chose the sport, and the verdict only
+// decides whether the activity feeds records, rankings, badges and the coach (VALID) or not.
+
+export type ActivitySport = "RUN" | "WALK" | "TRAIL" | "RIDE";
+
+export type ActivityVerdict = {
+  validity: "SUSPECT" | "EXCLUDED";
+  /** Stored as RunnerRun.validityReason; clients map it to copy. */
+  reason: "IMPOSSIBLE_PACE" | "LOW_CADENCE_AT_SPEED" | "TOO_FAST_FOR_WALK" | "RIDE_TOO_FAST";
+};
+
+/**
+ * Faster than this average is not a walk: brisk walking is 5–7 km/h and race walkers, the
+ * exception, sit around 12–15 km/h. 9.5 km/h (6:19/km) is a comfortable jog.
+ */
+export const WALK_MAX_AVG_SPEED_KMH = 9.5;
+/**
+ * A ride averaging more than this is a motor vehicle. Not a peak-speed test — 45 km/h downhill is
+ * a normal ride — but a sustained average that amateur cycling does not reach.
+ */
+export const RIDE_MAX_AVG_SPEED_KMH = 55;
+
+/**
+ * The server's verdict for a GPS activity of the given sport, or null when it is plausible.
+ * Same minimum sample as detectNonFootActivity, so a few stray fixes never decide anything.
+ */
+export function classifyActivity(input: {
+  sport: ActivitySport;
+  distanceKm: number;
+  movingSeconds: number;
+  avgCadence?: number | null;
+}): ActivityVerdict | null {
+  const { sport, distanceKm, movingSeconds } = input;
+  if (!(distanceKm >= MIN_DISTANCE_KM) || !(movingSeconds >= MIN_MOVING_SECONDS)) return null;
+  const speedKmh = distanceKm / (movingSeconds / 3600);
+
+  if (sport === "RIDE") {
+    return speedKmh > RIDE_MAX_AVG_SPEED_KMH ? { validity: "SUSPECT", reason: "RIDE_TOO_FAST" } : null;
+  }
+
+  // RUN, TRAIL and WALK are on foot: a vehicle is a vehicle whatever it was labelled. Trail shares
+  // the run rules — its slow climbs are never flagged, only the implausibly fast.
+  const nonFoot = detectNonFootActivity(input);
+  if (nonFoot === "speed") return { validity: "EXCLUDED", reason: "IMPOSSIBLE_PACE" };
+  if (nonFoot === "cadence") return { validity: "SUSPECT", reason: "LOW_CADENCE_AT_SPEED" };
+
+  if (sport === "WALK" && speedKmh > WALK_MAX_AVG_SPEED_KMH) return { validity: "SUSPECT", reason: "TOO_FAST_FOR_WALK" };
+  return null;
+}

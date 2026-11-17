@@ -396,6 +396,19 @@
     <string name="runs_validity_pace">الريتم المتوسط أسرع من واش يقدر يجري بيه الواحد — يبان بيسكليت ولا كروسة ولا موطور. النشاط يبقى محفوظ، بصح ما يتحسبش فأحسن أرقامك، ولا فالاستمرارية، ولا عند الكوتش.</string>
     <string name="runs_validity_generic">هاذ النشاط ما يبانش جري على الرجلين. يبقى محفوظ، بصح ما يتحسبش فأحسن أرقامك، ولا فالاستمرارية، ولا عند الكوتش.</string>
     <string name="runs_validity_pill">ماشي جري</string>
+    <!-- التحقق حسب النشاط (classifyActivity / GpsQuality.checkActivity). -->
+    <string name="runs_current_speed">السرعة ضرك</string>
+    <string name="runs_avg_speed">معدّل السرعة</string>
+    <string name="runs_mismatch_walk_live">هاذي سريعة بزاف على المشي. تقدر تبدّل النشاط كي تكمّل.</string>
+    <string name="runs_mismatch_ride_live">هاذي أسرع من البيسكلات. ما تتحسبش فأحسن أرقامك.</string>
+    <string name="runs_mismatch_walk_title">هاذي سريعة بزاف على المشي</string>
+    <string name="runs_mismatch_walk_body">إذا تسجّلت مشي، ما تتحسبش فأحسن أرقامك ولا فالانتظام ولا عند الكوتش. كانت جري ولا بيسكلات؟</string>
+    <string name="runs_mismatch_ride_title">أسرع من البيسكلات</string>
+    <string name="runs_mismatch_ride_body">معدّل السرعة فوت البيسكلات، تبان كي طوموبيل ولا موطو. راهي محفوظة، بصح ما تتحسبش فأحسن أرقامك.</string>
+    <string name="runs_mismatch_was">بدّلها لـ%1$s</string>
+    <string name="runs_mismatch_keep">خليها %1$s</string>
+    <string name="runs_validity_walk">كانت سريعة بزاف على المشي، داك الشي ما تتحسبش فأحسن أرقامك ولا فالانتظام ولا عند الكوتش.</string>
+    <string name="runs_validity_ride">معدّل السرعة فوت البيسكلات، داك الشي ما تتحسبش فأحسن أرقامك.</string>
     <string name="runs_nonfoot_live">هاذي ما تبانش جري — ما تتحسبش فأحسن أرقامك.</string>
     <string name="runs_badges">الشارات</string>
     <string name="runs_badges_earned">%1$s من %2$s</string>

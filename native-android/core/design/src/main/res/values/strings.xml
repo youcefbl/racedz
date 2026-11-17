@@ -400,6 +400,19 @@
     <string name="runs_validity_pace">The average pace is faster than a person can run — this looks like a bike, a car or a scooter. The activity is kept, but it does not count toward your records, your consistency, or what your coach sees.</string>
     <string name="runs_validity_generic">This does not look like a run on foot. The activity is kept, but it does not count toward your records, your consistency, or what your coach sees.</string>
     <string name="runs_validity_pill">Not a run</string>
+    <!-- Sport-specific checks (classifyActivity / GpsQuality.checkActivity). -->
+    <string name="runs_current_speed">Current speed</string>
+    <string name="runs_avg_speed">Avg speed</string>
+    <string name="runs_mismatch_walk_live">This looks too fast for a walk. You can change the activity when you finish.</string>
+    <string name="runs_mismatch_ride_live">This is faster than a ride. It won\'t count toward your records.</string>
+    <string name="runs_mismatch_walk_title">This looks too fast for a walk</string>
+    <string name="runs_mismatch_walk_body">Saved as a walk, it won\'t count toward your records, your consistency or what your coach sees. Was it a run or a ride?</string>
+    <string name="runs_mismatch_ride_title">Faster than a ride</string>
+    <string name="runs_mismatch_ride_body">The average speed is beyond a bike; this looks like a motor vehicle. It\'s kept, but it won\'t count toward your records.</string>
+    <string name="runs_mismatch_was">Change to %1$s</string>
+    <string name="runs_mismatch_keep">Keep as %1$s</string>
+    <string name="runs_validity_walk">This was too fast for a walk, so it doesn\'t count toward your records, your consistency, or what your coach sees.</string>
+    <string name="runs_validity_ride">The average speed is beyond a bike, so this doesn\'t count toward your records.</string>
     <string name="runs_nonfoot_live">This does not look like running — it will not count toward your records.</string>
     <!-- Badges (server-computed) and this month's derived challenges. -->
     <string name="runs_badges">Badges</string>

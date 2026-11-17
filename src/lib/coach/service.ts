@@ -22,7 +22,7 @@ import { selectContextNeeds } from "@/lib/coach/context-selection";
 import { coachLocalDate } from "@/lib/coach/context-time";
 import { CoachContextBudgetError } from "@/lib/coach/context-budget";
 import { resolveRunElevation } from "@/lib/coach/elevation";
-import { detectNonFootActivity } from "@/lib/coach/motion-check";
+import { classifyActivity } from "@/lib/coach/motion-check";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics, type ConsistencyAssessment } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildAdaptivePlan, type PlanPhase } from "@/lib/coach/adaptive-planner";
@@ -561,20 +561,20 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
   // getRunnerRecords/getRunsForMetrics), but the run stays visible to its owner with a reason.
   let validity: "VALID" | "SUSPECT" | "EXCLUDED" = "VALID";
   let validityReason: string | null = null;
-  // A ride is not on foot by declaration: never flagged, but also never counted where a run counts
-  // (records, best efforts, badges, coach volume — see the sport filters on those queries).
-  if (input.source === "GPS" && input.sport !== "RIDE") {
-    const nonFoot = detectNonFootActivity({
+  // Each sport has its own envelope (classifyActivity): a vehicle is excluded whatever it was
+  // labelled, a "walk" at running speed and a "ride" at motorway speed are SUSPECT. A ride is never
+  // counted where a run counts either way (records, best efforts, badges, coach volume — see the
+  // sport filters on those queries).
+  if (input.source === "GPS") {
+    const verdict = classifyActivity({
+      sport: input.sport ?? "RUN",
       distanceKm: input.distanceKm,
       movingSeconds: paceSeconds,
       avgCadence: input.avgCadence ?? null
     });
-    if (nonFoot === "speed") {
-      validity = "EXCLUDED";
-      validityReason = "IMPOSSIBLE_PACE";
-    } else if (nonFoot === "cadence") {
-      validity = "SUSPECT";
-      validityReason = "LOW_CADENCE_AT_SPEED";
+    if (verdict) {
+      validity = verdict.validity;
+      validityReason = verdict.reason;
     }
   }
   if (validity !== "VALID") {

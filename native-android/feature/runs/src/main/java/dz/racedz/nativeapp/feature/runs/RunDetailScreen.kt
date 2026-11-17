@@ -836,7 +836,14 @@ private fun NonFootNotice(reason: String?) {
         )
         Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
             Text(
-                text = stringResource(R.string.runs_validity_title),
+                text = stringResource(
+                    when (reason) {
+                        // Sport mix-ups (2026-11-17), not "not on foot".
+                        "TOO_FAST_FOR_WALK" -> R.string.runs_mismatch_walk_title
+                        "RIDE_TOO_FAST" -> R.string.runs_mismatch_ride_title
+                        else -> R.string.runs_validity_title
+                    }
+                ),
                 style = MaterialTheme.typography.titleSmall,
                 color = colors.textStrong,
             )
@@ -845,6 +852,8 @@ private fun NonFootNotice(reason: String?) {
                     when (reason) {
                         "LOW_CADENCE_AT_SPEED" -> R.string.runs_validity_cadence
                         "IMPOSSIBLE_PACE" -> R.string.runs_validity_pace
+                        "TOO_FAST_FOR_WALK" -> R.string.runs_validity_walk
+                        "RIDE_TOO_FAST" -> R.string.runs_validity_ride
                         else -> R.string.runs_validity_generic
                     }
                 ),

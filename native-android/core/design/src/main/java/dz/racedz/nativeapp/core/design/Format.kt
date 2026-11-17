@@ -146,6 +146,16 @@ object ZidRunFormat {
         return ltr(String.format(Locale.ROOT, "%d:%02d/%s", perUnit / 60, perUnit % 60, unit.code))
     }
 
+    /**
+     * Speed for a ride, from the same per-km pace the recorder keeps: "24.6 km/h" or "15.3 mph".
+     * Riders read speed, not minutes per kilometre.
+     */
+    fun speed(secondsPerKm: Int, unit: DistanceUnit = ZidRunUnits.current): String {
+        if (secondsPerKm <= 0) return "—"
+        val perHour = ZidRunUnits.fromKm(3600.0 / secondsPerKm, unit)
+        return ltr(String.format(Locale.ROOT, "%.1f %s", perHour, if (unit.code == "km") "km/h" else "mph"))
+    }
+
     /** "5.72" in the current unit from a metric value: the number only, for a separate unit label. */
     fun distanceValue(km: Double, locale: Locale, digits: Int = 2, unit: DistanceUnit = ZidRunUnits.current): String =
         String.format(locale, "%.${digits}f", ZidRunUnits.fromKm(km, unit))
