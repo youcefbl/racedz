@@ -464,6 +464,8 @@
     <string name="runs_no_gps_estimated">The phone never got a GPS fix, so there is no route. The distance below is estimated from your steps. Check it, then save.</string>
     <string name="runs_no_gps_enter">The phone never got a GPS fix, so there is no route. Enter the distance you covered to save it.</string>
     <string name="runs_too_short_to_save">This recording is under a minute, which is too short to save. Discard it and start again.</string>
+    <string name="runs_distance_estimated">%1$s · estimated</string>
+    <string name="runs_distance_entered">%1$s · entered</string>
     <string name="runs_auto_paused">Paused — that looked faster than running. Resume when you are back on foot.</string>
     <string name="runs_gps_weak">Weak GPS</string>
     <string name="runs_stat_calories">Calories</string>
@@ -500,6 +502,22 @@
     <string name="runs_hr_reconnecting">Sensor reconnecting</string>
     <string name="runs_hr_unavailable">Heart rate not available</string>
     <string name="runs_gps_searching">Searching</string>
+    <string name="runs_gps_level_none">No signal</string>
+    <string name="runs_gps_level_weak">Weak</string>
+    <string name="runs_gps_level_fair">Fair</string>
+    <string name="runs_gps_level_good">Good</string>
+    <string name="runs_gps_level_excellent">Excellent</string>
+    <string name="runs_gps_accuracy">±%1$s m</string>
+    <string name="runs_gps_signal_a11y">GPS signal: %1$s, %2$s of %3$s bars</string>
+    <plurals name="runs_gps_satellites">
+        <item quantity="one">%1$s satellite</item>
+        <item quantity="other">%1$s satellites</item>
+    </plurals>
+    <string name="runs_gps_tips_title">Weak GPS signal</string>
+    <string name="runs_gps_tip_outside">Step outside, away from tall buildings, walls and trees.</string>
+    <string name="runs_gps_tip_still">Hold the phone still, screen up, for 30 to 60 seconds before you start.</string>
+    <string name="runs_gps_tip_battery">Turn off battery saver, and set Location to high accuracy if your phone offers it.</string>
+    <string name="runs_gps_tip_start_anyway">You can start anyway: time counts straight away and distance starts once the signal is good.</string>
     <string name="runs_finish_confirm_title">Finish this run?</string>
     <string name="runs_finish_confirm_body">%1$s in %2$s. You can add a title and notes next.</string>
     <string name="runs_keep_running">Keep running</string>

@@ -333,7 +333,7 @@ fun RecordingScreen(
             StatHairline()
             SmallStat(
                 label = stringResource(R.string.runs_elevation),
-                value = "+${state.elevationGainM.toInt()} m",
+                value = ZidRunFormat.elevationGain(state.elevationGainM.toInt()),
                 modifier = Modifier.weight(1f),
             )
             StatHairline()

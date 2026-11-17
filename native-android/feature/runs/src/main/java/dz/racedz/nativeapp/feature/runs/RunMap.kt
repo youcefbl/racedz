@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -66,7 +67,13 @@ fun RunMap(
 
     // clipToBounds because the tiles below are laid out at their true grid size and deliberately
     // overhang the map on every edge; without it the edge tiles would paint over the surrounding UI.
-    BoxWithConstraints(modifier = modifier.background(colors.surfaceMuted).clipToBounds()) {
+    // Tiles are placed at absolute pixel offsets from the map's top-left. The Box's default
+    // TopStart is top-RIGHT in Arabic, which shifted every tile right by the map's width and left
+    // the map half blank (found on the M21 in Arabic, 2026-11-17). Pin it to the absolute corner.
+    BoxWithConstraints(
+        modifier = modifier.background(colors.surfaceMuted).clipToBounds(),
+        contentAlignment = AbsoluteAlignment.TopLeft,
+    ) {
         val density = LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }

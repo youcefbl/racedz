@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -201,7 +202,11 @@ fun LiveRunMap(
             // Tile grid, laid out on integer tile coordinates relative to the first visible tile.
             // Only the translation below changes between fixes; the AsyncImages keep their inputs
             // and are skipped by recomposition until the camera crosses into a new tile.
+            // Tiles are placed at absolute pixel offsets from the map's top-left. The Box's default
+            // TopStart is top-RIGHT in Arabic, which shifted every tile right by the map's width and left
+            // the map half blank (found on the M21 in Arabic, 2026-11-17). Pin it to the absolute corner.
             Box(
+                contentAlignment = AbsoluteAlignment.TopLeft,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {

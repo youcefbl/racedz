@@ -162,6 +162,12 @@ object ZidRunFormat {
     fun isolate(value: String): String =
         if (value.isEmpty()) value else "\u2068$value\u2069"
 
+    /**
+     * Climb, e.g. "+12 m". Isolated left-to-right like every other figure here: built as plain text
+     * it read "m +12" on the Arabic recording and summary screens.
+     */
+    fun elevationGain(meters: Int): String = ltr("+$meters m")
+
     /** U+2066 LEFT-TO-RIGHT ISOLATE … U+2069 POP DIRECTIONAL ISOLATE. */
     private fun ltr(value: String): String = "\u2066$value\u2069"
 }

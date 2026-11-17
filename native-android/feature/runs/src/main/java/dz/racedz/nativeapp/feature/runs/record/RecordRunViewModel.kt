@@ -134,9 +134,7 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                     source = "MANUAL",
                     route = null,
                     laps = null,
-                    movingTimeSeconds = recording.steppingSeconds
-                        .coerceAtMost(recording.elapsedSeconds)
-                        .takeIf { it > 0 },
+                    movingTimeSeconds = NoGpsDistance.movingSeconds(recording.steppingSeconds, recording.elapsedSeconds),
                 )
             } else {
                 gpsRequest

@@ -93,20 +93,42 @@ fun RunSummaryScreen(
     val stepEstimateKm = remember(state.stepCount, state.avgCadenceSpm) {
         NoGpsDistance.estimateKm(state.stepCount, state.avgCadenceSpm)
     }
-    var noGpsDistanceText by rememberSaveable {
-        mutableStateOf(
-            stepEstimateKm?.let {
-                String.format(java.util.Locale.ROOT, "%.2f", dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(it))
-            }.orEmpty(),
-        )
+    val stepEstimateText = remember(stepEstimateKm) {
+        stepEstimateKm?.let {
+            String.format(java.util.Locale.ROOT, "%.2f", dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(it))
+        }.orEmpty()
     }
-    // normalizeNumber drops anything that is not a digit or separator, so "0,31abc12" would quietly
-    // read as 0.3112 — refuse text with anything else in it instead of guessing.
-    val noGpsDistanceKm = noGpsDistanceText
-        .takeIf { text -> text.all { Character.isDigit(it) || it in ".,٫،٬ " } }
-        ?.let { dz.racedz.nativeapp.feature.runs.manual.normalizeNumber(it).toDoubleOrNull() }
+    var noGpsDistanceText by rememberSaveable { mutableStateOf(stepEstimateText) }
+    val noGpsDistanceKm = NoGpsDistance.parseInput(noGpsDistanceText)
         ?.let { dz.racedz.nativeapp.core.design.ZidRunUnits.toKm(it) }
     val noGpsDistanceValid = NoGpsDistance.isValid(noGpsDistanceKm)
+
+    // The headline numbers are the ones that will be saved. For a no-GPS run that is the runner's
+    // distance (the GPS one is 0), with pace and moving time derived the way the server will
+    // derive them — otherwise the summary said 0.00 km and no pace while the saved run said 0.31.
+    // An invalid entry shows a dash, never the 0 it would replace.
+    val noGpsMovingSeconds = NoGpsDistance.movingSeconds(state.steppingSeconds, state.elapsedSeconds)
+    val shownDistanceKm: Double? = if (noGpsDistance) noGpsDistanceKm.takeIf { noGpsDistanceValid } else state.distanceKm
+    // Null = unknown (no step counter either): shown as a dash, and pace/calories fall back to the
+    // whole duration exactly as the server does, rather than a "0:00 moving" beside a real pace.
+    val shownMovingSeconds: Int? = if (noGpsDistance) noGpsMovingSeconds else state.movingSeconds
+    val shownPace = if (noGpsDistance) {
+        NoGpsDistance.paceSecondsPerKm(shownDistanceKm, noGpsMovingSeconds, state.elapsedSeconds)
+    } else {
+        state.averagePaceSecondsPerKm
+    }
+    val shownCalories = if (noGpsDistance) {
+        shownDistanceKm?.let { GpsQuality.estimateCalories(it, noGpsMovingSeconds ?: state.elapsedSeconds) }
+    } else {
+        state.calories
+    }
+    // Say where a no-GPS distance came from: the untouched step estimate, or the runner's own number.
+    val shownDistanceLabel = when {
+        !noGpsDistance -> distanceUnitLabel()
+        stepEstimateText.isNotEmpty() && noGpsDistanceText == stepEstimateText ->
+            stringResource(R.string.runs_distance_estimated, distanceUnitLabel())
+        else -> stringResource(R.string.runs_distance_entered, distanceUnitLabel())
+    }
 
     // The background worker may finish this save while the screen is open (NATRUN-07.2): leave the
     // way a foreground save leaves, to the saved run.
@@ -197,8 +219,8 @@ fun RunSummaryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SummaryStat(
-                        value = ZidRunFormat.distanceValue(state.distanceKm, locale),
-                        label = distanceUnitLabel(),
+                        value = shownDistanceKm?.let { ZidRunFormat.distanceValue(it, locale) } ?: "—",
+                        label = shownDistanceLabel,
                         modifier = Modifier.weight(1f),
                     )
                     Hairline()
@@ -209,7 +231,7 @@ fun RunSummaryScreen(
                     )
                     Hairline()
                     SummaryStat(
-                        value = state.averagePaceSecondsPerKm?.let { ZidRunFormat.pace(it) } ?: "—",
+                        value = shownPace?.let { ZidRunFormat.pace(it) } ?: "—",
                         label = stringResource(R.string.runs_stat_pace),
                         modifier = Modifier.weight(1f),
                     )
@@ -231,19 +253,19 @@ fun RunSummaryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SummaryStat(
-                        value = ZidRunFormat.duration(state.movingSeconds),
+                        value = shownMovingSeconds?.let { ZidRunFormat.duration(it) } ?: "—",
                         label = stringResource(R.string.runs_moving_time),
                         modifier = Modifier.weight(1f),
                     )
                     Hairline()
                     SummaryStat(
-                        value = "+${state.elevationGainM.toInt()} m",
+                        value = ZidRunFormat.elevationGain(state.elevationGainM.toInt()),
                         label = stringResource(R.string.runs_elevation),
                         modifier = Modifier.weight(1f),
                     )
                     Hairline()
                     SummaryStat(
-                        value = state.calories?.toString() ?: "—",
+                        value = shownCalories?.toString() ?: "—",
                         label = stringResource(R.string.runs_stat_calories),
                         modifier = Modifier.weight(1f),
                     )

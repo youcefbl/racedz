@@ -254,6 +254,7 @@ object RunRecorder {
             lastFix = null
             anchorFix = null
             distance.reset()
+            gpsElevation.reset()
             movingSecondsExact = 0.0
             _state.value = RecordingState()
         }
@@ -352,6 +353,7 @@ object RunRecorder {
             lastFix = null
             anchorFix = null
             distance.reset()
+            gpsElevation.reset()
             movingSecondsExact = 0.0
             coachInteractionIds.clear()
             _state.value = RecordingState()
@@ -376,6 +378,7 @@ object RunRecorder {
     private var lastFix: Location? = null
     /** The last fix that was counted — where the next counted stretch starts (elevation baseline). */
     private var anchorFix: Location? = null
+    private val gpsElevation = GpsElevationGain()
     /** Distance and moving time from the fix stream; see [DistanceAccumulator]. */
     private val distance = DistanceAccumulator()
     /** Moving time with its fractions kept; the state's whole seconds are derived from it. */
@@ -453,6 +456,7 @@ object RunRecorder {
         lastFix = null
         anchorFix = null
         distance.reset()
+        gpsElevation.reset()
         movingSecondsExact = 0.0
         lastAcceptedTimeMs = 0
         pausedAccumMs = 0
@@ -513,6 +517,7 @@ object RunRecorder {
         lastFix = null
         anchorFix = null
         distance.reset()
+        gpsElevation.reset()
         highSpeedSeconds = 0.0
         stationarySeconds = 0.0
         paceWindow.clear()
@@ -564,6 +569,7 @@ object RunRecorder {
         lastFix = null
         anchorFix = null
         distance.reset()
+        gpsElevation.reset()
         movingSecondsExact = 0.0
         lastSnapshotMs = 0L
         stationarySeconds = 0.0
@@ -821,9 +827,10 @@ object RunRecorder {
 
         val previous = lastFix
         val speed = if (location.hasSpeed()) location.speed else null
+        val recordingAgeSeconds = (location.time - current.startedAtEpochMs) / 1000.0
         val step = distance.onFix(
             DistanceAccumulator.Fix(location.latitude, location.longitude, location.time, accuracy, speed),
-            recordingAgeSeconds = (location.time - current.startedAtEpochMs) / 1000.0,
+            recordingAgeSeconds = recordingAgeSeconds,
         )
 
         if (previous == null) {
@@ -864,15 +871,14 @@ object RunRecorder {
             paceWindow.add(location.time, step.countedMeters, step.countedSeconds)
             val baro = barometer
             var gain = current.elevationGainM
-            val from = anchorFix
             if (baro != null && baro.ready) {
                 // The barometer owns climb once it has settled (NATRUN-07.6).
                 gain = baro.gainM
-            } else if (from != null && from.hasAltitude() && location.hasAltitude()) {
-                val delta = location.altitude - from.altitude
-                // Only rises above a metre count: GPS altitude noise would otherwise invent climb on
-                // a flat road.
-                if (delta > 1) gain += delta
+            } else if (location.hasAltitude()) {
+                // Smoothed with the server's own rule (see GpsElevationGain): summing every rise
+                // over a metre between counted points turned altitude jitter into tens of metres of
+                // climb on flat runs, which the saved run then contradicted.
+                gain = gpsElevation.add(location.altitude)
             }
             anchorFix = location
             route += location.toRoutePoint()
@@ -892,7 +898,15 @@ object RunRecorder {
                     headingDegrees = reliableHeading(location),
                 )
             }
-        } else if (current.distanceMeters == 0.0 && route.size == 1 && !step.moving) {
+        } else if (
+            current.distanceMeters == 0.0 && route.size == 1 && !step.moving &&
+            // Without Doppler speed, "not moving" only means "not yet [stepFloorMeters] from the
+            // anchor" — so re-anchoring on every such fix kept a walker's anchor one stride behind
+            // them forever, and the run never started (found 2026-11-16 with speedless mock fixes
+            // on the M21: 194 fixes at 10 km/h, 0.00 km). Once the start has settled, hold the
+            // anchor still and let the distance build up to the floor.
+            (speed != null || recordingAgeSeconds < GpsQuality.SPEEDLESS_STARTUP_SETTLE_SECONDS)
+        ) {
             // Still stationary: keep replacing the acquisition fix rather than saving its drift as
             // the start of the route, so the first real movement is measured from a settled position.
             // Only while not moving — re-anchoring a slow first stride would mean it never adds up.

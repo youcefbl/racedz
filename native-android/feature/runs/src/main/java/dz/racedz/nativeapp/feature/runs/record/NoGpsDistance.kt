@@ -49,4 +49,53 @@ internal object NoGpsDistance {
 
     /** Whether [km] is a distance the server will accept. */
     fun isValid(km: Double?): Boolean = km != null && km in MIN_KM..MAX_KM
+
+    /**
+     * The distance the runner typed, in the field's own unit, or null when it is not one plain
+     * number.
+     *
+     * Strict on purpose: the summary pre-fills a number the runner only glances at, so anything
+     * ambiguous must read as invalid rather than as some other distance. A lenient "keep the
+     * digits" parse turned "0,31M21 no" into 0.3121 and "0 31" into 31 km, both with Save enabled.
+     * Accepted: any Unicode decimal digits (Arabic-Indic included), at most one decimal separator
+     * (`.` `,` `٫` `،` — whichever the keyboard gives), and whitespace only around the number.
+     * Rejected: inner spaces, grouping separators (`٬`), a second separator, letters, signs.
+     */
+    fun parseInput(text: String): Double? {
+        val trimmed = text.trim()
+        val normalized = StringBuilder(trimmed.length)
+        var separators = 0
+        var digits = 0
+        for (ch in trimmed) {
+            val digit = Character.digit(ch, 10)
+            when {
+                digit in 0..9 -> { normalized.append(digit); digits++ }
+                ch in DECIMAL_SEPARATORS -> { if (++separators > 1) return null; normalized.append('.') }
+                else -> return null
+            }
+        }
+        if (digits == 0) return null
+        return normalized.toString().toDoubleOrNull()
+    }
+
+    private const val DECIMAL_SEPARATORS = ".,٫،"
+
+    /**
+     * Moving time for a no-GPS run: the time the step counter saw the runner moving (GPS moving
+     * time is zero without fixes), never more than the recording itself; null when unknown.
+     */
+    fun movingSeconds(steppingSeconds: Int, elapsedSeconds: Int): Int? =
+        steppingSeconds.coerceAtMost(elapsedSeconds).takeIf { it > 0 }
+
+    /**
+     * Pace exactly as the server will store it (calculateAveragePaceSecondsPerKm in
+     * src/lib/coach/metrics.ts): moving time when there is one, else the whole duration, over the
+     * distance, rounded. Null without a positive distance and time.
+     */
+    fun paceSecondsPerKm(km: Double?, movingSeconds: Int?, elapsedSeconds: Int): Int? {
+        if (km == null || km <= 0) return null
+        val seconds = movingSeconds?.takeIf { it > 0 } ?: elapsedSeconds
+        if (seconds <= 0) return null
+        return (seconds / km).roundToLong().toInt()
+    }
 }

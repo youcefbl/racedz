@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -192,7 +193,11 @@ fun InteractiveRunMap(
         val lastY = floor((originY + heightPx / factor) / TILE_SIZE).toInt()
         val maxTile = (1 shl tileZoom) - 1
 
+        // Tiles are placed at absolute pixel offsets from the map's top-left. The Box's default
+        // TopStart is top-RIGHT in Arabic, which shifted every tile right by the map's width and left
+        // the map half blank (found on the M21 in Arabic, 2026-11-17). Pin it to the absolute corner.
         Box(
+            contentAlignment = AbsoluteAlignment.TopLeft,
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(widthPx, heightPx) {

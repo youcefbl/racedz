@@ -444,6 +444,8 @@
     <string name="runs_no_gps_estimated">Le téléphone n\'a jamais capté le GPS, il n\'y a donc pas de parcours. La distance ci-dessous est estimée d\'après vos pas. Vérifiez-la, puis enregistrez.</string>
     <string name="runs_no_gps_enter">Le téléphone n\'a jamais capté le GPS, il n\'y a donc pas de parcours. Saisissez la distance parcourue pour l\'enregistrer.</string>
     <string name="runs_too_short_to_save">Cet enregistrement dure moins d\'une minute, c\'est trop court pour être enregistré. Supprimez-le et recommencez.</string>
+    <string name="runs_distance_estimated">%1$s · estimée</string>
+    <string name="runs_distance_entered">%1$s · saisie</string>
     <string name="runs_auto_paused">En pause — trop rapide pour de la course. Reprenez quand vous courez à nouveau.</string>
     <string name="runs_gps_weak">GPS faible</string>
     <string name="runs_stat_calories">Calories</string>
@@ -480,6 +482,22 @@
     <string name="runs_hr_reconnecting">Capteur en reconnexion</string>
     <string name="runs_hr_unavailable">Fréquence cardiaque indisponible</string>
     <string name="runs_gps_searching">Recherche</string>
+    <string name="runs_gps_level_none">Aucun signal</string>
+    <string name="runs_gps_level_weak">Faible</string>
+    <string name="runs_gps_level_fair">Correct</string>
+    <string name="runs_gps_level_good">Bon</string>
+    <string name="runs_gps_level_excellent">Excellent</string>
+    <string name="runs_gps_accuracy">±%1$s m</string>
+    <string name="runs_gps_signal_a11y">Signal GPS : %1$s, %2$s barres sur %3$s</string>
+    <plurals name="runs_gps_satellites">
+        <item quantity="one">%1$s satellite</item>
+        <item quantity="other">%1$s satellites</item>
+    </plurals>
+    <string name="runs_gps_tips_title">Signal GPS faible</string>
+    <string name="runs_gps_tip_outside">Sortez à l\'extérieur, loin des immeubles, des murs et des arbres.</string>
+    <string name="runs_gps_tip_still">Gardez le téléphone immobile, écran vers le ciel, 30 à 60 secondes avant de démarrer.</string>
+    <string name="runs_gps_tip_battery">Désactivez l\'économiseur de batterie et réglez la localisation sur haute précision si le téléphone le propose.</string>
+    <string name="runs_gps_tip_start_anyway">Vous pouvez démarrer quand même : le temps compte tout de suite et la distance dès que le signal est bon.</string>
     <string name="runs_finish_confirm_title">Terminer cette sortie ?</string>
     <string name="runs_finish_confirm_body">%1$s en %2$s. Vous pourrez ajouter un titre et des notes ensuite.</string>
     <string name="runs_keep_running">Continuer</string>
