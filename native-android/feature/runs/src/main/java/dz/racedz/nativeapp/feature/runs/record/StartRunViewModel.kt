@@ -24,6 +24,8 @@ data class StartRunUiState(
     val loading: Boolean = true,
     /** Live conditions for the start screen, or null while loading / when unavailable. */
     val weather: WeatherDto? = null,
+    /** True once a weather request failed with nothing to show; the card keeps its place with dashes. */
+    val weatherFailed: Boolean = false,
     /** The city/town the runner is in, reverse-geocoded from their fix; null when unknown. */
     val placeName: String? = null,
     /** The workout type the runner picked on a Free run, or null for a plain free run. */
@@ -113,8 +115,9 @@ class StartRunViewModel(
     fun loadWeather(lat: Double?, lng: Double?) {
         viewModelScope.launch {
             when (val result = repository.weather(lat, lng)) {
-                is ApiResult.Success -> _state.update { it.copy(weather = result.value) }
-                is ApiResult.Failure -> Unit
+                is ApiResult.Success -> _state.update { it.copy(weather = result.value, weatherFailed = false) }
+                // A failed re-placement keeps the reading it already had.
+                is ApiResult.Failure -> _state.update { it.copy(weatherFailed = it.weather == null) }
             }
         }
     }

@@ -4,12 +4,16 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.GnssStatus
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,15 +27,27 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 /**
  * What the pre-run GPS warm-up has seen so far.
  *
- * [permitted] is false until precise location has been granted (it is first asked for at
- * hold-to-begin), in which case there is nothing to warm up and the screen keeps its old wording.
+ * [permitted] is false until precise location has been granted, in which case there is nothing to
+ * warm up and the Start screen offers "Enable GPS" instead of bars.
  */
 internal data class GpsWarmupState(
     val permitted: Boolean,
     val accuracyM: Float?,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    /** Latest satellite picture; null until the first GNSS status arrives (or never, without permission). */
+    val gnss: GnssSnapshot? = null,
+    /** True when the last fix is recent enough to describe the signal now (see [GPS_FIX_STALE_MS]). */
+    val fixFresh: Boolean = accuracyM != null,
+    /** How long the warm-up has gone without a recordable signal; 0 while it has one. */
+    val searchingForMs: Long = 0,
 ) {
+    /** Bars for the Start screen: the fresh fix's accuracy, else satellite strength. */
+    val signal: GpsSignalLevel get() = GpsSignalLevel.of(accuracyM?.takeIf { fixFresh }, gnss)
+
+    /** Offer tips once the search has dragged on without a recordable signal. */
+    val showTips: Boolean get() = permitted && shouldShowGpsTips(signal, searchingForMs)
+
     /** True once a fix good enough to record from has arrived — the recorder's own threshold. */
     val ready: Boolean get() = accuracyM != null && GpsQuality.isUsableFix(accuracyM)
 
@@ -62,12 +78,36 @@ private const val PLACE_ACCURACY_M = 1_000f
  */
 @SuppressLint("MissingPermission")
 @Composable
-internal fun rememberGpsWarmup(): GpsWarmupState {
+internal fun rememberGpsWarmup(
+    /** Bumped by the screen when a permission request returns, so a grant starts the warm-up at once. */
+    permissionRefresh: Int = 0,
+): GpsWarmupState {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val permitted = hasPreciseLocation(context)
+    // Re-read on every return to the screen too: location may have been allowed in Settings.
+    var permitted by remember { mutableStateOf(hasPreciseLocation(context)) }
+    LaunchedEffect(permissionRefresh) { permitted = hasPreciseLocation(context) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) permitted = hasPreciseLocation(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var accuracy by remember { mutableStateOf<Float?>(null) }
     var position by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var fixAtMs by remember { mutableStateOf<Long?>(null) }
+    var gnss by remember { mutableStateOf<GnssSnapshot?>(null) }
+    // When the current stretch without a recordable signal began; reset whenever one arrives.
+    var searchStartMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
+    // A 1 s clock, so a fix going stale and the tips' delay show up even if no callback fires.
+    var nowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(permitted) {
+        while (true) {
+            nowMs = SystemClock.elapsedRealtime()
+            kotlinx.coroutines.delay(1_000)
+        }
+    }
 
     DisposableEffect(lifecycleOwner, permitted) {
         val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
@@ -76,6 +116,27 @@ internal fun rememberGpsWarmup(): GpsWarmupState {
         val listener = LocationListener { location: Location ->
             accuracy = if (location.hasAccuracy()) location.accuracy else null
             position = location.latitude to location.longitude
+            fixAtMs = SystemClock.elapsedRealtime()
+        }
+        // Satellite signal strength, so the indicator has something true to say before the first
+        // fix — which on a weak receiver can be minutes away, or never.
+        val gnssCallback = object : GnssStatus.Callback() {
+            override fun onSatelliteStatusChanged(status: GnssStatus) {
+                var inView = 0
+                var used = 0
+                val cn0 = ArrayList<Float>(status.satelliteCount)
+                for (i in 0 until status.satelliteCount) {
+                    val c = status.getCn0DbHz(i)
+                    if (c > 0f) { inView++; cn0 += c }
+                    if (status.usedInFix(i)) used++
+                }
+                cn0.sortDescending()
+                gnss = GnssSnapshot(inView, used, cn0.take(GNSS_STRONGEST_KEPT))
+            }
+
+            override fun onStopped() {
+                gnss = null
+            }
         }
         var registered = false
         fun register() {
@@ -83,10 +144,13 @@ internal fun rememberGpsWarmup(): GpsWarmupState {
             registered = runCatching {
                 manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, WARMUP_INTERVAL_MS, 0f, listener, Looper.getMainLooper())
             }.isSuccess
+            // Best effort: the bars fall back to fix accuracy alone if this is refused.
+            if (registered) runCatching { manager.registerGnssStatusCallback(gnssCallback, Handler(Looper.getMainLooper())) }
         }
         fun unregister() {
             if (!registered) return
             runCatching { manager.removeUpdates(listener) }
+            runCatching { manager.unregisterGnssStatusCallback(gnssCallback) }
             registered = false
         }
         val observer = LifecycleEventObserver { _, event ->
@@ -103,11 +167,19 @@ internal fun rememberGpsWarmup(): GpsWarmupState {
             unregister()
         }
     }
+    val fixFresh = fixAtMs?.let { nowMs - it <= GPS_FIX_STALE_MS } ?: false
+    val recordableNow = GpsSignalLevel.of(accuracy?.takeIf { fixFresh }, gnss).recordable
+    LaunchedEffect(recordableNow) {
+        if (recordableNow) searchStartMs = SystemClock.elapsedRealtime()
+    }
     return GpsWarmupState(
         permitted = permitted,
         accuracyM = accuracy,
         latitude = position?.first,
         longitude = position?.second,
+        gnss = gnss,
+        fixFresh = fixFresh,
+        searchingForMs = if (recordableNow) 0 else (nowMs - searchStartMs).coerceAtLeast(0),
     )
 }
 
@@ -116,3 +188,6 @@ private fun hasPreciseLocation(context: Context): Boolean =
         PackageManager.PERMISSION_GRANTED
 
 private const val WARMUP_INTERVAL_MS = 1_000L
+
+/** Satellites kept per GNSS snapshot — enough for [GpsSignalLevel.CLOSE_TO_FIX_SATELLITES]. */
+private const val GNSS_STRONGEST_KEPT = 8

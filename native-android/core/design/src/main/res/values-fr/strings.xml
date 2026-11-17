@@ -493,6 +493,11 @@
         <item quantity="one">%1$s satellite</item>
         <item quantity="other">%1$s satellites</item>
     </plurals>
+    <string name="runs_gps_permission_needed">Autorisation de localisation requise</string>
+    <string name="runs_gps_enable">Activer le GPS</string>
+    <string name="runs_gps_open_settings">Autoriser la localisation dans les Paramètres</string>
+    <string name="runs_gps_warming_hint">Gardez cet écran ouvert pendant que le GPS vous localise. Vous pouvez démarrer quand même.</string>
+    <string name="runs_gps_ready_hint">Le GPS est prêt. Maintenez pour démarrer quand vous voulez.</string>
     <string name="runs_gps_tips_title">Signal GPS faible</string>
     <string name="runs_gps_tip_outside">Sortez à l\'extérieur, loin des immeubles, des murs et des arbres.</string>
     <string name="runs_gps_tip_still">Gardez le téléphone immobile, écran vers le ciel, 30 à 60 secondes avant de démarrer.</string>

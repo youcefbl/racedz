@@ -7,30 +7,21 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
-import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -63,9 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -74,7 +63,6 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunButton
@@ -86,30 +74,10 @@ import androidx.compose.foundation.layout.RowScope
 import dz.racedz.nativeapp.core.design.ZidRunDarkSurfaceSystemBars
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunTopBar
-import dz.racedz.nativeapp.feature.runs.R as RunsR
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.runtime.withFrameMillis
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.Canvas
 import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.PI
-
-/** How long the runner must hold before recording starts. */
-private const val HOLD_TO_BEGIN_MS = 700L
 
 /**
  * "Ready when you are" (02-create-new-run.png): the pre-run screen.
@@ -141,6 +109,8 @@ fun StartRunScreen(
     val context = LocalContext.current
     val session by viewModel.state.collectAsStateWithLifecycle()
     var permissionDenied by remember { mutableStateOf(false) }
+    // Bumped whenever a location request returns, so the warm-up re-reads the grant at once.
+    var permissionRefresh by remember { mutableStateOf(0) }
 
     // Live conditions for where the run will happen. Read once on entry from the last known fix when
     // location is already granted; with no fix the server falls back to the runner's wilaya. A
@@ -156,7 +126,7 @@ fun StartRunScreen(
         }
     }
     // Get the receiver searching now, not at start (see rememberGpsWarmup).
-    val gpsWarmup = rememberGpsWarmup()
+    val gpsWarmup = rememberGpsWarmup(permissionRefresh)
     // With no recent cached fix the weather above came from the profile's wilaya, and the card named
     // that wilaya as if it were where the runner stood ("Alger" for a runner in Blida, 2026-11-15).
     // As soon as the warm-up has a position, re-place the card on it — once.
@@ -179,34 +149,72 @@ fun StartRunScreen(
     // The start that is waiting behind the countdown; null when no countdown is showing.
     var pendingStart by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    // Notifications are requested alongside location: the foreground service needs a visible
-    // notification, and without the permission the runner sees no indication that GPS is on.
-    val permissions = buildList {
-        add(Manifest.permission.ACCESS_FINE_LOCATION)
-        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+    // Location is asked for on its own, from "Enable GPS" (or from the hold, for a runner who starts
+    // straight away), so the warm-up can begin the moment it is granted — before the first run, not
+    // inside it. It used to ride in one request with the optional permissions, at hold-to-begin.
+    val locationPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    // Optional, asked at the start: notifications (the recording notification is how a runner sees
+    // GPS is on) and cadence (the run/ride check). Declining either still records.
+    val optionalPermissions = buildList {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
-        // Cadence, for the run/ride check. Declining it is fine — the run still records, without it.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(Manifest.permission.ACTIVITY_RECOGNITION)
-    }.toTypedArray()
+    }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+    fun startNow() {
+        // Guided mode runs the plan; Free mode runs the chosen workout type's structure (or
+        // nothing, for a plain free run).
+        val guidingSession = if (mode == RunMode.Guided) session.session else session.freeStructure
+        // Only attach the planned workout when the runner is actually running it (Guided). If they
+        // switched to Free/custom, the run must NOT complete the planned session (adherence bug).
+        val effectiveWorkoutId = workoutId.takeIf { mode == RunMode.Guided }
+        val begin = { beginRecording(context, audioCues, guidingSession, effectiveWorkoutId, onStarted) }
+        // Optional 3-2-1 (NATRUN-06.7): only after the hold and the grant, and nothing — no
+        // recorder, service, cue or clock — starts until it reaches zero.
+        if (RunSettings.countdownEnabled) pendingStart = begin else begin()
+    }
+
+    // Whatever the runner answers, the run starts: these only add to it.
+    val optionalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { startNow() }
+    fun requestOptionalThenStart() {
+        val missing = optionalPermissions.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) startNow() else optionalLauncher.launch(missing.toTypedArray())
+    }
+
+    // Whether the location answer should go on to start the run (asked from the hold) or only
+    // start the warm-up (asked from "Enable GPS").
+    var startAfterLocation by remember { mutableStateOf(false) }
+    var locationDenials by rememberSaveable { mutableStateOf(0) }
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        permissionRefresh++
         // Coarse-only is not enough to measure a route, so precise is the one that decides.
         val precise = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val thenStart = startAfterLocation
+        startAfterLocation = false
         if (precise) {
             permissionDenied = false
-            // Guided mode runs the plan; Free mode runs the chosen workout type's structure (or
-            // nothing, for a plain free run).
-            val guidingSession = if (mode == RunMode.Guided) session.session else session.freeStructure
-            // Only attach the planned workout when the runner is actually running it (Guided). If they
-            // switched to Free/custom, the run must NOT complete the planned session (adherence bug).
-            val effectiveWorkoutId = workoutId.takeIf { mode == RunMode.Guided }
-            val begin = { beginRecording(context, audioCues, guidingSession, effectiveWorkoutId, onStarted) }
-            // Optional 3-2-1 (NATRUN-06.7): only after the hold and the grant, and nothing — no
-            // recorder, service, cue or clock — starts until it reaches zero.
-            if (RunSettings.countdownEnabled) pendingStart = begin else begin()
+            if (thenStart) requestOptionalThenStart()
         } else {
             permissionDenied = true
+            locationDenials++
         }
+    }
+    fun onHoldComplete() {
+        if (gpsWarmup.permitted) {
+            requestOptionalThenStart()
+        } else {
+            startAfterLocation = true
+            locationLauncher.launch(locationPermissions)
+        }
+    }
+    val openAppSettings = {
+        runCatching {
+            context.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(android.net.Uri.fromParts("package", context.packageName, null))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+        Unit
     }
 
     pendingStart?.let { start ->
@@ -244,31 +252,43 @@ fun StartRunScreen(
                 textAlign = TextAlign.Center,
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg)) {
-                // Says what the warm-up actually sees. It used to read "GPS ready" unconditionally,
-                // including on a phone that then needed three minutes to find a usable fix. Before
-                // location has ever been granted there is nothing to report, so it keeps the old copy.
-                val gpsSearching = gpsWarmup.permitted && !gpsWarmup.ready
-                ReadyChip(
-                    icon = Icons.Filled.LocationOn,
-                    label = stringResource(if (gpsSearching) R.string.runs_gps_searching else R.string.runs_ready_gps),
-                    tint = if (gpsSearching) zidRunOnDarkColors().textMuted else zidRunOnDarkColors().primary,
-                )
-                ReadyChip(
-                    icon = Icons.Filled.Lock,
-                    label = stringResource(R.string.runs_private),
-                    tint = zidRunOnDarkColors().textMuted,
+            // GPS status and the one thing to do about it. Every part keeps its height whatever
+            // happens — permission granted, signal found, signal lost — so the controls below never
+            // move under a finger (a late shift here once turned a tap into the wrong sport chip).
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceLg)) {
+                    // Says what the warm-up actually sees, never "GPS ready" before permission (it
+                    // used to, on a phone that then needed three minutes to find a usable fix).
+                    GpsSignalChip(gpsWarmup, modifier = Modifier.weight(1f, fill = false))
+                    ReadyChip(
+                        icon = Icons.Filled.Lock,
+                        label = stringResource(R.string.runs_private),
+                        tint = zidRunOnDarkColors().textMuted,
+                    )
+                }
+                GpsActionSlot(
+                    warmup = gpsWarmup,
+                    deniedOnce = locationDenials >= 2,
+                    onEnable = {
+                        startAfterLocation = false
+                        locationLauncher.launch(locationPermissions)
+                    },
+                    onOpenSettings = openAppSettings,
                 )
             }
 
-            // Conditions where the run will happen, when the endpoint returned anything worth showing.
-            session.weather
-                ?.takeIf { it.temperatureC != null || it.humidityPct != null || it.windSpeedKmh != null }
+            // Conditions where the run will happen. The slot is there from the first frame, with
+            // dashes until the reading arrives (or if it never does), so it never pushes the
+            // controls below down after the runner has started reaching for them.
+            WeatherCard(
+                weather = session.weather?.takeIf { it.temperatureC != null || it.humidityPct != null || it.windSpeedKmh != null },
                 // The device's own reverse-geocoded town when there is a GPS fix, otherwise the
-                // wilaya the server used. The first is only available once location has been
-                // granted — which does not happen until hold-to-begin — so before a runner's first
-                // run the second is the only one there is, and the card used to show no place at all.
-                ?.let { WeatherCard(it, session.placeName ?: it.place) }
+                // wilaya the server used.
+                placeName = session.placeName ?: session.weather?.place,
+            )
 
             // Free or guided. A guided run counts through warm-up, work, and cool-down and speaks
             // each change; a free run just records.
@@ -400,10 +420,14 @@ fun StartRunScreen(
             val awaitingStructure = mode == RunMode.Free &&
                 (session.selectedType?.takeIf { it != FREE_RUN_TYPE } != null) &&
                 (session.structureLoading || session.freeStructure == null)
-            HoldToBegin(
+            HoldToStartControl(
                 enabled = !awaitingStructure,
-                onTriggered = { launcher.launch(permissions) },
+                onTriggered = { onHoldComplete() },
             )
+
+            // A search that drags on gets the few things a runner can actually do about it — below
+            // the start control, so appearing 20 s in never moves what the runner is about to touch.
+            if (gpsWarmup.showTips) GpsTipsCard()
 
             if (permissionDenied) {
                 Text(
@@ -414,8 +438,15 @@ fun StartRunScreen(
                     modifier = Modifier.padding(horizontal = ZidRunDimens.spaceLg),
                 )
                 ZidRunButton(
-                    text = stringResource(R.string.runs_grant_permission),
-                    onClick = { launcher.launch(permissions) },
+                    text = stringResource(if (locationDenials >= 2) R.string.runs_gps_open_settings else R.string.runs_grant_permission),
+                    onClick = {
+                        if (locationDenials >= 2) {
+                            openAppSettings()
+                        } else {
+                            startAfterLocation = true
+                            locationLauncher.launch(locationPermissions)
+                        }
+                    },
                     // ZidRunButton defaults to the app theme's primary, which on this always-dark
                     // screen meant the Light theme's forest green on near-black. Pinned to the
                     // dark-surface palette like everything else here.
@@ -569,9 +600,16 @@ private fun TtsInstallNotice() {
 }
 
 /** Live conditions where the run will happen: place, temperature, humidity, and wind. */
+/**
+ * Live conditions, in a card whose height never changes: the place line, the three readings and
+ * the "Regional estimate" line are always laid out, with dashes or blank text standing in until
+ * (or unless) there is something to show. It loads, and is re-placed on the GPS fix, while the
+ * runner is already scrolling and choosing — every height change here moved the controls below.
+ */
 @Composable
-private fun WeatherCard(weather: WeatherDto, placeName: String?) {
+private fun WeatherCard(weather: WeatherDto?, placeName: String?) {
     val locale = currentLocale()
+    val dash = "—"
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -581,58 +619,51 @@ private fun WeatherCard(weather: WeatherDto, placeName: String?) {
         verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs),
     ) {
       // The city/town, above the temperature, so the reading is anchored to a place.
-      placeName?.let { name ->
-          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
-              Icon(
-                  Icons.Filled.LocationOn,
-                  contentDescription = null,
-                  tint = zidRunOnDarkColors().textMuted,
-                  modifier = Modifier.size(14.dp),
-              )
-              Text(
-                  text = name,
-                  style = MaterialTheme.typography.labelLarge,
-                  color = zidRunOnDarkColors().textStrong,
-              )
-          }
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceXs)) {
+          Icon(
+              Icons.Filled.LocationOn,
+              contentDescription = null,
+              tint = zidRunOnDarkColors().textMuted,
+              modifier = Modifier.size(14.dp),
+          )
+          Text(
+              text = placeName ?: dash,
+              style = MaterialTheme.typography.labelLarge,
+              color = zidRunOnDarkColors().textStrong,
+              maxLines = 1,
+              overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+          )
       }
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        weather.temperatureC?.let { temp ->
-            WeatherStat(
-                value = stringResource(R.string.runs_weather_temp, ZidRunFormat.count(temp.roundToInt(), locale)),
-                label = weather.apparentC?.let { feels ->
-                    stringResource(R.string.runs_weather_feels, ZidRunFormat.count(feels.roundToInt(), locale))
-                } ?: weather.weatherLabel?.replaceFirstChar { it.uppercase() }.orEmpty(),
-            )
-        }
-        weather.humidityPct?.let { humidity ->
-            WeatherStat(
-                value = stringResource(R.string.runs_weather_humidity_value, ZidRunFormat.count(humidity, locale)),
-                label = stringResource(R.string.runs_weather_humidity),
-            )
-        }
-        weather.windSpeedKmh?.let { wind ->
-            WeatherStat(
-                value = stringResource(R.string.runs_weather_wind_value, ZidRunFormat.count(wind, locale)),
-                label = stringResource(R.string.runs_weather_wind),
-                // Meteorological direction is where the wind comes FROM; the arrow points where it blows TO.
-                arrowDegrees = weather.windDirectionDegrees?.let { it.toFloat() + 180f },
-            )
-        }
+        WeatherStat(
+            value = weather?.temperatureC?.let { stringResource(R.string.runs_weather_temp, ZidRunFormat.count(it.roundToInt(), locale)) } ?: dash,
+            label = weather?.apparentC?.let { feels ->
+                stringResource(R.string.runs_weather_feels, ZidRunFormat.count(feels.roundToInt(), locale))
+            } ?: weather?.weatherLabel?.replaceFirstChar { it.uppercase() } ?: " ",
+        )
+        WeatherStat(
+            value = weather?.humidityPct?.let { stringResource(R.string.runs_weather_humidity_value, ZidRunFormat.count(it, locale)) } ?: dash,
+            label = stringResource(R.string.runs_weather_humidity),
+        )
+        WeatherStat(
+            value = weather?.windSpeedKmh?.let { stringResource(R.string.runs_weather_wind_value, ZidRunFormat.count(it, locale)) } ?: dash,
+            label = stringResource(R.string.runs_weather_wind),
+            // Meteorological direction is where the wind comes FROM; the arrow points where it blows TO.
+            arrowDegrees = weather?.windDirectionDegrees?.let { it.toFloat() + 180f },
+        )
       }
       // When the reading is only the wilaya centroid (no GPS fix), say so — on a large wilaya these
       // conditions can be far from the runner, and it should not read as street-level local weather.
-      if (weather.source == "wilaya") {
-          Text(
-              text = stringResource(R.string.runs_weather_region),
-              style = MaterialTheme.typography.labelSmall,
-              color = zidRunOnDarkColors().textMuted,
-          )
-      }
+      // The line is always laid out (blank otherwise): re-placing on the GPS fix drops it.
+      Text(
+          text = if (weather?.source == "wilaya") stringResource(R.string.runs_weather_region) else " ",
+          style = MaterialTheme.typography.labelSmall,
+          color = zidRunOnDarkColors().textMuted,
+      )
     }
 }
 
@@ -1106,336 +1137,3 @@ private fun ReadyChip(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
         Text(label, style = MaterialTheme.typography.bodyMedium, color = tint)
     }
 }
-
-/**
- * The hold target. Sweeps a ring while held and fires at the end; letting go early winds it back.
- *
- * Two things here are deliberate and easy to "fix" wrongly.
- *
- * **The hold is timed from frames, not from an animation.** Compose animations honour the system's
- * `MotionDurationScale`, so on a device with animations turned off `animateTo` finishes instantly —
- * and a press-and-hold that completes on contact is not a press-and-hold. `withFrameMillis` gives
- * the same per-frame smoothness while keeping the duration real. Reduced motion removes the
- * decoration (the idle breath, the wind-back) and leaves the interaction intact.
- *
- * **The label sits in its own clear space.** The exported artwork is a narrow foot, and text laid
- * across the whole 240dp control ran straight through the stroke — "Hold" over the foot, "to begin"
- * overflowing both edges. It is width-limited to the ring's inner circle and backed by a scrim, so
- * it reads at any font scale without needing the artwork redrawn.
- */
-@Composable
-private fun HoldToBegin(onTriggered: () -> Unit, enabled: Boolean = true) {
-    val context = LocalContext.current
-    val haptics = LocalHapticFeedback.current
-    var holding by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
-    // Latched the instant the hold reaches 100% (RED-R03). From that moment the start is owed:
-    // the completion work runs in its own effect keyed on this flag, so releasing the finger —
-    // which is the natural reaction to the confirming haptic — can no longer cancel the
-    // coroutine that was about to call onTriggered().
-    var completed by remember { mutableStateOf(false) }
-    // 0 → 1 once the hold completes: one expanding, fading ring. Reduced motion skips it.
-    var aura by remember { mutableFloatStateOf(0f) }
-
-    // Respect Android's animation scale for the decorative parts only.
-    val animationsEnabled = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
-    }
-
-    // A slow breath while idle, so the control reads as waiting for you rather than as a picture.
-    // Driven from frames like the hold itself, for the same reason: it must not be at the mercy of
-    // the animation-duration scale, and it costs nothing to keep the two on one clock.
-    var idleScale by remember { mutableFloatStateOf(1f) }
-    LaunchedEffect(holding, animationsEnabled) {
-        if (holding || !animationsEnabled) {
-            idleScale = 1f
-            return@LaunchedEffect
-        }
-        val start = withFrameMillis { it }
-        while (true) {
-            withFrameMillis { now ->
-                val phase = ((now - start) % BREATH_MS) / BREATH_MS.toFloat()
-                idleScale = 1f + BREATH_DEPTH * sin(phase * 2f * PI.toFloat())
-            }
-        }
-    }
-
-    // Pressing sinks the control slightly and it grows back as the hold completes — the shape of
-    // the gesture, rather than a second independent effect.
-    val holdScale by animateFloatAsState(
-        targetValue = if (holding) 0.97f + progress * 0.05f else 1f,
-        animationSpec = tween(durationMillis = 120, easing = LinearEasing),
-        label = "holdScale",
-    )
-    val appliedScale = if (!animationsEnabled) 1f else if (holding) holdScale else idleScale
-
-    val holdLabel = stringResource(R.string.runs_hold_to_begin)
-    val startLabel = stringResource(R.string.runs_start_run)
-
-    LaunchedEffect(holding) {
-        // Once completed, the start is owed regardless of the finger: no wind-back, no restart.
-        if (completed) return@LaunchedEffect
-
-        if (!holding) {
-            // Wind back rather than snap: an aborted hold should look like it was let go, not like
-            // it never happened. Any partial decoration is cleared with it.
-            aura = 0f
-            if (!animationsEnabled || progress == 0f) {
-                progress = 0f
-                return@LaunchedEffect
-            }
-            val from = progress
-            val start = withFrameMillis { it }
-            while (progress > 0f) {
-                withFrameMillis { now ->
-                    val t = (now - start).toFloat() / RELEASE_MS
-                    progress = (from * (1f - t)).coerceAtLeast(0f)
-                }
-            }
-            return@LaunchedEffect
-        }
-
-        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-
-        if (!animationsEnabled) {
-            // Reduced motion (R-13): keep the real 700 ms hold as the accidental-start guard, but do
-            // not sweep the wedge continuously. Show discrete progress states only — a single midway
-            // step, then complete — so the reveal jumps rather than animates.
-            progress = 0.5f
-            delay(HOLD_TO_BEGIN_MS / 2)
-            progress = 1f
-            delay(HOLD_TO_BEGIN_MS / 2)
-            completed = true
-            return@LaunchedEffect
-        }
-
-        val start = withFrameMillis { it }
-        while (progress < 1f) {
-            withFrameMillis { now ->
-                progress = ((now - start).toFloat() / HOLD_TO_BEGIN_MS).coerceAtMost(1f)
-            }
-        }
-        completed = true
-    }
-
-    // Completion work, uncancellable by the gesture: the confirming haptic, one success pulse
-    // (or a short beat under reduced motion) so the completed ring is actually seen, then start.
-    LaunchedEffect(completed) {
-        if (!completed) return@LaunchedEffect
-        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        if (animationsEnabled) {
-            val auraStart = withFrameMillis { it }
-            while (aura < 1f) {
-                withFrameMillis { now ->
-                    aura = ((now - auraStart).toFloat() / AURA_MS).coerceAtMost(1f)
-                }
-            }
-        } else {
-            delay(110L)
-        }
-        onTriggered()
-    }
-
-    // The active footprint orbit, drawn through an angular clip so it fills clockwise from the top
-    // as the hold progresses — footprint by footprint from outline to solid lime, which is the
-    // progress signal the reference is built around (and it survives reduced motion and colour
-    // blindness, because the change is shape+fill, not only colour).
-    val activeOrbit = ImageBitmap.imageResource(RunsR.drawable.zidrun_hold_orbit_active)
-
-    BoxWithConstraints(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            // Square, always — and capped rather than fixed.
-            //
-            // `size(CONTROL_SIZE)` looked equivalent but was not: on any screen narrower than
-            // 344dp + the page's own padding (a 360dp-wide phone, for instance) the incoming width
-            // constraint won and the box came out taller than it was wide. The two orbit layers
-            // then disagreed about what "full size" meant — the resting orbit is an `Image` with
-            // `ContentScale.Fit`, so it stayed a centred circle, while the active orbit is drawn
-            // straight into the Canvas at `size`, so it stretched into an ellipse and rode up.
-            // The result was two rings of different radii, with the green footprints sitting off
-            // the grey ones. Filling the available width and forcing 1:1 keeps every layer on the
-            // same circle at any screen size.
-            .widthIn(max = CONTROL_SIZE)
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .graphicsLayer { scaleX = appliedScale; scaleY = appliedScale }
-            // Dimmed and inert while a chosen workout structure is still loading.
-            .alpha(if (enabled) 1f else 0.5f)
-            .clip(CircleShape)
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                detectTapGestures(
-                    onPress = {
-                        holding = true
-                        // Returns when the finger lifts or the gesture is cancelled, which is what
-                        // makes "let go to abort" work.
-                        tryAwaitRelease()
-                        holding = false
-                    },
-                )
-            }
-            // Holding is not a gesture TalkBack can perform, so it gets a plain activate action.
-            .semantics {
-                contentDescription = startLabel
-                role = Role.Button
-                if (enabled) onClick(label = startLabel) { onTriggered(); true }
-            },
-    ) {
-        // Layer order matches the reference build: orange backlight, the muted orbit, the clockwise
-        // active orbit, the sole edge glow, the sole itself, then the label. The artwork is the
-        // extracted/recoloured ZidRun run layers (drawable-nodpi/zidrun_hold_*), so the foot
-        // silhouette, contour lines and footprint rhythm stay exactly as designed.
-
-        // Every inner layer is sized as a share of the control rather than in absolute dp, so a
-        // control that had to shrink to fit a narrow screen shrinks the sole and its glow with it.
-        // Fixed dp here would let the sole creep out toward the footprint ring on small phones and
-        // swallow the breathing room the two elements need to read as separate things.
-        val layerScale = maxWidth / CONTROL_SIZE
-
-        // 1. Amber backlight — FOOT-SHAPED, not a disc: the asset is the blurred sole silhouette, so
-        //    the warm glow radiates from the shoe exactly as in the reference. Sized a little larger
-        //    than the sole; brightens with the hold, with a gentle breath when animations are on.
-        val glowScale = if (animationsEnabled) 0.97f + progress * 0.06f else 1f
-        Image(
-            painter = painterResource(RunsR.drawable.zidrun_hold_orange_glow),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .height((SOLE_HEIGHT + 92.dp) * layerScale)
-                .width((SOLE_WIDTH + 130.dp) * layerScale)
-                .align(Alignment.Center)
-                .graphicsLayer {
-                    alpha = 0.20f + progress * 0.42f
-                    scaleX = glowScale
-                    scaleY = glowScale
-                },
-        )
-
-        // 2. The resting orbit: every footprint muted and unfilled.
-        Image(
-            painter = painterResource(RunsR.drawable.zidrun_hold_orbit_inactive),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-        )
-
-        // 3. The active orbit, revealed clockwise from the top through a growing pie wedge. No
-        //    separate progress arc — the footprints themselves are the meter.
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            if (progress <= 0f) return@Canvas
-            val wedge = Path().apply {
-                moveTo(center.x, center.y)
-                arcTo(
-                    rect = Rect(Offset.Zero, size),
-                    startAngleDegrees = -90f,
-                    sweepAngleDegrees = 360f * progress,
-                    forceMoveTo = false,
-                )
-                close()
-            }
-            clipPath(wedge) {
-                drawImage(
-                    image = activeOrbit,
-                    dstOffset = IntOffset.Zero,
-                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-                )
-            }
-        }
-
-        // 4. The BOLD lime edge — already a heavy neon outline at rest (the reference shows it lit),
-        //    brightening to full by completion. Sized a touch larger than the sole so the rim sits
-        //    just outside its silhouette.
-        Image(
-            painter = painterResource(RunsR.drawable.zidrun_hold_sole_edge_glow),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .height((SOLE_HEIGHT + 8.dp) * layerScale)
-                .width((SOLE_WIDTH + 8.dp) * layerScale)
-                .align(Alignment.Center)
-                .alpha(0.6f + progress * 0.4f),
-        )
-
-        // 5. The sole itself: dark navy, internal contour lines, and a lime (not yellow) rim, never
-        //    washed out by the glow.
-        Image(
-            painter = painterResource(RunsR.drawable.zidrun_hold_sole_base),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .height(SOLE_HEIGHT * layerScale)
-                .width(SOLE_WIDTH * layerScale)
-                .align(Alignment.Center),
-        )
-
-        // Completion pulse: one lime edge flash hugging the sole, expanding and fading a single
-        // time (never a loop). Reduced motion leaves `aura` at 0, so this never runs there.
-        if (aura > 0f) {
-            val pulseScale = 1f + aura * 0.12f
-            Image(
-                painter = painterResource(RunsR.drawable.zidrun_hold_sole_edge_glow),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .height((SOLE_HEIGHT + 12.dp) * layerScale)
-                    .width((SOLE_WIDTH + 12.dp) * layerScale)
-                    .align(Alignment.Center)
-                    .graphicsLayer {
-                        alpha = (1f - aura) * 0.9f
-                        scaleX = pulseScale
-                        scaleY = pulseScale
-                    },
-            )
-        }
-
-        // The label's own clear space: a scrim wide enough for the longest translation ("Maintenez
-        // / pour commencer") and no wider than the ring's inner circle.
-        Box(
-            modifier = Modifier
-                .widthIn(max = 136.dp)
-                .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
-                // Opaque enough to hold up against the glow at full brightness, which is exactly
-                // when the label matters most — a 60% scrim washed out at the end of the hold.
-                .background(zidRunOnDarkColors().background.copy(alpha = 0.88f))
-                .padding(horizontal = ZidRunDimens.spaceMd, vertical = ZidRunDimens.spaceSm),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(R.string.runs_hold),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = zidRunOnDarkColors().primary,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = holdLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = zidRunOnDarkColors().text,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-    }
-}
-
-/** The hold control's overall diameter — dominant on screen, as in the reference. */
-private val CONTROL_SIZE = 344.dp
-
-/**
- * The sole silhouette inside the control. Kept well inside the orbit so the footprint ring reads as
- * a separate element with clear breathing room, not a frame the sole touches. Ratio ≈1:2, matching
- * the exported foot art.
- */
-private val SOLE_HEIGHT = 208.dp
-private val SOLE_WIDTH = 104.dp
-
-/** How long an aborted hold takes to wind back to nothing. */
-private const val RELEASE_MS = 220f
-
-/** One success pulse on completion — a single flash, never a loop (UI_RULES §7). */
-private const val AURA_MS = 300f
-
-/** One full idle breath, and how far it travels. Slow and shallow enough to read as waiting. */
-private const val BREATH_MS = 3_400L
-private const val BREATH_DEPTH = 0.015f

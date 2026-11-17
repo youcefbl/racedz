@@ -513,6 +513,11 @@
         <item quantity="one">%1$s satellite</item>
         <item quantity="other">%1$s satellites</item>
     </plurals>
+    <string name="runs_gps_permission_needed">Location permission needed</string>
+    <string name="runs_gps_enable">Enable GPS</string>
+    <string name="runs_gps_open_settings">Allow location in Settings</string>
+    <string name="runs_gps_warming_hint">Keep this screen open while GPS finds you. You can start anyway.</string>
+    <string name="runs_gps_ready_hint">GPS is ready. Hold to begin whenever you like.</string>
     <string name="runs_gps_tips_title">Weak GPS signal</string>
     <string name="runs_gps_tip_outside">Step outside, away from tall buildings, walls and trees.</string>
     <string name="runs_gps_tip_still">Hold the phone still, screen up, for 30 to 60 seconds before you start.</string>

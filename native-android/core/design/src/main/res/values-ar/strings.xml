@@ -512,6 +512,11 @@
         <item quantity="many">%1$s ساتليت</item>
         <item quantity="other">%1$s ساتليت</item>
     </plurals>
+    <string name="runs_gps_permission_needed">لازم تسمح بالموقع</string>
+    <string name="runs_gps_enable">شعّل GPS</string>
+    <string name="runs_gps_open_settings">اسمح بالموقع في الإعدادات</string>
+    <string name="runs_gps_warming_hint">خلّي هاذ الشاشة محلولة حتى يلقاك GPS. تقدر تبدا ضرك.</string>
+    <string name="runs_gps_ready_hint">GPS واجد. شدّ باش تبدا وقتاش تحب.</string>
     <string name="runs_gps_tips_title">إشارة GPS ضعيفة</string>
     <string name="runs_gps_tip_outside">اخرج برّا، بعيد على البنايات الطوال والحيوط والشجر.</string>
     <string name="runs_gps_tip_still">خلّي التيليفون ساكن ووجهو للسما من 30 حتى 60 ثانية قبل ما تبدا.</string>
