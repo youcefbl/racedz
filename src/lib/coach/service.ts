@@ -1727,10 +1727,14 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // the entitlement/quota gate, persist these BLOCKED rows only up to a small daily cap per user so
   // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
   // per-user route rate limit, but that alone still allows thousands of rows/day).
-  // A question asked DURING a run (the app attaches the live snapshot) is about that run — "Am I
-  // going too fast?" was refused as off-topic on the M21 (2026-11-17). The prompt remains the
-  // second line of defence for anything that truly is not about running.
-  if (input.type === "CHAT" && !input.liveRun && !evaluateTopicality(input.message, recentCoachReply(conversation, requestNow)).onTopic) {
+  // A mid-run question is still gated: liveRun is device-reported and unverified, so its mere
+  // presence must not buy a paid provider call (review, 2026-11-17). It only widens the gate to a
+  // narrow set of run-in-progress phrases ("how am I doing?", "should I stop?") that carry no topic
+  // word of their own; see evaluateTopicality.
+  if (
+    input.type === "CHAT" &&
+    !evaluateTopicality(input.message, recentCoachReply(conversation, requestNow), { duringRun: Boolean(input.liveRun) }).onTopic
+  ) {
     const response = buildOffTopicCoachResponse(responseLocale);
     const offTopicSafety = { level: "CLEAR" as const, reasons: [], requiresProfessionalAdvice: false };
     const [logged] = await prisma.$queryRaw<{ count: bigint }[]>`

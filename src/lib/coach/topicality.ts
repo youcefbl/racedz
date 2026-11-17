@@ -52,11 +52,25 @@ function correctionRemainder(text: string): string | null {
     .trim();
 }
 
+/**
+ * Phrases that are about running only because a run is in progress: they name no topic of their
+ * own ("how am I doing?", "should I keep going?"). Accepted only with `duringRun`, and kept narrow
+ * on purpose — a snapshot is client-supplied, so it may widen the gate a little, never open it.
+ */
+const duringRunPatterns: RegExp[] = [
+  /\b(?:how am i doing|am i (?:doing|going) (?:ok|okay|well|good|alright)|should i (?:stop|continue|keep going|push|ease off|turn back)|keep going|how (?:far|long) (?:have i|to go|left)|am i ok(?:ay)?)\b/i,
+  /\b(?:je continue|j'arr[êe]te|je m'arr[êe]te|ça va (?:comme ça|bien)|je (?:vais|tiens) bien|combien (?:il reste|de temps))\b/i,
+  /(نكمل|نكمّل|نحبس|نوقف|راني مليح|راني نجري مليح|شحال بقا|كيفاش راني)/,
+  /\b(?:nkamel|nkemel|nhbes|nwgef|rani mli7|ch7al b9a|kifach rani)\b/i
+];
+
 export function evaluateTopicality(
   message: string | null | undefined,
-  followUp?: Pick<Partial<CoachResponse>, "followUpQuestion" | "quickReplies"> | null
+  followUp?: Pick<Partial<CoachResponse>, "followUpQuestion" | "quickReplies"> | null,
+  options?: { duringRun?: boolean }
 ): { onTopic: boolean } {
   const text = (message ?? "").trim();
+  if (options?.duringRun && duringRunPatterns.some((pattern) => pattern.test(text))) return { onTopic: true };
   // A choice offered by this runner's recent coach question is necessarily a valid reply.
   const normalize = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase();
   if (followUp?.followUpQuestion && followUp.quickReplies?.some((reply) => normalize(reply) === normalize(text))) {

@@ -35,6 +35,21 @@ expect("Am I going too fast?", true, "en: mid-run speed question");
 expect("Should I slow down?", true, "en: slow down");
 expect("Je vais trop vite ?", true, "fr: trop vite");
 
+// A live snapshot widens the gate only to run-in-progress phrases; it never opens it (review P2).
+function expectDuringRun(message: string, onTopic: boolean, note: string) {
+  const actual = evaluateTopicality(message, null, { duringRun: true }).onTopic;
+  const ok = actual === onTopic;
+  console.log(`${ok ? "  ok  " : "  FAIL"}  ${note} — ${ok ? "" : `expected onTopic=${onTopic}, got ${actual} · `}"${message}"`);
+  if (ok) passed += 1;
+  else failed += 1;
+}
+expectDuringRun("How am I doing?", true, "mid-run: how am I doing");
+expectDuringRun("Should I keep going?", true, "mid-run: keep going");
+expectDuringRun("نكمل ولا نحبس؟", true, "mid-run darija: continue or stop");
+expectDuringRun("Write me a poem about the sea", false, "mid-run: off-topic stays off-topic");
+expectDuringRun("Who will win the next World Cup?", false, "mid-run: a snapshot does not open the gate");
+expect("How am I doing?", false, "without a run, a subjectless question stays gated");
+
 // ---- Algerian darija, Arabic script -------------------------------------------------------------
 expect("راني عيانة بزاف بعد الحصة تاع البارح", true, "darija: exhausted after yesterday's session");
 expect("واش نديرو باش نحبس الوجع في الركبة؟", true, "darija: knee pain");
