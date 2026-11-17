@@ -301,7 +301,11 @@
     <string name="runs_overview_records">Personal bests</string>
     <string name="runs_overview_longest">Longest</string>
     <string name="runs_overview_best_pace">Best pace</string>
-    <string name="runs_overview_total_distance">Total distance</string>
+    <string name="runs_overview_total_distance">Running distance</string>
+    <plurals name="runs_history_count_summary">
+        <item quantity="one">%1$d activity · %2$s %3$s</item>
+        <item quantity="other">%1$d activities · %2$s %3$s</item>
+    </plurals>
     <plurals name="runs_overview_count_summary">
         <item quantity="one">%1$d run · %2$s km</item>
         <item quantity="other">%1$d runs · %2$s km</item>
@@ -453,6 +457,7 @@
     <string name="runs_weather_region">Regional estimate</string>
     <string name="runs_coach_ask">Ask your coach</string>
     <string name="runs_coach_hint">Ask about pace, form, how you feel…</string>
+    <string name="runs_coach_consent_needed">Your coach needs your OK to use your health data before it can answer. After this run, open Coach, then your goal, and save it to give it. Your run keeps recording.</string>
     <string name="runs_coach_send">Send</string>
     <string name="runs_coach_mic">Speak</string>
     <string name="runs_coach_listening">Listening…</string>

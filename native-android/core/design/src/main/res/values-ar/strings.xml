@@ -281,7 +281,15 @@
     <string name="runs_overview_records">أحسن أرقامك</string>
     <string name="runs_overview_longest">الأطول</string>
     <string name="runs_overview_best_pace">أحسن ريتم</string>
-    <string name="runs_overview_total_distance">المسافة الكاملة</string>
+    <string name="runs_overview_total_distance">مسافة الجري</string>
+    <plurals name="runs_history_count_summary">
+        <item quantity="zero">%1$d نشاط · %2$s %3$s</item>
+        <item quantity="one">نشاط واحد · %2$s %3$s</item>
+        <item quantity="two">نشاطين · %2$s %3$s</item>
+        <item quantity="few">%1$d نشاطات · %2$s %3$s</item>
+        <item quantity="many">%1$d نشاط · %2$s %3$s</item>
+        <item quantity="other">%1$d نشاط · %2$s %3$s</item>
+    </plurals>
     <!-- Arabic takes six plural categories; Android picks the right one per count. -->
     <plurals name="runs_overview_count_summary">
         <item quantity="zero">%1$d جَريات · %2$s كم</item>
@@ -448,6 +456,7 @@
     <string name="runs_weather_region">تقدير على حساب المنطقة</string>
     <string name="runs_coach_ask">سقسي الكوتش</string>
     <string name="runs_coach_hint">على الريتم، الأداء، وإحساسك…</string>
+    <string name="runs_coach_consent_needed">الكوتش لازمو موافقتك باش يستعمل المعلومات الصحية تاعك قبل ما يجاوب. من بعد هاذ الجَرية، حلّ الكوتش، من بعد الهدف تاعك، وسجّلو باش تعطي الموافقة. الجَرية راهي تتسجّل عادي.</string>
     <string name="runs_coach_send">ابعث</string>
     <string name="runs_coach_mic">اهدر</string>
     <string name="runs_coach_listening">راهو يسمع…</string>
@@ -572,8 +581,8 @@
     <string name="runs_param_work">المجهود</string>
     <string name="runs_param_recovery">الاسترجاع</string>
     <string name="runs_param_km_value">%1$s كم</string>
-    <string name="runs_param_increase">زيد %1$s، دروك %2$s</string>
-    <string name="runs_param_decrease">نقّص %1$s، دروك %2$s</string>
+    <string name="runs_param_increase">زيد %1$s، ضرك %2$s</string>
+    <string name="runs_param_decrease">نقّص %1$s، ضرك %2$s</string>
     <string name="runs_audio_cues">التوجيهات الصوتية</string>
     <string name="runs_guided_unavailable">الخطوات الموجّهة ما راهمش متوفرين — الجَرية تتحفظ كجَرية حرّة.</string>
     <string name="runs_step_warmup">تسخين</string>

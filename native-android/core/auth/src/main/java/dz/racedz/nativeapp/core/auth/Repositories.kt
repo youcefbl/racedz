@@ -427,7 +427,11 @@ class CoachRepository(private val api: ZidRunApi, private val client: ApiClient)
      * work or counting it against the runner's daily quota.
      */
     suspend fun ask(request: AskCoachRequest): ApiResult<AskCoachResponseDto> =
-        client.call { api.askCoach(request) }
+        client.call { api.askCoach(request.copy(appLocale = request.appLocale ?: currentAppLocale())) }
+
+    /** The app's language now (the per-app locale updates the process default); en/fr/ar only. */
+    private fun currentAppLocale(): String? =
+        java.util.Locale.getDefault().language.takeIf { it == "en" || it == "fr" || it == "ar" }
 
     /**
      * Transcribes a recorded voice note.

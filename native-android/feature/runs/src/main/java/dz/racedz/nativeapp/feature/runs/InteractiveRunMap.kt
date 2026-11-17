@@ -380,7 +380,7 @@ private const val TILE_SIZE = 256.0
 private const val MAX_TILE_ZOOM = 18
 private const val MIN_ZOOM = 2.0
 private const val MAX_ZOOM = 19.0
-private const val FIT_MARGIN = 0.85
+private const val FIT_MARGIN = 0.75
 
 private fun log2(value: Double): Double = ln(value) / ln(2.0)
 

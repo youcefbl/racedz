@@ -112,6 +112,19 @@ class ReplySpeaker(context: Context) {
          * engine ships as its own voice — Modern Standard Arabic is the closest installed voice and
          * is understood, so it is the deliberate fallback rather than refusing to speak.
          */
+        /**
+         * The language a reply is actually written in, for the voice. Replies no longer all share
+         * the goal's language — an Arabic question gets Arabic, anything else follows the app — so
+         * one voice per conversation read an English answer with the Arabic voice. Arabic script is
+         * unambiguous; otherwise the app's current language, and the goal's for anything else.
+         */
+        fun languageOf(text: String, goalLanguage: String?, appLanguage: String?): String = when {
+            text.any { Character.UnicodeScript.of(it.code) == Character.UnicodeScript.ARABIC } -> "ar"
+            appLanguage == "en" || appLanguage == "fr" -> appLanguage
+            goalLanguage == "ar" -> "en"
+            else -> goalLanguage ?: "en"
+        }
+
         fun localeFor(language: String?): Locale = when (language) {
             "fr" -> Locale.FRENCH
             "ar" -> Locale("ar")

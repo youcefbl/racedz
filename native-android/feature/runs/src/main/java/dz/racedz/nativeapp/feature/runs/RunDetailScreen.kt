@@ -258,8 +258,8 @@ fun RunDetailScreen(
                         )
                         StatDivider()
                         HeadlineStat(
-                            value = ZidRunFormat.pace(run.averagePaceSecondsPerKm),
-                            label = stringResource(R.string.runs_stat_pace),
+                            value = ZidRunFormat.paceOrSpeed(run.averagePaceSecondsPerKm, run.sport),
+                            label = stringResource(if (run.sport == "RIDE") R.string.runs_avg_speed else R.string.runs_stat_pace),
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -423,29 +423,34 @@ fun RunDetailScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceSm)) {
                             // Gain and loss on one line above the profile, as in the mockup.
                             //
-                            // Both are summed from the series being plotted, deliberately, rather
-                            // than taking gain from `elevationGainM`: the server's figure is
-                            // noise-filtered and the DTO carries no matching loss, so pairing them
-                            // printed "Gain 0 m  Loss 27 m" for a flat run — two numbers measured
-                            // different ways, side by side, inviting the reader to compare them.
-                            // Derived together they at least agree with each other and with the
-                            // line directly beneath them. Both stay advisory: phone altitude
-                            // over-counts, which is why `runs_highlights` still quotes the server.
-                            val gain = elevations.zipWithNext()
-                                .sumOf { (a, b) -> (b.value - a.value).coerceAtLeast(0.0) }
-                            val loss = elevations.zipWithNext()
-                                .sumOf { (a, b) -> (a.value - b.value).coerceAtLeast(0.0) }
+                            // Both come from the server, measured the same way (elevationGainM is
+                            // the saved figure; elevationLossM is its mirror). Summing the plotted
+                            // series printed a third number for the same run — on 2026-11-17 the
+                            // live screen said +21 m, this header "Gain 17 m" and the saved run 5 m.
+                            // A server without elevationLossM falls back to the series for both,
+                            // so the pair is never measured two different ways.
+                            val serverLoss = run.elevationLossM
+                            val gain = if (serverLoss != null && run.elevationGainM != null) {
+                                run.elevationGainM!!.toDouble()
+                            } else {
+                                elevations.zipWithNext().sumOf { (a, b) -> (b.value - a.value).coerceAtLeast(0.0) }
+                            }
+                            val loss = if (serverLoss != null && run.elevationGainM != null) {
+                                serverLoss.toDouble()
+                            } else {
+                                elevations.zipWithNext().sumOf { (a, b) -> (a.value - b.value).coerceAtLeast(0.0) }
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
                             ) {
                                 Text(
-                                    text = stringResource(R.string.runs_elevation_gain_value, gain.toInt()),
+                                    text = "${stringResource(R.string.runs_elevation_gain)} ${ZidRunFormat.meters(gain.toInt())}",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = colors.textStrong,
                                 )
                                 Text(
-                                    text = "${stringResource(R.string.runs_elevation_loss)} ${loss.toInt()} m",
+                                    text = "${stringResource(R.string.runs_elevation_loss)} ${ZidRunFormat.meters(loss.toInt())}",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = colors.textStrong,
                                 )
@@ -455,7 +460,7 @@ fun RunDetailScreen(
                                 // Info hue: one hue per metric — pace owns primary, and the card
                                 // title names the series, so colour never carries identity alone.
                                 color = colors.info,
-                                yLabel = { "${it.toInt()} m" },
+                                yLabel = { ZidRunFormat.meters(it.toInt()) },
                                 xMax = dz.racedz.nativeapp.core.design.ZidRunUnits.fromKm(run.distanceKm),
                             )
                         }
@@ -511,7 +516,9 @@ fun RunDetailScreen(
                 }
 
                 ZidRunSectionHeader(title = stringResource(R.string.runs_highlights))
-                ZidRunCard {
+                // ZidRunCard lays its content out in a Box: the two rows need their own column, or
+                // the second is drawn on top of the first.
+                ZidRunCard { Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
@@ -532,7 +539,30 @@ fun RunDetailScreen(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                }
+                    // What the summary showed before saving, so nothing disappears on the way to
+                    // the saved run: moving time, the saved climb and calories.
+                    Spacer(Modifier.height(ZidRunDimens.spaceMd))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(ZidRunDimens.spaceMd),
+                    ) {
+                        DetailMetric(
+                            label = stringResource(R.string.runs_moving_time),
+                            value = run.movingTimeSeconds?.takeIf { it > 0 }?.let { ZidRunFormat.duration(it) } ?: "—",
+                            modifier = Modifier.weight(1f),
+                        )
+                        DetailMetric(
+                            label = stringResource(R.string.runs_elevation),
+                            value = run.elevationGainM?.let { ZidRunFormat.elevationGain(it) } ?: "—",
+                            modifier = Modifier.weight(1f),
+                        )
+                        DetailMetric(
+                            label = stringResource(R.string.runs_stat_calories),
+                            value = run.calories?.let { ZidRunFormat.count(it, locale) } ?: "—",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                } }
 
                 // Wraps at 360 dp / long FR-AR labels / 1.3× (owner decision 7) instead of three
                 // cramped equal columns; every button keeps its full 48 dp height.
@@ -1153,11 +1183,12 @@ private fun SplitRow(
         // only signal.
         val deltaSeconds = split.paceSecondsPerKm - averagePace
         Text(
-            text = if (deltaSeconds == 0) "—" else buildString {
+            // Isolated: in Arabic the bare "-0:12" rendered as "0:12-".
+            text = if (deltaSeconds == 0) "—" else ZidRunFormat.isolate(buildString {
                 append(if (deltaSeconds > 0) "+" else "-")
                 val abs = kotlin.math.abs(deltaSeconds)
-                append(String.format(locale, "%d:%02d", abs / 60, abs % 60))
-            },
+                append(String.format(java.util.Locale.ROOT, "%d:%02d", abs / 60, abs % 60))
+            }),
             style = MaterialTheme.typography.labelMedium,
             color = when {
                 deltaSeconds > 0 -> colors.danger

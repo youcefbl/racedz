@@ -81,8 +81,14 @@ data class ConversationUiState(
      * coach messages, and spending it because they tapped through to a screen would be theft of a
      * credit they did not choose to use.
      */
+    /**
+     * Offer the review until this run has one. Only a POST_RUN review counts: a question asked
+     * about the run mid-run is linked to it too, and treating that as "already analysed" left
+     * "Analyze run" opening a chat with nothing to tap (M21, 2026-11-17).
+     */
     fun canAnalyseRun(runId: String?): Boolean =
-        runId != null && hasCoaching && !generating && conversation.messages.none { it.runId == runId }
+        runId != null && hasCoaching && !generating &&
+            conversation.messages.none { it.runId == runId && it.type == "POST_RUN" }
 }
 
 /**

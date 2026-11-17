@@ -656,8 +656,8 @@ private fun LatestRunCard(run: RunDto, onClick: () -> Unit) {
                 )
                 MetricDivider()
                 OverviewMetric(
-                    label = stringResource(R.string.runs_stat_pace),
-                    value = ZidRunFormat.pace(run.averagePaceSecondsPerKm),
+                    label = stringResource(if (run.sport == "RIDE") R.string.runs_avg_speed else R.string.runs_stat_pace),
+                    value = ZidRunFormat.paceOrSpeed(run.averagePaceSecondsPerKm, run.sport),
                     modifier = Modifier.weight(1f),
                 )
                 MetricDivider()
@@ -746,7 +746,8 @@ private fun ChallengesCard(challenges: List<RunChallenge>) {
                             text = if (challenge.done) {
                                 stringResource(R.string.runs_challenge_done)
                             } else {
-                                "$current / $target"
+                                // Isolated: in Arabic "11,8 / 350,0" was reordered to "350,0 / 11,8".
+                                ZidRunFormat.isolate("$current / $target")
                             },
                             style = MaterialTheme.typography.labelLarge,
                             color = if (challenge.done) colors.success else colors.textStrong,

@@ -275,7 +275,9 @@ fun ConversationScreen(
                                         speaker.speak(
                                             message.id,
                                             text,
-                                            ReplySpeaker.localeFor(state.conversation.replyLanguage),
+                                            ReplySpeaker.localeFor(
+                                                ReplySpeaker.languageOf(text, state.conversation.replyLanguage, java.util.Locale.getDefault().language),
+                                            ),
                                         )
                                     }
                                 }

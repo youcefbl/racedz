@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -177,11 +178,15 @@ fun RunHistoryScreen(
                                 )
                             }
                         }
+                        // "Activities", not "runs": this counts every activity the filters let
+                        // through, rides and walks included — unlike the Runs page's running totals.
                         Text(
-                            text = stringResource(
-                                R.string.runs_summary,
+                            text = pluralStringResource(
+                                R.plurals.runs_history_count_summary,
+                                visible.size,
                                 visible.size,
                                 ZidRunFormat.distanceValue(state.visibleDistanceKm, locale),
+                                dz.racedz.nativeapp.core.design.distanceUnitLabel(),
                             ),
                             style = MaterialTheme.typography.titleSmall,
                             color = colors.textMuted,
@@ -267,7 +272,7 @@ private fun RunRow(run: RunDto, onClick: () -> Unit) {
                         Modifier.weight(1f),
                     )
                     RowDivider()
-                    RowStat(Icons.Filled.Speed, ZidRunFormat.pace(run.averagePaceSecondsPerKm), Modifier.weight(1f))
+                    RowStat(Icons.Filled.Speed, ZidRunFormat.paceOrSpeed(run.averagePaceSecondsPerKm, run.sport), Modifier.weight(1f))
                     RowDivider()
                     RowStat(Icons.Filled.Schedule, ZidRunFormat.duration(run.durationSeconds), Modifier.weight(1f))
                 }

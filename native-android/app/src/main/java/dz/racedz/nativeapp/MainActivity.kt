@@ -15,6 +15,11 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 class MainActivity : ComponentActivity() {
 
+    // Western digits in Arabic for every resource string with %d (see AlgerianDigits).
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(dz.racedz.nativeapp.locale.AlgerianDigits.wrap(newBase))
+    }
+
     /**
      * The zidrun:// link that launched or resumed this Activity, tagged with a monotonic id.
      *

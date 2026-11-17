@@ -43,8 +43,16 @@ data class MidRunCoachUiState(
     val recording: Boolean = false,
     val transcribing: Boolean = false,
     val draft: String = "",
+    /** The question [reply] answers, kept on screen above it (it used to vanish on send). */
+    val question: String? = null,
     /** The latest reply, shown in the sheet (and spoken when cues are on). */
     val reply: String? = null,
+    /**
+     * AI coaching needs a current health-data consent, given on the goal — not possible mid-run.
+     * Known up front from the overview, or learned from a refusal; the sheet then explains that
+     * instead of offering a composer that can only fail.
+     */
+    val consentNeeded: Boolean = false,
     val error: String? = null,
 ) {
     val busy: Boolean get() = asking || transcribing
@@ -60,8 +68,10 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
             resolveCoachEntitlement(
                 check = {
                     when (val result = coach.overview()) {
-                        is ApiResult.Success ->
+                        is ApiResult.Success -> {
+                            if (result.value.healthConsentActive == false) _state.update { it.copy(consentNeeded = true) }
                             if (result.value.entitlement.tier != "NONE") EntitlementCheck.Entitled else EntitlementCheck.NotEntitled
+                        }
                         is ApiResult.Failure ->
                             if (result.error.requiresSignIn) EntitlementCheck.SignedOut else EntitlementCheck.Unavailable
                     }
@@ -115,7 +125,7 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
     ) {
         val trimmed = message.trim()
         if (trimmed.isEmpty() || _state.value.asking) return
-        _state.update { it.copy(asking = true, error = null, reply = null) }
+        _state.update { it.copy(asking = true, error = null, reply = null, question = trimmed) }
         val requestId = requestIdFor(trimmed)
         viewModelScope.launch {
             val request = AskCoachRequest(
@@ -139,7 +149,15 @@ class MidRunCoachViewModel(private val coach: CoachRepository) : ViewModel() {
                     if (spoken.isNotBlank()) speak(spoken)
                 }
                 // Keep the retained key so a retry of the same words replays rather than re-charges.
-                is ApiResult.Failure -> _state.update { it.copy(asking = false, error = result.error.message) }
+                is ApiResult.Failure -> _state.update {
+                    if (result.error.code == dz.racedz.nativeapp.core.network.ApiErrorCode.ConsentRequired) {
+                        // The server's text says "open your goal and save it" — not something to do
+                        // mid-run. The sheet shows its own explanation instead.
+                        it.copy(asking = false, question = null, consentNeeded = true, error = null)
+                    } else {
+                        it.copy(asking = false, error = result.error.message)
+                    }
+                }
             }
         }
     }

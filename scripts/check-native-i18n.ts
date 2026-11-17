@@ -50,6 +50,8 @@ const FORBIDDEN_DIALECT_FORMS: ForbiddenDialectForm[] = [
   { pattern: /(?<!\p{L})غادي(?!\p{L})/u, preferred: "راح" },
   { pattern: /(?<!\p{L})دابا(?!\p{L})/u, preferred: "ضرك" },
   { pattern: /(?<!\p{L})تو[ّ]?ا(?!\p{L})/u, preferred: "ضرك" },
+  // Algerian too, but the glossary settled on ضرك; one word for "now" across the app.
+  { pattern: /(?<!\p{L})دروك(?!\p{L})/u, preferred: "ضرك" },
   { pattern: /نج[ّ]?م/u, preferred: "قدر" },
   { pattern: /صيفط/u, preferred: "ابعث" },
   { pattern: /(?<!\p{L})برش(?:ا|ة)(?!\p{L})/u, preferred: "بزاف" },

@@ -369,7 +369,7 @@ private const val MIN_ZOOM = 11
 private const val PINCH_STEP_IN = 1.25f
 private const val PINCH_STEP_OUT = 0.8f
 /** Street level: a block or two around the runner, the route visible behind them. */
-private const val DEFAULT_ZOOM = 16
+private const val DEFAULT_ZOOM = 17
 /** A shade under the 1 Hz fix interval, so the marker is always moving toward the newest fix. */
 private const val GLIDE_MS = 900
 

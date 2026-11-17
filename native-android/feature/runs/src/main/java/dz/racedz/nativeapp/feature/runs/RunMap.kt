@@ -187,7 +187,9 @@ private fun List<RoutePointDto>.bounds() = Bounds(
  * without clipping. A little padding stops the trace touching the edges.
  */
 private fun chooseZoom(bounds: Bounds, widthPx: Float, heightPx: Float): Int {
-    val padding = 0.85
+    // 72 %, not 85 %: at 85 % the route ran under the full-screen button in the top corner and
+    // touched the card's edges (M21 screenshots, 2026-11-17).
+    val padding = 0.72
     for (zoom in MAX_ZOOM downTo 1) {
         val scale = TILE_SIZE * 2.0.pow(zoom)
         val spanX = bounds.maxLng.lngToWorldX(scale) - bounds.minLng.lngToWorldX(scale)

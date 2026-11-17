@@ -116,7 +116,16 @@ data class RunsUiState(
      * the runner's "best pace" here while the website and the coach ignored it — two numbers for
      * one history, and no way to tell which was lying.
      */
-    val countedRuns: List<RunDto> get() = runs.filter { it.validity == "VALID" }
+    val countedRuns: List<RunDto> get() = runs.filter { it.validity == "VALID" && it.sport != "RIDE" }
+
+    /**
+     * Runs that can set a personal best: valid runs and trail runs only, as on the server
+     * (getRunnerRecords). Counting every valid activity made a 1 km ride the "best pace" (2:12/km)
+     * on the M21 on 2026-11-17; a walk has no business there either. Weekly volume, streaks and
+     * challenges still use [countedRuns], which keeps walks and leaves rides out, like the server's
+     * metrics.
+     */
+    val recordRuns: List<RunDto> get() = countedRuns.filter { it.sport == "RUN" || it.sport == "TRAIL" }
 
     /**
      * This month's challenges, each measured against the next rung above the runner's best
@@ -198,12 +207,17 @@ data class RunsUiState(
      * repository follows the sync cursor to the end), so summing it here agrees with the server by
      * construction and costs no extra request.
      */
-    val totalDistanceKm: Double get() = countedRuns.sumOf { it.distanceKm }
-    val longestRunKm: Double get() = countedRuns.maxOfOrNull { it.distanceKm } ?: 0.0
+    val totalDistanceKm: Double get() = recordRuns.sumOf { it.distanceKm }
+    val longestRunKm: Double get() = recordRuns.maxOfOrNull { it.distanceKm } ?: 0.0
 
     /** Fastest average pace, ignoring runs the server could not derive a pace for. */
     val bestPaceSecondsPerKm: Int?
-        get() = countedRuns.mapNotNull { it.averagePaceSecondsPerKm.takeIf { pace -> pace > 0 } }.minOrNull()
+        // Only runs long enough for a pace to mean something, like the server (MIN_PACE_DISTANCE_KM
+        // in src/lib/coach/records.ts): a 300 m dash is not a best pace.
+        get() = recordRuns
+            .filter { it.distanceKm >= MIN_PACE_DISTANCE_KM }
+            .mapNotNull { it.averagePaceSecondsPerKm.takeIf { pace -> pace > 0 } }
+            .minOrNull()
 
     /**
      * Consecutive weeks ending with the current one that contain at least one run. A week the runner
@@ -320,3 +334,6 @@ class RunsViewModel(private val repository: RunsRepository) : ViewModel() {
         it.copy(query = "", sourceFilter = RunSourceFilter.All, thisMonthOnly = false, sportFilter = null)
     }
 }
+
+/** Shortest run whose average pace can be a personal best; same as the server. */
+private const val MIN_PACE_DISTANCE_KM = 1.0

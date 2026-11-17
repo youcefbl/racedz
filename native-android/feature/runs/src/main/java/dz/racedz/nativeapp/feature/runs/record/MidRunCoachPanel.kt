@@ -165,6 +165,35 @@ fun MidRunCoachSheet(
                 state.recording -> stringResource(R.string.runs_coach_listening)
                 else -> null
             }
+            if (state.consentNeeded) {
+                // Nothing to type into: the composer could only fail. Said plainly, with when and
+                // where to fix it, and the run itself is untouched.
+                Text(
+                    text = stringResource(R.string.runs_coach_consent_needed),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = zidRunOnDarkColors().text,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                        .background(zidRunOnDarkColors().surfaceMuted)
+                        .padding(ZidRunDimens.spaceMd),
+                )
+                return@Column
+            }
+            // The runner's own question stays above the answer, as in the full chat.
+            state.question?.let { question ->
+                Text(
+                    text = question,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = zidRunOnDarkColors().onPrimary,
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .align(Alignment.End)
+                        .clip(RoundedCornerShape(ZidRunDimens.cornerLg))
+                        .background(zidRunOnDarkColors().primary)
+                        .padding(ZidRunDimens.spaceMd),
+                )
+            }
             state.reply?.let { reply ->
                 Text(
                     text = reply,

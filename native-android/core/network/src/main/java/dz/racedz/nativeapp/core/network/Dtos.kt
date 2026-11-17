@@ -453,6 +453,8 @@ data class RunDetailDto(
     val splits: List<RunSplitDto> = emptyList(),
     val paceSeries: List<SeriesPointDto> = emptyList(),
     val elevationSeries: List<SeriesPointDto> = emptyList(),
+    /** Descent, measured exactly like [elevationGainM]; null from servers before 2026-11-17. */
+    val elevationLossM: Int? = null,
     /** The planned session this run completed, when it is linked to one. */
     val workoutId: String? = null,
     /** That workout's title, so the link can be named rather than shown as an id. */
@@ -548,6 +550,8 @@ data class CoachReviewDto(val text: String? = null, val createdAt: String = "")
 @Serializable
 data class CoachOverviewDto(
     val entitlement: CoachEntitlementDto = CoachEntitlementDto(),
+    /** A current health-data consent exists; null from servers before 2026-11-17 (unknown). */
+    val healthConsentActive: Boolean? = null,
     val goal: CoachGoalDto? = null,
     val todayWorkout: CoachWorkoutDto? = null,
     val nextWorkout: CoachWorkoutDto? = null,
@@ -690,6 +694,11 @@ data class AskCoachRequest(
     val requestId: String? = null,
     /** What the recorder sees right now, for a question asked during an unsaved run; else null. */
     val liveRun: LiveRunSnapshotDto? = null,
+    /**
+     * The language the app is being read in now (en/fr/ar). The reply follows it unless the
+     * question is in Arabic; without it the goal's saved language is used.
+     */
+    val appLocale: String? = null,
 )
 
 /**

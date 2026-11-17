@@ -143,8 +143,33 @@ object ZidRunFormat {
     fun pace(secondsPerKm: Int, unit: DistanceUnit = ZidRunUnits.current): String {
         if (secondsPerKm <= 0) return "—"
         val perUnit = ZidRunUnits.paceFromPerKm(secondsPerKm, unit)
-        return ltr(String.format(Locale.ROOT, "%d:%02d/%s", perUnit / 60, perUnit % 60, unit.code))
+        return withUnit(String.format(Locale.ROOT, "%d:%02d", perUnit / 60, perUnit % 60), "/", unitShort(unit))
     }
+
+    /**
+     * The short unit as the reader's script writes it: "km"/"mi", or "كم"/"ميل" in Arabic — where
+     * "5:55/km" beside a "كم" distance mixed two scripts in one card. Read from the process locale,
+     * which the per-app language sets, so callers outside a composition (cues, notifications) agree.
+     */
+    fun unitShort(unit: DistanceUnit = ZidRunUnits.current): String = when {
+        !arabic() -> unit.code
+        unit == DistanceUnit.MI -> "ميل"
+        else -> "كم"
+    }
+
+    /** "21 m", or "21 م" in Arabic; isolated so the sign and unit keep their places in RTL. */
+    fun meters(value: Int): String = withUnit("$value", " ", if (arabic()) "م" else "m")
+
+    private fun arabic(): Boolean = Locale.getDefault().language == "ar"
+
+    /**
+     * A number with its unit, ordered for the reader. Latin: one left-to-right isolate, as before.
+     * Arabic: a right-to-left isolate holding the number in its own left-to-right isolate, so it
+     * reads number-then-unit from the right ("6:03/كم", "+5 م") — a single LTR isolate put the unit
+     * first for an Arabic reader (M21 screenshots, 2026-11-17).
+     */
+    private fun withUnit(number: String, separator: String, unit: String): String =
+        if (arabic()) "\u2067\u2066$number\u2069$separator$unit\u2069" else ltr("$number$separator$unit")
 
     /**
      * Speed for a ride, from the same per-km pace the recorder keeps: "24.6 km/h" or "15.3 mph".
@@ -153,8 +178,18 @@ object ZidRunFormat {
     fun speed(secondsPerKm: Int, unit: DistanceUnit = ZidRunUnits.current): String {
         if (secondsPerKm <= 0) return "—"
         val perHour = ZidRunUnits.fromKm(3600.0 / secondsPerKm, unit)
-        return ltr(String.format(Locale.ROOT, "%.1f %s", perHour, if (unit.code == "km") "km/h" else "mph"))
+        val label = when {
+            arabic() && unit == DistanceUnit.MI -> "ميل/س"
+            arabic() -> "كم/س"
+            unit == DistanceUnit.MI -> "mph"
+            else -> "km/h"
+        }
+        return withUnit(String.format(Locale.ROOT, "%.1f", perHour), " ", label)
     }
+
+    /** A run's average as a runner reads it: speed for a ride, pace for everything on foot. */
+    fun paceOrSpeed(secondsPerKm: Int, sport: String?): String =
+        if (sport == "RIDE") speed(secondsPerKm) else pace(secondsPerKm)
 
     /** "5.72" in the current unit from a metric value: the number only, for a separate unit label. */
     fun distanceValue(km: Double, locale: Locale, digits: Int = 2, unit: DistanceUnit = ZidRunUnits.current): String =
@@ -181,7 +216,7 @@ object ZidRunFormat {
      * Climb, e.g. "+12 m". Isolated left-to-right like every other figure here: built as plain text
      * it read "m +12" on the Arabic recording and summary screens.
      */
-    fun elevationGain(meters: Int): String = ltr("+$meters m")
+    fun elevationGain(meters: Int): String = withUnit("+$meters", " ", if (arabic()) "م" else "m")
 
     /** U+2066 LEFT-TO-RIGHT ISOLATE … U+2069 POP DIRECTIONAL ISOLATE. */
     private fun ltr(value: String): String = "\u2066$value\u2069"

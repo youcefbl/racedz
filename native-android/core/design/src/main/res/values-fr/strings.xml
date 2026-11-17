@@ -280,7 +280,11 @@
     <string name="runs_overview_records">Records personnels</string>
     <string name="runs_overview_longest">Plus longue</string>
     <string name="runs_overview_best_pace">Meilleure allure</string>
-    <string name="runs_overview_total_distance">Distance totale</string>
+    <string name="runs_overview_total_distance">Distance en course</string>
+    <plurals name="runs_history_count_summary">
+        <item quantity="one">%1$d activité · %2$s %3$s</item>
+        <item quantity="other">%1$d activités · %2$s %3$s</item>
+    </plurals>
     <plurals name="runs_overview_count_summary">
         <item quantity="one">%1$d sortie · %2$s km</item>
         <item quantity="other">%1$d sorties · %2$s km</item>
@@ -433,6 +437,7 @@
     <string name="runs_weather_region">Estimation régionale</string>
     <string name="runs_coach_ask">Demandez au coach</string>
     <string name="runs_coach_hint">Allure, foulée, sensations…</string>
+    <string name="runs_coach_consent_needed">Votre coach a besoin de votre accord pour utiliser vos données de santé avant de répondre. Après cette sortie, ouvrez Coach, puis votre objectif, et enregistrez-le pour le donner. L\'enregistrement continue.</string>
     <string name="runs_coach_send">Envoyer</string>
     <string name="runs_coach_mic">Parler</string>
     <string name="runs_coach_listening">Écoute…</string>
