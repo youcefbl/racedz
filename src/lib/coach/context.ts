@@ -263,10 +263,12 @@ export function buildRunnerCoachContext(input: {
         ? { provenance: "device-reported-unverified" as const, ...input.interaction.liveRun }
         : null,
       // A live Arabic question gets an Algerian-Arabic answer even when the saved Coach language
-      // is French or English. Other messages continue to follow the saved preference.
+      // is French or English; otherwise the app's current language, then the saved preference.
+      // Must match the service's own resolution (blocked/off-topic copy uses that one).
       responseLocale: resolveCoachResponseLocale(
         input.goal.preferredLocale,
         input.interaction.type === "CHAT" ? input.interaction.message : null,
+        input.interaction.appLocale ?? null,
       )
     }
   };

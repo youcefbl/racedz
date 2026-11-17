@@ -5,7 +5,7 @@ import { getPrisma } from "@/lib/db";
 import { ApiError, apiError, apiOk, readJsonBody, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { requireOwnedRun, runSelect, runUpdateSchema, toRunDto } from "@/lib/api/v1/runs";
-import { computeSplits, elevationSeries, paceSeries } from "@/lib/coach/run-stats";
+import { computeSplits, elevationSeries, paceSeries, smoothedElevationLossM } from "@/lib/coach/run-stats";
 import { findWorkoutMatchForRun } from "@/lib/coach/service";
 import { enforceRateLimit, rateLimitKey } from "@/lib/rate-limit";
 
@@ -51,6 +51,9 @@ export const GET = withApi(async (request, context: Context) => {
     splits: computeSplits(points, splitMeters),
     paceSeries: paceSeries(points),
     elevationSeries: elevationSeries(points),
+    // Measured exactly like the stored elevationGainM (same smoothing, same route), so the detail
+    // screen can print gain and loss side by side without one of them being computed another way.
+    elevationLossM: smoothedElevationLossM(points),
     bestEfforts,
     laps: deriveLaps(run.laps as LapBoundary[] | null, run.distanceKm * 1000, run.durationSeconds),
     ...workout,

@@ -177,6 +177,17 @@ function segmentElevationGainM(points: RunRoutePoint[]): number {
   return gain;
 }
 
+/**
+ * Total descent, measured exactly like [smoothedElevationGainM]: the descent of a route is the
+ * climb of the same route run backwards.
+ */
+export function smoothedElevationLossM(points: RunRoutePoint[] | null | undefined): number {
+  if (!points || points.length < 2) return 0;
+  return Math.round(
+    splitRouteSegments(points).reduce((sum, segment) => sum + segmentElevationGainM([...segment].reverse()), 0)
+  );
+}
+
 /** Elevation profile vs cumulative distance (km), downsampled to ~maxPoints. */
 export function elevationSeries(points: RunRoutePoint[] | null | undefined, maxPoints = 120): SeriesPoint[] {
   if (!points || points.length < 2) return [];
@@ -189,28 +200,45 @@ export function elevationSeries(points: RunRoutePoint[] | null | undefined, maxP
     if (ele != null) out.push({ distanceKm: dist / 1000, value: ele });
   }
   // A short median filter removes isolated phone/DEM quantisation spikes without
-  // flattening a sustained climb. Tiny remaining changes are handled by the chart's
-  // minimum visual range instead of being exaggerated to its full height.
-  const smoothed = out.map((point, index) => {
+  // flattening a sustained climb; a light moving average then rounds off the square steps a
+  // coarse DEM leaves (the M21 profiles of 2026-11-17 read as a bar code). Tiny remaining changes
+  // are handled by the chart's minimum visual range instead of being exaggerated to its full height.
+  const median = out.map((point, index) => {
     const values = out
       .slice(Math.max(0, index - 2), Math.min(out.length, index + 3))
       .map((candidate) => candidate.value)
       .sort((a, b) => a - b);
     const middle = Math.floor(values.length / 2);
-    const median = values.length % 2 === 1 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
-    return { ...point, value: median };
+    const value = values.length % 2 === 1 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+    return { ...point, value };
+  });
+  const smoothed = median.map((point, index) => {
+    const window = median.slice(Math.max(0, index - 3), Math.min(median.length, index + 4));
+    return { ...point, value: window.reduce((sum, candidate) => sum + candidate.value, 0) / window.length };
   });
   return downsampleSeries(smoothed, maxPoints);
 }
 
-/** Pace profile (sec/km) vs cumulative distance, smoothed over `windowMeters`. */
-export function paceSeries(points: RunRoutePoint[] | null | undefined, windowMeters = 250, maxPoints = 120): SeriesPoint[] {
+/**
+ * Pace profile (sec/km) vs cumulative distance, smoothed over `windowMeters`.
+ *
+ * Without an explicit window it scales with the run: a twentieth of the distance, between 50 and
+ * 250 m. A fixed 250 m gave a 1 km run four points, drawn as a sharp V that looked like a glitch.
+ */
+export function paceSeries(points: RunRoutePoint[] | null | undefined, windowMeters?: number, maxPoints = 120): SeriesPoint[] {
   if (!points || points.length < 2 || !hasTimes(points)) return [];
+  const segments = movingSegments(points);
+  const totalMeters = segments.reduce((sum, segment) => sum + segment.meters, 0);
+  const window = windowMeters ?? Math.min(250, Math.max(50, totalMeters / 20));
+  return paceSeriesOver(segments, window, maxPoints);
+}
+
+function paceSeriesOver(segments: MovingSegment[], windowMeters: number, maxPoints: number): SeriesPoint[] {
   const out: SeriesPoint[] = [];
   let cumDist = 0;
   let winMeters = 0;
   let winSeconds = 0;
-  for (const segment of movingSegments(points)) {
+  for (const segment of segments) {
     cumDist += segment.meters;
     winMeters += segment.meters;
     winSeconds += segment.seconds;

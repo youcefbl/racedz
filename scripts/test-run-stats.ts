@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { RunRoutePoint } from "../src/components/coach/types";
-import { computeSplits, elevationSeries, paceSeries } from "../src/lib/coach/run-stats";
+import { computeSplits, elevationSeries, paceSeries, smoothedElevationGainM, smoothedElevationLossM } from "../src/lib/coach/run-stats";
 
 const METERS_PER_LAT_DEGREE = 111_195;
 
@@ -50,5 +50,24 @@ assert.deepEqual(
   [0, 0, 0, 0, 0, 0, 0],
   "an isolated altitude spike is removed from the displayed profile"
 );
+
+// Loss is measured like gain: up 30 m and back down reads 30 / 30, not two different methods.
+const hill: RunRoutePoint[] = Array.from({ length: 121 }, (_, index) => ({
+  lat: (index * 5) / METERS_PER_LAT_DEGREE,
+  lng: 0,
+  ele: 100 + 30 * Math.sin((Math.PI * index) / 120),
+  t: index * 2_000
+}));
+assert.equal(smoothedElevationGainM(hill), smoothedElevationLossM(hill), "a symmetric hill climbs and descends equally");
+assert.ok(Math.abs(smoothedElevationLossM(hill) - 30) <= 6, `loss ${smoothedElevationLossM(hill)}`);
+
+// The pace chart's window scales with the run: a 1 km run gets ~20 points, not 4.
+const oneKm: RunRoutePoint[] = Array.from({ length: 301 }, (_, index) => ({
+  lat: ((index * 1000) / 300) / METERS_PER_LAT_DEGREE,
+  lng: 0,
+  t: index * 1_200
+}));
+assert.ok(paceSeries(oneKm).length >= 15, `1 km pace points: ${paceSeries(oneKm).length}`);
+assert.ok(paceSeries(oneKm, 250).length <= 4, "an explicit window is still honoured");
 
 console.log("Run split, pace-profile, pause-gap, and elevation-profile checks passed.");

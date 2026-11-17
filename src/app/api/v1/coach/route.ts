@@ -1,6 +1,7 @@
 import { apiError, apiOk, ApiError, withApi } from "@/lib/api/v1/http";
 import { requireMobileUser } from "@/lib/api/v1/guard";
 import { getPrisma } from "@/lib/db";
+import { getActiveCoachHealthConsent } from "@/lib/coach/consent";
 import { getCoachEntitlementWithUsage } from "@/lib/coach/entitlement";
 import { getPlanAdherence, getTodayGuidedWorkout } from "@/lib/coach/service";
 import { productDayEnd } from "@/lib/coach/calendar";
@@ -36,13 +37,14 @@ export const GET = withApi(async (request) => {
     return apiOk(request, { entitlement, goal: null, todayWorkout: null, nextWorkout: null, adherence: null, latestReview: null });
   }
 
-  const [goal, todayWorkout, adherence] = await Promise.all([
+  const [goal, todayWorkout, adherence, healthConsent] = await Promise.all([
     prisma.runnerGoal.findFirst({
       where: { userId: viewer.id, status: "ACTIVE" },
       select: { id: true, goalType: true, targetDate: true, targetDistanceKm: true, customGoal: true },
     }),
     getTodayGuidedWorkout(viewer.id),
     getPlanAdherence(viewer.id),
+    getActiveCoachHealthConsent(viewer.id),
   ]);
 
   // The next PLANNED session AFTER today, so the card can say what is coming without pulling the
@@ -81,6 +83,9 @@ export const GET = withApi(async (request) => {
 
   return apiOk(request, {
     entitlement,
+    // Whether AI coaching may run right now (a current-policy health-data grant). Lets the run
+    // screen explain the gap before a question is typed, rather than refusing it mid-run.
+    healthConsentActive: Boolean(healthConsent),
     goal: goal && {
       id: goal.id,
       goalType: goal.goalType,

@@ -65,19 +65,17 @@ async function correctAltitudes(route: RunRoutePoint[]): Promise<RunRoutePoint[]
     return null;
   }
 
-  // Map every full-route point to its nearest sampled elevation. At <=50 m sample spacing this
-  // is plenty precise for a gain figure while keeping the DEM request small.
+  // Interpolate every full-route point between the two sampled elevations around it. Snapping to
+  // the nearest sample (as before 2026-11-17) turned the profile into square steps; the samples
+  // are evenly spaced by index and include both ends, so every point has a pair to sit between.
+  let s = 0;
   return route.map((point, index) => {
-    let nearest = 0;
-    let best = Infinity;
-    for (let s = 0; s < sampleIndices.length; s += 1) {
-      const distance = Math.abs(sampleIndices[s] - index);
-      if (distance < best) {
-        best = distance;
-        nearest = s;
-      }
-    }
-    return { ...point, ele: Math.round(elevations[nearest]) };
+    while (s < sampleIndices.length - 2 && sampleIndices[s + 1] < index) s += 1;
+    const left = sampleIndices[s];
+    const right = sampleIndices[Math.min(s + 1, sampleIndices.length - 1)];
+    const fraction = right > left ? Math.min(1, Math.max(0, (index - left) / (right - left))) : 0;
+    const ele = elevations[s] + (elevations[Math.min(s + 1, elevations.length - 1)] - elevations[s]) * fraction;
+    return { ...point, ele: Math.round(ele * 10) / 10 };
   });
 }
 

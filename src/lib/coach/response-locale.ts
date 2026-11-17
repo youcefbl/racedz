@@ -16,12 +16,17 @@ export function isArabicCoachQuestion(message: string | null | undefined): boole
 }
 
 /**
- * A live Arabic question overrides the saved Coach language for this answer only. Other questions
- * keep the runner's chosen language; this does not silently change their goal preference.
+ * A live Arabic question overrides the saved Coach language for this answer only. Otherwise the
+ * language the app is being read in right now ([appLocale], sent by the client) wins: an English
+ * question asked in the English app got a Darija answer because the goal had been saved in Arabic
+ * (M21, 2026-11-17). Without that hint (older clients, server-initiated reviews) the goal's
+ * language stands. Nothing here changes the stored preference.
  */
 export function resolveCoachResponseLocale(
   preferredLocale: CoachResponseLocale,
   message: string | null | undefined,
+  appLocale?: CoachResponseLocale | null,
 ): CoachResponseLocale {
-  return isArabicCoachQuestion(message) ? "ar" : preferredLocale;
+  if (isArabicCoachQuestion(message)) return "ar";
+  return appLocale ?? preferredLocale;
 }

@@ -30,6 +30,11 @@ function expect(message: string, onTopic: boolean, note: string) {
 // ---- The regression that motivated this ---------------------------------------------------------
 expect("وش نديري كي نحس روحي عيانة؟", true, "darija: what do I do when I feel exhausted (20260812-01)");
 
+// ---- Mid-run pace questions (M21, 2026-11-17: refused as off-topic) -------------------------------
+expect("Am I going too fast?", true, "en: mid-run speed question");
+expect("Should I slow down?", true, "en: slow down");
+expect("Je vais trop vite ?", true, "fr: trop vite");
+
 // ---- Algerian darija, Arabic script -------------------------------------------------------------
 expect("راني عيانة بزاف بعد الحصة تاع البارح", true, "darija: exhausted after yesterday's session");
 expect("واش نديرو باش نحبس الوجع في الركبة؟", true, "darija: knee pain");

@@ -234,7 +234,9 @@ export const coachInteractionInputSchema = z
     // Client idempotency key (review U-10): same key ⇒ same interaction, one provider call, one
     // quota charge. Optional so existing clients keep working; UUID-shaped charset enforced.
     requestId: z.string().trim().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
-    liveRun: coachLiveRunSchema.nullable().optional()
+    liveRun: coachLiveRunSchema.nullable().optional(),
+    // The language the client UI is in right now; the reply follows it (resolveCoachResponseLocale).
+    appLocale: z.enum(["en", "fr", "ar"]).nullable().optional()
   })
   .superRefine((input, context) => {
     if (input.replyToInteractionId && input.type !== "CHAT") {

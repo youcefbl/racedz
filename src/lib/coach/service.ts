@@ -23,6 +23,7 @@ import { coachLocalDate } from "@/lib/coach/context-time";
 import { CoachContextBudgetError } from "@/lib/coach/context-budget";
 import { resolveRunElevation } from "@/lib/coach/elevation";
 import { classifyActivity } from "@/lib/coach/motion-check";
+import { estimateCalories } from "@/lib/coach/run-stats";
 import { assessConsistency, assessIntensityDistribution, calculateAveragePaceSecondsPerKm, calculateCoachMetrics, estimateRunCalories, type CoachMetrics, type ConsistencyAssessment } from "@/lib/coach/metrics";
 import { generateCoachResponse, parseSleepText, resolveCoachModel, resolveTranscribeModel, transcribeCoachAudio, CoachProviderError, COACH_PROMPT_VERSION } from "@/lib/coach/openai";
 import { buildAdaptivePlan, type PlanPhase } from "@/lib/coach/adaptive-planner";
@@ -605,13 +606,18 @@ export async function createRunnerRun(userId: string, rawInput: unknown) {
     elevationGainM = resolved.gainM;
   }
 
+  // Without a known weight the weight-based estimate is null, and the run used to save with no
+  // calories at all while the phone's summary had just shown a number (M21, 2026-11-17: 93 kcal on
+  // the summary, nothing on the saved run). Fall back to the same 70 kg MET estimate the phone and
+  // the website's own summary show, so the number survives the save.
   const calories =
     input.calories ??
     estimateRunCalories({
       weightKg: input.weightKg ?? goal?.weightKg ?? null,
       distanceKm: input.distanceKm,
       elevationGainM
-    });
+    }) ??
+    estimateCalories(input.distanceKm, paceSeconds, null);
 
   const weather = await weatherPromise;
   const weatherJson = weather ? JSON.stringify(weather) : null;
@@ -1596,11 +1602,12 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
 
   const goal = await getActiveGoal(userId);
   if (!goal) throw new CoachError("An active coaching goal is required.", 409, "ACTIVE_GOAL_REQUIRED");
-  // The current Arabic question wins for this one answer only. The goal's saved language remains
-  // unchanged, and non-Arabic questions keep following it.
+  // The current Arabic question wins for this one answer only; otherwise the app's current
+  // language, then the goal's. The goal's saved language is never changed here.
   const responseLocale = resolveCoachResponseLocale(
     goal.preferredLocale,
     input.type === "CHAT" ? input.message : null,
+    input.appLocale ?? null,
   );
 
   const selectedRun = input.runId ? await requireOwnedRun(userId, input.runId) : null;
@@ -1720,7 +1727,10 @@ export async function createCoachInteraction(userId: string, rawInput: unknown) 
   // the entitlement/quota gate, persist these BLOCKED rows only up to a small daily cap per user so
   // repeated off-topic messages can't bloat the CoachInteraction table (bounded above by the
   // per-user route rate limit, but that alone still allows thousands of rows/day).
-  if (input.type === "CHAT" && !evaluateTopicality(input.message, recentCoachReply(conversation, requestNow)).onTopic) {
+  // A question asked DURING a run (the app attaches the live snapshot) is about that run — "Am I
+  // going too fast?" was refused as off-topic on the M21 (2026-11-17). The prompt remains the
+  // second line of defence for anything that truly is not about running.
+  if (input.type === "CHAT" && !input.liveRun && !evaluateTopicality(input.message, recentCoachReply(conversation, requestNow)).onTopic) {
     const response = buildOffTopicCoachResponse(responseLocale);
     const offTopicSafety = { level: "CLEAR" as const, reasons: [], requiresProfessionalAdvice: false };
     const [logged] = await prisma.$queryRaw<{ count: bigint }[]>`
