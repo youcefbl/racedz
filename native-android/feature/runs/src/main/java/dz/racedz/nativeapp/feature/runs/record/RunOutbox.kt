@@ -168,6 +168,11 @@ data class PendingRun(
      * instead of only salvaging it. Null on finished runs and on older snapshots.
      */
     val live: LiveRecording? = null,
+    /**
+     * The planned workout, kept even while the request leaves it out because the sport is RIDE, so
+     * a run restored after a process death can still be switched back and complete its session.
+     */
+    val plannedWorkoutId: String? = null,
 )
 
 /** The in-progress part of a snapshot; see [PendingRun.live]. */

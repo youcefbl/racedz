@@ -38,7 +38,11 @@ data class RecordingState(
     val route: List<RoutePointDto> = emptyList(),
     /** Set while the recorder is paused on its own initiative; null when idle, recording, or paused by hand. */
     val autoPauseReason: AutoPauseReason? = null,
-    /** The planned session this run is being logged for, or null for a free run. */
+    /**
+     * The planned session this run is being logged for, or null for a free run. Kept whatever the
+     * sport: a ride cannot complete a running workout, so [postedWorkoutId] leaves it out while the
+     * sport is RIDE — but switching back to Run must restore the link, not lose it (review P2).
+     */
     val workoutId: String? = null,
     /** Steps counted while actually recording, from the device step counter. 0 with no sensor. */
     val stepCount: Long = 0,
@@ -94,6 +98,9 @@ data class RecordingState(
     val interruptedAtEpochMs: Long? = null,
 ) {
     val distanceKm: Double get() = distanceMeters / 1000.0
+
+    /** The workout link as it is posted: none for a ride, which the server would refuse. */
+    val postedWorkoutId: String? get() = workoutId.takeIf { sport != "RIDE" }
 
     val autoPaused: Boolean get() = autoPauseReason != null
 
@@ -344,6 +351,7 @@ object RunRecorder {
                 updatedAtEpochMs = now,
                 ownerUserId = ownerUserId,
                 live = if (finished) null else current.toLiveRecording(),
+                plannedWorkoutId = current.workoutId,
             )
         )
         // A failed write means the run is no longer backed by anything — the runner is told, rather
@@ -361,8 +369,16 @@ object RunRecorder {
      */
     fun markSaveRequested(request: dz.racedz.nativeapp.core.network.CreateRunRequest): Boolean {
         val box = outbox ?: return false
+        val planned = _state.value.takeIf { it.clientId == request.clientId }?.workoutId ?: request.workoutId
         return box.save(
-            PendingRun(request = request, finished = true, updatedAtEpochMs = System.currentTimeMillis(), ownerUserId = ownerUserId, saveRequested = true)
+            PendingRun(
+                request = request,
+                finished = true,
+                updatedAtEpochMs = System.currentTimeMillis(),
+                ownerUserId = ownerUserId,
+                saveRequested = true,
+                plannedWorkoutId = planned,
+            )
         )
     }
 
@@ -677,12 +693,13 @@ object RunRecorder {
     /**
      * The runner changed the activity on the summary screen, before saving (the sport cannot be
      * changed afterwards). A ride cannot complete a running workout — the server refuses that
-     * pairing — so changing to Ride drops the workout link rather than failing the save.
+     * pairing — so a ride is posted without the link ([RecordingState.postedWorkoutId]); the link
+     * itself stays, so Run → Ride → Run still completes the planned session.
      */
     fun setSport(sport: String) {
         val current = _state.value
         if (current.status != RecordingStatus.Finished || current.sport == sport) return
-        _state.update { it.copy(sport = sport, workoutId = if (sport == "RIDE") null else it.workoutId) }
+        _state.update { it.copy(sport = sport) }
         RunTelemetry.emit { breadcrumb("recorder.sport_changed ${current.sport}->$sport") }
         snapshot(force = true)
     }
@@ -812,7 +829,7 @@ object RunRecorder {
             elevationGainM = live.elevationGainM,
             route = route.toList(),
             autoPauseReason = if (live.paused) autoPauseReason else null,
-            workoutId = request.workoutId,
+            workoutId = pending.plannedWorkoutId ?: request.workoutId,
             stepCount = recordedSteps,
             steppingSeconds = live.steppingSeconds,
             askedCoachIds = coachInteractionIds.toList(),
@@ -882,7 +899,7 @@ object RunRecorder {
             movingSeconds = movingSeconds,
             elevationGainM = (pending.request.elevationGainM ?: 0).toDouble(),
             route = route.toList(),
-            workoutId = pending.request.workoutId,
+            workoutId = pending.plannedWorkoutId ?: pending.request.workoutId,
             stepCount = recordedSteps,
             steppingSeconds = movingSeconds,
             askedCoachIds = coachInteractionIds.toList(),
@@ -904,7 +921,7 @@ object RunRecorder {
         elevationGainM = elevationGainM.toInt().takeIf { it > 0 },
         route = route.takeIf { it.size >= 2 },
         source = "GPS",
-        workoutId = workoutId,
+        workoutId = postedWorkoutId,
         avgCadence = avgCadenceSpm,
         averageHeartRate = averageHeartRate,
         coachInteractionIds = askedCoachIds.takeIf { it.isNotEmpty() },

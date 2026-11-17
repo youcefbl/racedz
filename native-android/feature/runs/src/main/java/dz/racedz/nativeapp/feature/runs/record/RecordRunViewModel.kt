@@ -113,7 +113,7 @@ class RecordRunViewModel(private val repository: RunsRepository) : ViewModel() {
                 source = "GPS",
                 // Carried from "Log this run" on the coach's plan. Dropping it here would be the
                 // silent half of the bug: the run saves fine, but never counts toward the session.
-                workoutId = recording.workoutId,
+                workoutId = recording.postedWorkoutId,
                 // Lets the server tell a run from a ride; null on devices with no step counter.
                 avgCadence = recording.avgCadenceSpm,
                 // From a connected BLE sensor only (NATRUN-07.3); null without one.
