@@ -62,6 +62,7 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.zidRunOnDarkColors
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import dz.racedz.nativeapp.feature.runs.MapControl
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -241,7 +242,8 @@ fun LiveRunMap(
                     route.forEachIndexed { index, point ->
                         val x = (point.lng.lngToWorldX(scale) - anchorX).toFloat()
                         val y = (point.lat.latToWorldY(scale) - anchorY).toFloat()
-                        if (index == 0) moveTo(x, y) else lineTo(x, y)
+                        // A pause starts a new sub-path: no line across it (RouteSegments.kt).
+                        if (index == 0 || route.startsSegmentAt(index)) moveTo(x, y) else lineTo(x, y)
                     }
                 }
             }

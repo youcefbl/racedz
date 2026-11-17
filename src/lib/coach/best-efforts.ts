@@ -1,4 +1,5 @@
 import type { RunRoutePoint } from "@/components/coach/types";
+import { isSegmentBreak } from "@/lib/runs/route-segments";
 
 /**
  * Best efforts: the fastest contiguous 1 km / 5 km / 10 km inside a recorded route.
@@ -8,7 +9,8 @@ import type { RunRoutePoint } from "@/components/coach/types";
  * worse than no number, so a window is only reported when every sample inside it is trustworthy:
  *
  *  - only timestamps count; a route without them yields nothing (never inferred from average pace);
- *  - the route is cut into stretches at every gap ≥ MAX_MOVING_GAP_S (signal loss, a pause) and at
+ *  - the route is cut into stretches at every route-segment break (a pause the recorder marked), at
+ *    every gap ≥ MAX_MOVING_GAP_S (signal loss, an unmarked pause) and at
  *    every non-finite / zero-length / teleporting segment; a window never spans a cut;
  *  - a window is skipped when its own pace is beyond human (faster than MIN_PLAUSIBLE_PACE_S_PER_KM);
  *  - crossing time is interpolated inside the segment that closes the distance, so a 5.02 km run
@@ -81,7 +83,14 @@ function stretches(points: RunRoutePoint[]): Stretch[] {
     const prev = points[prevIndex];
     const seconds = (p.t - (prev.t as number)) / 1000;
     const meters = metersBetween(prev, p);
-    if (!Number.isFinite(seconds) || seconds <= 0 || seconds >= MAX_MOVING_GAP_S || !Number.isFinite(meters) || meters > MAX_SEGMENT_M) {
+    if (
+      isSegmentBreak(prev, p) ||
+      !Number.isFinite(seconds) ||
+      seconds <= 0 ||
+      seconds >= MAX_MOVING_GAP_S ||
+      !Number.isFinite(meters) ||
+      meters > MAX_SEGMENT_M
+    ) {
       close();
       current = { index: [i], cumM: [0], cumS: [0] };
       continue;

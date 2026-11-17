@@ -64,6 +64,11 @@ export type RunRoutePoint = {
   lng: number;
   ele?: number | null;
   t?: number | null;
+  /**
+   * Route segment (see src/lib/runs/route-segments.ts): incremented on every resume, so a change
+   * between two points is a pause — never measured or drawn across. Absent on older routes.
+   */
+  segment?: number | null;
 };
 
 export type CoachMetrics = {

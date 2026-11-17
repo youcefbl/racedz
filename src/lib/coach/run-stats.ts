@@ -1,4 +1,5 @@
 import type { RunRoutePoint } from "@/components/coach/types";
+import { isSegmentBreak, splitRouteSegments } from "@/lib/runs/route-segments";
 
 // Pure (dependency-free) run analytics derived from the recorded GPS route, so
 // they work for every run — including ones recorded before these were added.
@@ -46,6 +47,8 @@ function movingSegments(points: RunRoutePoint[]): MovingSegment[] {
   for (let i = 1; i < points.length; i += 1) {
     const prev = points[i - 1];
     const cur = points[i];
+    // A segment break is a pause: never moving time, however short the gap.
+    if (isSegmentBreak(prev, cur)) continue;
     if (typeof prev.t !== "number" || typeof cur.t !== "number") continue;
     const meters = metersBetween(prev, cur);
     const seconds = (cur.t - prev.t) / 1000;
@@ -124,10 +127,16 @@ export function computeSplits(points: RunRoutePoint[] | null | undefined, splitM
 /**
  * Elevation gain with light smoothing + hysteresis so GPS altitude jitter doesn't
  * inflate the total (raw per-point summing over-counts badly). Returns total
- * positive gain in meters.
+ * positive gain in meters. Each route segment is measured on its own: a climb made
+ * while paused (in a lift, on a bus) is not the runner's.
  */
 export function smoothedElevationGainM(points: RunRoutePoint[] | null | undefined): number {
   if (!points || points.length < 2) return 0;
+  return Math.round(splitRouteSegments(points).reduce((sum, segment) => sum + segmentElevationGainM(segment), 0));
+}
+
+function segmentElevationGainM(points: RunRoutePoint[]): number {
+  if (points.length < 2) return 0;
   const eles = points.map((p) => (typeof p.ele === "number" ? p.ele : null));
 
   // Moving-average smoothing (window 9) over available altitudes. GPS altitude with no
@@ -165,7 +174,7 @@ export function smoothedElevationGainM(points: RunRoutePoint[] | null | undefine
       ref = v; // descending — move the reference down
     }
   }
-  return Math.round(gain);
+  return gain;
 }
 
 /** Elevation profile vs cumulative distance (km), downsampled to ~maxPoints. */
@@ -174,7 +183,8 @@ export function elevationSeries(points: RunRoutePoint[] | null | undefined, maxP
   const out: SeriesPoint[] = [];
   let dist = 0;
   for (let i = 0; i < points.length; i += 1) {
-    if (i > 0) dist += metersBetween(points[i - 1], points[i]);
+    // Across a pause the profile continues from where the runner stopped; no distance passes.
+    if (i > 0 && !isSegmentBreak(points[i - 1], points[i])) dist += metersBetween(points[i - 1], points[i]);
     const ele = points[i].ele;
     if (ele != null) out.push({ distanceKm: dist / 1000, value: ele });
   }

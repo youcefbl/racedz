@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import kotlin.math.cos
 import kotlin.math.max
 
@@ -107,7 +108,8 @@ fun RouteShape(
         val path = Path()
         route.forEachIndexed { index, point ->
             val position = project(point)
-            if (index == 0) path.moveTo(position.x, position.y) else path.lineTo(position.x, position.y)
+            // A pause starts a new sub-path: no line across it (RouteSegments.kt).
+            if (index == 0 || route.startsSegmentAt(index)) path.moveTo(position.x, position.y) else path.lineTo(position.x, position.y)
         }
 
         drawPath(

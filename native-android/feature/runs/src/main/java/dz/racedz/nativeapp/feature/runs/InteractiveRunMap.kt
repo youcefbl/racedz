@@ -63,6 +63,7 @@ import dz.racedz.nativeapp.core.design.R
 import dz.racedz.nativeapp.core.design.ZidRunDimens
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import kotlin.math.PI
 import kotlin.math.asinh
 import kotlin.math.floor
@@ -245,7 +246,8 @@ fun InteractiveRunMap(
                 val path = Path()
                 for (i in route.indices) {
                     val o = at(i)
-                    if (i == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
+                    // A pause starts a new sub-path: no line across it (RouteSegments.kt).
+                    if (i == 0 || route.startsSegmentAt(i)) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
                 }
                 drawPath(
                     path,

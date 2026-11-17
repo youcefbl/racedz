@@ -1,4 +1,5 @@
 import type { RunRoutePoint } from "@/components/coach/types";
+import { isSegmentBreak, splitRouteSegments } from "@/lib/runs/route-segments";
 
 // GPX (GPS Exchange Format) import/export. Lets runners take their data out (export any run as a
 // .gpx) and bring runs recorded elsewhere in (a watch, another app). Closes the long-standing
@@ -56,6 +57,20 @@ export function parseGpx(xml: string): ParsedGpx {
   const name = childText(xml, "name")?.slice(0, 120) ?? null;
 
   const route: RunRoutePoint[] = [];
+  // Each <trkseg> is a separate stretch (a watch's pause/resume, or our own export): its points get
+  // their own route segment so nothing is measured or drawn across the gap. Counted by position —
+  // a point belongs to the last <trkseg> opened before it.
+  const segmentStarts: number[] = [];
+  const trksegRe = /<trkseg\b/gi;
+  for (let seg = trksegRe.exec(xml); seg !== null; seg = trksegRe.exec(xml)) segmentStarts.push(seg.index);
+  const segmentAt = (offset: number) => {
+    let n = -1;
+    for (const start of segmentStarts) {
+      if (start < offset) n += 1;
+      else break;
+    }
+    return Math.max(0, n);
+  };
   const trkptRe = /<trkpt\b([^>]*?)(?:\/>|>([\s\S]*?)<\/trkpt>)/gi;
   let match: RegExpExecArray | null;
   while ((match = trkptRe.exec(xml)) !== null) {
@@ -71,16 +86,21 @@ export function parseGpx(xml: string): ParsedGpx {
     const timeRaw = childText(inner, "time");
     const t = timeRaw ? Date.parse(timeRaw) : NaN;
 
-    route.push({ lat, lng, ele, t: Number.isFinite(t) ? t : null });
+    const point: RunRoutePoint = { lat, lng, ele, t: Number.isFinite(t) ? t : null };
+    // Only mark segments when the file has more than one, so a plain single-segment track stores
+    // exactly what it always did.
+    if (segmentStarts.length > 1) point.segment = segmentAt(match.index);
+    route.push(point);
   }
 
   if (route.length < 2) {
     throw new GpxError("The GPX file has no usable track (need at least two track points).");
   }
 
-  // Distance: sum of consecutive great-circle hops.
+  // Distance: sum of consecutive great-circle hops, never across a segment break.
   let distanceKm = 0;
   for (let i = 1; i < route.length; i += 1) {
+    if (isSegmentBreak(route[i - 1], route[i])) continue;
     distanceKm += haversineKm(route[i - 1]!, route[i]!);
   }
   if (distanceKm < 0.1) {
@@ -124,8 +144,9 @@ function escapeXml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Build a GPX 1.1 document from a stored run: one track, one segment, a <trkpt> per route point
-// with elevation and timestamp when available.
+// Build a GPX 1.1 document from a stored run: one track, one <trkseg> per route segment (a pause
+// ends one and the resume starts the next, as watches export it), a <trkpt> per route point with
+// elevation and timestamp when available.
 export function buildGpx(run: {
   name: string | null;
   startedAt: Date | string;
@@ -134,12 +155,17 @@ export function buildGpx(run: {
   const name = escapeXml(run.name?.trim() || "ZidRun run");
   const startedIso = (run.startedAt instanceof Date ? run.startedAt : new Date(run.startedAt)).toISOString();
 
-  const points = run.route
-    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
-    .map((point) => {
-      const ele = typeof point.ele === "number" ? `\n        <ele>${point.ele.toFixed(1)}</ele>` : "";
-      const time = typeof point.t === "number" ? `\n        <time>${new Date(point.t).toISOString()}</time>` : "";
-      return `      <trkpt lat="${point.lat}" lon="${point.lng}">${ele}${time}\n      </trkpt>`;
+  const usable = run.route.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+  const segments = splitRouteSegments(usable)
+    .map((segment) => {
+      const points = segment
+        .map((point) => {
+          const ele = typeof point.ele === "number" ? `\n        <ele>${point.ele.toFixed(1)}</ele>` : "";
+          const time = typeof point.t === "number" ? `\n        <time>${new Date(point.t).toISOString()}</time>` : "";
+          return `      <trkpt lat="${point.lat}" lon="${point.lng}">${ele}${time}\n      </trkpt>`;
+        })
+        .join("\n");
+      return `    <trkseg>\n${points}\n    </trkseg>`;
     })
     .join("\n");
 
@@ -151,9 +177,7 @@ export function buildGpx(run: {
   </metadata>
   <trk>
     <name>${name}</name>
-    <trkseg>
-${points}
-    </trkseg>
+${segments || "    <trkseg>\n    </trkseg>"}
   </trk>
 </gpx>
 `;

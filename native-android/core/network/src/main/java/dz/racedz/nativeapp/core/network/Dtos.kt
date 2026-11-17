@@ -338,6 +338,10 @@ data class SubmittedDto(val submitted: Boolean = true)
  *
  * [ele] is metres above sea level. [t] is a timestamp in MILLISECONDS, not seconds. Both are
  * optional: a manual entry has no track, and an imported GPX may carry neither.
+ *
+ * [segment] is the route segment (see RouteSegments.kt): the recorder bumps it on every resume, so
+ * a change between two points is a pause that nothing may measure or draw across. Null on routes
+ * recorded before 2026-11-17, which read as one segment.
  */
 @Serializable
 data class RoutePointDto(
@@ -345,6 +349,7 @@ data class RoutePointDto(
     val lng: Double = 0.0,
     val ele: Double? = null,
     val t: Long? = null,
+    val segment: Int? = null,
 )
 
 /**

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dz.racedz.nativeapp.core.design.ZidRunTheme
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import kotlin.math.PI
 import kotlin.math.asinh
 import kotlin.math.floor
@@ -128,7 +129,8 @@ fun RunMap(
             route.forEachIndexed { index, point ->
                 val x = (point.lng.lngToWorldX(scale) - originX).toFloat()
                 val y = (point.lat.latToWorldY(scale) - originY).toFloat()
-                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                // A pause starts a new sub-path: no line across it (RouteSegments.kt).
+                if (index == 0 || route.startsSegmentAt(index)) path.moveTo(x, y) else path.lineTo(x, y)
             }
             // A light casing under the line keeps it readable over both pale streets and dark parks.
             drawPath(

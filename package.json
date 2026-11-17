@@ -26,6 +26,7 @@
     "test:best-efforts": "tsx scripts/test-best-efforts.ts",
     "test:laps": "tsx scripts/test-laps.ts",
     "test:distance-correction": "tsx scripts/test-distance-correction.ts",
+    "test:route-segments": "tsx scripts/test-route-segments.ts",
     "test:sync-cursor": "NODE_OPTIONS=\"--require ./scripts/_stubs/stub-server-only.cjs\" tsx scripts/test-sync-cursor.ts",
     "test:social-import": "tsx scripts/test-social-import.ts",
     "test:mfa": "tsx scripts/test-mfa.ts",

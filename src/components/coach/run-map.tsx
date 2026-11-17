@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import type { CircleMarker, Map as LeafletMap, Polyline } from "leaflet";
 import { useCallback, useEffect, useRef } from "react";
 import type { RunRoutePoint } from "@/components/coach/types";
+import { splitRouteSegments } from "@/lib/runs/route-segments";
 
 // Real OpenStreetMap tile map of a run's route (live while recording + on the
 // summary). Client-only: Leaflet is lazy-loaded in an effect so it never runs on
@@ -36,9 +37,12 @@ export function RunMap({
     if (!L || !map || !pts || pts.length === 0) return;
 
     const latlngs = pts.map((p) => [p.lat, p.lng] as [number, number]);
+    // One line per route segment: a multi-polyline never joins the point before a pause to the one
+    // after it.
+    const segmentLatLngs = splitRouteSegments(pts).map((segment) => segment.map((p) => [p.lat, p.lng] as [number, number]));
 
-    if (lineRef.current) lineRef.current.setLatLngs(latlngs);
-    else lineRef.current = L.polyline(latlngs, { color: "#15803D", weight: 4, opacity: 0.9 }).addTo(map);
+    if (lineRef.current) lineRef.current.setLatLngs(segmentLatLngs);
+    else lineRef.current = L.polyline(segmentLatLngs, { color: "#15803D", weight: 4, opacity: 0.9 }).addTo(map);
 
     const first = latlngs[0];
     const last = latlngs[latlngs.length - 1];

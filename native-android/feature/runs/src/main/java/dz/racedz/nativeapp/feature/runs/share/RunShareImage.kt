@@ -15,6 +15,7 @@ import dz.racedz.nativeapp.core.design.ZidRunLightColors
 import dz.racedz.nativeapp.core.design.ZidRunRaceColors
 import dz.racedz.nativeapp.core.design.ZidRunThemeMode
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import androidx.compose.ui.graphics.toArgb
 import java.io.File
 import java.io.FileOutputStream
@@ -203,7 +204,8 @@ object RunShareImage {
         route.forEachIndexed { i, p ->
             val x = ((worldX(p.lng) - f.minX) * f.scale + f.offX).toFloat()
             val y = ((worldY(p.lat) - f.minY) * f.scale + f.offY).toFloat()
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            // A pause starts a new sub-path: no line across it (RouteSegments.kt).
+            if (i == 0 || route.startsSegmentAt(i)) path.moveTo(x, y) else path.lineTo(x, y)
         }
         return path
     }

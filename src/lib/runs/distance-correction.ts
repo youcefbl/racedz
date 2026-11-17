@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { calculateAveragePaceSecondsPerKm } from "@/lib/coach/metrics";
+import { hasSegmentMarkers, isSegmentBreak } from "@/lib/runs/route-segments";
 
 /**
  * Server-side distance correction for GPS runs.
@@ -25,10 +26,19 @@ import { calculateAveragePaceSecondsPerKm } from "@/lib/coach/metrics";
  * routes are thinned on the phone), so a route shorter than the phone's distance is weak evidence
  * of over-counting; those runs are FLAGGED for review instead. Manual and imported runs and runs
  * not classified VALID are never touched.
+ *
+ * ## Pauses (v2, 2026-11-17)
+ *
+ * v1 bridged any gap up to ten minutes with a straight line, pauses included: a 30 s manual pause
+ * walked ~100 m added that distance and counted the paused time as moving (found with scripted
+ * fixes on the M21). The recorder now marks every resume with a new route `segment`, and nothing
+ * is measured across a segment break. Routes stored before the marker existed get a conservative
+ * stand-in: when the route's timestamps span more time than the run's (pause-excluded) duration,
+ * the run was paused, and gaps no longer than that paused time are not bridged either.
  */
-export const DISTANCE_ALGO_VERSION = 1;
+export const DISTANCE_ALGO_VERSION = 2;
 
-export type RoutePoint = { lat: number; lng: number; t?: number | null };
+export type RoutePoint = { lat: number; lng: number; t?: number | null; segment?: number | null };
 
 export type RouteMeasurement = {
   distanceM: number;
@@ -37,6 +47,8 @@ export type RouteMeasurement = {
   timedPoints: number;
   rejectedPoints: number;
   longGaps: number;
+  /** Segment breaks (pauses) and, on unmarked routes, gaps judged to be pauses — never bridged. */
+  pauseBreaks: number;
   /** 90th percentile of point-to-point speed (m/s) — separates a run from a drive. */
   speedP90Mps: number;
   /** 0–1. */
@@ -75,6 +87,17 @@ const ROUTE_STEP_FLOOR_M = 3;
 /** The phone thins routes to this many points; a route this long has lost resolution on curves. */
 const THINNED_ROUTE_POINTS = 1400;
 const MIN_POINTS = 10;
+/** Gaps up to this are ordinary fix spacing / brief loss, never a pause. Same as run-stats. */
+const MAX_MOVING_GAP_S = 15;
+/**
+ * On an unmarked route, a pause shows only as the route spanning more time than the run's
+ * pause-excluded duration. That estimate is low by however long the first fix took and however
+ * long the run went on after the last one, so a gap counts as a possible pause up to this much
+ * beyond it. Erring this way can only cost a correction, never add distance.
+ */
+const LEGACY_PAUSE_SLACK_S = 60;
+/** Below this much unexplained span, an unmarked route was not paused. */
+const LEGACY_MIN_PAUSE_S = 10;
 
 export function haversineMeters(a: RoutePoint, b: RoutePoint): number {
   const R = 6_371_000;
@@ -91,12 +114,31 @@ export function parseRoute(route: unknown): RoutePoint[] {
   const points: RoutePoint[] = [];
   for (const raw of route) {
     if (!raw || typeof raw !== "object") continue;
-    const { lat, lng, t } = raw as Record<string, unknown>;
+    const { lat, lng, t, segment } = raw as Record<string, unknown>;
     if (typeof lat !== "number" || typeof lng !== "number") continue;
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
-    points.push({ lat, lng, t: typeof t === "number" && Number.isFinite(t) ? t : null });
+    points.push({
+      lat,
+      lng,
+      t: typeof t === "number" && Number.isFinite(t) ? t : null,
+      ...(typeof segment === "number" && Number.isFinite(segment) ? { segment } : {}),
+    });
   }
   return points;
+}
+
+/**
+ * How long an unmarked route was paused, judged from its timestamps against the run's
+ * pause-excluded [durationSeconds]; 0 for a marked route (its breaks say exactly where) or when
+ * the numbers show no pause.
+ */
+export function legacyPausedSeconds(points: RoutePoint[], durationSeconds: number | null | undefined): number {
+  if (durationSeconds == null || !(durationSeconds > 0) || hasSegmentMarkers(points)) return 0;
+  const timed = points.filter((p) => p.t != null);
+  if (timed.length < 2) return 0;
+  const spanSeconds = ((timed[timed.length - 1].t as number) - (timed[0].t as number)) / 1000;
+  const paused = spanSeconds - durationSeconds;
+  return paused >= LEGACY_MIN_PAUSE_S ? paused : 0;
 }
 
 /**
@@ -104,11 +146,12 @@ export function parseRoute(route: unknown): RoutePoint[] {
  *
  * Distance accumulates from the last counted point (the same idea as the phone's
  * DistanceAccumulator) so dense, jittery routes are not inflated; teleports are dropped; gaps
- * longer than [MAX_BRIDGE_GAP_S] are not bridged. Moving time is the sum of point-to-point
- * intervals above walking-drift speed.
+ * longer than [MAX_BRIDGE_GAP_S] are not bridged, and neither is any segment break (a pause) or,
+ * on a route recorded before segments existed, any gap that fits inside [legacyPausedSeconds].
+ * Moving time is the sum of point-to-point intervals above walking-drift speed.
  */
-export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurement {
-  const empty: RouteMeasurement = { distanceM: 0, movingSeconds: 0, pointCount: points.length, timedPoints: 0, rejectedPoints: 0, longGaps: 0, speedP90Mps: 0, confidence: 0 };
+export function measureRoute(points: RoutePoint[], sport: string, durationSeconds?: number | null): RouteMeasurement {
+  const empty: RouteMeasurement = { distanceM: 0, movingSeconds: 0, pointCount: points.length, timedPoints: 0, rejectedPoints: 0, longGaps: 0, pauseBreaks: 0, speedP90Mps: 0, confidence: 0 };
   if (points.length < 2) return empty;
 
   const maxSpeed = maxSegmentSpeedMps(sport);
@@ -116,6 +159,8 @@ export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurem
   let movingSeconds = 0;
   let rejectedPoints = 0;
   let longGaps = 0;
+  let pauseBreaks = 0;
+  const legacyPause = legacyPausedSeconds(points, durationSeconds);
   const speeds: number[] = [];
   const timedPoints = points.filter((p) => p.t != null).length;
 
@@ -123,6 +168,14 @@ export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurem
   let last = points[0];
   for (let i = 1; i < points.length; i++) {
     const p = points[i];
+    if (isSegmentBreak(last, p)) {
+      // A pause (or a recovery after the app was killed): start over from here, measuring nothing
+      // across it. Checked first — a resume point is neither a teleport nor a bad timestamp.
+      pauseBreaks++;
+      base = p;
+      last = p;
+      continue;
+    }
     const step = haversineMeters(last, p);
     const dt = p.t != null && last.t != null ? (p.t - last.t) / 1000 : null;
 
@@ -133,6 +186,12 @@ export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurem
     if (dt != null && step / dt > maxSpeed) {
       // A bad fix: ignore it entirely and keep measuring from the previous point.
       rejectedPoints++;
+      continue;
+    }
+    if (dt != null && legacyPause > 0 && dt > MAX_MOVING_GAP_S && dt <= legacyPause + LEGACY_PAUSE_SLACK_S) {
+      pauseBreaks++;
+      base = p;
+      last = p;
       continue;
     }
     if (dt != null && dt > MAX_BRIDGE_GAP_S) {
@@ -175,6 +234,7 @@ export function measureRoute(points: RoutePoint[], sport: string): RouteMeasurem
     timedPoints,
     rejectedPoints,
     longGaps,
+    pauseBreaks,
     confidence: Math.round(confidence * 100) / 100,
   };
 }
@@ -254,7 +314,7 @@ export async function evaluateRunDistance(runId: string): Promise<DistanceDecisi
   const deviceKm = run.deviceDistanceKm ?? run.distanceKm;
   // A corrected run's movingTimeSeconds may be the server's; the phone's original is not stored
   // separately, so the larger of the two is used — it never shrinks moving time on re-evaluation.
-  const measurement = measureRoute(parseRoute(run.route), run.sport);
+  const measurement = measureRoute(parseRoute(run.route), run.sport, run.durationSeconds);
   const decision = decideDistance(
     { deviceKm, deviceMovingSeconds: run.movingTimeSeconds, durationSeconds: run.durationSeconds, source: run.source, validity: run.validity, sport: run.sport },
     measurement,

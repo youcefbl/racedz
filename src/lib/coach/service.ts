@@ -58,6 +58,7 @@ import { enforceCoachEntitlement, getCoachEntitlementWithUsage } from "@/lib/coa
 import { getActiveCoachHealthConsent, recordCoachHealthConsent, type CoachConsentClient } from "@/lib/coach/consent";
 import { getMemoryForContext, writeMemories } from "@/lib/coach/memory-store";
 import { getTipsForProfile } from "@/lib/coach/tips";
+import { downsampleRoutePreservingSegments } from "@/lib/runs/route-segments";
 import { buildOffTopicCoachResponse, evaluateTopicality } from "@/lib/coach/topicality";
 import { fetchForecastConditions, fetchRunWeather, resolveCoordinates, type ForecastConditions, type RunWeather } from "@/lib/coach/weather";
 
@@ -718,15 +719,11 @@ export async function getRunnerRunForExport(userId: string, runId: string) {
 export const ROUTE_PREVIEW_POINTS = 64;
 
 // Evenly-spaced subsample that always keeps the first and last point, so the thumbnail's
-// start/end markers land where the run actually started and ended.
+// start/end markers land where the run actually started and ended — and both sides of every
+// pause, so it is never drawn across one.
 function downsampleRoute(points: unknown, max: number): unknown {
   if (!Array.isArray(points) || points.length <= max) return points;
-  const step = Math.ceil(points.length / max);
-  const out: unknown[] = [];
-  for (let i = 0; i < points.length; i += step) out.push(points[i]);
-  const last = points[points.length - 1];
-  if (out[out.length - 1] !== last) out.push(last);
-  return out;
+  return downsampleRoutePreservingSegments(points, max);
 }
 
 function withRoutePreview(rows: RunRow[], max: number): RunRow[] {

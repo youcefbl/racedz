@@ -4,6 +4,7 @@ import { clearActiveRun, loadActiveRun, saveActiveRun, type ActiveRunSnapshot } 
 import { advanceHighSpeedWindow, NON_FOOT_AUTO_PAUSE_SECONDS, restoreAsPausedTiming } from "@/lib/native/run-lifecycle";
 import { isUsableGpsFix, shouldCountGpsSegment } from "@/lib/native/gps-quality";
 import { startStepCounter, stopStepCounter } from "@/lib/native/step-counter";
+import { downsampleRoutePreservingSegments, routeSegment } from "@/lib/runs/route-segments";
 
 // Module-level run-recording engine. The GPS watcher, ticker, step counter and all
 // derived metrics live here — NOT in the React component — so an in-progress run
@@ -61,6 +62,8 @@ export type RunSavePayload = {
 class RunEngine {
   private status: RunStatus = "idle";
   private route: RunRoutePoint[] = [];
+  /** Route segment of the points being recorded; bumped on every resume (route-segments.ts). */
+  private segment = 0;
   private lastPoint: LivePoint | null = null;
   private distance = 0;
   private elevation = 0;
@@ -195,6 +198,7 @@ class RunEngine {
     this.moving = snapshot.movingSec;
     this.lastPointTs = snapshot.lastPointTs;
     this.route = snapshot.route;
+    this.segment = snapshot.route.reduce((max, p) => Math.max(max, routeSegment(p)), 0);
     this.effort = snapshot.effort;
     this.share = snapshot.share;
     this.title = snapshot.title ?? "";
@@ -219,6 +223,7 @@ class RunEngine {
     this.errorCode = null;
     await clearActiveRun(this.userId);
     this.route = [];
+    this.segment = 0;
     this.lastPoint = null;
     this.distance = 0;
     this.elevation = 0;
@@ -272,6 +277,10 @@ class RunEngine {
     }
     if (!this.cadenceTracking) this.cadenceTracking = await startStepCounter();
     this.pausedAccum += Date.now() - this.pauseStart;
+    // A new route segment, measured from the first fix after the pause — never from where the
+    // runner stopped, so nothing covered while paused is counted, drawn, or bridged by the server.
+    this.segment += 1;
+    this.lastPoint = null;
     this.status = "tracking";
     this.persist("tracking");
     this.emit();
@@ -376,6 +385,7 @@ class RunEngine {
   private reset() {
     this.status = "idle";
     this.route = [];
+    this.segment = 0;
     this.lastPoint = null;
     this.distance = 0;
     this.elevation = 0;
@@ -422,17 +432,17 @@ class RunEngine {
           const delta = point.ele - prev.ele;
           if (delta > 1) this.elevation += delta;
         }
-        this.appendRoutePoint({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
+        this.appendRoutePoint({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t, segment: this.segment });
         this.lastPointTs = point.t;
       } else if (this.distance === 0 && this.route.length === 1) {
         // While the runner is still stationary, keep replacing the acquisition fix instead
         // of saving its drift as the beginning of the route. The first real movement is then
         // measured from the latest settled position.
-        this.route[0] = { lat: point.lat, lng: point.lng, ele: point.ele, t: point.t };
+        this.route[0] = { lat: point.lat, lng: point.lng, ele: point.ele, t: point.t, segment: this.segment };
         this.lastPointTs = point.t;
       }
     } else {
-      this.appendRoutePoint({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t });
+      this.appendRoutePoint({ lat: point.lat, lng: point.lng, ele: point.ele, t: point.t, segment: this.segment });
       this.lastPointTs = point.t;
     }
     this.lastPoint = point;
@@ -551,11 +561,7 @@ class RunEngine {
 
 function downsample(points: RunRoutePoint[], max: number): RunRoutePoint[] {
   if (points.length <= max) return points;
-  const step = Math.ceil(points.length / max);
-  const out: RunRoutePoint[] = [];
-  for (let i = 0; i < points.length; i += step) out.push(points[i]);
-  if (out[out.length - 1] !== points[points.length - 1]) out.push(points[points.length - 1]);
-  return out;
+  return downsampleRoutePreservingSegments(points, max);
 }
 
 // Single instance shared across the app for the lifetime of the WebView.

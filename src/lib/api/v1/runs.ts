@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getPrisma } from "@/lib/db";
 import { runPhotosSchema, runRoutePointSchema } from "@/lib/coach/schemas";
 import { ApiError } from "@/lib/api/v1/http";
+import { downsampleRoutePreservingSegments } from "@/lib/runs/route-segments";
 
 // Shared pieces of the mobile runs sync contract (docs/NATIVE_ANDROID_OPTION_PLAN.md §3).
 //
@@ -51,18 +52,13 @@ export const ROUTE_PREVIEW_POINTS = 64;
 
 /**
  * Evenly-spaced subsample that always keeps the first and last point, so the thumbnail's start and
- * end markers land where the run actually started and ended.
+ * end markers land where the run actually started and ended — and both sides of every pause, so
+ * the thumbnail is not drawn across one (src/lib/runs/route-segments.ts).
  */
 export function downsampleRoute(route: unknown, max = ROUTE_PREVIEW_POINTS): unknown[] | null {
   if (!Array.isArray(route) || route.length === 0) return null;
   if (route.length <= max) return route;
-
-  const step = Math.ceil(route.length / max);
-  const out: unknown[] = [];
-  for (let i = 0; i < route.length; i += step) out.push(route[i]);
-  const last = route[route.length - 1];
-  if (out[out.length - 1] !== last) out.push(last);
-  return out;
+  return downsampleRoutePreservingSegments(route, max);
 }
 
 /**

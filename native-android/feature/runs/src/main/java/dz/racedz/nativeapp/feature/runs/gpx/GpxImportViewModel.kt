@@ -10,6 +10,8 @@ import dz.racedz.nativeapp.core.auth.RunsRepository
 import dz.racedz.nativeapp.core.network.ApiResult
 import dz.racedz.nativeapp.core.network.CreateRunRequest
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.downsampleKeepingSegments
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import dz.racedz.nativeapp.feature.runs.record.GpsQuality
 import java.io.InputStream
 import java.time.Instant
@@ -183,6 +185,8 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
         var sawGpxRoot = false
 
         var inTrkpt = false
+        /** <trkseg> elements opened so far: each is its own route segment (a pause in the file). */
+        var trksegCount = 0
         var lat: Double? = null
         var lng: Double? = null
         var ele: Double? = null
@@ -199,6 +203,7 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
                         if (!tag.equals("gpx", ignoreCase = true)) return Result.Err(GpxImportError.NOT_GPX)
                         sawGpxRoot = true
                     }
+                    if (tag.equals("trkseg", ignoreCase = true)) trksegCount++
                     if (tag.equals("trkpt", ignoreCase = true)) {
                         inTrkpt = true
                         lat = parser.getAttributeValue(null, "lat")?.toDoubleOrNull()
@@ -225,7 +230,7 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
                             val la = lat
                             val ln = lng
                             if (la != null && ln != null && abs(la) <= 90.0 && abs(ln) <= 180.0) {
-                                points.add(RoutePointDto(lat = la, lng = ln, ele = ele, t = t))
+                                points.add(RoutePointDto(lat = la, lng = ln, ele = ele, t = t, segment = (trksegCount - 1).coerceAtLeast(0)))
                                 // A runaway file is rejected here rather than parsed into an OOM.
                                 if (points.size > MAX_TRACK_POINTS) return Result.Err(GpxImportError.TOO_BIG)
                             }
@@ -240,11 +245,16 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
 
         if (!sawGpxRoot) return Result.Err(GpxImportError.NOT_GPX)
         if (points.size < 2) return Result.Err(GpxImportError.NO_TRACK)
+        // A single-segment track stores exactly what it always did: no segment markers.
+        if (points.all { it.segment == points.first().segment }) {
+            for (i in points.indices) points[i] = points[i].copy(segment = null)
+        }
 
         // Distance: sum of consecutive great-circle hops (metres → km), the same math the recorder
-        // uses so the two clients agree on the same track.
+        // uses so the two clients agree on the same track. Never across a <trkseg> break.
         var distanceMeters = 0.0
         for (i in 1 until points.size) {
+            if (points.startsSegmentAt(i)) continue
             distanceMeters += GpsQuality.haversineMeters(
                 points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng,
             )
@@ -267,27 +277,13 @@ class GpxImportViewModel(private val repository: RunsRepository) : ViewModel() {
             ParsedGpx(
                 // Distance/duration used every point above; the stored route is thinned to the
                 // server's cap so a long but valid track imports instead of being rejected at Save.
-                route = downsample(points, MAX_ROUTE_POINTS),
+                route = points.downsampleKeepingSegments(MAX_ROUTE_POINTS),
                 distanceKm = distanceKm,
                 durationSeconds = durationSeconds,
                 startedAtEpochMs = startTs,
                 name = name,
             ),
         )
-    }
-
-    /** Evenly thins a route to at most [max] points, always keeping the first and last. */
-    private fun downsample(route: List<RoutePointDto>, max: Int): List<RoutePointDto> {
-        if (route.size <= max) return route
-        val kept = ArrayList<RoutePointDto>(max + 1)
-        val step = route.size.toDouble() / max
-        var i = 0.0
-        while (i < route.size) {
-            kept.add(route[i.toInt()])
-            i += step
-        }
-        if (kept.last() != route.last()) kept.add(route.last())
-        return kept
     }
 
     private fun displayName(resolver: ContentResolver, uri: Uri): String? =

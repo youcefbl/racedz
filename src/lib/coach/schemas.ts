@@ -99,7 +99,10 @@ export const runRoutePointSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   ele: z.number().min(-500).max(9000).nullable().optional(),
-  t: z.number().int().nonnegative().nullable().optional()
+  t: z.number().int().nonnegative().nullable().optional(),
+  // Route segment: bumped by the recorder on every resume (manual, automatic, or after the app was
+  // killed). A change between consecutive points is a hard break — see src/lib/runs/route-segments.ts.
+  segment: z.number().int().min(0).max(100000).nullable().optional()
 });
 
 // Photos are stored as public URLs produced by our own uploads endpoint. Restricting to the

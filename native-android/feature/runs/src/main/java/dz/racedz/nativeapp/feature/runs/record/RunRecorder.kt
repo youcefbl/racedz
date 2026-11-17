@@ -2,6 +2,9 @@ package dz.racedz.nativeapp.feature.runs.record
 
 import android.location.Location
 import dz.racedz.nativeapp.core.network.RoutePointDto
+import dz.racedz.nativeapp.core.network.downsampleKeepingSegments
+import dz.racedz.nativeapp.core.network.segmentIndex
+import dz.racedz.nativeapp.core.network.startsSegmentAt
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -149,7 +152,8 @@ data class RecordingState(
      * Completed splits — one per kilometre, or per mile for an account set to miles (NATRUN-06.8) —
      * so the runner can see the last one's pace while still running. Derived from the route's own
      * timestamps, interpolating the boundary crossing. [LiveSplit.paceSecondsPerKm] stays per km
-     * whatever the split length; display converts.
+     * whatever the split length; display converts. Nothing is measured across a pause (a route
+     * segment break), and the paused time is not part of the split it falls in.
      */
     val splits: List<LiveSplit>
         get() {
@@ -160,9 +164,17 @@ data class RecordingState(
             var travelled = 0.0
             var boundary = unitMeters
             var index = 1
+            /** Paused time inside the split in progress, taken out of its duration. */
+            var pausedMs = 0L
             for (i in 1 until route.size) {
                 val a = route[i - 1]
                 val b = route[i]
+                if (route.startsSegmentAt(i)) {
+                    val aT = a.t
+                    val bT = b.t
+                    if (aT != null && bT != null && bT > aT) pausedMs += bT - aT
+                    continue
+                }
                 val segment = GpsQuality.haversineMeters(a.lat, a.lng, b.lat, b.lng)
                 if (segment <= 0) continue
                 val aMs = a.t ?: continue
@@ -172,10 +184,11 @@ data class RecordingState(
                 while (travelled >= boundary) {
                     val fraction = (boundary - segmentStart) / segment
                     val crossedMs = aMs + ((bMs - aMs) * fraction).toLong()
-                    val seconds = ((crossedMs - kmStartMs) / 1000L).toInt()
+                    val seconds = ((crossedMs - kmStartMs - pausedMs) / 1000L).toInt()
                     // Pace stays per kilometre whatever the split length.
                     if (seconds > 0) out += LiveSplit(index, (seconds * 1000.0 / unitMeters).toInt())
                     kmStartMs = crossedMs
+                    pausedMs = 0L
                     boundary += unitMeters
                     index += 1
                 }
@@ -251,6 +264,7 @@ object RunRecorder {
                 RunTelemetry.emit { sessionEnded(dropped.clientId, "SIGNED_OUT", RunTelemetry.summaryOf(dropped, autoPauseCounts())) }
             }
             route.clear()
+            routeSegment = 0
             lastFix = null
             anchorFix = null
             distance.reset()
@@ -350,6 +364,7 @@ object RunRecorder {
         refreshOutboxBlocked()
         if (_state.value.clientId == clientId && _state.value.status == RecordingStatus.Finished) {
             route.clear()
+            routeSegment = 0
             lastFix = null
             anchorFix = null
             distance.reset()
@@ -405,6 +420,13 @@ object RunRecorder {
     private val route = mutableListOf<RoutePointDto>()
 
     /**
+     * Route segment of the points being recorded now. Bumped on every resume, so the server, the
+     * maps and the GPX export see each pause as a hard break and never bridge it (the server used
+     * to join a manual pause with a straight line and count it as distance and moving time).
+     */
+    private var routeSegment = 0
+
+    /**
      * Step-counter bookkeeping. The sensor reports steps cumulatively since boot, so a run counts
      * the delta between readings while it is recording. [lastStepCounter] is reset to -1 whenever
      * recording is not live (start, pause, resume) so steps taken while paused — or before the run —
@@ -453,6 +475,7 @@ object RunRecorder {
             else -> Unit
         }
         route.clear()
+        routeSegment = 0
         lastFix = null
         anchorFix = null
         distance.reset()
@@ -512,6 +535,9 @@ object RunRecorder {
         if (_state.value.status != RecordingStatus.Paused) return
         if (pauseStartedMs > 0) pausedAccumMs += System.currentTimeMillis() - pauseStartedMs
         pauseStartedMs = 0
+        // Everything recorded from here is a new route segment — a hard break nothing measures or
+        // draws across (RouteSegments.kt).
+        routeSegment += 1
         // A fix from before the pause would otherwise be treated as the previous point and turn the
         // whole break into one enormous segment.
         lastFix = null
@@ -566,6 +592,7 @@ object RunRecorder {
      */
     fun reset() {
         route.clear()
+        routeSegment = 0
         lastFix = null
         anchorFix = null
         distance.reset()
@@ -640,6 +667,7 @@ object RunRecorder {
         }
         route.clear()
         pending.request.route?.let { route += it }
+        routeSegment = route.maxOfOrNull { it.segmentIndex } ?: 0
         val movingSeconds = pending.request.movingTimeSeconds ?: pending.request.durationSeconds
         movingSecondsExact = movingSeconds.toDouble()
         // Rebuild the step total from the saved cadence so that re-saving this restored run posts the
@@ -983,20 +1011,14 @@ object RunRecorder {
     }
 
     /**
-     * Halves the buffer, keeping the first and last point.
+     * Halves the buffer, keeping the first and last point and both sides of every pause, so the
+     * thinned route still breaks exactly where the runner paused.
      *
      * Distance, elevation and pace are summed per fix as they arrive, never recomputed from this
      * list, so thinning it changes nothing that was measured — only the drawn line's resolution.
      */
     private fun downsampleRoute() {
-        val kept = ArrayList<RoutePointDto>(MAX_ROUTE_POINTS + 1)
-        val step = route.size.toDouble() / MAX_ROUTE_POINTS
-        var i = 0.0
-        while (i < route.size) {
-            kept += route[i.toInt()]
-            i += step
-        }
-        if (kept.lastOrNull() != route.last()) kept += route.last()
+        val kept = route.downsampleKeepingSegments(MAX_ROUTE_POINTS)
         route.clear()
         route += kept
     }
@@ -1013,6 +1035,7 @@ object RunRecorder {
             ele = ele,
             // Milliseconds, matching the website's route-point contract.
             t = time,
+            segment = routeSegment,
         )
     }
 

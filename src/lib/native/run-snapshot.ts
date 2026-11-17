@@ -37,7 +37,8 @@ function isRoutePoint(value: unknown): value is RunRoutePoint {
     point.lng >= -180 &&
     point.lng <= 180 &&
     (point.ele == null || isFiniteNumber(point.ele)) &&
-    (point.t == null || isFiniteNumber(point.t))
+    (point.t == null || isFiniteNumber(point.t)) &&
+    (point.segment == null || isFiniteNumber(point.segment))
   );
 }
 

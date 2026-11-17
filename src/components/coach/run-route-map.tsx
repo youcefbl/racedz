@@ -1,4 +1,5 @@
 import type { RunRoutePoint } from "@/components/coach/types";
+import { isSegmentBreak } from "@/lib/runs/route-segments";
 
 /**
  * Dependency-free route renderer: normalizes GPS points to an SVG polyline (keeps aspect ratio).
@@ -27,7 +28,8 @@ export function RunRouteMap({ points, className }: { points: RunRoutePoint[] | n
     return [Number(x.toFixed(2)), Number(y.toFixed(2))];
   };
 
-  const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${project(p).join(" ")}`).join(" ");
+  // A new segment (after a pause) starts a new sub-path: no line is drawn across the pause.
+  const d = points.map((p, i) => `${i === 0 || isSegmentBreak(points[i - 1], p) ? "M" : "L"}${project(p).join(" ")}`).join(" ");
   const start = project(points[0]);
   const end = project(points[points.length - 1]);
 
